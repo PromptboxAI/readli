@@ -164,11 +164,12 @@ function VoiceStudioPreview() {
   );
 }
 
+// Both colour classes are spelled out so Tailwind generates them: the dot on phones, the card from sm up.
 const FAMILY_STEPS = [
-  { title: "Create", body: "Start your family circle and add the people you'd love to hear.", color: "bg-coral/70" },
-  { title: "Invite", body: "Invite family members and loved ones to join Readli.", color: "bg-sunshine" },
-  { title: "Record", body: "Each person records and approves their own voice, choosing who can use it.", color: "bg-mint" },
-  { title: "Listen", body: "Choose a book and storyteller. Switch voices anytime without losing your place.", color: "bg-sky" },
+  { title: "Create", body: "Start your family circle and add the people you'd love to hear.", dot: "bg-coral/70", card: "sm:bg-coral/70" },
+  { title: "Invite", body: "Invite family members and loved ones to join Readli.", dot: "bg-sunshine", card: "sm:bg-sunshine" },
+  { title: "Record", body: "Each person records and approves their own voice, choosing who can use it.", dot: "bg-mint", card: "sm:bg-mint" },
+  { title: "Listen", body: "Choose a book and storyteller. Switch voices anytime without losing your place.", dot: "bg-sky", card: "sm:bg-sky" },
 ];
 
 export function HowFamiliesWork() {
@@ -178,13 +179,21 @@ export function HowFamiliesWork() {
         <h2 id="how-heading" className="font-display text-3xl font-semibold sm:text-4xl">
           How Readli Family Works
         </h2>
-        {/* Phones: a 2x2 grid of short cards. */}
-        <ol className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        {/* Phones: a short numbered list. From sm up: coloured step cards. */}
+        <ol className="flex flex-col gap-4 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
           {FAMILY_STEPS.map((step, i) => (
-            <li key={step.title} className={`flex flex-col gap-1 rounded-3xl p-4 sm:gap-2 sm:rounded-[var(--radius-panel)] sm:p-6 ${step.color}`}>
-              <span className="font-display text-xs font-semibold sm:text-sm">Step {i + 1}</span>
-              <h3 className="font-display text-xl font-semibold sm:text-2xl">{step.title}</h3>
-              <p className="text-sm sm:text-base">{step.body}</p>
+            <li key={step.title} className={`flex items-start gap-3 sm:flex-col sm:gap-2 sm:rounded-[var(--radius-panel)] sm:p-6 ${step.card}`}>
+              <span
+                className={`flex size-8 shrink-0 items-center justify-center rounded-full font-display font-semibold sm:hidden ${step.dot}`}
+                aria-hidden="true"
+              >
+                {i + 1}
+              </span>
+              <span className="hidden font-display text-sm font-semibold sm:block">Step {i + 1}</span>
+              <div className="flex flex-col sm:gap-2">
+                <h3 className="font-display text-lg font-semibold sm:text-2xl">{step.title}</h3>
+                <p className="text-sm sm:text-base">{step.body}</p>
+              </div>
             </li>
           ))}
         </ol>

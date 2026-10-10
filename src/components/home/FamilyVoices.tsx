@@ -173,9 +173,13 @@ export function FamilyVoices() {
         <div className="flex flex-col gap-6 md:self-start">
           <p className="max-w-xl text-lg sm:text-xl">
             Family voices stay private until they&apos;re shared. And you decide which approved storytellers your child can
-            listen to.
+            listen to.{" "}
+            {/* Phones: a text link instead of the three points and the button. */}
+            <Link href="/parents/safety" className="font-semibold text-coral-deep underline underline-offset-4 md:hidden">
+              Learn about family privacy &amp; safety
+            </Link>
           </p>
-          <ul className="flex flex-col gap-4">
+          <ul className="hidden flex-col gap-4 md:flex">
             {POINTS.map((p) => (
               <li key={p.title} className="flex items-center gap-4">
                 <span className={`grid size-14 shrink-0 place-items-center rounded-full sm:size-16 ${p.tint}`}>
@@ -188,7 +192,7 @@ export function FamilyVoices() {
               </li>
             ))}
           </ul>
-          <div>
+          <div className="hidden md:block">
             <Link href="/parents/safety" className={buttonPrimary}>
               Learn about family privacy &amp; safety <span aria-hidden="true">→</span>
             </Link>
