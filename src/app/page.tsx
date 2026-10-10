@@ -1,3 +1,4 @@
+import { FamilyVoices } from "@/components/home/FamilyVoices";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import {
   FamilyCircles,
@@ -12,7 +13,8 @@ import {
   TryYourVoice,
 } from "@/components/home/sections";
 
-/** Section order follows Design Brief §5; Meet Readi added after the demo at Kevin's request (2026-10-10). */
+/** Section order follows Design Brief §5; Meet Readi added after the demo at Kevin's request (2026-10-10).
+ *  Family voices privacy section follows the family circle, also at Kevin's request. */
 export default function HomePage() {
   return (
     <>
@@ -25,6 +27,7 @@ export default function HomePage() {
         <ThreeWaysToListen />
         <KidsShelf />
         <FamilyCircles />
+        <FamilyVoices />
         <TrustAndSafety />
         <FinalCta />
       </main>
