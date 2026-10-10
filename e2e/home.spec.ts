@@ -2,11 +2,14 @@ import { expect, test } from "@playwright/test";
 
 test("homepage follows the design brief order with six books under the demo", async ({ page }, info) => {
   await page.goto("/");
-  const headings = await page.locator("main h2").allTextContents();
-  expect(headings.slice(0, 2)).toEqual(["Try your voice. No signup.", "Pick a story to hear in your voice"]);
+  const headings = await page.locator("main h2").allInnerTexts();
+  const tryHeading = info.project.name === "desktop" ? "Try your voice. No signup." : "Hear your voice tell a story.";
+  expect(headings.slice(0, 2)).toEqual([tryHeading, "Pick a story to hear in your voice"]);
   expect(headings).toEqual(
-    expect.arrayContaining(["How Readli Family Works", "Every family has a story. Every voice makes it special.", "Safe for families by design", "Start a family library"]),
+    expect.arrayContaining(["How Readli Family Works", "Every family has a story. Every voice makes it special.", "Start a family library"]),
   );
+  expect(headings).not.toContain("Safe for families by design");
+  expect(headings).not.toContain("Your book buddy, at rest and listening");
 
   const books = page.getByTestId("demo-books").getByRole("article");
   await expect(books).toHaveCount(6);
@@ -113,4 +116,21 @@ test("terms explain both voice approvals and accessibility gives a contact", asy
   await expect(page.getByText("IMPLEMENTATION CHECK")).toHaveCount(0);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test("try your voice shows the studio preview on desktop and a short pitch on phones", async ({ page }, info) => {
+  await page.goto("/");
+  const section = page.locator("#try-your-voice");
+  const preview = section.getByTestId("voice-studio-preview");
+  if (info.project.name === "desktop") {
+    await expect(preview).toBeVisible();
+    await expect(section.getByRole("link", { name: "Start recording" })).toHaveAttribute("href", "/try");
+  } else {
+    await expect(preview).toBeHidden();
+    expect(await preview.evaluate((el) => el.getBoundingClientRect().height)).toBe(0);
+    await expect(section.getByText("Read a short passage, then hear your voice bring a story to life.")).toBeVisible();
+    await expect(section.getByText("No signup required")).toBeVisible();
+    await section.getByRole("link", { name: "Try Your Voice Free" }).click();
+    await expect(page).toHaveURL(/\/try$/);
+  }
 });

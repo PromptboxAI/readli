@@ -6,15 +6,13 @@ import {
   Hero,
   HowFamiliesWork,
   KidsShelf,
-  MeetReadi,
   SiteFooter,
   ThreeWaysToListen,
-  TrustAndSafety,
   TryYourVoice,
 } from "@/components/home/sections";
 
-/** Section order follows Design Brief §5; Meet Readi added after the demo at Kevin's request (2026-10-10).
- *  Family voices privacy section follows the family circle, also at Kevin's request. */
+/** Section order follows Design Brief §5. Family voices privacy section follows the family circle at Kevin's
+ *  request; Meet Readi and "Safe for families by design" were removed at his request (2026-10-10). */
 export default function HomePage() {
   return (
     <>
@@ -22,13 +20,11 @@ export default function HomePage() {
       <main>
         <Hero />
         <TryYourVoice />
-        <MeetReadi />
         <HowFamiliesWork />
         <ThreeWaysToListen />
         <KidsShelf />
         <FamilyCircles />
         <FamilyVoices />
-        <TrustAndSafety />
         <FinalCta />
       </main>
       <SiteFooter />
