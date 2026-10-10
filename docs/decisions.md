@@ -9,6 +9,7 @@ tracked here and never assumed cleared in code.
 |---|---|---|
 | 2026-10-10 | **Homepage demo books changed** to Peter Rabbit, Alice in Wonderland, Winnie-the-Pooh, The Three Little Pigs, The Princess and the Pea, The Lion and the Mouse. Benjamin Bunny, Wizard of Oz and Peter Pan dropped. Supersedes the PRD/Brief/Amendment F-9 lock | Kevin's decision |
 | 2026-10-10 | Covers are original on-brand Readli artwork (one PNG per book), never scans of historic editions | Kevin; rights hygiene |
+| 2026-10-10 | Premium Private Voice rollout: launch with family voices only; once the platform pays for itself (around 500 families), move to a custom/Enterprise ElevenLabs plan and offer Premium as a pilot. Premium stays built behind its flag until then | Kevin's decision |
 | 2026-10-10 | Hosting on Vercel + Supabase cloud | Confirmed by Kevin |
 | 2026-10-10 | Phase 3 device testing on Kevin's own iPhone/Android | Confirmed by Kevin |
 | 2026-10-10 | Demo script stays Readli-authored; ElevenLabs supplies no training script (IVC guide: "find a script that fits the tonality"). Only PVC verification shows provider text (captcha image), handled in Phase 5 | Amendment §A; ElevenLabs docs |
