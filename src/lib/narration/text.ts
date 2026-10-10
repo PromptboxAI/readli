@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { findDemoBook } from "@/lib/content/demo-books";
+import { findCatalogBook } from "@/lib/library/catalog";
 import { sentencesOf } from "@/lib/content/sentences";
 
 /**
@@ -23,22 +23,25 @@ export interface BookText {
 }
 
 export function bookText(slug: string): BookText | null {
-  const book = findDemoBook(slug);
-  if (!book?.passageText) return null;
-  const revision = createHash("sha256").update(book.passageText).digest("hex").slice(0, 12);
-  const sentences = sentencesOf(book.passageText).map((text, ordinal) => ({
-    id: `${slug}.${revision}.${ordinal}`,
-    ordinal,
-    chapter: 1,
-    text,
-  }));
-  return {
-    slug,
-    title: book.title,
-    // Demo books carry one sample passage until the full library editions land (Phase 7).
-    edition: book.gutenbergId ? `gutenberg-${book.gutenbergId}` : "readli-passage",
-    revision,
-    sentences,
-    chapters: [{ number: 1, title: "Opening", sentenceIds: sentences.map((s) => s.id) }],
-  };
+  const book = findCatalogBook(slug);
+  if (!book) return null;
+  const revision = createHash("sha256").update(book.chapters.map((c) => c.text).join("\n\n")).digest("hex").slice(0, 12);
+  const sentences: CanonicalSentence[] = [];
+  const chapters: BookText["chapters"] = [];
+  book.chapters.forEach((c, i) => {
+    const ids: string[] = [];
+    for (const text of sentencesOf(c.text)) {
+      const ordinal = sentences.length;
+      const id = `${slug}.${revision}.${ordinal}`;
+      sentences.push({ id, ordinal, chapter: i + 1, text });
+      ids.push(id);
+    }
+    chapters.push({ number: i + 1, title: c.title, sentenceIds: ids });
+  });
+  return { slug, title: book.title, edition: book.edition, revision, sentences, chapters };
+}
+
+/** Characters of narration text in the whole book. */
+export function bookCharacters(text: BookText): number {
+  return text.sentences.reduce((n, s) => n + s.text.length, 0);
 }

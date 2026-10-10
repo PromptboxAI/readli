@@ -86,6 +86,7 @@ export function demoFamilyState(): FamilyState {
     libraries: [],
     segments: [],
     jobs: [],
+    creditLots: [],
     ledger: [],
     usage: [],
     notifications: [],

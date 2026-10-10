@@ -26,6 +26,21 @@ function rows(): Row[] {
     { label: "Gifted membership entitlements", value: "Same as Readli Family", note: "Gifts and donated memberships use the household entitlement model" },
     { label: "Narrator slot releases per 30 days", value: String(plan.slotReleasesPer30Days), note: "Anti-abuse limit on reassigning slots" },
     { label: "Listening session timeout", value: `${Math.round(plan.sessionStaleMs / 1000)} seconds`, note: "A player without a heartbeat stops counting as listening" },
+    { label: "Monthly narration allowance (per household)", value: `${plan.monthlyNarrationMinutes} min`, note: "Provisional until commercial testing; not per child or narrator" },
+    { label: "Readli credit", value: `${plan.secondsPerCredit} second${plan.secondsPerCredit === 1 ? "" : "s"} of new narration` },
+    { label: "Quote safety margin", value: `${Math.round(plan.quoteSafetyMargin * 100)}%`, note: "Added to the model estimate when reserving; unused credits are returned" },
+    {
+      label: "Credit packs",
+      value: plan.creditPacks.map((p) => `${p.credits} for ${formatPrice(p.priceCents)}`).join(", "),
+      note: plan.narrationPurchasesEnabled ? "On sale" : "Provisional pricing: not on sale until approved",
+    },
+    { label: "Purchased credits expire after", value: plan.purchasedCreditMonths ? `${plan.purchasedCreditMonths} months` : "Never" },
+    { label: "Monthly credit rollover", value: plan.subscriptionRolloverMonths ? `${plan.subscriptionRolloverMonths} months` : "None" },
+    { label: "Welcome promotional credits", value: `${plan.welcomePromoCredits}`, note: plan.welcomePromoDays ? `Expire after ${plan.welcomePromoDays} days` : "Never expire" },
+    { label: "Quick Stories length", value: `Up to ${plan.quickStoryMaxMinutes} min` },
+    { label: "Recommended short stories", value: String(plan.recommendedShortStories.length), note: plan.recommendedShortStories.join(", ") },
+    { label: "Bedtime Favorites", value: String(plan.bedtimeFavorites.length), note: plan.bedtimeFavorites.join(", ") },
+    { label: "Chapter-by-chapter preparation", value: plan.chapterGenerationEnabled ? "On" : "Off" },
   ];
 }
 

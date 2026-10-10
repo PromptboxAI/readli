@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { sameHash } from "@/lib/server/guest-token";
 import type { VoiceProvider } from "@/lib/voice/provider";
-import type { Actor, FamilyState, NarrationJob, NarrationLibrary, NarrationSegment } from "@/lib/family/model";
+import type { Actor, CreditLot, FamilyState, NarrationJob, NarrationLibrary, NarrationSegment } from "@/lib/family/model";
 import { activeChild, activeEntitlement, activeShare, activeSlot, childVoiceAccess, readyVoice } from "@/lib/family/permissions";
 import type { PlanConfig } from "@/lib/family/plan";
 import {
@@ -15,7 +15,9 @@ import {
   type FamilyStore,
 } from "@/lib/family/service";
 import { estimateSeconds, modelCost } from "./costs";
-import { bookText, type BookText } from "./text";
+import { creditBalance, creditsFor, creditsUsed, draw, spendableLots, type CreditBalance } from "./credits";
+import { CATALOG, findCatalogBook } from "@/lib/library/catalog";
+import { bookCharacters, bookText, type BookText } from "./text";
 
 /**
  * Voice narration libraries (Voice Narration Libraries, Pre-Generation & Instant Narrator Switching
@@ -115,70 +117,75 @@ export function libraryStatus(state: FamilyState, library: NarrationLibrary, tex
 }
 
 // ---------------------------------------------------------------------------
-// Household narration credits (seconds of new narration)
+// Household credits (see credits.ts)
 // ---------------------------------------------------------------------------
 
-export function periodOf(at: string): string {
-  return at.slice(0, 7);
-}
-
-export interface CreditBalance {
-  period: string;
-  allowanceSeconds: number;
-  /** Allowance left this month. */
-  monthlyLeft: number;
-  /** Purchased seconds left (they don't expire monthly). */
-  purchasedLeft: number;
-  available: number;
-  heldSeconds: number;
-  usedThisPeriod: number;
-}
-
-export function creditBalance(state: FamilyState, plan: PlanConfig, householdId: string, at = new Date().toISOString()): CreditBalance {
-  const allowance = activeEntitlement(state, householdId) ? plan.monthlyNarrationMinutes * 60 : 0;
-  const entries = state.ledger.filter((e) => e.householdId === householdId);
-  const purchased = entries.filter((e) => e.kind === "purchase").reduce((n, e) => n + e.seconds, 0);
-  const net = new Map<string, number>();
-  for (const e of entries) {
-    if (e.kind === "reserve") net.set(e.period, (net.get(e.period) ?? 0) + e.seconds);
-    if (e.kind === "refund") net.set(e.period, (net.get(e.period) ?? 0) - e.seconds);
-  }
-  const period = periodOf(at);
-  let overflow = 0;
-  for (const n of net.values()) overflow += Math.max(0, n - allowance);
-  const usedNow = net.get(period) ?? 0;
-  const committedNow = entries.filter((e) => e.kind === "commit" && e.period === period).reduce((n, e) => n + e.seconds, 0);
-  const monthlyLeft = Math.max(0, allowance - usedNow);
-  const purchasedLeft = Math.max(0, purchased - overflow);
-  return {
-    period,
-    allowanceSeconds: allowance,
-    monthlyLeft,
-    purchasedLeft,
-    available: monthlyLeft + purchasedLeft,
-    heldSeconds: Math.max(0, usedNow - committedNow),
-    usedThisPeriod: committedNow,
-  };
-}
-
-/** Purchased narration minutes. Payments are off; checkout calls this after a charge succeeds. */
-export async function addNarrationCredits(store: FamilyStore, actor: Actor | null, householdId: string, minutes: number, clock: Clock = now) {
+/**
+ * Adds purchased credits for a pack. Checkout calls this after a successful charge; in the preview
+ * (no payments) it is the simulated checkout. Never callable by a child.
+ */
+export async function purchaseCredits(store: FamilyStore, actor: Actor | null, householdId: string, packId: string, opts: { paymentRef: string | null }, clock: Clock = now) {
   const state = await store.read();
   const adultId = requireHouseholdGuardian(state, actor, householdId);
   if (!activeEntitlement(state, householdId)) throw new PermissionError(402, "no_family_plan", "Narration credits come with Readli Family.");
-  if (!Number.isInteger(minutes) || minutes < 1 || minutes > 600) throw new PermissionError(400, "bad_amount", "Choose how many minutes to add.");
-  const at = clock().toISOString();
+  const pack = store.plan.creditPacks.find((p) => p.id === packId);
+  if (!pack) throw new PermissionError(400, "bad_pack", "Choose a credit pack.");
+  const at = clock();
+  const months = store.plan.purchasedCreditMonths;
+  const expires = months > 0 ? new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth() + months, at.getUTCDate())).toISOString() : null;
+  const lot: CreditLot = {
+    id: randomUUID(),
+    householdId,
+    source: "purchased",
+    credits: pack.credits,
+    grantedAt: at.toISOString(),
+    expiresAt: expires,
+    note: opts.paymentRef ? `Credit pack (${pack.credits})` : `Credit pack (${pack.credits}), preview: no payment taken`,
+  };
   await store.write((s) => {
-    s.ledger.push({ id: randomUUID(), householdId, period: periodOf(at), kind: "purchase", seconds: minutes * 60, jobId: null, sentenceId: null, at });
-    audit(s, adultId, "narrator_slot_added", at, { householdId, detail: `narration_minutes=${minutes}` });
+    s.creditLots.push(lot);
+    audit(s, adultId, "credits_purchased", at.toISOString(), { householdId, detail: `${pack.id}:${pack.credits}` });
   });
+  return lot;
 }
 
-// ---------------------------------------------------------------------------
-// Parent: Prepare Narration
-// ---------------------------------------------------------------------------
+/** Promotional credits: the welcome grant for a new household, or an admin grant. */
+export async function grantPromoCredits(store: FamilyStore, householdId: string, credits: number, days: number, note: string, clock: Clock = now) {
+  const at = clock();
+  const lot: CreditLot = {
+    id: randomUUID(),
+    householdId,
+    source: "promotional",
+    credits,
+    grantedAt: at.toISOString(),
+    expiresAt: days > 0 ? new Date(at.getTime() + days * 86_400_000).toISOString() : null,
+    note,
+  };
+  await store.write((s) => {
+    s.creditLots.push(lot);
+  });
+  return lot;
+}
 
-/** Voices the household may prepare: shared by their owner and in one of its narrator slots. */
+/** Credit activity for a household, newest first: grants, purchases and each preparation. */
+export function creditHistory(state: FamilyState, householdId: string) {
+  const rows: { at: string; text: string; credits: number; status: string }[] = [];
+  for (const lot of state.creditLots.filter((l) => l.householdId === householdId)) {
+    rows.push({ at: lot.grantedAt, text: lot.note, credits: lot.credits, status: lot.expiresAt ? `Expires ${lot.expiresAt.slice(0, 10)}` : "Never expires" });
+  }
+  for (const job of state.jobs.filter((j) => j.householdId === householdId)) {
+    const library = state.libraries.find((l) => l.key === job.libraryKey);
+    const text = library ? bookText(library.bookSlug) : null;
+    const owner = library ? state.adults.find((a) => a.id === state.voices.find((v) => v.id === library.voiceId)?.ownerId) : null;
+    const entries = state.ledger.filter((e) => e.jobId === job.id);
+    const sum = (kind: string) => entries.filter((e) => e.kind === kind).reduce((n, e) => n + e.credits, 0);
+    const spent = job.status === "queued" || job.status === "running" ? sum("reserve") - sum("refund") : sum("commit");
+    const label = { queued: "Preparing", running: "Preparing", done: "Ready", failed: "Stopped, unused credits returned", canceled: "Stopped, unused credits returned" }[job.status];
+    rows.push({ at: job.createdAt, text: `${text?.title ?? "A book"} read by ${owner?.displayName ?? "a storyteller"}`, credits: -spent, status: label });
+  }
+  return rows.sort((a, b) => b.at.localeCompare(a.at));
+}
+
 function requirePreparable(state: FamilyState, plan: PlanConfig, householdId: string, voiceId: string) {
   if (!activeEntitlement(state, householdId)) throw new PermissionError(402, "no_family_plan", "Preparing narration needs Readli Family.");
   if (!readyVoice(state, voiceId) || !activeShare(state, voiceId, householdId)) {
@@ -187,6 +194,27 @@ function requirePreparable(state: FamilyState, plan: PlanConfig, householdId: st
   if (!activeSlot(state, voiceId, householdId, plan)) {
     throw new PermissionError(409, "needs_slot", "Add this storyteller to a narrator slot first.");
   }
+}
+
+export type Availability = "ready" | "partial" | "preparing" | "available" | "needs_credits" | "unavailable";
+
+export const AVAILABILITY_LABELS: Record<Availability, string> = {
+  ready: "Ready",
+  partial: "Partially ready",
+  preparing: "Preparing",
+  available: "Available to generate",
+  needs_credits: "More credits needed",
+  unavailable: "Unavailable",
+};
+
+export interface ChapterView {
+  number: number;
+  title: string;
+  readiness: Readiness;
+  sentences: number;
+  ready: number;
+  /** Credits to prepare what's missing in this chapter. */
+  credits: number;
 }
 
 export interface PrepareVoiceView {
@@ -200,17 +228,111 @@ export interface PrepareVoiceView {
   approvedFor: string[];
   status: LibraryStatus;
   readinessLabel: string;
+  availability: Availability;
+  availabilityLabel: string;
+  /** Why this narrator can't be prepared or played, when Unavailable. */
+  unavailableReason: string | null;
+  /** Credits to prepare everything still missing in this book. */
+  missingCredits: number;
+  /** How many more credits the household needs to prepare the rest of the book. */
+  extraCreditsNeeded: number;
   estimateSeconds: number;
+  chapters: ChapterView[];
   jobId: string | null;
 }
 
 export interface PrepareBookView {
   householdId: string;
-  book: { slug: string; title: string; sentences: number };
+  book: { slug: string; title: string; author: string; sentences: number; minutes: number; chapters: number };
   voices: PrepareVoiceView[];
   credits: CreditBalance;
-  purchasesEnabled: boolean;
-  minutePriceCents: number;
+  /** A parent can buy credits here: real checkout once approved, or the preview's simulated one. */
+  canBuyCredits: boolean;
+  simulatedCheckout: boolean;
+  chapterGenerationEnabled: boolean;
+  /** Shorter books one of this family's narrators can prepare with the current balance. */
+  shorterThatFit: { slug: string; title: string; credits: number; narrator: string }[];
+}
+
+function missingByChapter(state: FamilyState, plan: PlanConfig, library: NarrationLibrary, text: BookText): ChapterView[] {
+  const segs = segmentsOf(state, library.key);
+  const byId = new Map(text.sentences.map((x) => [x.id, x]));
+  return text.chapters.map((c) => {
+    let ready = 0;
+    let preparing = 0;
+    let credits = 0;
+    for (const id of c.sentenceIds) {
+      const seg = segs.get(id);
+      if (seg?.status === "ready" && seg.storageKey) ready += 1;
+      else if (seg && activeJob(state, seg.jobId)) preparing += 1;
+      else credits += creditsFor(byId.get(id)!.text.length, plan);
+    }
+    const total = c.sentenceIds.length;
+    const readiness: Readiness = ready === total ? "ready" : preparing > 0 ? "preparing" : ready > 0 ? "partial" : "not_prepared";
+    return { number: c.number, title: c.title, readiness, sentences: total, ready, credits };
+  });
+}
+
+/** Why a household can't prepare (or a child can't hear) this narrator, or null. */
+function unavailableReason(state: FamilyState, plan: PlanConfig, householdId: string, voiceId: string, approvedFor: string[]): string | null {
+  if (!activeEntitlement(state, householdId)) return "Needs Readli Family";
+  if (!readyVoice(state, voiceId) || !activeShare(state, voiceId, householdId)) return "This storyteller hasn't shared their voice with your family";
+  if (!activeSlot(state, voiceId, householdId, plan)) return "Add this storyteller to a narrator slot first";
+  if (approvedFor.length === 0) return "Not approved for any child yet";
+  return null;
+}
+
+function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, text: BookText, voiceId: string, available: number): PrepareVoiceView {
+  const v = state.voices.find((x) => x.id === voiceId)!;
+  const owner = state.adults.find((a) => a.id === v.ownerId)!;
+  const kids = state.children.filter((c) => c.householdId === householdId && c.deletedAt === null);
+  const library = libraryFor(state, plan, v.id, text, householdId);
+  const status = libraryStatus(state, library, text);
+  const chapters = missingByChapter(state, plan, library, text);
+  const missingCredits = chapters.reduce((n, c) => n + c.credits, 0);
+  const job = state.jobs.find((j) => j.libraryKey === library.key && j.householdId === householdId && (j.status === "queued" || j.status === "running"));
+  const approvedFor = kids.filter((c) => childVoiceAccess(state, c.id, v.id, plan).allowed).map((c) => c.nickname);
+  const reason = unavailableReason(state, plan, householdId, v.id, approvedFor);
+  const availability: Availability = reason
+    ? "unavailable"
+    : status.readiness === "ready"
+      ? "ready"
+      : status.readiness === "preparing"
+        ? "preparing"
+        : status.readiness === "partial"
+          ? "partial"
+          : missingCredits <= available
+            ? "available"
+            : "needs_credits";
+  return {
+    voiceId: v.id,
+    name: owner.displayName,
+    tint: owner.tint,
+    avatarUrl: owner.avatarUrl,
+    shared: Boolean(activeShare(state, v.id, householdId)),
+    inSlot: activeSlot(state, v.id, householdId, plan) !== null,
+    approvedFor,
+    status,
+    readinessLabel: READINESS_LABELS[status.readiness],
+    availability,
+    availabilityLabel: AVAILABILITY_LABELS[availability],
+    unavailableReason: reason,
+    missingCredits,
+    extraCreditsNeeded: Math.max(0, missingCredits - available),
+    estimateSeconds: status.missingCharacters ? estimateSeconds(status.missingCharacters, plan.narrationModelId) : 0,
+    chapters,
+    jobId: job?.id ?? null,
+  };
+}
+
+/** Narrators this household could use: every ready voice shared with it. */
+function householdVoiceIds(state: FamilyState, householdId: string): string[] {
+  return state.voices.filter((v) => v.status === "ready" && v.deletedAt === null && activeShare(state, v.id, householdId)).map((v) => v.id);
+}
+
+/** Full-book narration length estimate, in minutes. */
+export function bookMinutes(text: BookText, plan: PlanConfig): number {
+  return Math.round((estimateSeconds(bookCharacters(text), plan.narrationModelId) / 60) * 10) / 10;
 }
 
 export async function prepareView(store: FamilyStore, actor: Actor | null, householdId: string, slug: string, clock: Clock = now): Promise<PrepareBookView> {
@@ -219,35 +341,31 @@ export async function prepareView(store: FamilyStore, actor: Actor | null, house
   const text = bookText(slug);
   if (!text) throw new PermissionError(404, "unknown_book", "That book isn't in the library yet.");
   const plan = store.plan;
-  const kids = state.children.filter((c) => c.householdId === householdId && c.deletedAt === null);
-  const voices = state.voices
-    .filter((v) => v.status === "ready" && v.deletedAt === null && activeShare(state, v.id, householdId))
-    .map((v): PrepareVoiceView => {
-      const owner = state.adults.find((a) => a.id === v.ownerId)!;
-      const library = libraryFor(state, plan, v.id, text, householdId);
-      const status = libraryStatus(state, library, text);
-      const job = state.jobs.find((j) => j.libraryKey === library.key && j.householdId === householdId && (j.status === "queued" || j.status === "running"));
-      return {
-        voiceId: v.id,
-        name: owner.displayName,
-        tint: owner.tint,
-        avatarUrl: owner.avatarUrl,
-        shared: true,
-        inSlot: activeSlot(state, v.id, householdId, plan) !== null,
-        approvedFor: kids.filter((c) => childVoiceAccess(state, c.id, v.id, plan).allowed).map((c) => c.nickname),
-        status,
-        readinessLabel: READINESS_LABELS[status.readiness],
-        estimateSeconds: status.missingCharacters ? estimateSeconds(status.missingCharacters, plan.narrationModelId) : 0,
-        jobId: job?.id ?? null,
-      };
-    });
+  const book = findCatalogBook(slug)!;
+  const credits = creditBalance(state, plan, householdId, clock().toISOString());
+  const voices = householdVoiceIds(state, householdId).map((id) => voiceView(state, plan, householdId, text, id, credits.available));
+  const needsMore = voices.some((v) => v.availability === "needs_credits" || (v.availability === "partial" && v.extraCreditsNeeded > 0));
+  const shorterThatFit: PrepareBookView["shorterThatFit"] = [];
+  if (needsMore) {
+    for (const other of CATALOG) {
+      if (other.slug === slug) continue;
+      const t = bookText(other.slug)!;
+      if (bookCharacters(t) >= bookCharacters(text)) continue;
+      const fit = householdVoiceIds(state, householdId)
+        .map((id) => voiceView(state, plan, householdId, t, id, credits.available))
+        .find((v) => v.availability === "available");
+      if (fit) shorterThatFit.push({ slug: other.slug, title: other.title, credits: fit.missingCredits, narrator: fit.name });
+    }
+  }
   return {
     householdId,
-    book: { slug, title: text.title, sentences: text.sentences.length },
+    book: { slug, title: text.title, author: book.author, sentences: text.sentences.length, minutes: bookMinutes(text, plan), chapters: text.chapters.length },
     voices,
-    credits: creditBalance(state, plan, householdId, clock().toISOString()),
-    purchasesEnabled: plan.narrationPurchasesEnabled,
-    minutePriceCents: plan.narrationMinutePriceCents,
+    credits,
+    canBuyCredits: plan.narrationPurchasesEnabled || plan.simulatedCheckout,
+    simulatedCheckout: !plan.narrationPurchasesEnabled && plan.simulatedCheckout,
+    chapterGenerationEnabled: plan.chapterGenerationEnabled && text.chapters.length > 1,
+    shorterThatFit: shorterThatFit.slice(0, 3),
   };
 }
 
@@ -265,11 +383,16 @@ export interface GenerationQuote {
   /** Segments this request would generate and pay for. */
   sentenceIds: string[];
   characters: number;
+  /** Exact Readli credits this request reserves. */
+  credits: number;
   estimateSeconds: number;
   /** Already-stored segments reused for free. */
   reusedReady: number;
   /** Segments another request is already generating (that request pays). */
   alreadyQueued: number;
+  scope: GenerationRequest["scope"];
+  chapter: { number: number; title: string } | null;
+  book: { title: string };
 }
 
 function requestedSentences(text: BookText, req: GenerationRequest) {
@@ -285,14 +408,24 @@ function requestedSentences(text: BookText, req: GenerationRequest) {
   return text.sentences;
 }
 
-/** What a request would cost: only text with no stored or in-progress audio is charged. */
+/**
+ * What a request would cost, from the book's actual text and the configured model. Only text with
+ * no stored or in-progress audio is charged; authorized cached narration is free.
+ */
 export function quote(state: FamilyState, plan: PlanConfig, householdId: string, req: GenerationRequest): GenerationQuote {
   const text = bookText(req.bookSlug);
   if (!text) throw new PermissionError(404, "unknown_book", "That book isn't in the library yet.");
+  if (req.scope === "chapter" && !text.chapters.some((c) => c.number === req.chapter)) {
+    throw new PermissionError(400, "bad_chapter", "That chapter isn't in this book.");
+  }
+  if (req.scope === "chapter" && !plan.chapterGenerationEnabled) {
+    throw new PermissionError(409, "chapters_off", "Preparing one chapter at a time isn't available.");
+  }
   const library = libraryFor(state, plan, req.voiceId, text, householdId);
   const segs = segmentsOf(state, library.key);
   const missing: string[] = [];
   let characters = 0;
+  let credits = 0;
   let reusedReady = 0;
   let alreadyQueued = 0;
   for (const s of requestedSentences(text, req)) {
@@ -302,9 +435,21 @@ export function quote(state: FamilyState, plan: PlanConfig, householdId: string,
     else {
       missing.push(s.id);
       characters += s.text.length;
+      credits += creditsFor(s.text.length, plan);
     }
   }
-  return { sentenceIds: missing, characters, estimateSeconds: characters ? estimateSeconds(characters, plan.narrationModelId) : 0, reusedReady, alreadyQueued };
+  const chapter = req.scope === "chapter" ? text.chapters.find((c) => c.number === req.chapter)! : null;
+  return {
+    sentenceIds: missing,
+    characters,
+    credits,
+    estimateSeconds: characters ? estimateSeconds(characters, plan.narrationModelId) : 0,
+    reusedReady,
+    alreadyQueued,
+    scope: req.scope,
+    chapter: chapter ? { number: chapter.number, title: chapter.title } : null,
+    book: { title: text.title },
+  };
 }
 
 export async function quoteGeneration(store: FamilyStore, actor: Actor | null, householdId: string, req: GenerationRequest) {
@@ -340,9 +485,14 @@ export async function requestGeneration(
     const q = quote(s, store.plan, householdId, req);
     result = { job: null, quote: q };
     if (q.sentenceIds.length === 0) return;
-    const balance = creditBalance(s, store.plan, householdId, at);
-    if (q.estimateSeconds > balance.available) {
-      throw new PermissionError(402, "not_enough_credits", "Not enough narration minutes left this month for this book.");
+    const lots = spendableLots(s, store.plan, householdId, at);
+    const available = lots.reduce((n, l) => n + l.left, 0);
+    if (q.credits > available) {
+      throw new PermissionError(402, "not_enough_credits", "Not enough Readli credits for this. Get more credits or prepare a chapter at a time.", {
+        needed: q.credits,
+        available,
+        extra: q.credits - available,
+      });
     }
     const library = libraryFor(s, store.plan, req.voiceId, text, householdId);
     if (!s.libraries.some((l) => l.key === library.key)) s.libraries.push({ ...library, createdAt: at });
@@ -361,8 +511,8 @@ export async function requestGeneration(
     const byId = new Map(text.sentences.map((x) => [x.id, x]));
     for (const id of q.sentenceIds) {
       const sentence = byId.get(id)!;
-      const seconds = estimateSeconds(sentence.text.length, store.plan.narrationModelId);
-      job.reservations[id] = seconds;
+      const draws = draw(lots, creditsFor(sentence.text.length, store.plan))!;
+      job.reservations[id] = draws;
       const existing = s.segments.find((x) => x.libraryKey === library.key && x.sentenceId === id);
       if (existing) Object.assign(existing, { status: "pending", jobId: job.id, error: null, attempts: 0 });
       else
@@ -380,7 +530,7 @@ export async function requestGeneration(
           error: null,
           readyAt: null,
         });
-      s.ledger.push({ id: randomUUID(), householdId, period: periodOf(at), kind: "reserve", seconds, jobId: job.id, sentenceId: id, at });
+      for (const d of draws) s.ledger.push({ id: randomUUID(), householdId, lotId: d.lotId, kind: "reserve", credits: d.credits, jobId: job.id, sentenceId: id, at });
     }
     s.jobs.push(job);
     audit(s, adultId, "narration_requested", at, { voiceId: req.voiceId, householdId, detail: `${req.bookSlug}:${q.sentenceIds.length}` });
@@ -401,9 +551,10 @@ function settleUnfinished(s: FamilyState, job: NarrationJob, at: string) {
       seg.jobId = null;
       if (seg.status === "generating" || seg.status === "pending") seg.status = seg.status === "generating" ? "failed" : "pending";
     }
-    if (!(seg?.status === "ready" && ledgerHas(s, job.id, id, "commit")) && !ledgerHas(s, job.id, id, "refund")) {
-      const reserved = job.reservations[id] ?? 0;
-      s.ledger.push({ id: randomUUID(), householdId: job.householdId, period: periodOf(job.createdAt), kind: "refund", seconds: reserved, jobId: job.id, sentenceId: id, at });
+    if (!ledgerHas(s, job.id, id, "commit") && !ledgerHas(s, job.id, id, "refund")) {
+      for (const d of job.reservations[id] ?? []) {
+        s.ledger.push({ id: randomUUID(), householdId: job.householdId, lotId: d.lotId, kind: "refund", credits: d.credits, jobId: job.id, sentenceId: id, at });
+      }
     }
   }
 }
@@ -466,11 +617,16 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
           Object.assign(seg, { status: "ready", storageKey, durationMs, providerCredits: credits, error: null, readyAt: at });
           s.usage.push({ id: randomUUID(), libraryKey: library.key, sentenceId: id, modelId: library.modelId, characters: sentence.text.length, providerCredits: credits, durationMs, bytes: audio.byteLength, at });
           if (!ledgerHas(s, job.id, id, "commit")) {
-            const reserved = job.reservations[id] ?? 0;
-            const actual = Math.min(reserved, Math.max(1, Math.ceil(durationMs / 1000)));
-            s.ledger.push({ id: randomUUID(), householdId: job.householdId, period: periodOf(job.createdAt), kind: "commit", seconds: actual, jobId: job.id, sentenceId: id, at });
-            if (reserved > actual) {
-              s.ledger.push({ id: randomUUID(), householdId: job.householdId, period: periodOf(job.createdAt), kind: "refund", seconds: reserved - actual, jobId: job.id, sentenceId: id, at });
+            // Reconcile: commit what was actually used (never more than reserved; Readli absorbs any
+            // overrun), lot by lot in the order they were drawn, and return the rest to its lot.
+            let actual = creditsUsed(durationMs, store.plan);
+            for (const d of job.reservations[id] ?? []) {
+              const used = Math.min(d.credits, actual);
+              actual -= used;
+              s.ledger.push({ id: randomUUID(), householdId: job.householdId, lotId: d.lotId, kind: "commit", credits: used, jobId: job.id, sentenceId: id, at });
+              if (d.credits > used) {
+                s.ledger.push({ id: randomUUID(), householdId: job.householdId, lotId: d.lotId, kind: "refund", credits: d.credits - used, jobId: job.id, sentenceId: id, at });
+              }
             }
           }
         });

@@ -1,7 +1,8 @@
 import type { FamilyState } from "@/lib/family/model";
 import type { PlanConfig } from "@/lib/family/plan";
 import { ELEVENLABS_PLANS, modelCost, usdPerMinute } from "./costs";
-import { creditBalance, libraryStatus, READINESS_LABELS } from "./narration";
+import { bookMinutes, libraryStatus, READINESS_LABELS } from "./narration";
+import { creditBalance } from "./credits";
 import type { NarrationStorage } from "./storage";
 import { bookText } from "./text";
 
@@ -45,10 +46,35 @@ export async function narrationMetrics(state: FamilyState, plan: PlanConfig, sto
 
   const households = state.households.map((h) => {
     const b = creditBalance(state, plan, h.id, at);
-    const entries = state.ledger.filter((e) => e.householdId === h.id && e.period === b.period);
-    const sum = (kind: string) => entries.filter((e) => e.kind === kind).reduce((n, e) => n + e.seconds, 0);
-    return { name: h.name, allowance: b.allowanceSeconds, used: b.usedThisPeriod, held: b.heldSeconds, refunded: sum("refund"), purchasedLeft: b.purchasedLeft, available: b.available };
+    const refunded = state.ledger.filter((e) => e.householdId === h.id && e.kind === "refund").reduce((n, e) => n + e.credits, 0);
+    return { name: h.name, allowance: b.allowance, used: b.usedThisPeriod, held: b.held, refunded, bySource: b.bySource, available: b.available };
   });
+
+  // Launch funnel: did families who started with a quick story go on to prepare a longer book?
+  const quickSlug = (slug: string) => {
+    const t = bookText(slug);
+    return t ? bookMinutes(t, plan) <= plan.quickStoryMaxMinutes : false;
+  };
+  const slugOfJob = (libraryKey: string) => state.libraries.find((l) => l.key === libraryKey)?.bookSlug ?? "";
+  let startedShort = 0;
+  let wentLonger = 0;
+  for (const h of state.households) {
+    const jobs = state.jobs.filter((j) => j.householdId === h.id).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    if (!jobs.length || !quickSlug(slugOfJob(jobs[0]!.libraryKey))) continue;
+    startedShort += 1;
+    if (jobs.some((j) => !quickSlug(slugOfJob(j.libraryKey)))) wentLonger += 1;
+  }
+  const purchases = state.creditLots.filter((l) => l.source === "purchased");
+  const funnel = {
+    startedShort,
+    wentLonger,
+    conversion: startedShort ? wentLonger / startedShort : 0,
+    topUps: purchases.length,
+    topUpCredits: purchases.reduce((n, l) => n + l.credits, 0),
+    promoCredits: state.creditLots.filter((l) => l.source === "promotional").reduce((n, l) => n + l.credits, 0),
+    reusedLibraries: libraries.filter((l) => l.households > 1).length,
+    replays: [...playsBySegment.values()].reduce((n, c) => n + Math.max(0, c - 1), 0),
+  };
 
   const model = modelCost(plan.narrationModelId);
   return {
@@ -75,6 +101,7 @@ export async function narrationMetrics(state: FamilyState, plan: PlanConfig, sto
     libraries,
     failedJobs: state.jobs.filter((j) => j.status === "failed").map((j) => ({ id: j.id, library: j.libraryKey, sentences: j.sentenceIds.length, at: j.finishedAt })),
     households,
+    funnel,
     plans: ELEVENLABS_PLANS.map((p) => ({ ...p, usdPerMinute: usdPerMinute(p, model) })),
     allowanceCostUsd: (plan.monthlyNarrationMinutes * usdPerMinute(pro, model)),
   };

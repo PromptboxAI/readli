@@ -96,7 +96,8 @@ export type AuditAction =
   | "narrator_slot_added"
   | "child_profile_created"
   | "child_profile_removed"
-  | "entitlement_granted";
+  | "entitlement_granted"
+  | "credits_purchased";
 
 export interface AuditEvent {
   id: string;
@@ -126,6 +127,8 @@ export interface FamilyState {
   libraries: NarrationLibrary[];
   segments: NarrationSegment[];
   jobs: NarrationJob[];
+  /** Promotional and purchased credit grants. Monthly subscription credits are derived from the plan. */
+  creditLots: CreditLot[];
   ledger: CreditEntry[];
   usage: ProviderUsage[];
   notifications: FamilyNotification[];
@@ -139,7 +142,8 @@ export type Actor = { kind: "adult"; adultId: string } | { kind: "child"; childI
 export interface HouseholdEntitlement {
   id: string;
   householdId: string;
-  source: "subscription" | "gift" | "donated";
+  /** A trial gives Family access for its days, with the trial narration allowance instead of the monthly one. */
+  source: "subscription" | "gift" | "donated" | "trial";
   status: "active" | "canceled";
   /** Narrator slots bought on top of the plan's included slots. */
   extraNarratorSlots: number;
@@ -231,22 +235,48 @@ export interface NarrationJob {
   scope: JobScope;
   /** Segments this job pays for, in generation order (priority passages first). */
   sentenceIds: string[];
-  /** Household narration seconds reserved per segment when the job was confirmed. */
-  reservations: Record<string, number>;
+  /** Readli credits reserved per segment when the job was confirmed, and which credit lots paid. */
+  reservations: Record<string, CreditDraw[]>;
   status: JobStatus;
   createdAt: string;
   finishedAt: string | null;
 }
 
-export type LedgerKind = "allowance" | "purchase" | "reserve" | "commit" | "refund";
+export type CreditSource = "subscription" | "promotional" | "purchased";
 
-/** Household narration credit ledger, in seconds of new narration. Replays never write here. */
+/**
+ * A grant of Readli credits. Promotional and purchased lots are stored; each month's subscription
+ * allowance is a derived lot (`subscription:YYYY-MM`) so changing the admin allowance applies at once.
+ */
+export interface CreditLot {
+  id: string;
+  householdId: string;
+  source: CreditSource;
+  credits: number;
+  grantedAt: string;
+  /** Null never expires. */
+  expiresAt: string | null;
+  note: string;
+}
+
+export interface CreditDraw {
+  lotId: string;
+  credits: number;
+}
+
+export type LedgerKind = "reserve" | "commit" | "refund";
+
+/**
+ * Household credit ledger, in Readli credits. A reserve holds credits from one lot for one sentence
+ * of a job; commit records what generation actually used; refund returns the rest to the same lot.
+ * Replays and reuse of authorized cached narration never write here.
+ */
 export interface CreditEntry {
   id: string;
   householdId: string;
-  period: string;
+  lotId: string;
   kind: LedgerKind;
-  seconds: number;
+  credits: number;
   jobId: string | null;
   sentenceId: string | null;
   at: string;

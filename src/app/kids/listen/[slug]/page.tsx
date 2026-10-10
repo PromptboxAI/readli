@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FamilyOff, NeedsGrownUp } from "@/components/family/FamilyShell";
 import { KidsPlayer } from "@/components/family/KidsPlayer";
-import { findDemoBook } from "@/lib/content/demo-books";
+import { findCatalogBook } from "@/lib/library/catalog";
 import { activeChild } from "@/lib/family/permissions";
 import { familyPage } from "@/lib/family/page-data";
 import { childBookState, narratorsFor } from "@/lib/family/service";
@@ -16,8 +16,8 @@ export const metadata: Metadata = { title: "Story time | Readli Kids" };
 
 export default async function KidsListen({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const book = findDemoBook(slug);
-  if (!book?.passageText) notFound();
+  const book = findCatalogBook(slug);
+  if (!book) notFound();
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   const session = page.session;

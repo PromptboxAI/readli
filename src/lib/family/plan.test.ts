@@ -202,7 +202,8 @@ describe("signup and pricing amendment", () => {
   });
 
   it("plan settings are admin-configurable", () => {
-    expect(planConfig({} as NodeJS.ProcessEnv)).toEqual(DEFAULT_PLAN);
+    expect(planConfig({} as NodeJS.ProcessEnv)).toEqual({ ...DEFAULT_PLAN, simulatedCheckout: true });
+    expect(planConfig({ NODE_ENV: "production" } as unknown as NodeJS.ProcessEnv)).toMatchObject({ simulatedCheckout: false, crossHouseholdReuse: false, narrationPurchasesEnabled: false });
     const custom = planConfig({ PLAN_INCLUDED_SLOTS: "3", PLAN_MAX_CHILD_PROFILES: "8", PLAN_FAMILY_PRICE_CENTS: "1299" } as unknown as NodeJS.ProcessEnv);
     expect(custom).toMatchObject({ includedNarratorSlots: 3, maxChildProfiles: 8, familyMonthlyPriceCents: 1299, includedConcurrentStreams: 3 });
   });

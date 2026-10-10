@@ -28,6 +28,8 @@ export class PermissionError extends Error {
     readonly code: string,
     /** Safe to show in the app. */
     readonly userMessage: string,
+    /** Extra facts for the app (for example, how many more credits are needed). */
+    readonly details?: Record<string, unknown>,
   ) {
     super(code);
   }
@@ -451,18 +453,32 @@ export async function addNarratorSlot(store: FamilyStore, actor: Actor | null, h
 export async function grantEntitlement(
   store: FamilyStore,
   householdId: string,
-  input: { source: "subscription" | "gift" | "donated"; months: number | null },
+  input: { source: "subscription" | "gift" | "donated" | "trial"; months: number | null; days?: number },
   clock: Clock = now,
 ): Promise<void> {
   const start = clock();
-  const endsAt = input.months === null ? null : new Date(start.getTime() + input.months * 30 * DAY).toISOString();
+  const endsAt =
+    input.days !== undefined ? new Date(start.getTime() + input.days * DAY).toISOString() : input.months === null ? null : new Date(start.getTime() + input.months * 30 * DAY).toISOString();
   await store.write((s) => {
     const current = activeEntitlement(s, householdId, start.toISOString());
     if (current) {
       // Extend rather than stack; extra slots carry over.
       if (current.endsAt !== null) current.endsAt = endsAt === null ? null : new Date(Date.parse(current.endsAt) + input.months! * 30 * DAY).toISOString();
     } else {
+      const firstTime = !s.entitlements.some((e) => e.householdId === householdId);
       s.entitlements.push({ id: randomUUID(), householdId, source: input.source, status: "active", extraNarratorSlots: 0, extraStreams: 0, startsAt: start.toISOString(), endsAt });
+      // Welcome credits so a new family can hear a few short stories in their own voices right away.
+      if (firstTime && store.plan.welcomePromoCredits > 0) {
+        s.creditLots.push({
+          id: randomUUID(),
+          householdId,
+          source: "promotional",
+          credits: store.plan.welcomePromoCredits,
+          grantedAt: start.toISOString(),
+          expiresAt: store.plan.welcomePromoDays > 0 ? new Date(start.getTime() + store.plan.welcomePromoDays * DAY).toISOString() : null,
+          note: "Welcome credits for your first stories",
+        });
+      }
     }
     audit(s, "system", "entitlement_granted", start.toISOString(), { householdId, detail: input.source });
   });

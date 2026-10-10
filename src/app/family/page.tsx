@@ -83,10 +83,15 @@ export default async function FamilyHome() {
       {isGuardian && (
         <section className="flex flex-col gap-3" aria-labelledby="books-h">
           <h2 id="books-h" className="font-display text-2xl font-semibold">Books and narration</h2>
-          <p>Prepare readings ahead of time so kids can switch storytellers instantly.</p>
-          <Link href="/family/books" className={`${buttonSecondary} self-start`}>
-            Prepare narration
-          </Link>
+          <p>Browse the library, prepare readings ahead of time, and manage your Readli credits.</p>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/family/books" className={buttonSecondary}>
+              Family library
+            </Link>
+            <Link href="/family/credits" className={buttonSecondary}>
+              Readli credits
+            </Link>
+          </div>
         </section>
       )}
 
