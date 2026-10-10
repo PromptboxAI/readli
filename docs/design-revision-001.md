@@ -46,6 +46,13 @@
 - Layered illustrated scenes, distinctive shapes, typography variation, playful section transitions, more considered spacing.
 - Premium children's entertainment feel while staying fast on mobile.
 
+### 5b. Kids player: narrator switching front and centre (designer, 2026-10-10)
+Launch-critical (PRD F-06). Full requirements in the [plan, Phase 7](amendment-001-plan.md#phase-7--library-player-and-narrator-switching). Design points:
+- Current narrator's selfie avatar is the most prominent control in the player.
+- Tap avatar → visual selector of authorized family voices (avatars + names), not a settings menu or dropdown.
+- Page stays visible while switching; Readi **Listening** state is the loader when new audio is generating.
+- Auto-resume in the new voice at the same sentence.
+
 ### 6. Must not break
 Free 60–120s voice demo; continuous scrolling teleprompter; six-book excerpt selection; account registration and invitations; family voice permissions; voice switching; mobile-first recording and selfie capture; Premium Voice upgrade path.
 

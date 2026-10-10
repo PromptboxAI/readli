@@ -188,7 +188,19 @@ Phases 6 and 7 are independent and can swap or run in parallel; phase 6 is small
 
 ## Phase 7 — Library, player and narrator switching
 
-**Unchanged from PRD Phase 3:** 20–30 rights-reviewed editions, reader with text/illustrations, generation queue and cache, canonical-segment narrator switching, cross-device resume, basic admin.
+**From PRD Phase 3:** 20–30 rights-reviewed editions, reader with text/illustrations, generation queue and cache, canonical-segment narrator switching, cross-device resume, basic admin.
+
+**Narrator switching is launch-critical** (PRD F-06 / J4, confirmed by the designer 2026-10-10). Phase 8 cannot start until it passes. Kids player requirements:
+- The current narrator's selfie avatar sits prominently in the player, never inside a settings menu.
+- Tapping the avatar opens a visual selector of every voice this child profile is authorized to hear (server-checked `voice_grants`; other families' private voices are never listed or returned).
+- Switching works on any page, including during playback, and as many times as wanted in one book.
+- Position is kept by canonical sentence (`canonical_segment_id`), resuming at the same sentence or the nearest sentence boundary, never the start of the chapter or book.
+- The current page stays on screen while switching.
+- If the new voice's audio isn't cached, show Readi in the **Listening** state as the loading animation (static under reduced motion), then resume automatically in the new voice.
+- Generation for the new voice starts at the current sentence and runs a few segments ahead, rather than re-rendering the whole book, to protect credits.
+- Every switch is logged (`voice_switch_events`, `narrator_switch` / `resume_after_switch` events).
+
+**Acceptance (from the designer's example):** a child starts Peter Rabbit in Mom's voice, taps Grandpa's avatar on page 3, and the story continues from the same sentence in Grandpa's voice, with the page unchanged; switching back to Mom later works the same way.
 
 ## Phase 8 — Launch and evidence
 
