@@ -5,7 +5,7 @@ import { buttonPrimary } from "@/components/brand/buttons";
 const NAV = [
   { href: "/stories", label: "Stories" },
   { href: "/how-it-works", label: "How it Works" },
-  { href: "/family", label: "For Families" },
+  { href: "/#families", label: "For Families" },
 ];
 
 export function SiteHeader() {

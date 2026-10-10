@@ -23,6 +23,8 @@
 - Done means no section still holds an empty illustration placeholder.
 
 ### 2. Interactive family tree (primary differentiator)
+**Prototype built** 2026-10-10 (`src/components/home/FamilyTree.tsx`, example data in `src/lib/content/example-family.ts`): 8 grown-ups and 3 kids over three generations, tree and list views, a profile card per person with a demo action that sends nothing. Initials stand in for selfie avatars until there are photos with releases.
+
 - Replace the three-row family-circle section with a real visual tree of connected circular selfie avatars.
 - At least seven example members across generations: grandparents, parents, siblings, aunts, uncles, cousins.
 - Each person shows a name and a status: **Voice ready**, **Invite to record**, **Invitation pending**. These map to the PRD F-04 card statuses (`ready_shared`, `not_invited`, `invited`).

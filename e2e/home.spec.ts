@@ -11,6 +11,16 @@ test("homepage follows the design brief order with six books under the demo", as
   const books = page.getByTestId("demo-books").getByRole("article");
   await expect(books).toHaveCount(6);
 
+  // Family tree: explorable without signing up, nothing is sent.
+  const tree = page.getByTestId("family-tree");
+  await tree.getByRole("button", { name: /Grandpa Joe/ }).click();
+  const profile = page.getByRole("region", { name: "Grandpa Joe's profile" });
+  await profile.getByRole("button", { name: "Invite to record" }).click();
+  await expect(profile).toContainText("nothing was sent");
+  await tree.getByRole("button", { name: "List", exact: true }).click();
+  await expect(tree.getByRole("list", { name: "Example family members" }).getByRole("button")).toHaveCount(11);
+  await tree.getByRole("button", { name: "Tree", exact: true }).click();
+
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 

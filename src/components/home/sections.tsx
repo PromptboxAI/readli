@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { DemoBookShelf } from "@/components/books/DemoBookShelf";
+import { FamilyTree } from "@/components/home/FamilyTree";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { coverSrc, DEMO_BOOKS } from "@/lib/content/demo-books";
@@ -252,15 +253,10 @@ export function KidsShelf() {
 }
 
 export function FamilyCircles() {
-  const members = [
-    { name: "Mom", status: "Voice ready", color: "bg-coral" },
-    { name: "Dad", status: "Voice ready", color: "bg-sky" },
-    { name: "Grandpa", status: "Voice not here yet", color: "bg-ivory", pending: true },
-  ];
   return (
-    <section aria-labelledby="circles-heading" className="bg-ivory">
-      <div className="mx-auto grid max-w-6xl items-center gap-8 px-4 py-14 sm:px-6 md:grid-cols-2">
-        <div className="flex flex-col gap-4">
+    <section id="families" aria-labelledby="circles-heading" className="bg-ivory">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-14 sm:px-6">
+        <div className="flex max-w-2xl flex-col gap-3">
           <h2 id="circles-heading" className="font-display text-3xl font-semibold sm:text-4xl">
             Your family circle
           </h2>
@@ -269,21 +265,7 @@ export function FamilyCircles() {
             voice. An invitation never shares anyone&apos;s voice on its own.
           </p>
         </div>
-        <ul className="flex flex-col gap-3">
-          {members.map((m) => (
-            <li
-              key={m.name}
-              className={`flex items-center justify-between gap-3 rounded-3xl border-[3px] p-4 ${m.pending ? "border-dashed border-ink/50" : "border-ink"} ${m.color}`}
-            >
-              <span className="font-display text-xl font-semibold">{m.name}</span>
-              {m.pending ? (
-                <span className="rounded-full bg-sunshine px-4 py-2 font-display font-semibold">Invite Grandpa to read</span>
-              ) : (
-                <span className="text-sm font-semibold">{m.status}</span>
-              )}
-            </li>
-          ))}
-        </ul>
+        <FamilyTree />
       </div>
     </section>
   );
