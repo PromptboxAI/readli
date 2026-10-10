@@ -67,7 +67,7 @@ test("links from the footer open the next page at the top", async ({ page }) => 
 
 test("header and page links never lead to a missing page", async ({ page, request }) => {
   const hrefs = new Set<string>();
-  for (const path of ["/", "/company", "/login", "/privacy", "/terms", "/accessibility", "/parents/safety"]) {
+  for (const path of ["/", "/company", "/login", "/privacy", "/terms", "/accessibility", "/parents/safety", "/help", "/help/privacy-and-child-safety", "/help/books-and-listening", "/help/getting-started/what-is-readli"]) {
     await page.goto(path);
     for (const href of await page.locator("header a[href^='/'], main a[href^='/']").evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? "/")))
       hrefs.add(href.split("#")[0] || "/");
