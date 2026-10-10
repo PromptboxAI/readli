@@ -255,7 +255,9 @@ export class SupabaseGuestStore implements GuestStore {
   async saveRecording(sessionId: string, audio: Blob, meta: RecordingMeta) {
     const mimeType = baseMimeType(meta.mimeType);
     const key = `${sessionId}/${randomUUID()}.${extensionFor(mimeType)}`;
-    const { error } = await this.db.storage.from(BUCKET).upload(key, audio, { contentType: mimeType, upsert: false });
+    // A Blob is sent as a multipart part typed by the Blob itself, so retype it to the bare MIME type the bucket allows.
+    const body = new Blob([audio], { type: mimeType });
+    const { error } = await this.db.storage.from(BUCKET).upload(key, body, { contentType: mimeType, upsert: false });
     if (error) throw new Error(`upload recording: ${error.message}`);
 
     const session = await this.must(this.db.from("guest_sessions").select("expires_at, consent_receipt_id").eq("id", sessionId).single(), "read guest session");
