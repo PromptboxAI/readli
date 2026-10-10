@@ -7,7 +7,7 @@ import { findDemoBook } from "@/lib/content/demo-books";
 import { sentencesOf } from "@/lib/content/sentences";
 import { activeChild } from "@/lib/family/permissions";
 import { familyPage } from "@/lib/family/page-data";
-import { narratorsFor } from "@/lib/family/service";
+import { childBookState, narratorsFor } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +22,9 @@ export default async function KidsListen({ params }: { params: Promise<{ slug: s
   const session = page.session;
   const child = session?.actor.kind === "child" && page.state ? activeChild(page.state, session.actor.childId) : null;
   if (!session || !child) return <NeedsGrownUp text="A grown-up opens your Readli Kids bookshelf for you." />;
-  const narrators = await narratorsFor(familyStore(session.sandbox)!, session.actor, child.id);
+  const store = familyStore(session.sandbox)!;
+  const narrators = await narratorsFor(store, session.actor, child.id);
+  const resume = await childBookState(store, session.actor, child.id, book.slug);
   return (
     <main className="mx-auto flex min-h-dvh max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6">
       <Link href="/kids" className="self-start font-display font-semibold underline underline-offset-4">
@@ -35,6 +37,7 @@ export default async function KidsListen({ params }: { params: Promise<{ slug: s
         book={{ slug: book.slug, title: book.title }}
         sentences={sentencesOf(book.passageText)}
         initialNarrators={narrators}
+        resume={resume}
       />
     </main>
   );

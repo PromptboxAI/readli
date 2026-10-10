@@ -152,6 +152,8 @@ Phases 6 and 7 are independent and can swap or run in parallel; phase 6 is small
 
 *Family voice permissions (Amendment 002, 2026-10-10, launch-critical):* built ahead of sign-in as a preview. Two-key model (owner share plus per-child guardian approval), Manage Storytellers at `/family/kids/[childId]/storytellers`, owner sharing at `/family/my-voice`, Readli Kids player at `/kids/listen/[slug]` showing only approved narrators with sentence-level switching, migration `20261010000300_family_voice_permissions.sql`, and the amendment's eight acceptance tests (`src/lib/family/family.test.ts`, `e2e/family.spec.ts`). Phase 4 swaps the preview session for Supabase Auth and adds a Supabase-backed `FamilyStore`; the checks stay as they are. Privacy and Terms wording is in a separate thread.
 
+*Signup and pricing amendment (2026-10-10):* household entitlements, narrator slots as the third permission gate, slot purchase (payments off), child profiles up to six with no per-child charge, three concurrent kids sessions, per-child progress and favourites, migration `20261010000600_household_entitlements.sql`, tests in `src/lib/family/plan.test.ts` and `e2e/family.spec.ts`. Signup, checkout, contributor onboarding and admin UI are in the invitations thread.
+
 **Exit:** PRD §14 family tests and amendment F-8 pass.
 
 ---
