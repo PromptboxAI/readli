@@ -46,7 +46,7 @@ Phases 6 and 7 are independent and can swap or run in parallel; phase 6 is small
 | Analytics | PRD F-08 event list | Adds recorder lifecycle, QC, Premium and narrator events (see Phase 2 and 5). |
 | Demo client stages | Brief §6 `... → prompt_recording → ...` | `prompt_recording` becomes `teleprompter_recording` with `paused` sub-state. |
 
-**Explicitly unchanged:** the six demo books and their editions (amendment F-9), consent-before-recording, no signup for the demo, guest quotas and TTL deletion, honest failure states, all family/circle/grant rules, the homepage section order, brand tokens and IA.
+**Explicitly unchanged:** the six-book demo pattern (the titles were later changed by Kevin on 2026-10-10, see `decisions.md`), consent-before-recording, no signup for the demo, guest quotas and TTL deletion, honest failure states, all family/circle/grant rules, the homepage section order, brand tokens and IA.
 
 ---
 

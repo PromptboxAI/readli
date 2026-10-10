@@ -1,9 +1,13 @@
 /**
- * The six homepage demo books, locked by PRD F-05, Design Brief §6 and
- * Amendment 001 (acceptance test F-9). Do not add, remove or swap titles.
+ * The six homepage demo books.
  *
- * Passage text and cover art stay unset until each edition passes rights
- * review and the excerpt is editorially approved (PRD §15 step 4).
+ * Originally locked by PRD F-05 / Design Brief §6 / Amendment 001 F-9. Kevin
+ * replaced the selection on 2026-10-10 (see docs/decisions.md); that decision
+ * supersedes the earlier lock. Do not change titles without a new decision.
+ *
+ * Passage text stays unset until each edition passes rights review and the
+ * excerpt is editorially approved (PRD §15 step 4). Covers are original
+ * Readli artwork, never scans of historic editions.
  */
 
 export type RightsStatus = "pending_review" | "approved" | "rejected";
@@ -13,8 +17,8 @@ export interface DemoBook {
   title: string;
   author: string;
   firstPublished: number;
-  /** Project Gutenberg eBook number for the specific edition we intend to use. */
-  gutenbergId: number;
+  /** Project Gutenberg eBook number for the candidate edition; null until chosen. */
+  gutenbergId: number | null;
   /** True once a reviewer has confirmed the edition, not just the title. */
   editionConfirmed: boolean;
   editionNote?: string;
@@ -41,30 +45,6 @@ export const DEMO_BOOKS: readonly DemoBook[] = [
     tile: { background: "var(--color-mint)", accent: "var(--color-coral)" },
   },
   {
-    slug: "the-tale-of-benjamin-bunny",
-    title: "The Tale of Benjamin Bunny",
-    author: "Beatrix Potter",
-    firstPublished: 1904,
-    gutenbergId: 14407,
-    editionConfirmed: false,
-    rightsStatus: "pending_review",
-    passageTargetSeconds: 40,
-    passageText: null,
-    tile: { background: "var(--color-sunshine)", accent: "var(--color-navy)" },
-  },
-  {
-    slug: "the-wonderful-wizard-of-oz",
-    title: "The Wonderful Wizard of Oz",
-    author: "L. Frank Baum",
-    firstPublished: 1900,
-    gutenbergId: 55,
-    editionConfirmed: false,
-    rightsStatus: "pending_review",
-    passageTargetSeconds: 45,
-    passageText: null,
-    tile: { background: "var(--color-sky)", accent: "var(--color-sunshine)" },
-  },
-  {
     slug: "alices-adventures-in-wonderland",
     title: "Alice’s Adventures in Wonderland",
     author: "Lewis Carroll",
@@ -75,19 +55,6 @@ export const DEMO_BOOKS: readonly DemoBook[] = [
     passageTargetSeconds: 45,
     passageText: null,
     tile: { background: "var(--color-lavender)", accent: "var(--color-coral)" },
-  },
-  {
-    slug: "peter-pan-peter-and-wendy",
-    title: "Peter Pan: Peter and Wendy",
-    author: "J. M. Barrie",
-    firstPublished: 1911,
-    gutenbergId: 16,
-    editionConfirmed: true,
-    editionNote: "1911 novel, not later film adaptations.",
-    rightsStatus: "pending_review",
-    passageTargetSeconds: 45,
-    passageText: null,
-    tile: { background: "var(--color-coral)", accent: "var(--color-sky)" },
   },
   {
     slug: "winnie-the-pooh",
@@ -102,10 +69,49 @@ export const DEMO_BOOKS: readonly DemoBook[] = [
     passageText: null,
     tile: { background: "var(--color-sunshine)", accent: "var(--color-mint)" },
   },
+  {
+    slug: "the-three-little-pigs",
+    title: "The Three Little Pigs",
+    author: "Traditional, retold by L. Leslie Brooke",
+    firstPublished: 1904,
+    gutenbergId: null,
+    editionConfirmed: false,
+    editionNote: "Folk tale. Reference edition: L. Leslie Brooke, The Story of the Three Little Pigs (Warne, 1904). Source text to confirm.",
+    rightsStatus: "pending_review",
+    passageTargetSeconds: 40,
+    passageText: null,
+    tile: { background: "var(--color-coral)", accent: "var(--color-sunshine)" },
+  },
+  {
+    slug: "the-princess-and-the-pea",
+    title: "The Princess and the Pea",
+    author: "Hans Christian Andersen",
+    firstPublished: 1835,
+    gutenbergId: null,
+    editionConfirmed: false,
+    editionNote: "Needs a public-domain English translation (not Hersholt, 1949). Dulac's 1911 illustrations are reference only.",
+    rightsStatus: "pending_review",
+    passageTargetSeconds: 40,
+    passageText: null,
+    tile: { background: "var(--color-sky)", accent: "var(--color-lavender)" },
+  },
+  {
+    slug: "the-lion-and-the-mouse",
+    title: "The Lion and the Mouse",
+    author: "Aesop",
+    firstPublished: 1919,
+    gutenbergId: null,
+    editionConfirmed: false,
+    editionNote: "Fable. Candidate text: The Aesop for Children (1919, illustrated by Milo Winter). Gutenberg ID to confirm.",
+    rightsStatus: "pending_review",
+    passageTargetSeconds: 30,
+    passageText: null,
+    tile: { background: "var(--color-sunshine)", accent: "var(--color-sky)" },
+  },
 ];
 
-export function gutenbergUrl(book: DemoBook): string {
-  return `https://www.gutenberg.org/ebooks/${book.gutenbergId}`;
+export function gutenbergUrl(book: DemoBook): string | null {
+  return book.gutenbergId === null ? null : `https://www.gutenberg.org/ebooks/${book.gutenbergId}`;
 }
 
 /** Audio is playable only once rights and the passage are approved. */

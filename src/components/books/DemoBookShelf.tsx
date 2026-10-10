@@ -40,9 +40,11 @@ export function DemoBookCard({ book }: { book: DemoBook }) {
       </button>
       <p id={`${headingId}-status`} className="text-xs text-muted">
         {playable ? "Plays in your recorded voice." : "Passage pending rights review."}{" "}
-        <a href={gutenbergUrl(book)} className="underline" target="_blank" rel="noreferrer">
-          Source
-        </a>
+        {gutenbergUrl(book) && (
+          <a href={gutenbergUrl(book) ?? undefined} className="underline" target="_blank" rel="noreferrer">
+            Source
+          </a>
+        )}
       </p>
     </article>
   );

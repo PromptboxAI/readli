@@ -7,6 +7,8 @@ tracked here and never assumed cleared in code.
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-10-10 | **Homepage demo books changed** to Peter Rabbit, Alice in Wonderland, Winnie-the-Pooh, The Three Little Pigs, The Princess and the Pea, The Lion and the Mouse. Benjamin Bunny, Wizard of Oz and Peter Pan dropped. Supersedes the PRD/Brief/Amendment F-9 lock | Kevin's decision |
+| 2026-10-10 | Covers are original on-brand Readli artwork (one PNG per book), never scans of historic editions | Kevin; rights hygiene |
 | 2026-10-10 | Hosting on Vercel + Supabase cloud | Confirmed by Kevin |
 | 2026-10-10 | Phase 3 device testing on Kevin's own iPhone/Android | Confirmed by Kevin |
 | 2026-10-10 | Demo script stays Readli-authored; ElevenLabs supplies no training script (IVC guide: "find a script that fits the tonality"). Only PVC verification shows provider text (captcha image), handled in Phase 5 | Amendment §A; ElevenLabs docs |
@@ -38,6 +40,6 @@ tracked here and never assumed cleared in code.
 | Premium price and usage charges | Amendment A | Open (admin-configured) |
 | ElevenLabs voice-slot capacity (pricing page 2026-10-10: Creator 30, Pro 160, Scale 660, Business 2,200, Enterprise custom; help centre still says Business 660). PVCs count inside the total. One Readli account holds every user's voice, so guest voices must free their slot promptly and launch needs an Enterprise agreement | Kevin Q&A | Open |
 | **Premium Private Voice is not viable on standard plans**: PVC allowance is Creator/Pro 1, Scale 3, Business 10, Enterprise custom, with no add-on purchase. Premium (Phase 5) needs an Enterprise PVC allowance before it can be sold | ElevenLabs help centre | Open, blocks Phase 5 launch (not build) |
-| Rights review of the six specific editions, passages and any illustrations | PRD §9.4 | Open. Gutenberg #16 and #67098 are named in the PRD; #14838, #14407, #55, #11 need edition confirmation |
+| Rights review of the six specific editions, passages and any illustrations | PRD §9.4 | Open. Winnie-the-Pooh #67098 confirmed by PRD; Peter Rabbit #14838 and Alice #11 need edition confirmation; Three Little Pigs (Brooke 1904), Princess and the Pea (needs a public-domain translation, not Hersholt 1949) and Lion and the Mouse (Aesop for Children, 1919) need a source text chosen |
 | COPPA / state biometric privacy counsel sign-off | PRD §9.3 | Open |
 | Guest retention window (proposed 24h) confirmed by counsel | PRD F-01 | Open |
