@@ -53,17 +53,17 @@ function Heart({ className }: { className: string }) {
 }
 
 const ILLUSTRATION_LABEL =
-  "Illustration of Readli Family parent controls: Manage voices for Milly. Mom and Grandpa are switched on, Aunt Pook is not approved for Milly, and Uncle Chris is awaiting the voice owner's permission. Below, Milly reads a storybook with her puppy.";
+  "Illustration of Readli Family parent controls: Manage voices for Milly. Mom and Grandpa are switched on, Aunt Pook is not approved for Milly, and Uncle Chris is awaiting the voice owner's permission.";
 
 /** Marketing illustration of the parental voice controls. The real approval portal lives in Readli Family. */
 function VoicePermissionsIllustration() {
   return (
-    <div role="img" aria-label={ILLUSTRATION_LABEL} className="relative mx-auto w-full max-w-xl">
-      <div aria-hidden="true" className="absolute -inset-x-4 -top-4 bottom-16 rounded-[42%_58%_46%_54%] bg-sunshine/35" />
-      <Heart className="absolute -left-1 top-1/3 size-6 text-coral" />
-      <Heart className="absolute -right-2 top-1/2 size-5 text-coral-strong" />
+    <div role="img" aria-label={ILLUSTRATION_LABEL} className="relative mx-auto w-full max-w-xl py-2">
+      
+      <Heart className="absolute -left-3 top-1/4 hidden sm:block size-6 text-coral" />
+      <Heart className="absolute -right-3 bottom-1/4 hidden sm:block size-5 text-coral-strong" />
 
-      <div className="relative z-10 mx-2 rounded-[2rem] bg-surface p-4 shadow-[0_18px_40px_-18px_rgba(40,53,72,0.35)] ring-1 ring-ink/5 sm:mx-6 sm:p-6">
+      <div className="relative mx-1 rounded-[2rem] bg-surface p-4 shadow-[0_18px_40px_-18px_rgba(40,53,72,0.35)] ring-1 ring-ink/5 sm:mx-6 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 pt-1">
             <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-mint-deep">Readli Family</p>
@@ -91,14 +91,6 @@ function VoicePermissionsIllustration() {
         </ul>
       </div>
 
-      <Image
-        src="/family-voices/milly-reading.webp"
-        alt=""
-        width={896}
-        height={266}
-        sizes="(min-width: 768px) 576px, 100vw"
-        className="relative -mt-3 w-full sm:-mt-12"
-      />
     </div>
   );
 }
@@ -174,7 +166,7 @@ export function FamilyVoices() {
           </h2>
         </div>
 
-        <div className="md:col-start-2 md:row-span-2 md:row-start-1">
+        <div className="md:col-start-2 md:row-span-2 md:row-start-1 md:self-center">
           <VoicePermissionsIllustration />
         </div>
 
