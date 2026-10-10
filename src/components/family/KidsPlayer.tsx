@@ -17,16 +17,21 @@ export function KidsPlayer({
   book,
   sentences,
   initialNarrators,
+  resume,
 }: {
   childId: string;
   childName: string;
   book: { slug: string; title: string };
   sentences: string[];
   initialNarrators: NarratorView[];
+  /** This child's saved place and narrator in this book. */
+  resume: { sentence: number; voiceId: string | null };
 }) {
   const [narrators, setNarrators] = useState(initialNarrators);
-  const [voiceId, setVoiceId] = useState<string | null>(initialNarrators[0]?.voiceId ?? null);
-  const [sentence, setSentence] = useState(0);
+  const [voiceId, setVoiceId] = useState<string | null>(
+    initialNarrators.find((n) => n.voiceId === resume.voiceId)?.voiceId ?? initialNarrators[0]?.voiceId ?? null,
+  );
+  const [sentence, setSentence] = useState(Math.min(resume.sentence, sentences.length - 1));
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [standIn, setStandIn] = useState(false);
@@ -36,11 +41,33 @@ export function KidsPlayer({
   const voiceRef = useRef(voiceId);
   voiceRef.current = voiceId;
 
+  const listening = useRef(false);
+
+  /** Ends this child's listening session so it stops counting against the family's limit. */
+  const endSession = useCallback(() => {
+    if (!listening.current) return;
+    listening.current = false;
+    void fetch(`/api/kids/${childId}/listening`, { method: "DELETE", keepalive: true });
+  }, [childId]);
+
   const stop = () => {
     audio.current?.pause();
     setPlaying(false);
     setLoading(false);
+    endSession();
   };
+
+  useEffect(() => endSession, [endSession]);
+
+  // Each child keeps their own place and narrator in every book.
+  useEffect(() => {
+    void fetch(`/api/kids/${childId}/progress`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ bookSlug: book.slug, sentence, voiceId }),
+      keepalive: true,
+    });
+  }, [childId, book.slug, sentence, voiceId]);
 
   /** Asks the server who this child may hear; drops a narrator that is no longer allowed. */
   const refresh = useCallback(async (): Promise<NarratorView[] | null> => {
@@ -50,14 +77,17 @@ export function KidsPlayer({
     setNarrators(list);
     const current = voiceRef.current;
     if (current && !list.some((n) => n.voiceId === current)) {
-      stop();
+      audio.current?.pause();
+      setPlaying(false);
+      setLoading(false);
+      endSession();
       setVoiceId(list[0]?.voiceId ?? null);
       setNotice(list.length ? "That storyteller isn't available right now. Pick another one." : null);
     } else if (!current && list[0]) {
       setVoiceId(list[0].voiceId);
     }
     return list;
-  }, [childId]);
+  }, [childId, endSession]);
 
   useEffect(() => {
     const id = window.setInterval(refresh, REFRESH_MS);
@@ -72,6 +102,17 @@ export function KidsPlayer({
   const play = async (at: number, voice: string) => {
     setNotice(null);
     setLoading(true);
+    // Counts against the family's concurrent stories; refreshed by each sentence request.
+    const session = await fetch(`/api/kids/${childId}/listening`, { method: "POST" });
+    if (!session.ok) {
+      const body = (await session.json().catch(() => null)) as { error?: { message?: string } } | null;
+      audio.current?.pause();
+      setPlaying(false);
+      setLoading(false);
+      setNotice(body?.error?.message ?? "Story time isn't available right now.");
+      return;
+    }
+    listening.current = true;
     const res = await fetch("/api/kids/narrations", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -108,6 +149,7 @@ export function KidsPlayer({
       void play(sentence + 1, voiceId);
     } else {
       setPlaying(false);
+      endSession();
     }
   };
 

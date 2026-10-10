@@ -18,14 +18,29 @@ test("a parent manages storytellers child by child", async ({ page }) => {
   await page.getByRole("link", { name: "Manage storytellers" }).first().click();
   await expect(page.getByRole("heading", { name: "Manage storytellers for Maya" })).toBeVisible();
 
-  const priya = page.getByTestId("storyteller-voice-priya");
-  await expect(priya).toContainText("Not available to this child");
-  await expect(priya).toContainText("Available to your family");
   const lou = page.getByTestId("storyteller-voice-lou");
   await expect(lou).toContainText("Waiting for permission");
   await expect(lou.getByRole("switch")).toBeDisabled();
 
-  await priya.getByRole("switch", { name: "Aunt Priya for Maya" }).click();
+  // Priya shared her voice, but sharing alone doesn't put her in one of the family's narrator slots.
+  const priya = page.getByTestId("storyteller-voice-priya");
+  await expect(priya).toContainText("Needs a narrator slot");
+  await expect(priya.getByRole("switch")).toBeDisabled();
+  await priya.getByRole("link", { name: "Manage narrator slots" }).click();
+
+  await expect(page.getByTestId("slots-used")).toHaveText("4 of 4 slots in use");
+  await expect(page.getByTestId("slot-voice-priya").getByRole("button", { name: "Add to a slot" })).toBeDisabled();
+  await page.getByRole("button", { name: "Add a slot", exact: true }).click();
+  await expect(page.getByTestId("slot-checkout")).toContainText("$2.99/month");
+  await page.getByRole("button", { name: "Confirm slot" }).click();
+  await expect(page.getByTestId("slots-used")).toHaveText("4 of 5 slots in use");
+  await page.getByTestId("slot-voice-priya").getByRole("button", { name: "Add to a slot" }).click();
+  await expect(page.getByTestId("slots-used")).toHaveText("5 of 5 slots in use");
+
+  await page.goto("/family/kids/maya/storytellers");
+  await expect(page.getByTestId("storyteller-voice-priya")).toContainText("Not available to this child");
+  await expect(page.getByTestId("storyteller-voice-priya")).toContainText("Available to your family");
+  await page.getByTestId("storyteller-voice-priya").getByRole("switch", { name: "Aunt Priya for Maya" }).click();
   await expect(page.getByTestId("storyteller-voice-priya")).toContainText("Approved for Maya");
 
   // Leo's choices are separate.
@@ -55,6 +70,16 @@ test("kids see only approved narrators and can switch without losing their place
   await expect(page.getByTestId("current-narrator")).toHaveText("Grandma June");
   await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/);
 
+  // Playing starts this child's listening session and reads from the current sentence.
+  await page.getByRole("button", { name: "Play" }).click();
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await page.getByRole("button", { name: "Pause" }).click();
+
+  // Each child keeps their own place: coming back resumes at the same sentence and narrator.
+  await page.reload();
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/);
+  await expect(page.getByTestId("current-narrator")).toHaveText("Grandma June");
+
   // Kids can't reach parent controls.
   await page.goto("/family/kids/maya/storytellers");
   await expect(page.getByRole("heading", { name: "Ask a grown-up" })).toBeVisible();
@@ -62,6 +87,8 @@ test("kids see only approved narrators and can switch without losing their place
 
 test("an owner's revocation removes the voice from every child, and sharing again starts off", async ({ page }) => {
   await signIn(page, "adult:sara");
+  expect((await page.request.post("/api/family/narrators/slots")).status()).toBe(200);
+  expect((await page.request.post("/api/family/narrators", { data: { voiceId: "voice-priya", action: "activate" } })).status()).toBe(200);
   expect((await approve(page.request, "maya", "voice-priya", true)).status()).toBe(200);
   await signIn(page, "adult:priya");
   await page.goto("/family/my-voice");
@@ -109,6 +136,8 @@ test("direct API requests can't reach unapproved voices or change approvals", as
   expect((await narrate("voice-rose", "leo")).status()).toBe(403);
   expect((await page.request.get("/api/kids/leo/narrators")).status()).toBe(403);
   // An approved narrator works, and its audio is re-checked on fetch.
+  expect((await narrate("voice-june")).status()).toBe(409); // not listening yet
+  expect((await page.request.post("/api/kids/maya/listening")).status()).toBe(200);
   const ok = await narrate("voice-june");
   expect(ok.status()).toBe(200);
   const { url } = (await ok.json()) as { url: string };
@@ -117,4 +146,31 @@ test("direct API requests can't reach unapproved voices or change approvals", as
   expect((await approve(page.request, "maya", "voice-june", false)).status()).toBe(200);
   await signIn(page, "child:maya");
   expect((await page.request.get(url)).status()).toBe(403);
+});
+
+test("a fourth child can be added at no extra charge, up to six", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/kids");
+  await expect(page.getByTestId("profiles-count")).toHaveText("2 of 6 profiles");
+  for (const name of ["Ava", "Ben"]) {
+    await page.getByLabel("Add a child").fill(name);
+    await page.getByRole("button", { name: "Add profile" }).click();
+    await expect(page.getByRole("status")).toContainText(`${name}'s profile is ready`);
+  }
+  await expect(page.getByTestId("profiles-count")).toHaveText("4 of 6 profiles");
+  await expect(page.getByRole("status")).toContainText("no extra charge");
+  for (const name of ["Cleo", "Dev"]) expect((await page.request.post("/api/family/children", { data: { nickname: name } })).status()).toBe(200);
+  expect((await page.request.post("/api/family/children", { data: { nickname: "Eli" } })).status()).toBe(409);
+});
+
+test("only three children can listen at once", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  for (const name of ["Ava", "Ben"]) await page.request.post("/api/family/children", { data: { nickname: name } });
+  const kids = ((await (await page.request.get("/api/family/children")).json()) as { children: { id: string }[] }).children.map((c) => c.id);
+  expect(kids).toHaveLength(4);
+  for (const [i, id] of kids.entries()) {
+    await signIn(page, "adult:sara");
+    await signIn(page, `child:${id}`);
+    expect((await page.request.post(`/api/kids/${id}/listening`)).status(), id).toBe(i < 3 ? 200 : 429);
+  }
 });

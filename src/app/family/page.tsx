@@ -47,6 +47,7 @@ export default async function FamilyHome() {
   }
 
   const kids = guardianChildren(state, adult.id);
+  const isGuardian = state.members.some((m) => m.adultId === adult.id && m.role === "guardian" && m.removedAt === null);
   return (
     <FamilyShell>
       <div className="flex items-center gap-4">
@@ -67,9 +68,24 @@ export default async function FamilyHome() {
         </Link>
       </section>
 
-      {kids.length > 0 && (
+      {isGuardian && (
+        <section className="flex flex-col gap-3" aria-labelledby="slots-h">
+          <h2 id="slots-h" className="font-display text-2xl font-semibold">Your family&apos;s narrators</h2>
+          <p>Choose which shared voices fill your narrator slots.</p>
+          <Link href="/family/narrators" className={`${buttonSecondary} self-start`}>
+            Narrator slots
+          </Link>
+        </section>
+      )}
+
+      {isGuardian && (
         <section className="flex flex-col gap-3" aria-labelledby="kids-h">
-          <h2 id="kids-h" className="font-display text-2xl font-semibold">Kids profiles</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="kids-h" className="font-display text-2xl font-semibold">Kids profiles</h2>
+            <Link href="/family/kids" className="font-semibold underline underline-offset-4">
+              Add or remove kids
+            </Link>
+          </div>
           <ul className="grid gap-3 sm:grid-cols-2">
             {kids.map((c) => (
               <li key={c.id} className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">

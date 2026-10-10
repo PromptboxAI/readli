@@ -1,9 +1,12 @@
 /**
  * Family voice permission model (Amendment 002, Family Voice Permissions & Parent Approval).
  *
- * Two independent keys must both be valid before a child can hear a family voice:
- *   1. the voice owner shares it with the child's household (VoiceShare), and
- *   2. a guardian of that child approves it for that child's profile (ChildVoiceApproval).
+ * Three things must all be valid before a child can hear a family voice:
+ *   1. the voice owner shares it with the child's household (VoiceShare),
+ *   2. the household, on an active Readli Family plan, activates it into a narrator slot
+ *      (NarratorSlotAssignment; Signup & Pricing amendment), and
+ *   3. a guardian of that child approves it for that child's profile (ChildVoiceApproval).
+ * Owner consent and parent approval stay independent; payment and invitations grant nothing.
  * A family-tree connection, household membership or relationship label grants nothing.
  * Every record keeps its revocation timestamp instead of being deleted, so access is auditable.
  */
@@ -74,7 +77,7 @@ export interface ChildVoiceApproval {
   approvedAt: string;
   revokedAt: string | null;
   revokedBy: string | null;
-  revokeReason: "guardian_removed" | "owner_revoked" | "voice_deleted" | null;
+  revokeReason: "guardian_removed" | "owner_revoked" | "slot_released" | "voice_deleted" | null;
 }
 
 /** Generated narration audio, re-authorized on every fetch. */
@@ -93,14 +96,20 @@ export type AuditAction =
   | "child_voice_approved"
   | "child_voice_removed"
   | "narration_authorized"
-  | "narration_denied";
+  | "narration_denied"
+  | "narrator_activated"
+  | "narrator_released"
+  | "narrator_slot_added"
+  | "child_profile_created"
+  | "child_profile_removed"
+  | "entitlement_granted";
 
 export interface AuditEvent {
   id: string;
   at: string;
   actor: string;
   action: AuditAction;
-  voiceId: string;
+  voiceId: string | null;
   childId: string | null;
   householdId: string | null;
   detail: string | null;
@@ -116,6 +125,55 @@ export interface FamilyState {
   approvals: ChildVoiceApproval[];
   assets: NarrationAsset[];
   audit: AuditEvent[];
+  entitlements: HouseholdEntitlement[];
+  slots: NarratorSlotAssignment[];
+  sessions: ListeningSession[];
+  progress: ChildBookProgress[];
+  favorites: { childId: string; bookSlug: string }[];
 }
 
 export type Actor = { kind: "adult"; adultId: string } | { kind: "child"; childId: string };
+
+/** What a Readli Family household has paid for, or been given (gift and donated memberships use the same row). */
+export interface HouseholdEntitlement {
+  id: string;
+  householdId: string;
+  source: "subscription" | "gift" | "donated";
+  status: "active" | "canceled";
+  /** Narrator slots bought on top of the plan's included slots. */
+  extraNarratorSlots: number;
+  /** Future paid upgrade; stays 0 until approved (plan.extraStreamsUpgradeEnabled). */
+  extraStreams: number;
+  startsAt: string;
+  endsAt: string | null;
+}
+
+/** The household activating one shared voice into one of its narrator slots. */
+export interface NarratorSlotAssignment {
+  id: string;
+  householdId: string;
+  voiceId: string;
+  activatedBy: string;
+  activatedAt: string;
+  releasedAt: string | null;
+  releasedBy: string | null;
+}
+
+/** One child's listening session; counted against the household's concurrent streams. */
+export interface ListeningSession {
+  id: string;
+  householdId: string;
+  childId: string;
+  startedAt: string;
+  lastSeenAt: string;
+  endedAt: string | null;
+}
+
+/** Each child's own place, narrator and favourites. */
+export interface ChildBookProgress {
+  childId: string;
+  bookSlug: string;
+  sentence: number;
+  voiceId: string | null;
+  updatedAt: string;
+}
