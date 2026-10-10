@@ -36,6 +36,7 @@ tracked here and never assumed cleared in code.
 | ElevenLabs written terms for anonymous guest IVC, multi-account family listening, caching, deletion, posthumous use | PRD §9.1, Amendment C | Open |
 | ElevenLabs PVC owner verification and API access on our plan | PRD §9.2, Amendment A | Open |
 | Premium price and usage charges | Amendment A | Open (admin-configured) |
+| ElevenLabs voice-slot capacity (pricing page 2026-10-10: Creator 30, Pro 160, Scale 660, Business 2,200, Enterprise custom; PVC far fewer). One Readli account holds every user's voice, so guest voices must free their slot promptly and launch needs an Enterprise agreement | Kevin Q&A | Open |
 | Rights review of the six specific editions, passages and any illustrations | PRD §9.4 | Open. Gutenberg #16 and #67098 are named in the PRD; #14838, #14407, #55, #11 need edition confirmation |
 | COPPA / state biometric privacy counsel sign-off | PRD §9.3 | Open |
 | Guest retention window (proposed 24h) confirmed by counsel | PRD F-01 | Open |
