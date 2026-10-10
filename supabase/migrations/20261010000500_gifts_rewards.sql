@@ -1,8 +1,8 @@
--- Invite & Gift and Readli Rewards (Kevin, 2026-10-10).
+-- Invite Family, Invite & Gift and Readli Rewards (Kevin, 2026-10-10).
 -- Payments stay off: no gift plan can be activated without a final price, and
--- no gift can be created against an inactive plan. Family invitations live with
--- circles in the family migration (PRD F-04 circle_invitations); accepting one
--- never creates a voice grant or a subscription.
+-- no gift can be created against an inactive plan. Accepting a family
+-- invitation adds a household_members row with role 'member' and nothing
+-- else: no voice share, no child approval, no subscription.
 -- Givers never read gifts directly: server routes return only the giver-visible
 -- fields (src/lib/gifting/lifecycle.ts GIVER_VISIBLE_FIELDS), so a giver can't
 -- see the recipient's household, children or voices.
@@ -11,6 +11,53 @@ insert into public.feature_flags (key, enabled, description) values
   ('gift_payments', false, 'Invite & Gift checkout. Stays off until subscription prices are final'),
   ('readli_rewards', false, 'Readli Rewards tracker and referral rewards (adults only)')
 on conflict (key) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- Family invitations (PRD F-04)
+-- ---------------------------------------------------------------------------
+create table public.household_invitations (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households (id) on delete cascade,
+  inviter_id uuid not null references auth.users (id) on delete cascade,
+  token_hash text not null unique, -- sha256 of the single-use link token
+  invitee_name text not null check (char_length(invitee_name) <= 120),
+  relationship_label text, -- display only (Amendment 001 F-8)
+  recipient_email_hash text, -- null when sent as a shared link
+  expires_at timestamptz not null default now() + interval '14 days',
+  accepted_at timestamptz,
+  accepted_by uuid references auth.users (id) on delete set null,
+  revoked_at timestamptz,
+  created_at timestamptz not null default now(),
+  check (accepted_at is null or revoked_at is null)
+);
+
+create index household_invitations_household on public.household_invitations (household_id);
+
+-- Accept an invitation: one membership row, nothing more. Returns the household id.
+create or replace function public.accept_household_invitation(p_token_hash text, p_user uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_inv public.household_invitations;
+begin
+  select * into v_inv from public.household_invitations
+  where token_hash = p_token_hash
+  for update;
+  if not found or v_inv.accepted_at is not null or v_inv.revoked_at is not null or v_inv.expires_at <= now() then
+    raise exception 'invitation is not valid' using errcode = 'check_violation';
+  end if;
+  insert into public.household_members (household_id, user_id, role, relationship_label)
+  values (v_inv.household_id, p_user, 'member', v_inv.relationship_label)
+  on conflict (household_id, user_id) do update set removed_at = null, joined_at = now();
+  update public.household_invitations set accepted_at = now(), accepted_by = p_user where id = v_inv.id;
+  return v_inv.household_id;
+end;
+$$;
+
+revoke all on function public.accept_household_invitation(text, uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Gifts
@@ -134,6 +181,7 @@ create index referrals_referrer on public.referrals (referrer_id);
 -- ---------------------------------------------------------------------------
 -- Row level security
 -- ---------------------------------------------------------------------------
+alter table public.household_invitations enable row level security;
 alter table public.gift_plans enable row level security;
 alter table public.gifts enable row level security;
 alter table public.gift_notices enable row level security;
@@ -141,6 +189,10 @@ alter table public.reward_activities enable row level security;
 alter table public.referral_codes enable row level security;
 alter table public.referrals enable row level security;
 alter table public.reward_grants enable row level security;
+
+-- Active members see their household's invitations (never the token).
+create policy "members read household invitations" on public.household_invitations
+  for select using (public.is_active_member(auth.uid(), household_id));
 
 -- Plans (and whether they're on sale) are public.
 create policy "public gift plans" on public.gift_plans for select using (true);

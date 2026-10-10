@@ -40,7 +40,9 @@ function files(dir: string): string[] {
 
 describe("adult-only surfaces", () => {
   it("never puts social discovery, rewards or gifting inside Readli Kids", () => {
-    const kids = [...files(join(process.cwd(), "src/app/kids")), ...files(join(process.cwd(), "src/components/kids"))];
+    // Every Readli Kids surface: /kids, /family/kids, kids APIs and components.
+    const kids = files(join(process.cwd(), "src")).filter((f) => /[\\/]kids[\\/]/.test(f));
+    expect(kids.length).toBeGreaterThan(0);
     for (const f of kids) {
       expect(readFileSync(f, "utf8"), f).not.toMatch(/FollowReadliStory|SOCIAL_ACCOUNTS|components\/rewards|components\/gifting|lib\/rewards|lib\/gifting/);
     }
