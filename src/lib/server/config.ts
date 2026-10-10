@@ -38,7 +38,8 @@ export function serverConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig
     elevenLabsModel: env.ELEVENLABS_MODEL_ID ?? "eleven_multilingual_v2",
     cookieSecret,
     cronSecret: env.CRON_SECRET,
-    minRecordingMs: Number(env.GUEST_MIN_RECORDING_MS ?? 30_000),
+    // The recorder won't finish before 1:00; a second of slack covers timer drift between browser clocks.
+    minRecordingMs: Number(env.GUEST_MIN_RECORDING_MS ?? 59_000),
     maxRecordingMs: 150_000,
     maxRecordingBytes: 25 * 1024 * 1024,
     policyVersion: env.GUEST_POLICY_VERSION ?? "guest-demo-2026-10",

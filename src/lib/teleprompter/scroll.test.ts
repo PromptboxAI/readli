@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeIndex, clampWpm, remainingSeconds, scrollDelta } from "./scroll";
+import { activeIndex, clampWpm, remainingSeconds, scrollDelta, scrollToText, textHeight, textToScroll } from "./scroll";
 
 describe("scroll math", () => {
   it("advances one word per (60/wpm) seconds", () => {
@@ -32,5 +32,31 @@ describe("scroll math", () => {
     expect(activeIndex(tops, 0, 1000)).toBe(0);
     expect(activeIndex(tops, 80, 1000)).toBe(1);
     expect(activeIndex(tops, 10_000, 1000)).toBe(3);
+  });
+
+  describe("paragraph gaps", () => {
+    // Two 100px paragraphs with a 30px gap between them.
+    const blocks = [
+      { top: 0, height: 100 },
+      { top: 130, height: 100 },
+    ];
+
+    it("skips the gap: the end of one paragraph leads straight into the next", () => {
+      expect(textHeight(blocks)).toBe(200);
+      expect(textToScroll(blocks, 50)).toBe(50);
+      expect(textToScroll(blocks, 100)).toBe(100);
+      expect(textToScroll(blocks, 100.5)).toBe(130.5);
+      expect(textToScroll(blocks, 150)).toBe(180);
+    });
+
+    it("reads a manual scroll back into text position, treating the gap as the next paragraph", () => {
+      expect(scrollToText(blocks, 180)).toBe(150);
+      expect(scrollToText(blocks, 115)).toBe(100);
+      expect(scrollToText(blocks, 250)).toBe(220);
+    });
+
+    it("round-trips outside the gaps", () => {
+      for (const p of [0, 40, 99, 101, 199]) expect(scrollToText(blocks, textToScroll(blocks, p))).toBeCloseTo(p);
+    });
   });
 });

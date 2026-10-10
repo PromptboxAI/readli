@@ -51,7 +51,14 @@ describe("continuous take", () => {
   });
 
   it("can finish while paused", () => {
-    expect(run([...consented, { type: "start" }, { type: "pause" }, { type: "finish" }]).status).toBe("review");
+    expect(
+      run([...consented, { type: "start" }, { type: "tick", deltaMs: 60_000 }, { type: "pause" }, { type: "finish" }]).status,
+    ).toBe("review");
+  });
+
+  it("won't finish before the one-minute minimum", () => {
+    const s = run([...consented, { type: "start" }, { type: "tick", deltaMs: 59_000 }, { type: "finish" }]);
+    expect(s.status).toBe("recording");
   });
 
   it("start over resets the take but keeps consent", () => {

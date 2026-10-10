@@ -2,7 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { splitSentences, type VoiceScriptVersion } from "@/lib/content/voice-scripts";
-import { activeIndex, READING_LINE, remainingSeconds, scrollDelta } from "@/lib/teleprompter/scroll";
+import {
+  activeIndex,
+  READING_LINE,
+  remainingSeconds,
+  scrollDelta,
+  scrollToText,
+  textHeight,
+  textToScroll,
+  type TextBlock,
+} from "@/lib/teleprompter/scroll";
 
 /** How long auto-scroll waits after the reader touches, drags or wheels the text. */
 const HOLD_AFTER_INTERACTION_MS = 1500;
@@ -33,6 +42,7 @@ export function Teleprompter({ script, autoScroll, wpm, fontSizePx, resetKey, on
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const sentenceRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const paragraphRefs = useRef<(HTMLParagraphElement | null)[]>([]);
   const topsRef = useRef<number[]>([]);
   const holdUntilRef = useRef(0);
   const [active, setActive] = useState(0);
@@ -95,20 +105,24 @@ export function Teleprompter({ script, autoScroll, wpm, fontSizePx, resetKey, on
   useEffect(() => {
     if (!autoScroll) return;
     const el = containerRef.current;
-    const text = textRef.current;
-    if (!el || !text) return;
+    if (!el) return;
+    // Paragraph boxes, re-read each frame so font size and width changes apply mid-take.
+    const blocks = (): TextBlock[] =>
+      paragraphRefs.current.flatMap((p) => (p ? [{ top: p.offsetTop, height: p.offsetHeight }] : []));
     let frame = 0;
     let last = performance.now();
-    let position = el.scrollTop;
+    // Position along the text with paragraph gaps removed, so the gaps take no reading time.
+    let position = scrollToText(blocks(), el.scrollTop);
     const step = (now: number) => {
       const dt = now - last;
       last = now;
+      const b = blocks();
       if (now < holdUntilRef.current) {
-        position = el.scrollTop;
+        position = scrollToText(b, el.scrollTop);
       } else {
-        const pxPerWord = text.offsetHeight / Math.max(1, totalWords);
+        const pxPerWord = textHeight(b) / Math.max(1, totalWords);
         position += scrollDelta(wpm, pxPerWord, dt);
-        el.scrollTop = position;
+        el.scrollTop = textToScroll(b, position);
       }
       frame = requestAnimationFrame(step);
     };
@@ -141,7 +155,13 @@ export function Teleprompter({ script, autoScroll, wpm, fontSizePx, resetKey, on
         <div style={{ paddingTop: leadIn, paddingBottom: viewportHeight }}>
           <div ref={textRef} className="relative mx-auto max-w-3xl" style={{ fontSize: fontSizePx, lineHeight: 1.5 }}>
             {script.paragraphs.map((_, p) => (
-              <p key={p} className="mb-[0.9em] font-semibold">
+              <p
+                key={p}
+                ref={(node) => {
+                  paragraphRefs.current[p] = node;
+                }}
+                className="mb-[0.9em] font-semibold"
+              >
                 {sentences.map((s, i) =>
                   s.paragraph === p ? (
                     <span
