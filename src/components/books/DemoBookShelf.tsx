@@ -43,7 +43,7 @@ export function DemoBookCard({ book }: { book: DemoBook }) {
         Hear this passage
       </button>
       <p id={`${headingId}-status`} className="text-xs text-muted">
-        {playable ? "Plays in your recorded voice." : "Passage pending rights review."}{" "}
+        {playable ? "Plays in your recorded voice." : "Previews in your voice switch on soon."}{" "}
         {gutenbergUrl(book) && (
           <a href={gutenbergUrl(book) ?? undefined} className="underline" target="_blank" rel="noreferrer">
             Source

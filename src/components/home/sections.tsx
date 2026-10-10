@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { DemoBookShelf } from "@/components/books/DemoBookShelf";
 import { FamilyTree } from "@/components/home/FamilyTree";
+import { FamilyOfStorytellers, HearLovedOnes, MakeStorytimeYourOwn } from "@/components/home/StoryIllustrations";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { coverSrc, DEMO_BOOKS } from "@/lib/content/demo-books";
@@ -186,30 +187,46 @@ export function HowFamiliesWork() {
 }
 
 const WAYS = [
-  { title: "Mom and Dad", body: "Bedtime stories on the nights you're away, still in your voice." },
-  { title: "Grandparents", body: "Grandpa reads Winnie-the-Pooh from three time zones away." },
-  { title: "Read-along storytime", body: "Words light up on the page as the story is read." },
+  {
+    title: "Hear the people you love",
+    body: "From parents and grandparents to aunts, uncles, and family friends. Their voices make every story special.",
+    bg: "bg-sunshine",
+    Art: HearLovedOnes,
+  },
+  {
+    title: "Bring your family together",
+    body: "Invite loved ones to record their voices and create your own family of storytellers. Near or far, everyone's just a story away.",
+    bg: "bg-mint",
+    Art: FamilyOfStorytellers,
+  },
+  {
+    title: "Make storytime your own",
+    body: "Follow along as the words come to life. Switch storytellers anytime without losing your place.",
+    bg: "bg-sky",
+    Art: MakeStorytimeYourOwn,
+  },
 ];
 
 export function ThreeWaysToListen() {
   return (
     <section aria-labelledby="ways-heading" className="bg-ivory">
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-14 sm:px-6">
-        <h2 id="ways-heading" className="font-display text-3xl font-semibold sm:text-4xl">
-          Three ways to listen
+        <h2 id="ways-heading" className="max-w-3xl font-display text-3xl font-semibold sm:text-4xl">
+          Every family has a story. Every voice makes it special.
         </h2>
-        <div className="grid gap-6 md:grid-cols-3">
-          {WAYS.map((way, i) => (
-            <div key={way.title} className="flex flex-col gap-3">
+        <ul className="grid gap-6 md:grid-cols-3">
+          {WAYS.map(({ title, body, bg, Art }, i) => (
+            <li key={title} className="group flex flex-col gap-3">
               <div
-                aria-hidden="true"
-                className={`aspect-[4/3] rounded-[var(--radius-panel)] ${["bg-sunshine", "bg-mint", "bg-sky"][i]}`}
-              />
-              <h3 className="font-display text-xl font-semibold">{way.title}</h3>
-              <p>{way.body}</p>
-            </div>
+                className={`aspect-[4/3] overflow-hidden rounded-[var(--radius-panel)] border-[3px] border-ink shadow-[0_6px_0_#283548] transition-transform group-hover:-translate-y-1 motion-reduce:transform-none ${bg} ${["md:-rotate-1", "md:rotate-1", "md:-rotate-1"][i]}`}
+              >
+                <Art />
+              </div>
+              <h3 className="mt-2 font-display text-xl font-semibold">{title}</h3>
+              <p>{body}</p>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
     </section>
   );

@@ -17,6 +17,8 @@
 ## Backlog, in the designer's priority order
 
 ### 1. Complete the illustrations
+**Section rewritten** 2026-10-10: "Three ways to listen" is now "Every family has a story. Every voice makes it special." with Kevin's copy and three original inline-SVG scenes (child hearing Grandma, family tree of selfie avatars, book with highlighted text and a narrator picker). The hero scene still needs illustrator artwork.
+
 - Replace every abstract placeholder and empty colour block on the homepage with finished original artwork.
 - Hero: Readi in an imaginative storytelling environment.
 - "Three ways to listen": meaningful scenes (parent at bedtime, grandparent reading from afar, read-along).
