@@ -20,9 +20,33 @@ export interface PlanConfig {
   sessionStaleMs: number;
   /** New narration each household may generate per month. Provisional test setting (30), not a promise. */
   monthlyNarrationMinutes: number;
-  /** Price for purchased narration minutes; purchases stay off until approved. */
-  narrationMinutePriceCents: number;
+  /** New narration a free-trial household may generate during its whole trial (rewards program). */
+  trialNarrationMinutes: number;
+  /** One Readli credit pays for this many seconds of new narration. */
+  secondsPerCredit: number;
+  /** Quotes and reservations add this share on top of the model estimate (0.1 = 10%). */
+  quoteSafetyMargin: number;
+  /** Credit packs a parent can buy. Provisional: final pricing waits for commercial testing. */
+  creditPacks: CreditPack[];
+  /** Real checkout for credit packs. Off until payments and pack pricing are approved. */
   narrationPurchasesEnabled: boolean;
+  /** Purchased credits expire this many months after purchase (0 = never). */
+  purchasedCreditMonths: number;
+  /** Unused monthly credits stay spendable for this many extra months (0 = no rollover). */
+  subscriptionRolloverMonths: number;
+  /** Promotional credits granted to a household when Readli Family starts, and how long they last. */
+  welcomePromoCredits: number;
+  welcomePromoDays: number;
+  /** Books whose full narration is at most this long count as Quick Stories. */
+  quickStoryMaxMinutes: number;
+  /** Short stories suggested first to new households (onboarding), in order. */
+  recommendedShortStories: string[];
+  /** The Bedtime Favorites collection, in order. */
+  bedtimeFavorites: string[];
+  /** Whether parents may prepare one chapter at a time. */
+  chapterGenerationEnabled: boolean;
+  /** Preview only: buying a credit pack adds credits without taking payment. */
+  simulatedCheckout: boolean;
   /**
    * Whether one household's narration can be reused by other authorized households. Needs the
    * ElevenLabs OEM / stored-audio / children's-listening confirmations before launch; preview only.
@@ -32,6 +56,12 @@ export interface PlanConfig {
   narrationModelId: string;
   playbackUrlTtlSeconds: number;
   maxSegmentAttempts: number;
+}
+
+export interface CreditPack {
+  id: string;
+  credits: number;
+  priceCents: number;
 }
 
 export const DEFAULT_PLAN: PlanConfig = {
@@ -46,8 +76,24 @@ export const DEFAULT_PLAN: PlanConfig = {
   slotReleasesPer30Days: 4,
   sessionStaleMs: 90_000,
   monthlyNarrationMinutes: 30,
-  narrationMinutePriceCents: 25,
+  trialNarrationMinutes: 10,
+  secondsPerCredit: 1,
+  quoteSafetyMargin: 0.1,
+  creditPacks: [
+    { id: "pack-small", credits: 600, priceCents: 299 },
+    { id: "pack-medium", credits: 1800, priceCents: 799 },
+    { id: "pack-large", credits: 3600, priceCents: 1499 },
+  ],
   narrationPurchasesEnabled: false,
+  purchasedCreditMonths: 12,
+  subscriptionRolloverMonths: 0,
+  welcomePromoCredits: 300,
+  welcomePromoDays: 30,
+  quickStoryMaxMinutes: 3,
+  recommendedShortStories: ["the-tale-of-peter-rabbit", "the-lion-and-the-mouse", "the-three-little-pigs"],
+  bedtimeFavorites: ["the-princess-and-the-pea", "winnie-the-pooh", "the-tale-of-peter-rabbit"],
+  chapterGenerationEnabled: true,
+  simulatedCheckout: false,
   crossHouseholdReuse: true,
   narrationModelId: "eleven_multilingual_v2",
   playbackUrlTtlSeconds: 120,
@@ -69,12 +115,40 @@ export function planConfig(env: NodeJS.ProcessEnv = process.env): PlanConfig {
     maxChildProfiles: num("PLAN_MAX_CHILD_PROFILES", DEFAULT_PLAN.maxChildProfiles),
     includedConcurrentStreams: num("PLAN_INCLUDED_STREAMS", DEFAULT_PLAN.includedConcurrentStreams),
     monthlyNarrationMinutes: num("PLAN_NARRATION_MINUTES", DEFAULT_PLAN.monthlyNarrationMinutes),
-    narrationMinutePriceCents: num("PLAN_NARRATION_MINUTE_PRICE_CENTS", DEFAULT_PLAN.narrationMinutePriceCents),
+    // Same setting the rewards program reads (src/lib/rewards), so the two never disagree.
+    trialNarrationMinutes: num("REWARDS_TRIAL_NARRATION_MINUTES", DEFAULT_PLAN.trialNarrationMinutes),
+    secondsPerCredit: Math.max(1, num("PLAN_SECONDS_PER_CREDIT", DEFAULT_PLAN.secondsPerCredit)),
+    quoteSafetyMargin: Math.min(1, num("PLAN_QUOTE_SAFETY_MARGIN", DEFAULT_PLAN.quoteSafetyMargin)),
+    creditPacks: packs(env.PLAN_CREDIT_PACKS) ?? DEFAULT_PLAN.creditPacks,
     narrationPurchasesEnabled: env.PLAN_NARRATION_PURCHASES_ENABLED === "true",
+    purchasedCreditMonths: num("PLAN_PURCHASED_CREDIT_MONTHS", DEFAULT_PLAN.purchasedCreditMonths),
+    subscriptionRolloverMonths: num("PLAN_ROLLOVER_MONTHS", DEFAULT_PLAN.subscriptionRolloverMonths),
+    welcomePromoCredits: num("PLAN_WELCOME_PROMO_CREDITS", DEFAULT_PLAN.welcomePromoCredits),
+    welcomePromoDays: num("PLAN_WELCOME_PROMO_DAYS", DEFAULT_PLAN.welcomePromoDays),
+    quickStoryMaxMinutes: num("PLAN_QUICK_STORY_MAX_MINUTES", DEFAULT_PLAN.quickStoryMaxMinutes),
+    recommendedShortStories: list(env.PLAN_RECOMMENDED_SHORT_STORIES) ?? DEFAULT_PLAN.recommendedShortStories,
+    bedtimeFavorites: list(env.PLAN_BEDTIME_FAVORITES) ?? DEFAULT_PLAN.bedtimeFavorites,
+    chapterGenerationEnabled: env.PLAN_CHAPTER_GENERATION !== "false",
+    // The family preview (dev, CI, stub voices) simulates checkout; production needs real payments.
+    simulatedCheckout: env.NODE_ENV !== "production" || env.VOICE_PROVIDER === "stub" || env.FAMILY_DEMO === "1",
     // Off in production until the ElevenLabs reuse confirmations are in; on for the preview.
     crossHouseholdReuse: env.NARRATION_CROSS_HOUSEHOLD_REUSE ? env.NARRATION_CROSS_HOUSEHOLD_REUSE === "true" : env.NODE_ENV !== "production" || env.VOICE_PROVIDER === "stub",
     narrationModelId: env.ELEVENLABS_MODEL_ID ?? DEFAULT_PLAN.narrationModelId,
   };
+}
+
+function list(value: string | undefined): string[] | null {
+  const items = value?.split(",").map((x) => x.trim()).filter(Boolean);
+  return items?.length ? items : null;
+}
+
+/** PLAN_CREDIT_PACKS="600:299,1800:799" (credits:cents). */
+function packs(value: string | undefined): CreditPack[] | null {
+  const items = list(value)?.map((x, i) => {
+    const [credits, cents] = x.split(":").map(Number);
+    return { id: `pack-${i + 1}`, credits: credits!, priceCents: cents! };
+  });
+  return items?.every((p) => Number.isInteger(p.credits) && p.credits > 0 && Number.isInteger(p.priceCents) && p.priceCents >= 0) ? items : null;
 }
 
 export function formatPrice(cents: number): string {

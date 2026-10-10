@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Narration admin | Readli", robots: { index: false } };
 
 const n = (x: number) => x.toLocaleString("en-US");
-const mins = (s: number) => `${Math.round((s / 60) * 10) / 10} min`;
+const t2 = (x: number) => `${Math.round(x * 100)}%`;
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -94,16 +94,24 @@ export default async function NarrationAdminPage() {
 
       <section className="flex flex-col gap-3" aria-labelledby="credits-h">
         <h2 id="credits-h" className="font-display text-2xl font-semibold">Credit allocation this month</h2>
+        <p className="text-sm">In Readli credits (1 credit = {store.plan.secondsPerCredit} second{store.plan.secondsPerCredit === 1 ? "" : "s"} of new narration).</p>
         <ul className="grid gap-2 text-sm sm:grid-cols-2">
           {m.households.map((h) => (
             <li key={h.name} className="rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
               <p className="font-semibold">{h.name}</p>
               <p>
-                Allowance {mins(h.allowance)}, used {mins(h.used)}, held {mins(h.held)}, refunded {mins(h.refunded)}, bought {mins(h.purchasedLeft)} left, available {mins(h.available)}
+                Monthly {n(h.allowance)}, used {n(h.used)}, held {n(h.held)}, refunded {n(h.refunded)}. Left: {n(h.bySource.subscription)} monthly, {n(h.bySource.promotional)} promotional, {n(h.bySource.purchased)} purchased ({n(h.available)} in all)
               </p>
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4" aria-label="Launch funnel" data-testid="admin-funnel">
+        <Stat label="Short story first, then a longer book" value={`${t2(m.funnel.conversion)} (${m.funnel.wentLonger} of ${m.funnel.startedShort})`} />
+        <Stat label="Credit top-ups" value={`${m.funnel.topUps} (${n(m.funnel.topUpCredits)} credits)`} />
+        <Stat label="Promotional credits granted" value={n(m.funnel.promoCredits)} />
+        <Stat label="Narration reused" value={`${m.funnel.reusedLibraries} shared libraries, ${n(m.funnel.replays)} replays`} />
       </section>
 
       <section className="flex flex-col gap-3" aria-labelledby="plans-h">

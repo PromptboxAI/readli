@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { InviteActions } from "@/components/invites/InviteActions";
+import { FamilyRewardsCard } from "@/components/rewards/FamilyRewardsCard";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { FamilyOff, FamilyShell, PreviewNote } from "@/components/family/FamilyShell";
 import { ResetButton } from "@/components/family/ResetButton";
@@ -83,10 +85,15 @@ export default async function FamilyHome() {
       {isGuardian && (
         <section className="flex flex-col gap-3" aria-labelledby="books-h">
           <h2 id="books-h" className="font-display text-2xl font-semibold">Books and narration</h2>
-          <p>Prepare readings ahead of time so kids can switch storytellers instantly.</p>
-          <Link href="/family/books" className={`${buttonSecondary} self-start`}>
-            Prepare narration
-          </Link>
+          <p>Browse the library, prepare readings ahead of time, and manage your Readli credits.</p>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/family/books" className={buttonSecondary}>
+              Family library
+            </Link>
+            <Link href="/family/credits" className={buttonSecondary}>
+              Readli credits
+            </Link>
+          </div>
         </section>
       )}
 
@@ -94,9 +101,22 @@ export default async function FamilyHome() {
         <section className="flex flex-col gap-3" aria-labelledby="slots-h">
           <h2 id="slots-h" className="font-display text-2xl font-semibold">Your family&apos;s narrators</h2>
           <p>Choose which shared voices fill your narrator slots.</p>
-          <Link href="/family/narrators" className={`${buttonSecondary} self-start`}>
-            Narrator slots
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/family/narrators" className={buttonSecondary}>
+              Narrator slots
+            </Link>
+            <Link href="/billing/narrator-slots" className="self-center font-semibold underline underline-offset-4">
+              Add a narrator slot
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {isGuardian && (
+        <section className="flex flex-col gap-3" aria-labelledby="invite-h">
+          <h2 id="invite-h" className="font-display text-2xl font-semibold">Grow your family circle</h2>
+          <InviteActions headingLevel={3} />
+          <FamilyRewardsCard />
         </section>
       )}
 

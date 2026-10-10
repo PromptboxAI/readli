@@ -204,24 +204,78 @@ test("kids can only switch to a storyteller whose reading is prepared at their p
 test("a parent prepares narration ahead of time and is told when it's ready", async ({ page }) => {
   await signIn(page, "adult:sara");
   await page.goto("/family");
-  await page.getByRole("link", { name: "Prepare narration" }).click();
-  await page.getByRole("link", { name: /The Tale of Peter Rabbit/ }).click();
+  await page.getByRole("link", { name: "Family library", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Your family library" })).toBeVisible();
+  await page.getByTestId("collection-all").getByTestId("book-the-tale-of-peter-rabbit").click();
   await expect(page.getByRole("heading", { name: "The Tale of Peter Rabbit" })).toBeVisible();
 
   const june = page.getByTestId("prepare-voice-june");
-  await expect(june.getByTestId("readiness")).toHaveText("Partially ready");
-  await expect(page.getByTestId("prepare-voice-rose").getByTestId("readiness")).toHaveText("Not prepared");
-  await expect(page.getByTestId("prepare-voice-sara").getByTestId("readiness")).toHaveText("Ready");
+  await expect(june.getByTestId("availability")).toHaveText("Partially ready");
+  await expect(page.getByTestId("prepare-voice-rose").getByTestId("availability")).toHaveText("Available to generate");
+  await expect(page.getByTestId("prepare-voice-sara").getByTestId("availability")).toHaveText("Ready");
   // Aunt Priya shared her voice but isn't in a narrator slot.
-  await expect(page.getByTestId("prepare-voice-priya")).toContainText("Add to a narrator slot to prepare");
+  await expect(page.getByTestId("prepare-voice-priya").getByTestId("availability")).toHaveText("Unavailable");
+  await expect(page.getByTestId("prepare-voice-priya")).toContainText("narrator slot");
 
   await june.getByRole("button", { name: /Prepare the rest/ }).click();
   const confirm = june.getByTestId("confirm-generation");
   await expect(confirm).toContainText("already prepared are free");
+  await expect(confirm).toContainText("Your balance");
   await confirm.getByRole("button", { name: "Prepare now" }).click();
-  await expect(june.getByTestId("readiness")).toHaveText("Ready", { timeout: 15_000 });
-  await expect(page.getByTestId("credits")).toContainText("of new narration left");
+  await expect(june.getByTestId("availability")).toHaveText("Ready", { timeout: 15_000 });
 
   await page.goto("/family");
   await expect(page.getByTestId("notifications")).toContainText("Grandma June's reading of The Tale of Peter Rabbit is ready.");
+});
+
+test("the library leads with short stories and keeps longer books visible", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/books");
+  for (const id of ["quick", "bedtime", "longer", "fits", "prepared"]) await expect(page.getByTestId(`collection-${id}`)).toBeVisible();
+  await expect(page.getByTestId("collection-longer").getByTestId("book-aesops-fables-retold")).toBeVisible();
+  await expect(page.getByTestId("collection-fits").getByTestId("book-aesops-fables-retold")).toHaveCount(0);
+  await expect(page.getByTestId("collection-all").getByTestId("book-aesops-fables-retold")).toContainText("More credits needed");
+  await expect(page.getByTestId("collection-prepared").getByTestId("book-the-lion-and-the-mouse")).toBeVisible();
+});
+
+test("short on credits: prepare a chapter, or buy credits and come straight back to confirm", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/books/aesops-fables-retold");
+  const june = page.getByTestId("prepare-voice-june");
+  await expect(june.getByTestId("availability")).toHaveText("More credits needed");
+  await expect(june.getByRole("button", { name: /Prepare the whole book/ })).toBeDisabled();
+  await expect(june.getByTestId("credits-needed")).toContainText("more credits for the whole book");
+  await expect(page.getByTestId("shorter-books")).toBeVisible();
+
+  // One chapter fits the balance.
+  await june.getByTestId("chapter-1").getByRole("button", { name: /Prepare/ }).click();
+  await expect(june.getByTestId("confirm-generation")).toContainText("Chapter 1, The Tortoise and the Hare");
+  await june.getByTestId("confirm-generation").getByRole("button", { name: "Prepare now" }).click();
+  await expect(june.getByTestId("availability")).toHaveText("Partially ready", { timeout: 15_000 });
+  await expect(june.getByTestId("chapter-1")).toContainText("Ready");
+
+  // Buying credits returns to this book and narrator with the confirmation already open.
+  await june.getByTestId("get-credits").click();
+  await expect(page.getByRole("heading", { name: "Readli credits" })).toBeVisible();
+  await expect(page.getByTestId("need")).toContainText("more credits");
+  await page.getByRole("button", { name: "Buy 1,800" }).click();
+  await expect(page).toHaveURL(/\/family\/books\/aesops-fables-retold\?voice=voice-june&scope=book/);
+  const confirm = page.getByTestId("prepare-voice-june").getByTestId("confirm-generation");
+  await expect(confirm).toBeVisible();
+  await expect(confirm).toContainText("The whole book");
+  await confirm.getByRole("button", { name: "Prepare now" }).click();
+  await expect(page.getByTestId("prepare-voice-june").getByTestId("availability")).toHaveText("Ready", { timeout: 20_000 });
+
+  await page.goto("/family/credits");
+  await expect(page.getByTestId("credit-history")).toContainText("Aesop's Fables read by Grandma June");
+  await expect(page.getByTestId("credit-history")).toContainText("Credit pack (1800)");
+});
+
+test("kids can't buy credits or start narration", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await signIn(page, "child:maya");
+  expect((await page.request.post("/api/family/narration-credits", { data: { packId: "pack-small" } })).status()).toBe(403);
+  expect((await page.request.post("/api/family/books/aesops-fables-retold/narration", { data: { voiceId: "voice-june", scope: "chapter", chapter: 2, confirm: true } })).status()).toBe(403);
+  await page.goto("/kids");
+  await expect(page.getByRole("link", { name: /Aesop's Fables/ })).toContainText("Ask a grown-up to prepare it");
 });

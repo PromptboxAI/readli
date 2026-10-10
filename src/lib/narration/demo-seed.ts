@@ -2,6 +2,7 @@ import type { FamilyState } from "@/lib/family/model";
 import type { PlanConfig } from "@/lib/family/plan";
 import { toneWav } from "@/lib/voice/stub";
 import { modelCost } from "./costs";
+import { allowanceCredits, periodOf } from "./credits";
 import { libraryFor } from "./narration";
 import type { MemoryNarrationStorage } from "./storage";
 import { bookText } from "./text";
@@ -13,13 +14,40 @@ import { DEMO_BOOKS } from "@/lib/content/demo-books";
  * of Peter Rabbit. Nana Rose and Aunt Priya have nothing prepared yet. Audio is the stand-in tone.
  */
 const SEED: [voiceId: string, slug: string, sentences: number | "all"][] = [
-  ...DEMO_BOOKS.map((b) => ["voice-sara", b.slug, "all"] as [string, string, "all"]),
+  ...DEMO_BOOKS.filter((b) => b.passageText).map((b) => ["voice-sara", b.slug, "all"] as [string, string, "all"]),
   ["voice-ben", "the-tale-of-peter-rabbit", "all"],
   ["voice-june", "the-lion-and-the-mouse", "all"],
   ["voice-june", "the-tale-of-peter-rabbit", 2],
 ];
 
-export async function seedDemoNarrations(state: FamilyState, storage: MemoryNarrationStorage, plan: PlanConfig, householdId: string) {
+/**
+ * The preview family has spent most of this month's credits and part of its welcome credits, so
+ * every availability state shows: short books are Available to generate, the longer fables need
+ * more credits (or a chapter at a time).
+ */
+function seedDemoCredits(state: FamilyState, plan: PlanConfig, householdId: string, at: Date) {
+  const iso = at.toISOString();
+  const month = `subscription:${periodOf(iso)}`;
+  const promo = "demo-welcome";
+  state.creditLots.push({
+    id: promo,
+    householdId,
+    source: "promotional",
+    credits: plan.welcomePromoCredits,
+    grantedAt: new Date(at.getTime() - 7 * 86_400_000).toISOString(),
+    expiresAt: new Date(at.getTime() + 23 * 86_400_000).toISOString(),
+    note: "Welcome credits for your first stories",
+  });
+  const spend = (lotId: string, credits: number) => {
+    if (credits <= 0) return;
+    for (const kind of ["reserve", "commit"] as const) state.ledger.push({ id: `demo-${lotId}-${kind}`, householdId, lotId, kind, credits, jobId: null, sentenceId: null, at: iso });
+  };
+  spend(month, allowanceCredits(plan) - 100);
+  spend(promo, plan.welcomePromoCredits - 120);
+}
+
+export async function seedDemoNarrations(state: FamilyState, storage: MemoryNarrationStorage, plan: PlanConfig, householdId: string, now = new Date()) {
+  seedDemoCredits(state, plan, householdId, now);
   const at = "2026-10-03T12:00:00.000Z";
   const tone = toneWav(1);
   for (const [voiceId, slug, count] of SEED) {

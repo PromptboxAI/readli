@@ -154,6 +154,13 @@ export function KidsPlayer({
   };
 
   const onEnded = () => {
+    // Only continue into audio that is already prepared; never promise more than exists.
+    if (sentence + 1 < sentences.length && voiceId && !readyAt(voiceId, sentence + 1)) {
+      setSentence(sentence + 1);
+      halt();
+      setNotice(`${nameOf(voiceId)}'s reading stops here for now. Pick another storyteller, or ask a grown-up to prepare more.`);
+      return;
+    }
     if (sentence + 1 < sentences.length && voiceId) {
       setSentence(sentence + 1);
       void play(sentence + 1, voiceId);

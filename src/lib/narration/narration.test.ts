@@ -18,7 +18,6 @@ import { ELEVENLABS_PLANS, modelCost, usdPerMinute } from "./costs";
 import {
   authorizePlayback,
   cancelGeneration,
-  creditBalance,
   deleteVoiceNarrations,
   kidsReadiness,
   libraryFor,
@@ -27,6 +26,7 @@ import {
   requestGeneration,
   runJob,
 } from "./narration";
+import { creditBalance } from "./credits";
 import { bookText } from "./text";
 
 /** Voice Narration Libraries, Pre-Generation & Instant Narrator Switching amendment: required tests. */
@@ -104,7 +104,7 @@ async function rejects(p: Promise<unknown>, status: number, code?: string) {
 
 const library = (state: FamilyState, home = H, voiceId = "voice-june", plan = DEFAULT_PLAN) => libraryFor(state, plan, voiceId, text, home);
 const charged = (state: FamilyState, home: string) => {
-  const sum = (kind: string) => state.ledger.filter((e) => e.householdId === home && e.kind === kind).reduce((n, e) => n + e.seconds, 0);
+  const sum = (kind: string) => state.ledger.filter((e) => e.householdId === home && e.kind === kind).reduce((n, e) => n + e.credits, 0);
   return sum("reserve") - sum("refund");
 };
 
@@ -254,14 +254,14 @@ describe("narration libraries (required tests)", () => {
     expect(new Set(commits.map((e) => e.sentenceId)).size).toBe(commits.length);
     expect(creditBalance(state, DEFAULT_PLAN, H, new Date(tick).toISOString()).available).toBe(after.available);
     // Committed never exceeds what was reserved.
-    expect(commits.reduce((n, e) => n + e.seconds, 0)).toBeLessThanOrEqual(state.ledger.filter((e) => e.kind === "reserve").reduce((n, e) => n + e.seconds, 0));
+    expect(commits.reduce((n, e) => n + e.credits, 0)).toBeLessThanOrEqual(state.ledger.filter((e) => e.kind === "reserve").reduce((n, e) => n + e.credits, 0));
   });
 
   it("canceling refunds what wasn't generated, and a household can't overspend its allowance", async () => {
     const { state, store } = family();
     const { job } = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: BOOK, scope: "book" }, clock);
     const held = creditBalance(state, DEFAULT_PLAN, H, new Date(tick).toISOString());
-    expect(held.heldSeconds).toBeGreaterThan(0);
+    expect(held.held).toBeGreaterThan(0);
     await cancelGeneration(store, mom, job!.id, clock);
     const back = creditBalance(state, DEFAULT_PLAN, H, new Date(tick).toISOString());
     expect(back.available).toBe(DEFAULT_PLAN.monthlyNarrationMinutes * 60);

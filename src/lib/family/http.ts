@@ -22,7 +22,7 @@ export async function withFamily(
   try {
     return await run({ store, actor: session.actor, sandbox: session.sandbox });
   } catch (err) {
-    if (err instanceof PermissionError) return fail(err.status, err.code, err.userMessage);
+    if (err instanceof PermissionError) return fail(err.status, err.code, err.userMessage, err.details);
     throw err;
   }
 }

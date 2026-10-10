@@ -218,6 +218,13 @@ Phases 6 and 7 are independent and can swap or run in parallel; phase 6 is small
 - Admin: `/admin/narration` (totals, readiness, failed jobs, characters, credits and cost, storage, served-from-storage rate, work avoided, unused audio, plan comparison).
 - Production worker: replace the `after()` call with Inngest; real accounts swap `MemoryFamilyStore` for a Supabase store calling the SQL functions above.
 
+### Book discovery and generation credits (built 2026-10-10)
+
+- Catalog with chapters: `src/lib/library/catalog.ts`; collections and per-narrator availability: `src/lib/library/discovery.ts`.
+- Credit lots and ledger: `src/lib/narration/credits.ts`; migration `20261010000800_generation_credits.sql` (`narration_lots()`, `claim_narration_segments()` with per-lot draws, `commit_narration_segment()`, welcome-credit trigger).
+- Pages: `/family/books` (library), `/family/books/[slug]` (availability, chapters, confirmation, resume after purchase), `/family/credits` (balances, renewal, expiry, packs, history). Admin settings on `/admin/plans`; funnel on `/admin/narration`.
+- Real checkout replaces the preview's simulated purchase once payments are approved.
+
 ## Phase 8 — Launch and evidence
 
 **Unchanged from PRD Phase 4:** analytics dashboard, privacy review, accessibility/performance QA, referrals, 50-family beta, buyer demo package. Adds the amendment's recorder and Premium events to the dashboards.
