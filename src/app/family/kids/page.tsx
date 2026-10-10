@@ -12,7 +12,7 @@ export default async function ChildProfilesPage() {
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   if (page.session?.actor.kind !== "adult") return <NeedsGrownUp text="Only a parent or guardian can manage kids profiles." />;
-  const store = familyStore(page.session.sandbox)!;
+  const store = (await familyStore(page.session.sandbox))!;
   const householdId = await guardianHousehold(store, page.session.actor);
   if (!householdId) return <NeedsGrownUp text="Only a parent or guardian can manage kids profiles." />;
   return (

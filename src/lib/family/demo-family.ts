@@ -42,6 +42,7 @@ export function demoFamilyState(): FamilyState {
     voices: adults.map((a) => ({
       id: `voice-${a.id}`,
       ownerId: a.id,
+      version: 1,
       status: a.id === "sam" ? ("processing" as const) : ("ready" as const),
       createdAt: T0,
       deletedAt: null,
@@ -66,7 +67,6 @@ export function demoFamilyState(): FamilyState {
       revokedBy: null,
       revokeReason: null,
     })),
-    assets: [],
     audit: [],
     entitlements: [
       { id: "plan-demo", householdId: DEMO_HOUSEHOLD_ID, source: "subscription", status: "active", extraNarratorSlots: 2, extraStreams: 0, startsAt: T0, endsAt: null },
@@ -83,5 +83,12 @@ export function demoFamilyState(): FamilyState {
     sessions: [],
     progress: [],
     favorites: [],
+    libraries: [],
+    segments: [],
+    jobs: [],
+    ledger: [],
+    usage: [],
+    notifications: [],
+    plays: [],
   };
 }

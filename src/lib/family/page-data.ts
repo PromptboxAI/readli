@@ -8,7 +8,7 @@ export async function familyPage(): Promise<
 > {
   if (!familyPreviewEnabled()) return { enabled: false };
   const session = await currentSession();
-  const store = session ? familyStore(session.sandbox) : null;
+  const store = session ? await familyStore(session.sandbox) : null;
   return { enabled: true, session, state: store ? await store.read() : null };
 }
 

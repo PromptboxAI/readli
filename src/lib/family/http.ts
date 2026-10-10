@@ -1,7 +1,7 @@
 import { fail } from "@/lib/server/http";
 import type { Actor } from "./model";
 import { PermissionError, type FamilyStore } from "./service";
-import { currentSession, familyStore } from "./session";
+import { currentSession, familyPreviewEnabled, familyStore } from "./session";
 
 export const FAMILY_OFF = "Family accounts are coming soon.";
 
@@ -14,10 +14,10 @@ export async function withFamily(
 ): Promise<Response> {
   const session = await currentSession();
   if (!session) {
-    if (!familyStore("probe")) return fail(404, "family_off", FAMILY_OFF);
+    if (!familyPreviewEnabled()) return fail(404, "family_off", FAMILY_OFF);
     return fail(401, "sign_in_required", "Please sign in as a grown-up to continue.");
   }
-  const store = familyStore(session.sandbox);
+  const store = await familyStore(session.sandbox);
   if (!store) return fail(404, "family_off", FAMILY_OFF);
   try {
     return await run({ store, actor: session.actor, sandbox: session.sandbox });

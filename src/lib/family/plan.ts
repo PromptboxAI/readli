@@ -18,6 +18,20 @@ export interface PlanConfig {
   slotReleasesPer30Days: number;
   /** A listening session with no heartbeat for this long no longer counts as playing. */
   sessionStaleMs: number;
+  /** New narration each household may generate per month. Provisional test setting (30), not a promise. */
+  monthlyNarrationMinutes: number;
+  /** Price for purchased narration minutes; purchases stay off until approved. */
+  narrationMinutePriceCents: number;
+  narrationPurchasesEnabled: boolean;
+  /**
+   * Whether one household's narration can be reused by other authorized households. Needs the
+   * ElevenLabs OEM / stored-audio / children's-listening confirmations before launch; preview only.
+   */
+  crossHouseholdReuse: boolean;
+  /** ElevenLabs model and settings that define a narration library. */
+  narrationModelId: string;
+  playbackUrlTtlSeconds: number;
+  maxSegmentAttempts: number;
 }
 
 export const DEFAULT_PLAN: PlanConfig = {
@@ -31,6 +45,13 @@ export const DEFAULT_PLAN: PlanConfig = {
   extraStreamsUpgradeEnabled: false,
   slotReleasesPer30Days: 4,
   sessionStaleMs: 90_000,
+  monthlyNarrationMinutes: 30,
+  narrationMinutePriceCents: 25,
+  narrationPurchasesEnabled: false,
+  crossHouseholdReuse: true,
+  narrationModelId: "eleven_multilingual_v2",
+  playbackUrlTtlSeconds: 120,
+  maxSegmentAttempts: 3,
 };
 
 export function planConfig(env: NodeJS.ProcessEnv = process.env): PlanConfig {
@@ -47,6 +68,12 @@ export function planConfig(env: NodeJS.ProcessEnv = process.env): PlanConfig {
     freeContributorVoices: num("PLAN_FREE_CONTRIBUTOR_VOICES", DEFAULT_PLAN.freeContributorVoices),
     maxChildProfiles: num("PLAN_MAX_CHILD_PROFILES", DEFAULT_PLAN.maxChildProfiles),
     includedConcurrentStreams: num("PLAN_INCLUDED_STREAMS", DEFAULT_PLAN.includedConcurrentStreams),
+    monthlyNarrationMinutes: num("PLAN_NARRATION_MINUTES", DEFAULT_PLAN.monthlyNarrationMinutes),
+    narrationMinutePriceCents: num("PLAN_NARRATION_MINUTE_PRICE_CENTS", DEFAULT_PLAN.narrationMinutePriceCents),
+    narrationPurchasesEnabled: env.PLAN_NARRATION_PURCHASES_ENABLED === "true",
+    // Off in production until the ElevenLabs reuse confirmations are in; on for the preview.
+    crossHouseholdReuse: env.NARRATION_CROSS_HOUSEHOLD_REUSE ? env.NARRATION_CROSS_HOUSEHOLD_REUSE === "true" : env.NODE_ENV !== "production" || env.VOICE_PROVIDER === "stub",
+    narrationModelId: env.ELEVENLABS_MODEL_ID ?? DEFAULT_PLAN.narrationModelId,
   };
 }
 

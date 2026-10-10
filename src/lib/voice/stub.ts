@@ -23,7 +23,8 @@ export class StubVoiceProvider implements VoiceProvider {
   }
 }
 
-function toneWav(seconds: number): ArrayBuffer {
+/** The stand-in tone, also used to seed the preview family's prepared narrations. */
+export function toneWav(seconds: number): ArrayBuffer {
   const rate = 16_000;
   const samples = Math.floor(rate * seconds);
   const buf = new ArrayBuffer(44 + samples * 2);

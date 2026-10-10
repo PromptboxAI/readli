@@ -6,7 +6,6 @@ import { DEFAULT_PLAN, planConfig } from "./plan";
 import {
   activateNarrator,
   addNarratorSlot,
-  authorizeNarration,
   createChildProfile,
   grantEntitlement,
   MemoryFamilyStore,
@@ -19,6 +18,7 @@ import {
   startListening,
   stopListening,
 } from "./service";
+import { authorizePlayback } from "@/lib/narration/narration";
 
 /** Final Signup Architecture and Subscription Pricing amendment: required tests. */
 const mom: Actor = { kind: "adult", adultId: "sara" };
@@ -153,7 +153,7 @@ describe("signup and pricing amendment", () => {
     // Narration needs a live session for that child.
     await activateNarrator(store, mom, H, "voice-sara", clock);
     await setChildApprovals(store, mom, "leo", [{ voiceId: "voice-sara", approved: true }], clock);
-    await rejects(authorizeNarration(store, kid("leo"), { childId: "leo", voiceId: "voice-sara", bookSlug: "winnie-the-pooh", sentence: 0 }, clock), 409, "no_listening_session");
+    await rejects(authorizePlayback(store, kid("leo"), { childId: "leo", voiceId: "voice-sara", bookSlug: "winnie-the-pooh", sentence: 0 }, "k", clock), 409, "no_listening_session");
     // Sessions that stop sending heartbeats stop counting.
     tick += DEFAULT_PLAN.sessionStaleMs + 1000;
     await startListening(store, kid("leo"), "leo", clock);

@@ -210,6 +210,14 @@ Phases 6 and 7 are independent and can swap or run in parallel; phase 6 is small
 
 **Acceptance (from the designer's example):** a child starts Peter Rabbit in Mom's voice, taps Grandpa's avatar on page 3, and the story continues from the same sentence in Grandpa's voice, with the page unchanged; switching back to Mom later works the same way.
 
+### Narration libraries (built 2026-10-10)
+
+- Shared libraries, segments, jobs, credit ledger and provider usage: `src/lib/narration/`, migration `20261010000700_narration_libraries.sql` (`claim_narration_segments()` serializes claims per library; `settle_narration_job()` refunds once; `child_can_play_segment()` gates playback).
+- Parent Prepare Narration: `/family/books`, `/family/books/[slug]` (status per voice, estimate, confirm, progress, stop). Notifications on `/family`.
+- Kids player shows only approved narrators, marks "Ready here", switches at the same sentence, and explains when a part isn't prepared.
+- Admin: `/admin/narration` (totals, readiness, failed jobs, characters, credits and cost, storage, served-from-storage rate, work avoided, unused audio, plan comparison).
+- Production worker: replace the `after()` call with Inngest; real accounts swap `MemoryFamilyStore` for a Supabase store calling the SQL functions above.
+
 ## Phase 8 — Launch and evidence
 
 **Unchanged from PRD Phase 4:** analytics dashboard, privacy review, accessibility/performance QA, referrals, 50-family beta, buyer demo package. Adds the amendment's recorder and Premium events to the dashboards.

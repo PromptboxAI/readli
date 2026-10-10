@@ -1,26 +1,23 @@
 import { NextResponse } from "next/server";
-import { findDemoBook } from "@/lib/content/demo-books";
-import { sentencesOf } from "@/lib/content/sentences";
 import { jsonBody, withFamily } from "@/lib/family/http";
-import { authorizeNarration } from "@/lib/family/service";
+import { playbackKey } from "@/lib/family/session";
+import { authorizePlayback } from "@/lib/narration/narration";
 import { fail } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Asks for one sentence of a book in one narrator's voice. Both permission keys are checked here,
- * before anything is generated; the audio URL is checked again on every fetch.
+ * A short-lived URL for one prepared sentence in one narrator's voice. Every permission gate is
+ * checked first; nothing is generated here, so the child never waits on synthesis.
  */
 export async function POST(req: Request) {
   const { childId, voiceId, bookSlug, sentence } = await jsonBody(req);
-  const book = typeof bookSlug === "string" ? findDemoBook(bookSlug) : undefined;
-  const count = book?.passageText ? sentencesOf(book.passageText).length : 0;
-  if (typeof childId !== "string" || typeof voiceId !== "string" || !book || !Number.isInteger(sentence)) {
+  if (typeof childId !== "string" || typeof voiceId !== "string" || typeof bookSlug !== "string" || !Number.isInteger(sentence)) {
     return fail(400, "bad_request", "Choose a story and a storyteller.");
   }
-  if ((sentence as number) < 0 || (sentence as number) >= count) return fail(400, "bad_sentence", "That page doesn't exist.");
-  return withFamily(async ({ store, actor }) => {
-    const asset = await authorizeNarration(store, actor, { childId, voiceId, bookSlug: book.slug, sentence: sentence as number });
-    return NextResponse.json({ assetId: asset.id, url: `/api/kids/narrations/${asset.id}` });
-  });
+  return withFamily(async ({ store, actor }) =>
+    NextResponse.json(await authorizePlayback(store, actor, { childId, voiceId, bookSlug, sentence: sentence as number }, playbackKey()), {
+      headers: { "cache-control": "no-store" },
+    }),
+  );
 }

@@ -48,6 +48,8 @@ export default async function FamilyHome() {
 
   const kids = guardianChildren(state, adult.id);
   const isGuardian = state.members.some((m) => m.adultId === adult.id && m.role === "guardian" && m.removedAt === null);
+  const homes = new Set(state.members.filter((m) => m.adultId === adult.id && m.role === "guardian" && m.removedAt === null).map((m) => m.householdId));
+  const notes = state.notifications.filter((n) => homes.has(n.householdId)).slice(-3).reverse();
   return (
     <FamilyShell>
       <div className="flex items-center gap-4">
@@ -67,6 +69,26 @@ export default async function FamilyHome() {
           Who can use my voice
         </Link>
       </section>
+
+      {isGuardian && notes.length > 0 && (
+        <section className="flex flex-col gap-2 rounded-panel bg-mint/40 p-4" aria-label="Updates" data-testid="notifications">
+          {notes.map((n) => (
+            <Link key={n.id} href={n.href} className="font-semibold underline underline-offset-4">
+              {n.text}
+            </Link>
+          ))}
+        </section>
+      )}
+
+      {isGuardian && (
+        <section className="flex flex-col gap-3" aria-labelledby="books-h">
+          <h2 id="books-h" className="font-display text-2xl font-semibold">Books and narration</h2>
+          <p>Prepare readings ahead of time so kids can switch storytellers instantly.</p>
+          <Link href="/family/books" className={`${buttonSecondary} self-start`}>
+            Prepare narration
+          </Link>
+        </section>
+      )}
 
       {isGuardian && (
         <section className="flex flex-col gap-3" aria-labelledby="slots-h">

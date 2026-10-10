@@ -1,12 +1,11 @@
 import { randomUUID } from "node:crypto";
-import type { Actor, AuditAction, FamilyState, ListeningSession, NarrationAsset } from "./model";
+import type { Actor, AuditAction, FamilyState, ListeningSession } from "./model";
 import {
   activeChild,
   activeEntitlement,
   activeShare,
   activeSlot,
   approvedVoiceIds,
-  childVoiceAccess,
   isActiveMember,
   isGuardianOf,
   liveSlots,
@@ -16,6 +15,7 @@ import {
   type StorytellerStatus,
 } from "./permissions";
 import { DEFAULT_PLAN, type PlanConfig } from "./plan";
+import { MemoryNarrationStorage, type NarrationStorage } from "@/lib/narration/storage";
 
 /**
  * Server-side family voice service. Route handlers resolve the signed-in actor and call these;
@@ -37,11 +37,13 @@ const SIGN_IN = new PermissionError(401, "sign_in_required", "Please sign in as 
 const ADULTS_ONLY = new PermissionError(403, "adults_only", "Only a parent or guardian can change storytellers.");
 const NOT_GUARDIAN = new PermissionError(403, "not_guardian", "Only this child's parent or guardian can manage their storytellers.");
 const NOT_OWNER = new PermissionError(403, "not_owner", "Only the person whose voice it is can share it.");
-const NOT_AVAILABLE = new PermissionError(403, "voice_not_available", "That storyteller isn't available right now.");
+export const NOT_AVAILABLE = new PermissionError(403, "voice_not_available", "That storyteller isn't available right now.");
 
 export interface FamilyStore {
   /** Admin-configured plan settings for this store's households. */
   readonly plan: PlanConfig;
+  /** Private narration audio. */
+  readonly audio: NarrationStorage;
   read(): Promise<FamilyState>;
   write(mutate: (state: FamilyState) => void): Promise<void>;
 }
@@ -50,6 +52,7 @@ export class MemoryFamilyStore implements FamilyStore {
   constructor(
     private state: FamilyState,
     readonly plan: PlanConfig = DEFAULT_PLAN,
+    readonly audio: NarrationStorage = new MemoryNarrationStorage(),
   ) {}
   async read() {
     return this.state;
@@ -62,7 +65,7 @@ export class MemoryFamilyStore implements FamilyStore {
 type Clock = () => Date;
 const now: Clock = () => new Date();
 
-function audit(state: FamilyState, actor: string, action: AuditAction, at: string, rest: { voiceId?: string; childId?: string; householdId?: string; detail?: string }) {
+export function audit(state: FamilyState, actor: string, action: AuditAction, at: string, rest: { voiceId?: string; childId?: string; householdId?: string; detail?: string }) {
   state.audit.push({
     id: randomUUID(),
     at,
@@ -271,7 +274,7 @@ export interface NarratorView {
 }
 
 /** A child may read their own narrators; a guardian may read them for a child they manage. */
-function requireChildAccess(state: FamilyState, actor: Actor | null, childId: string) {
+export function requireChildAccess(state: FamilyState, actor: Actor | null, childId: string) {
   if (!actor) throw SIGN_IN;
   if (actor.kind === "child" ? actor.childId !== childId : !isGuardianOf(state, actor.adultId, childId)) {
     throw new PermissionError(403, "not_this_child", "This isn't your bookshelf.");
@@ -288,63 +291,15 @@ export async function narratorsFor(store: FamilyStore, actor: Actor | null, chil
   });
 }
 
-function actorLabel(actor: Actor): string {
+export function actorLabel(actor: Actor): string {
   return actor.kind === "adult" ? actor.adultId : `child:${actor.childId}`;
-}
-
-/** Checks both keys before any audio is generated; logs the decision either way. */
-export async function authorizeNarration(
-  store: FamilyStore,
-  actor: Actor | null,
-  input: { childId: string; voiceId: string; bookSlug: string; sentence: number },
-  clock: Clock = now,
-): Promise<NarrationAsset> {
-  const state = await store.read();
-  requireChildAccess(state, actor, input.childId);
-  const access = childVoiceAccess(state, input.childId, input.voiceId, store.plan);
-  const at = clock().toISOString();
-  if (access.allowed && !liveSession(state, input.childId, store.plan, at)) {
-    throw new PermissionError(409, "no_listening_session", "Press play to start listening.");
-  }
-  if (!access.allowed) {
-    await store.write((s) =>
-      audit(s, actorLabel(actor!), "narration_denied", at, { voiceId: input.voiceId, childId: input.childId, detail: access.reason }),
-    );
-    throw NOT_AVAILABLE;
-  }
-  const asset: NarrationAsset = { id: randomUUID(), createdAt: at, ...input };
-  await store.write((s) => {
-    s.assets.push(asset);
-    const session = liveSession(s, input.childId, store.plan, at);
-    if (session) session.lastSeenAt = at;
-    audit(s, actorLabel(actor!), "narration_authorized", at, { voiceId: input.voiceId, childId: input.childId, detail: input.bookSlug });
-  });
-  return asset;
-}
-
-/**
- * Re-checks both keys every time generated audio is fetched, so a revoked voice stops playing even
- * from audio made before the revocation. Unknown and forbidden assets look the same.
- */
-export async function authorizeAssetPlayback(store: FamilyStore, actor: Actor | null, assetId: string): Promise<NarrationAsset> {
-  const state = await store.read();
-  if (!actor) throw SIGN_IN;
-  const asset = state.assets.find((a) => a.id === assetId);
-  if (!asset) throw NOT_AVAILABLE;
-  try {
-    requireChildAccess(state, actor, asset.childId);
-  } catch {
-    throw NOT_AVAILABLE;
-  }
-  if (!childVoiceAccess(state, asset.childId, asset.voiceId, store.plan).allowed) throw NOT_AVAILABLE;
-  return asset;
 }
 
 // ---------------------------------------------------------------------------
 // Household plan: narrator slots, child profiles, concurrent listening
 // ---------------------------------------------------------------------------
 
-function requireHouseholdGuardian(state: FamilyState, actor: Actor | null, householdId: string): string {
+export function requireHouseholdGuardian(state: FamilyState, actor: Actor | null, householdId: string): string {
   const adultId = requireAdult(actor);
   const ok = state.members.some((m) => m.adultId === adultId && m.householdId === householdId && m.role === "guardian" && m.removedAt === null);
   if (!ok) throw new PermissionError(403, "not_guardian", "Only a parent or guardian in this family can do that.");
@@ -570,7 +525,7 @@ export async function removeChildProfile(store: FamilyStore, actor: Actor | null
 
 // Concurrent listening --------------------------------------------------------
 
-function liveSession(state: FamilyState, childId: string, plan: PlanConfig, at: string): ListeningSession | null {
+export function liveSession(state: FamilyState, childId: string, plan: PlanConfig, at: string): ListeningSession | null {
   return state.sessions.find((x) => x.childId === childId && x.endedAt === null && Date.parse(at) - Date.parse(x.lastSeenAt) < plan.sessionStaleMs) ?? null;
 }
 

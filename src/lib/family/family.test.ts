@@ -4,8 +4,6 @@ import type { Actor, FamilyState } from "./model";
 import { childVoiceAccess, storytellerStatus } from "./permissions";
 import {
   activateNarrator,
-  authorizeAssetPlayback,
-  authorizeNarration as authorize,
   MemoryFamilyStore,
   narratorsFor,
   PermissionError,
@@ -15,6 +13,9 @@ import {
   type FamilyStore,
 } from "./service";
 import { decodeSession, encodeSession } from "./session";
+import { authorizePlayback, readPlayback, requestGeneration, runJob } from "@/lib/narration/narration";
+import { bookText } from "@/lib/narration/text";
+import { StubVoiceProvider } from "@/lib/voice/stub";
 
 /**
  * Amendment 002 §8 acceptance tests. Aunt Priya plays the new storyteller: her voice starts
@@ -41,11 +42,25 @@ function freshFamily() {
 
 const activate = (store: FamilyStore, voiceId = VOICE) => activateNarrator(store, mom, DEMO_HOUSEHOLD_ID, voiceId, clock);
 
-/** Narration needs the child to be listening (counts against concurrent streams). */
-async function authorizeNarration(store: FamilyStore, actor: Actor, input: Parameters<typeof authorize>[2], c = clock) {
+const KEY = "test-playback-key";
+type NarrationInput = { childId: string; voiceId: string; bookSlug: string; sentence: number };
+
+/**
+ * Narration needs the child to be listening (counts against concurrent streams) and the sentence to
+ * be prepared ahead of time. Mom prepares it when she's allowed to; then the child asks to play.
+ */
+async function authorizeNarration(store: FamilyStore, actor: Actor, input: NarrationInput, c = clock) {
   if (actor.kind === "child" && actor.childId === input.childId) await startListening(store, actor, input.childId, c).catch(() => undefined);
-  return authorize(store, actor, input, c);
+  const sentenceId = bookText(input.bookSlug)!.sentences[input.sentence]!.id;
+  await requestGeneration(store, mom, DEMO_HOUSEHOLD_ID, { voiceId: input.voiceId, bookSlug: input.bookSlug, scope: "passage", sentenceIds: [sentenceId] }, c)
+    .then((r) => r.job && runJob(store, new StubVoiceProvider(), r.job.id, c))
+    .catch(() => undefined);
+  const { url } = await authorizePlayback(store, actor, input, KEY, c);
+  return { id: url.split("/").pop()!, voiceId: input.voiceId };
 }
+
+/** Fetching audio through a signed playback URL re-checks every permission. */
+const authorizeAssetPlayback = (store: FamilyStore, actor: Actor, token: string) => readPlayback(store, actor, token, KEY, tick);
 
 const names = async (store: MemoryFamilyStore, actor: Actor, childId: string) =>
   (await narratorsFor(store, actor, childId)).map((n) => n.voiceId);
@@ -133,7 +148,7 @@ describe("family voice permissions (Amendment 002 acceptance criteria)", () => {
 
     // Every change is in the audit log.
     expect(state.audit.map((a) => a.action)).toEqual(
-      expect.arrayContaining(["voice_shared", "child_voice_approved", "child_voice_removed", "voice_unshared", "narration_authorized", "narration_denied"]),
+      expect.arrayContaining(["voice_shared", "child_voice_approved", "child_voice_removed", "voice_unshared", "narration_requested", "narration_denied"]),
     );
   });
 
