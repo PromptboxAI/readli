@@ -148,6 +148,8 @@ Phases 6 and 7 are independent and can swap or run in parallel; phase 6 is small
 
 **Build:** as PRD Phase 2, with `/app/record` rendering `TeleprompterRecorder mode="family_short"`, `voice_profiles.clone_type = instant`, consent receipt per source voice and policy version, `voice_grants` checked server-side on every narration request, RLS negative tests for cross-circle and revoked access.
 
+*Sign-in (Kevin, 2026-10-10):* email plus **Continue with Google** on the sign-up and sign-in screens, via `supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } })` and an `/auth/callback` route that exchanges the code for a session. A guest who signs in with Google can still claim their demo voice. Google sign-in is for adults only; children never sign in.
+
 **Exit:** PRD §14 family tests and amendment F-8 pass.
 
 ---
