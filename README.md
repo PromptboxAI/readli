@@ -22,3 +22,6 @@ Copy `.env.example` to `.env.local` when Supabase and ElevenLabs are connected (
 never committed.
 
 Database migrations are in `supabase/migrations/`.
+
+Family preview: with `npm run dev`, open `/family`, pick a family member, and try Manage storytellers, Who can use my
+voice, and a child's Readli Kids bookshelf. Each browser gets its own copy of the example family.

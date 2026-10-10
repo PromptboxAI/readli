@@ -19,7 +19,7 @@ export type ExampleMember = {
 };
 
 export const STATUS_LABELS: Record<MemberStatus, string> = {
-  ready_shared: "Voice ready",
+  ready_shared: "Shared with family",
   invited: "Invitation pending",
   not_invited: "Invite to record",
   listener: "Listens to stories",

@@ -150,6 +150,8 @@ Phases 6 and 7 are independent and can swap or run in parallel; phase 6 is small
 
 *Sign-in (Kevin, 2026-10-10):* email plus **Continue with Google** on the sign-up and sign-in screens, via `supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } })` and an `/auth/callback` route that exchanges the code for a session. A guest who signs in with Google can still claim their demo voice. Google sign-in is for adults only; children never sign in.
 
+*Family voice permissions (Amendment 002, 2026-10-10, launch-critical):* built ahead of sign-in as a preview. Two-key model (owner share plus per-child guardian approval), Manage Storytellers at `/family/kids/[childId]/storytellers`, owner sharing at `/family/my-voice`, Readli Kids player at `/kids/listen/[slug]` showing only approved narrators with sentence-level switching, migration `20261010000300_family_voice_permissions.sql`, and the amendment's eight acceptance tests (`src/lib/family/family.test.ts`, `e2e/family.spec.ts`). Phase 4 swaps the preview session for Supabase Auth and adds a Supabase-backed `FamilyStore`; the checks stay as they are. Privacy and Terms wording is in a separate thread.
+
 **Exit:** PRD §14 family tests and amendment F-8 pass.
 
 ---
