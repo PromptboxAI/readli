@@ -7,12 +7,17 @@ import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage"
 import { ACCOUNT_TYPES } from "@/lib/accounts/accounts";
 import { DEFAULT_PLAN, formatPrice } from "@/lib/family/plan";
 import { familyCheckoutOpen } from "@/lib/accounts/checkout";
+import { rewardsConfig, rewardsVisible } from "@/lib/rewards/rewards";
 
 export const metadata: Metadata = { title: "Create a Family | Readli", robots: { index: false } };
+export const dynamic = "force-dynamic";
 
 export default function FamilySignupPage() {
   const open = familyCheckoutOpen();
   const price = formatPrice(DEFAULT_PLAN.familyMonthlyPriceCents);
+  const rewards = rewardsConfig();
+  // The trial shows on previews for review, and in production only once the program is public.
+  const showTrial = rewardsVisible(rewards);
   return (
     <AdultPage wide>
       <header className="flex flex-col gap-2">
@@ -43,6 +48,15 @@ export default function FamilySignupPage() {
               <span className="text-base text-muted">/month</span>
             </span>
           </div>
+          {showTrial && (
+            <div className="flex flex-col gap-1 rounded-2xl bg-mint/60 p-4" data-testid="family-trial">
+              <p className="font-display text-lg font-semibold">Try it free for {rewards.trialDays} days</p>
+              <p className="text-sm">
+                For new families. Your trial includes {rewards.trialNarrationMinutes} minutes of new narration in your storytellers&apos; voices.
+              </p>
+              {!rewards.programPublic && <p className="text-sm text-muted">Not switched on yet. This is how it will look.</p>}
+            </div>
+          )}
           <PlanList items={ACCOUNT_TYPES.family.includes} />
           <dl className="grid grid-cols-[1fr_auto] gap-y-1 border-t-2 border-ink/10 pt-3">
             <dt>Monthly total</dt>

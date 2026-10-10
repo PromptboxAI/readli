@@ -28,6 +28,8 @@ test("family checkout shows the plan and stays switched off", async ({ page }, i
   await expect(page.getByTestId("family-price")).toContainText("$14.99");
   await expect(page.getByText("Up to six child profiles").first()).toBeVisible();
   await expect(page.getByTestId("checkout-off")).toBeVisible();
+  await expect(page.getByTestId("family-trial")).toContainText("Try it free for 14 days");
+  await expect(page.getByTestId("family-trial")).toContainText("Not switched on yet");
   await expect(page.getByRole("button", { name: "Start Readli Family" })).toBeDisabled();
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/signup-family-${info.project.name}.png`, fullPage: true });
@@ -61,6 +63,11 @@ test("admin plan settings list every configurable limit", async ({ page }, info)
   const settings = page.getByTestId("plan-settings");
   for (const label of ["Readli Family monthly price", "Included active narrator slots", "Maximum child profiles", "Included concurrent child streams", "Gifted membership entitlements"]) {
     await expect(settings).toContainText(label);
+  }
+  await expect(settings).toContainText("$149.99");
+  const rewards = page.getByTestId("reward-settings");
+  for (const text of ["Off", "14 days", "10 minutes", "Paid months before a referral earns", "Referral free months per rolling 12 months", "Standard only"]) {
+    await expect(rewards).toContainText(text);
   }
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/admin-plans-${info.project.name}.png`, fullPage: true });

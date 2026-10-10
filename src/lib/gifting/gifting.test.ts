@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { normalizeGiftCode } from "./codes";
 import { generateGiftCode, hashGiftCode } from "./codes.server";
 import { addMonths, cancelGift, entitlementGrantFromGift, redeemGift, renewalNotices, statusAt, UNCLAIMED_DAYS, type Gift } from "./lifecycle";
-import { GIFT_PLANS, giftPaymentsOpen, giftPlan, priceLabel } from "./plans";
+import { CONVERTS_TO_PAID_ON_END, GIFT_PLANS, giftPaymentsOpen, giftPlan, priceLabel, RECIPIENT_PAYMENT_METHOD_REQUIRED } from "./plans";
 
 const NOW = new Date("2026-10-10T12:00:00Z");
 
@@ -34,8 +34,8 @@ describe("gift plans", () => {
     ]);
   });
 
-  it("prices gifts at the Readli Family monthly price and keeps payments off until switched on", () => {
-    expect(GIFT_PLANS.map((p) => priceLabel(p))).toEqual(["$14.99", "$44.97", "$179.88", "$14.99 a month"]);
+  it("prices gifts at $14.99, $44.97 and $149.99 for the year, and keeps payments off until switched on", () => {
+    expect(GIFT_PLANS.map((p) => priceLabel(p))).toEqual(["$14.99", "$44.97", "$149.99", "$14.99 a month"]);
     expect(giftPaymentsOpen(GIFT_PLANS, false)).toBe(false);
     expect(giftPaymentsOpen(GIFT_PLANS, true)).toBe(true);
     expect(giftPaymentsOpen(GIFT_PLANS.map((p) => ({ ...p, priceCents: null })), true)).toBe(false);
@@ -73,6 +73,14 @@ describe("redeeming", () => {
     expect(redeemGift(gift("prepaid_1m"), late)).toEqual({ ok: false, reason: "unclaimed" });
     expect(redeemGift(gift("prepaid_1m", { status: "cancelled" }), NOW)).toEqual({ ok: false, reason: "cancelled" });
     expect(redeemGift(gift("prepaid_1m", { status: "awaiting_payment" }), NOW)).toEqual({ ok: false, reason: "not_redeemable" });
+  });
+
+  it("needs no card from the recipient and never turns into a paid plan when it ends", () => {
+    expect(RECIPIENT_PAYMENT_METHOD_REQUIRED).toBe(false);
+    expect(CONVERTS_TO_PAID_ON_END).toBe(false);
+    const r = redeemGift(gift("prepaid_1m"), NOW);
+    if (!r.ok) throw new Error();
+    expect(statusAt(r.gift, r.gift.paidThrough!)).toBe("ended");
   });
 
   it("clamps month ends", () => {

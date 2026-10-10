@@ -32,6 +32,7 @@ test("inviting family adds a pending storyteller and shares no voice", async ({ 
 
 test("gift checkout stays closed until prices are final, and the recipient runs their own home", async ({ page }, info) => {
   await page.goto("/invite/gift");
+  await expect(page.getByText("$149.99")).toBeVisible();
   await page.getByText("Monthly sponsorship").click();
   await page.getByLabel("Their name").fill("Ben and family");
   await page.getByLabel("Their email").fill("ben@example.com");
@@ -96,6 +97,9 @@ test("rewards track activities, and following Readli is optional and unrewarded"
   for (const link of await links.all()) await expect(link).toHaveAttribute("target", "_blank");
   await expect(page.getByTestId("follow-optional")).toContainText("doesn't earn rewards");
   await expect(page.getByTestId("rewards-fine-print")).toContainText("never earns rewards");
+  await expect(page.getByTestId("rewards-fine-print")).toContainText("doesn't add narration minutes");
+  await expect(page.getByTestId("rewards-earned")).toContainText("up to 3 a year");
+  await expect(page.locator("#refer")).toContainText("second month");
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/rewards-${info.project.name}.png`, fullPage: true });
 });
