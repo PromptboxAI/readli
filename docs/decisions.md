@@ -11,6 +11,7 @@ tracked here and never assumed cleared in code.
 | 2026-10-10 | Guest previews run in three modes: live (Supabase + ElevenLabs + cookie secret), stub (VOICE_PROVIDER=stub, local dev and CI, stand-in tone clearly labelled) and off (anything else, or DEMO_AUDIO_ENABLED=false). Live also obeys the `demo_audio` feature flag | Claude; PRD kill switch |
 | 2026-10-10 | Two free previews per guest, one voice clone per take, at most three clones per guest; a failed synthesis refunds the preview | PRD F-01 "1 generation + 1 retry"; Claude |
 | 2026-10-10 | Generated preview audio is streamed back and not stored; only the take and the encrypted provider voice id are kept, both deleted with the guest | Claude; data minimisation |
+| 2026-10-10 | Adult sign-in offers Google alongside email (Supabase Google provider). Phase 4 adds "Continue with Google" via `supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } })` and an `/auth/callback` route that exchanges the code | Kevin, via the Supabase and Vercel setup thread |
 | 2026-10-10 | Covers are original on-brand Readli artwork (one PNG per book), never scans of historic editions | Kevin; rights hygiene |
 | 2026-10-10 | Premium Private Voice rollout: launch with family voices only; once the platform pays for itself (around 500 families), move to a custom/Enterprise ElevenLabs plan and offer Premium as a pilot. Premium stays built behind its flag until then | Kevin's decision |
 | 2026-10-10 | Hosting on Vercel + Supabase cloud | Confirmed by Kevin |
