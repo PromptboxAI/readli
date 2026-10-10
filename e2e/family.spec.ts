@@ -1,0 +1,227 @@
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+
+/** Amendment 002: two-key family voice permissions, end to end against the preview family. */
+
+async function signIn(page: Page, who: string) {
+  const res = await page.request.post("/api/family/session", { data: { as: who } });
+  expect(res.status(), who).toBe(200);
+}
+
+async function approve(request: APIRequestContext, child: string, voiceId: string, approved: boolean) {
+  return request.put(`/api/family/kids/${child}/storytellers`, { data: { changes: [{ voiceId, approved }] } });
+}
+
+test("a parent manages storytellers child by child", async ({ page }) => {
+  await page.goto("/family");
+  await page.getByRole("button", { name: "Sign in as Mom" }).click();
+  await expect(page.getByRole("heading", { name: "Mom" })).toBeVisible();
+  await page.getByRole("link", { name: "Manage storytellers" }).first().click();
+  await expect(page.getByRole("heading", { name: "Manage storytellers for Maya" })).toBeVisible();
+
+  const lou = page.getByTestId("storyteller-voice-lou");
+  await expect(lou).toContainText("Waiting for permission");
+  await expect(lou.getByRole("switch")).toBeDisabled();
+
+  // Priya shared her voice, but sharing alone doesn't put her in one of the family's narrator slots.
+  const priya = page.getByTestId("storyteller-voice-priya");
+  await expect(priya).toContainText("Needs a narrator slot");
+  await expect(priya.getByRole("switch")).toBeDisabled();
+  await priya.getByRole("link", { name: "Manage narrator slots" }).click();
+
+  await expect(page.getByTestId("slots-used")).toHaveText("4 of 4 slots in use");
+  await expect(page.getByTestId("slot-voice-priya").getByRole("button", { name: "Add to a slot" })).toBeDisabled();
+  await page.getByRole("button", { name: "Add a slot", exact: true }).click();
+  await expect(page.getByTestId("slot-checkout")).toContainText("$2.99/month");
+  await page.getByRole("button", { name: "Confirm slot" }).click();
+  await expect(page.getByTestId("slots-used")).toHaveText("4 of 5 slots in use");
+  await page.getByTestId("slot-voice-priya").getByRole("button", { name: "Add to a slot" }).click();
+  await expect(page.getByTestId("slots-used")).toHaveText("5 of 5 slots in use");
+
+  await page.goto("/family/kids/maya/storytellers");
+  await expect(page.getByTestId("storyteller-voice-priya")).toContainText("Not available to this child");
+  await expect(page.getByTestId("storyteller-voice-priya")).toContainText("Available to your family");
+  await page.getByTestId("storyteller-voice-priya").getByRole("switch", { name: "Aunt Priya for Maya" }).click();
+  await expect(page.getByTestId("storyteller-voice-priya")).toContainText("Approved for Maya");
+
+  // Leo's choices are separate.
+  await page.getByRole("link", { name: "Leo" }).click();
+  await expect(page.getByRole("heading", { name: "Manage storytellers for Leo" })).toBeVisible();
+  await expect(page.getByTestId("storyteller-voice-priya")).toContainText("Not available to this child");
+});
+
+test("kids see only approved narrators and can switch without losing their place", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family");
+  await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await expect(page.getByRole("heading", { name: /Hi Maya/ })).toBeVisible();
+  await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
+
+  await expect(page.getByTestId("current-narrator")).toHaveText("Mom");
+  await page.getByRole("button", { name: /Change storyteller/ }).click();
+  const picker = page.getByRole("group", { name: "Choose a storyteller" });
+  await expect(picker.getByRole("button")).toHaveCount(2);
+  await expect(picker).toContainText("Grandma June");
+  for (const hidden of ["Nana Rose", "Aunt Priya", "Grandpa Lou", "Uncle Sam"]) await expect(picker).not.toContainText(hidden);
+
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/);
+  await picker.getByRole("button", { name: /Grandma June/ }).click();
+  await expect(page.getByTestId("current-narrator")).toHaveText("Grandma June");
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/);
+
+  // Playing starts this child's listening session and reads from the current sentence.
+  await page.getByRole("button", { name: "Play" }).click();
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await page.getByRole("button", { name: "Pause" }).click();
+
+  // Each child keeps their own place: coming back resumes at the same sentence and narrator.
+  await page.reload();
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/);
+  await expect(page.getByTestId("current-narrator")).toHaveText("Grandma June");
+
+  // Kids can't reach parent controls.
+  await page.goto("/family/kids/maya/storytellers");
+  await expect(page.getByRole("heading", { name: "Ask a grown-up" })).toBeVisible();
+});
+
+test("an owner's revocation removes the voice from every child, and sharing again starts off", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  expect((await page.request.post("/api/family/narrators/slots")).status()).toBe(200);
+  expect((await page.request.post("/api/family/narrators", { data: { voiceId: "voice-priya", action: "activate" } })).status()).toBe(200);
+  expect((await approve(page.request, "maya", "voice-priya", true)).status()).toBe(200);
+  await signIn(page, "adult:priya");
+  await page.goto("/family/my-voice");
+  const toggle = page.getByRole("switch", { name: "Share my voice with Our family" });
+  await expect(toggle).toHaveAttribute("aria-checked", "true");
+  await toggle.click();
+  await expect(page.getByRole("status")).toContainText("removed from every child");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-checked", "true");
+
+  await signIn(page, "adult:sara");
+  await signIn(page, "child:maya");
+  const res = await page.request.get("/api/kids/maya/narrators");
+  const ids = ((await res.json()) as { narrators: { voiceId: string }[] }).narrators.map((n) => n.voiceId);
+  expect(ids).not.toContain("voice-priya");
+});
+
+test("a friendly empty state when no storytellers are approved", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  for (const v of ["voice-sara", "voice-ben", "voice-rose"]) expect((await approve(page.request, "leo", v, false)).status()).toBe(200);
+  await signIn(page, "child:leo");
+  await page.goto("/kids/listen/winnie-the-pooh");
+  await expect(page.getByTestId("no-storytellers")).toContainText("No storytellers yet");
+});
+
+test("direct API requests can't reach unapproved voices or change approvals", async ({ page, playwright }) => {
+  const anon = await playwright.request.newContext({ baseURL: "http://localhost:3100" });
+  expect((await anon.get("/api/kids/maya/narrators")).status()).toBe(401);
+  expect((await approve(anon, "maya", "voice-lou", true)).status()).toBe(401);
+  await anon.dispose();
+
+  await signIn(page, "adult:sara");
+  // A parent can't approve a voice its owner never shared.
+  expect((await approve(page.request, "maya", "voice-lou", true)).status()).toBe(409);
+  // A child can't open a profile alone, or change anything once inside one.
+  await signIn(page, "child:maya");
+  expect((await page.request.post("/api/family/session", { data: { as: "child:leo" } })).status()).toBe(403);
+  expect((await approve(page.request, "maya", "voice-priya", true)).status()).toBe(403);
+  expect((await page.request.put("/api/family/voices/voice-priya/share", { data: { householdId: "home-demo", shared: true } })).status()).toBe(403);
+  // Unapproved, unshared, and a sibling's narrators are all refused.
+  const narrate = (voiceId: string, childId = "maya") =>
+    page.request.post("/api/kids/narrations", { data: { childId, voiceId, bookSlug: "the-lion-and-the-mouse", sentence: 0 } });
+  expect((await narrate("voice-lou")).status()).toBe(403);
+  expect((await narrate("voice-rose")).status()).toBe(403);
+  expect((await narrate("voice-rose", "leo")).status()).toBe(403);
+  expect((await page.request.get("/api/kids/leo/narrators")).status()).toBe(403);
+  // An approved narrator works, and its audio is re-checked on fetch.
+  expect((await narrate("voice-june")).status()).toBe(409); // not listening yet
+  expect((await page.request.post("/api/kids/maya/listening")).status()).toBe(200);
+  const ok = await narrate("voice-june");
+  expect(ok.status()).toBe(200);
+  const { url } = (await ok.json()) as { url: string };
+  expect((await page.request.get(url)).status()).toBe(200);
+  await signIn(page, "adult:sara");
+  expect((await approve(page.request, "maya", "voice-june", false)).status()).toBe(200);
+  await signIn(page, "child:maya");
+  expect((await page.request.get(url)).status()).toBe(403);
+});
+
+test("a fourth child can be added at no extra charge, up to six", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/kids");
+  await expect(page.getByTestId("profiles-count")).toHaveText("2 of 6 profiles");
+  for (const name of ["Ava", "Ben"]) {
+    await page.getByLabel("Add a child").fill(name);
+    await page.getByRole("button", { name: "Add profile" }).click();
+    await expect(page.getByRole("status")).toContainText(`${name}'s profile is ready`);
+  }
+  await expect(page.getByTestId("profiles-count")).toHaveText("4 of 6 profiles");
+  await expect(page.getByRole("status")).toContainText("no extra charge");
+  for (const name of ["Cleo", "Dev"]) expect((await page.request.post("/api/family/children", { data: { nickname: name } })).status()).toBe(200);
+  expect((await page.request.post("/api/family/children", { data: { nickname: "Eli" } })).status()).toBe(409);
+});
+
+test("only three children can listen at once", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  for (const name of ["Ava", "Ben"]) await page.request.post("/api/family/children", { data: { nickname: name } });
+  const kids = ((await (await page.request.get("/api/family/children")).json()) as { children: { id: string }[] }).children.map((c) => c.id);
+  expect(kids).toHaveLength(4);
+  for (const [i, id] of kids.entries()) {
+    await signIn(page, "adult:sara");
+    await signIn(page, `child:${id}`);
+    expect((await page.request.post(`/api/kids/${id}/listening`)).status(), id).toBe(i < 3 ? 200 : 429);
+  }
+});
+
+test("kids can only switch to a storyteller whose reading is prepared at their place", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await signIn(page, "child:maya");
+  await page.goto("/kids/listen/the-tale-of-peter-rabbit");
+  await expect(page.getByTestId("current-narrator")).toHaveText("Mom");
+  await page.getByRole("button", { name: /Change storyteller/ }).click();
+  const picker = page.getByRole("group", { name: "Choose a storyteller" });
+  // Grandma June has only the first two sentences of this book prepared.
+  await expect(picker.getByRole("button", { name: /Grandma June/ })).toContainText("Ready here");
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/);
+  const june = picker.getByRole("button", { name: /Grandma June/ });
+  await expect(june).toContainText("Not ready yet");
+  await expect(june).toBeDisabled();
+  await expect(page.getByTestId("current-narrator")).toHaveText("Mom");
+  // Going back to a prepared sentence, the switch is instant and keeps the place.
+  await page.getByRole("button", { name: "Back" }).click();
+  await june.click();
+  await expect(page.getByTestId("current-narrator")).toHaveText("Grandma June");
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 2 of/);
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByTestId("not-prepared")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Play" })).toBeDisabled();
+});
+
+test("a parent prepares narration ahead of time and is told when it's ready", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family");
+  await page.getByRole("link", { name: "Prepare narration" }).click();
+  await page.getByRole("link", { name: /The Tale of Peter Rabbit/ }).click();
+  await expect(page.getByRole("heading", { name: "The Tale of Peter Rabbit" })).toBeVisible();
+
+  const june = page.getByTestId("prepare-voice-june");
+  await expect(june.getByTestId("readiness")).toHaveText("Partially ready");
+  await expect(page.getByTestId("prepare-voice-rose").getByTestId("readiness")).toHaveText("Not prepared");
+  await expect(page.getByTestId("prepare-voice-sara").getByTestId("readiness")).toHaveText("Ready");
+  // Aunt Priya shared her voice but isn't in a narrator slot.
+  await expect(page.getByTestId("prepare-voice-priya")).toContainText("Add to a narrator slot to prepare");
+
+  await june.getByRole("button", { name: /Prepare the rest/ }).click();
+  const confirm = june.getByTestId("confirm-generation");
+  await expect(confirm).toContainText("already prepared are free");
+  await confirm.getByRole("button", { name: "Prepare now" }).click();
+  await expect(june.getByTestId("readiness")).toHaveText("Ready", { timeout: 15_000 });
+  await expect(page.getByTestId("credits")).toContainText("of new narration left");
+
+  await page.goto("/family");
+  await expect(page.getByTestId("notifications")).toContainText("Grandma June's reading of The Tale of Peter Rabbit is ready.");
+});

@@ -1,0 +1,37 @@
+import { FamilyVoices } from "@/components/home/FamilyVoices";
+import { SiteHeader } from "@/components/home/SiteHeader";
+import {
+  FamilyCircles,
+  FinalCta,
+  Hero,
+  HowFamiliesWork,
+  KidsShelf,
+  MeetReadi,
+  SiteFooter,
+  ThreeWaysToListen,
+  TrustAndSafety,
+  TryYourVoice,
+} from "@/components/home/sections";
+
+/** Section order follows Design Brief §5; Meet Readi added after the demo at Kevin's request (2026-10-10).
+ *  Family voices privacy section follows the family circle, also at Kevin's request. */
+export default function HomePage() {
+  return (
+    <>
+      <SiteHeader />
+      <main>
+        <Hero />
+        <TryYourVoice />
+        <MeetReadi />
+        <HowFamiliesWork />
+        <ThreeWaysToListen />
+        <KidsShelf />
+        <FamilyCircles />
+        <FamilyVoices />
+        <TrustAndSafety />
+        <FinalCta />
+      </main>
+      <SiteFooter />
+    </>
+  );
+}
