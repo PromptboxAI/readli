@@ -7,7 +7,9 @@ test("a finished take becomes a voice and reads a story, within the free preview
   await page.getByRole("button", { name: "Continue to recording" }).click();
 
   await page.getByRole("button", { name: "Start recording" }).click();
-  await page.waitForTimeout(2500);
+  // A real minute of audio: the server checks the take's bytes against its length, so a fake clock won't do here.
+  test.setTimeout(150_000);
+  await expect(page.getByRole("button", { name: "Finish" })).toBeEnabled({ timeout: 70_000 });
   await page.getByRole("button", { name: "Finish" }).click();
   await page.getByRole("button", { name: "Choose a story" }).click();
 

@@ -3,7 +3,7 @@
 export const MIN_WPM = 80;
 export const MAX_WPM = 200;
 export const WPM_STEP = 10;
-export const DEFAULT_WPM = 130;
+export const DEFAULT_WPM = 140;
 
 export const FONT_SIZES = [22, 26, 32, 40, 48] as const;
 export const DEFAULT_FONT_INDEX = 2;
@@ -25,6 +25,44 @@ export function scrollDelta(wpm: number, pxPerWord: number, deltaMs: number): nu
   // Cap long frames (tab was hidden) so text never jumps ahead.
   const dt = Math.min(deltaMs, 100);
   return (wpm / 60_000) * pxPerWord * dt;
+}
+
+/** A paragraph's box within the script: offset from the top of the text and rendered height. */
+export interface TextBlock {
+  top: number;
+  height: number;
+}
+
+/** Total height of the text itself, leaving out the gaps between paragraphs. */
+export function textHeight(blocks: readonly TextBlock[]): number {
+  return blocks.reduce((n, b) => n + b.height, 0);
+}
+
+/**
+ * Maps a position measured along the text only (gaps removed) to a scroll offset.
+ * Auto-scroll advances in text pixels, so when one paragraph ends the reading
+ * line lands straight on the next one instead of crawling through the gap.
+ */
+export function textToScroll(blocks: readonly TextBlock[], position: number): number {
+  let before = 0;
+  for (const b of blocks) {
+    if (position <= before + b.height) return b.top + Math.max(0, position - before);
+    before += b.height;
+  }
+  const last = blocks[blocks.length - 1];
+  return last ? last.top + last.height + (position - before) : position;
+}
+
+/** Inverse of textToScroll. An offset inside a gap counts as the start of the next paragraph. */
+export function scrollToText(blocks: readonly TextBlock[], scrollTop: number): number {
+  let before = 0;
+  for (const b of blocks) {
+    if (scrollTop < b.top) return before;
+    if (scrollTop <= b.top + b.height) return before + (scrollTop - b.top);
+    before += b.height;
+  }
+  const last = blocks[blocks.length - 1];
+  return last ? before + Math.max(0, scrollTop - (last.top + last.height)) : scrollTop;
 }
 
 /** Remaining suggested reading time for words below the reading line. */

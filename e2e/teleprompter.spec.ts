@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function consent(page: Page) {
+  // Fake clock so tests can jump past the one-minute minimum; time still flows normally otherwise.
+  await page.clock.install();
   await page.goto("/try");
   const cont = page.getByRole("button", { name: "Continue to recording" });
   await expect(cont).toBeDisabled();
@@ -32,7 +34,10 @@ test("continuous take: no Next button, scrolls, pauses, resumes, finishes into s
 
   await page.getByRole("button", { name: "Resume" }).click();
   await expect(page.getByRole("status")).toHaveText(/Recording/);
-  await page.getByRole("button", { name: "Finish" }).click();
+  const finish = page.getByRole("button", { name: "Finish" });
+  await expect(finish).toBeDisabled();
+  await page.clock.fastForward(61_000);
+  await finish.click();
 
   await expect(page.getByTestId("review-panel")).toBeVisible();
   // A real take from the (fake) microphone is ready to play back.
@@ -49,7 +54,7 @@ test("speed and text size change without interrupting the take", async ({ page }
 
   await page.getByRole("button", { name: "Start recording" }).click();
   await page.getByRole("button", { name: "Increase scroll speed" }).click();
-  await expect(page.getByText("140 words/min")).toBeVisible();
+  await expect(page.getByText("150 words/min")).toBeVisible();
   const sizeGroup = page.getByRole("group", { name: "Text size" });
   const before = await sizeGroup.textContent();
   await page.getByRole("button", { name: "Increase text size" }).click();

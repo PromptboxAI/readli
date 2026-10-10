@@ -65,11 +65,18 @@ export function recorderReducer(state: RecorderState, action: RecorderAction): R
     case "tick":
       return state.status === "recording" ? { ...state, elapsedMs: state.elapsedMs + Math.max(0, action.deltaMs) } : state;
     case "finish":
-      return state.status === "recording" || state.status === "paused" ? { ...state, status: "review" } : state;
+      return (state.status === "recording" || state.status === "paused") && canFinish(state.elapsedMs)
+        ? { ...state, status: "review" }
+        : state;
     case "start_over":
       if (state.status === "consent") return state;
       return { ...state, status: "ready", elapsedMs: 0, pauseCount: 0, take: state.take + 1 };
   }
+}
+
+/** A take can't be finished before the one-minute minimum; shorter samples make poor clones. */
+export function canFinish(elapsedMs: number): boolean {
+  return elapsedMs >= TARGET_MIN_MS;
 }
 
 export type DurationGuidance = "too_short" | "in_range" | "long";

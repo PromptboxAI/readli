@@ -5,6 +5,7 @@ import Link from "next/link";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { splitSentences, type VoiceScriptVersion } from "@/lib/content/voice-scripts";
 import {
+  canFinish,
   durationGuidance,
   formatClock,
   initialRecorderState,
@@ -104,6 +105,7 @@ export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion })
   };
 
   const finishRecording = async () => {
+    if (!canFinish(state.elapsedMs)) return;
     const recorded = await mic.stop();
     mic.close(); // release the microphone as soon as the take is done
     if (recorded) {
@@ -227,9 +229,11 @@ export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion })
           {state.status !== "review" && (
           <p className="text-xs text-muted sm:text-sm" data-testid="duration-guidance">
             {state.status === "ready"
-              ? "Aim for 1 to 2 minutes of clear, natural reading. There's no rush and no cut-off."
+              ? "Read for at least 1 minute, ideally 1 to 2, in your normal reading voice. Finish unlocks at 1:00."
               : guidance === "too_short"
-                ? `Keep going: about ${progress.remainingSeconds}s of script left at this speed.`
+                ? progress.remainingSeconds > 0
+                  ? `Keep going: Finish unlocks at 1:00. About ${progress.remainingSeconds}s of script left at this speed.`
+                  : "Almost there. Keep reading until 1:00, from the top again if you need to."
                 : guidance === "in_range"
                   ? "Great length. Finish whenever you reach a natural stopping point."
                   : "That's plenty. Finish when you're ready."}
@@ -281,7 +285,12 @@ export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion })
               </button>
             )}
             {isLive && (
-              <button type="button" className={buttonPrimary} onClick={() => void finishRecording()}>
+              <button
+                type="button"
+                className={buttonPrimary}
+                disabled={!canFinish(state.elapsedMs)}
+                onClick={() => void finishRecording()}
+              >
                 Finish
               </button>
             )}
@@ -371,7 +380,7 @@ function ConsentStep({
         Before you record
       </h1>
       <p>
-        You&apos;ll read one short story script aloud for about 1 to 2 minutes. We use that recording only to make a
+        You&apos;ll read one short story script aloud for at least 1 minute, ideally 1 to 2. We use that recording only to make a
         short private preview in your voice. It is never public and is deleted automatically within 24 hours unless you
         choose to save it.
       </p>
