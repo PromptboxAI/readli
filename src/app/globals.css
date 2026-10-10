@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+/* Design Brief §2 starting tokens. Adjust here, not in components. */
+@theme {
+  --color-ivory: #fff9ed;
+  --color-surface: #fffef9;
+  --color-ink: #283548;
+  --color-navy: #283548;
+  --color-coral: #ff7967;
+  --color-coral-deep: #c9402f;
+  --color-sunshine: #ffce58;
+  --color-sky: #7bc7f3;
+  --color-mint: #9ce2bc;
+  --color-lavender: #cbb7f5;
+  --color-muted: #5b6676;
+
+  --font-display: var(--font-fredoka), ui-rounded, system-ui, sans-serif;
+  --font-sans: var(--font-nunito-sans), system-ui, sans-serif;
+
+  --radius-panel: 1.75rem;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+body {
+  background: var(--color-ivory);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-coral-deep);
+  outline-offset: 3px;
+}
+
+@keyframes readi-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes cloud-drift {
+  from {
+    transform: translateX(-4%);
+  }
+  to {
+    transform: translateX(4%);
+  }
+}
+
+.animate-bob {
+  animation: readi-bob 3.2s ease-in-out infinite;
+}
+
+.animate-drift {
+  animation: cloud-drift 14s ease-in-out infinite alternate;
+}
