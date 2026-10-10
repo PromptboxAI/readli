@@ -24,8 +24,14 @@ describe("demo books (Kevin's 2026-10-10 selection, supersedes Amendment 001 F-9
     for (const book of DEMO_BOOKS) expect(existsSync(join(process.cwd(), "public", coverSrc(book)))).toBe(true);
   });
 
-  it("plays nothing until rights and passage are approved", () => {
-    expect(DEMO_BOOKS.some(isPassagePlayable)).toBe(false);
+  it("gives every book a preview passage of about 30 to 45 seconds", () => {
+    for (const book of DEMO_BOOKS) {
+      expect(isPassagePlayable(book)).toBe(true);
+      // ~150 wpm narration: 30s = 75 words, 45s = 113 words.
+      const words = (book.passageText ?? "").split(/\s+/).length;
+      expect(words).toBeGreaterThanOrEqual(70);
+      expect(words).toBeLessThanOrEqual(125);
+    }
   });
 });
 

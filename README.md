@@ -10,7 +10,8 @@ the PRD, Design Brief, Amendment 001, the [build plan](docs/amendment-001-plan.m
 
 ```bash
 npm install
-npm run dev          # http://localhost:3000, recording preview at /try
+npm run dev          # http://localhost:3000, recording at /try
+VOICE_PROVIDER=stub npm run dev   # full preview flow without keys (stand-in tone, in-memory storage)
 npm run lint
 npm run typecheck
 npm test             # unit tests

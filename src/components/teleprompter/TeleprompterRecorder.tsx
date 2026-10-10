@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import Link from "next/link";
-import { DemoBookShelf } from "@/components/books/DemoBookShelf";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
-import type { VoiceScriptVersion } from "@/lib/content/voice-scripts";
+import { splitSentences, type VoiceScriptVersion } from "@/lib/content/voice-scripts";
 import {
   durationGuidance,
   formatClock,
@@ -17,6 +16,7 @@ import { clampWpm, DEFAULT_FONT_INDEX, DEFAULT_WPM, FONT_SIZES, WPM_STEP } from 
 import { QC_MESSAGES } from "@/lib/audio/qc";
 import { Teleprompter, type TeleprompterProgress } from "./Teleprompter";
 import { MIC_ERROR_MESSAGES, useMicrophone, type RecordedTake } from "./useMicrophone";
+import { VoicePreview, type TakeDetails } from "./VoicePreview";
 
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
@@ -50,7 +50,7 @@ export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion })
   // Settings start collapsed on phones so the script keeps most of the screen.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const booksRef = useRef<HTMLDivElement>(null);
-  const [take, setTake] = useState<{ url: string; recorded: RecordedTake } | null>(null);
+  const [take, setTake] = useState<{ url: string; recorded: RecordedTake; details: TakeDetails } | null>(null);
   const [starting, setStarting] = useState(false);
   const [interruptions, setInterruptions] = useState(0);
   const mic = useMicrophone({ onInterrupted: () => setInterruptions((n) => n + 1) });
@@ -106,7 +106,16 @@ export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion })
   const finishRecording = async () => {
     const recorded = await mic.stop();
     mic.close(); // release the microphone as soon as the take is done
-    if (recorded) setTake({ url: URL.createObjectURL(recorded.blob), recorded });
+    if (recorded) {
+      // Script position reached, as a character offset into the script (Amendment 001 §D).
+      const sentences = script.paragraphs.flatMap(splitSentences);
+      const scriptOffsetEnd = sentences.slice(0, progress.activeSentence + 1).join(" ").length;
+      setTake({
+        url: URL.createObjectURL(recorded.blob),
+        recorded,
+        details: { takeNumber: state.take, recorded, wpm, pauseCount: state.pauseCount, scriptOffsetEnd },
+      });
+    }
     setNotice(null);
     dispatch({ type: "finish" });
   };
@@ -332,13 +341,9 @@ export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion })
         </aside>
       </div>
 
-      {showBooks && (
+      {showBooks && take && (
         <div ref={booksRef} className="scroll-mt-6">
-          <DemoBookShelf heading="Your take is in. Pick a story to hear it." />
-          <p className="mt-4 text-sm text-muted">
-            Voice previews switch on once our voice provider is connected. We never play a stock voice as if it were
-            yours.
-          </p>
+          <VoicePreview key={take.details.takeNumber} take={take.details} heading="Your take is in. Pick a story to hear it." />
         </div>
       )}
     </div>

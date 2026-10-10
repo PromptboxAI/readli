@@ -71,6 +71,8 @@ Phases 6 and 7 are independent and can swap or run in parallel; phase 6 is small
 
 ## Phase 2 — Guest demo with continuous teleprompter (Amendment G1)
 
+**Status (2026-10-10):** client capture done; server side built and tested against the stand-in provider. Routes: `POST /api/guest/session`, `POST /api/guest/recording`, `POST /api/guest/clone`, `POST /api/demo/generate`, `GET /api/demo/status`, `GET /api/cron/guest-cleanup`. Waiting on Supabase and ElevenLabs keys for the live run. Scripts are served from code for now (seeded into `voice_script_versions` by migration); the separate recording-session endpoints collapse into one upload per take because a guest take is a single file.
+
 **Original spec:** PRD J1 / F-01 / Phase 1 and brief §6: consent → mic test → record → review → clone → six-book picker → real synthesized passage, no signup, quotas, TTL cleanup, honest states.
 
 **Amendment change:** recording is one continuous scrolling read of 60–120s with pause/resume and repositioning; richer quality and interruption handling; script versioned in a CMS; adult-ownership declaration explicitly before recording.

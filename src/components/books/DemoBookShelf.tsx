@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { coverSrc, DEMO_BOOKS, gutenbergUrl, isPassagePlayable, type DemoBook } from "@/lib/content/demo-books";
 
 function Cover({ book }: { book: DemoBook }) {
@@ -15,9 +16,29 @@ function Cover({ book }: { book: DemoBook }) {
   );
 }
 
-export function DemoBookCard({ book }: { book: DemoBook }) {
+export interface HearOptions {
+  /** Called when the guest asks to hear a book. Without it, the button links to the recorder. */
+  onHear?: (book: DemoBook) => void;
+  /** Slug currently being prepared or played. */
+  activeSlug?: string | null;
+  /** Shown under every book and disables the buttons, e.g. while previews are off or busy. */
+  disabledReason?: string | null;
+}
+
+const hearButton =
+  "inline-flex min-h-12 items-center justify-center whitespace-nowrap rounded-full border-[3px] border-ink bg-sunshine px-2 text-sm font-display font-semibold sm:px-4 sm:text-base";
+
+export function DemoBookCard({ book, onHear, activeSlug, disabledReason }: { book: DemoBook } & HearOptions) {
   const playable = isPassagePlayable(book);
   const headingId = `book-${book.slug}`;
+  const active = activeSlug === book.slug;
+  const status = !playable
+    ? "Preview coming soon."
+    : !onHear
+      ? "Record your voice first, then hear this in it."
+      : active
+        ? "Playing in your voice."
+        : (disabledReason ?? "Plays in your recorded voice.");
   return (
     <article aria-labelledby={headingId} className="group flex w-full flex-col gap-3">
       <div className="px-1 sm:px-3">
@@ -34,16 +55,23 @@ export function DemoBookCard({ book }: { book: DemoBook }) {
         </p>
         <p className="text-sm text-muted">About {book.passageTargetSeconds} second passage</p>
       </div>
-      <button
-        type="button"
-        disabled={!playable}
-        aria-describedby={`${headingId}-status`}
-        className="min-h-12 whitespace-nowrap rounded-full border-[3px] border-ink bg-sunshine px-2 text-sm font-display font-semibold sm:px-4 sm:text-base disabled:cursor-not-allowed disabled:bg-ivory disabled:text-muted"
-      >
-        Hear this passage
-      </button>
+      {onHear || !playable ? (
+        <button
+          type="button"
+          disabled={!playable || !onHear || Boolean(disabledReason) || active}
+          aria-describedby={`${headingId}-status`}
+          onClick={() => onHear?.(book)}
+          className={`${hearButton} disabled:cursor-not-allowed disabled:bg-ivory disabled:text-muted ${active ? "!bg-mint !text-ink" : ""}`}
+        >
+          {active ? "Now playing" : "Hear this passage"}
+        </button>
+      ) : (
+        <Link href="/try" aria-describedby={`${headingId}-status`} className={hearButton}>
+          Hear this passage
+        </Link>
+      )}
       <p id={`${headingId}-status`} className="text-xs text-muted">
-        {playable ? "Plays in your recorded voice." : "Previews in your voice switch on soon."}{" "}
+        {status}{" "}
         {gutenbergUrl(book) && (
           <a href={gutenbergUrl(book) ?? undefined} className="underline" target="_blank" rel="noreferrer">
             Source
@@ -54,7 +82,7 @@ export function DemoBookCard({ book }: { book: DemoBook }) {
   );
 }
 
-export function DemoBookShelf({ heading = "Pick a story to hear in your voice" }: { heading?: string }) {
+export function DemoBookShelf({ heading = "Pick a story to hear in your voice", ...hear }: { heading?: string } & HearOptions) {
   return (
     <section aria-labelledby="demo-books-heading" data-testid="demo-books" className="flex flex-col gap-4">
       <h2 id="demo-books-heading" className="font-display text-2xl font-semibold sm:text-3xl">
@@ -63,7 +91,7 @@ export function DemoBookShelf({ heading = "Pick a story to hear in your voice" }
       <ul className="grid grid-cols-2 gap-x-4 gap-y-10 rounded-[var(--radius-panel)] bg-bookcase px-5 pb-6 pt-8 sm:gap-x-6 sm:px-8 lg:grid-cols-3">
         {DEMO_BOOKS.map((book) => (
           <li key={book.slug} className="flex">
-            <DemoBookCard book={book} />
+            <DemoBookCard book={book} {...hear} />
           </li>
         ))}
       </ul>
