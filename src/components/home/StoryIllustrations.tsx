@@ -4,11 +4,11 @@
  */
 
 const INK = "#283548";
-const SKIN = ["#f6cfa8", "#d9a47a", "#a8714f", "#f1bd93"] as const;
+export const SKIN = ["#f6cfa8", "#d9a47a", "#a8714f", "#f1bd93"] as const;
 
 type HairStyle = "short" | "long" | "bun" | "bald" | "curly";
 
-function Face({
+export function Face({
   cx,
   cy,
   r,

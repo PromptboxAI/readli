@@ -60,10 +60,34 @@ test("links from the footer open the next page at the top", async ({ page }) => 
 
 test("header and page links never lead to a missing page", async ({ page, request }) => {
   const hrefs = new Set<string>();
-  for (const path of ["/", "/company", "/login"]) {
+  for (const path of ["/", "/company", "/login", "/privacy", "/parents/safety"]) {
     await page.goto(path);
     for (const href of await page.locator("header a[href^='/'], main a[href^='/']").evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? "/")))
       hrefs.add(href.split("#")[0] || "/");
   }
   for (const href of hrefs) expect((await request.get(href)).status(), href).toBe(200);
+});
+
+test("family voices section shows the parent controls illustration and links to safety", async ({ page }, info) => {
+  await page.goto("/");
+  const section = page.locator("#family-privacy");
+  await expect(section.getByRole("heading", { level: 2 })).toHaveText("Your family. Your voices. Your rules.");
+  await expect(section.getByRole("img", { name: /Manage voices for Milly/ })).toBeVisible();
+  for (const name of ["Mom", "Grandpa", "Aunt Sarah", "Uncle Mike"]) await expect(section.getByText(name, { exact: true })).toBeVisible();
+  await expect(section.getByText("Awaiting voice-owner permission")).toBeVisible();
+  await section.scrollIntoViewIfNeeded();
+  await section.screenshot({ path: `e2e/screenshots/family-voices-${info.project.name}.png` });
+  await section.getByRole("link", { name: /Learn about family privacy & safety/ }).click();
+  await expect(page).toHaveURL(/\/parents\/safety$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Family privacy & safety");
+});
+
+test("privacy page shows every policy section and fits the screen", async ({ page }, info) => {
+  await page.goto("/privacy");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Privacy Policy");
+  await expect(page.locator("main section h2")).toHaveCount(12);
+  await expect(page.getByText("Required publication details")).toHaveCount(0);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  await page.screenshot({ path: `e2e/screenshots/privacy-${info.project.name}.png`, fullPage: true });
 });
