@@ -39,7 +39,7 @@ export default async function FamilyBooksPage() {
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   if (page.session?.actor.kind !== "adult") return <NeedsGrownUp text="Sign in as a parent to see your family's books." />;
-  const store = (await familyStore(page.session.sandbox))!;
+  const store = (await familyStore(page.session))!;
   const householdId = await guardianHousehold(store, page.session.actor);
   if (!householdId) return <NeedsGrownUp text="Only a parent or guardian can prepare narration." />;
   const lib = await familyLibrary(store, page.session.actor, householdId);

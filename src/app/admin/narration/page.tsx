@@ -28,7 +28,7 @@ export default async function NarrationAdminPage() {
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   if (page.session?.actor.kind !== "adult") return <NeedsGrownUp text="Sign in as a grown-up to see the narration dashboard." />;
-  const store = (await familyStore(page.session.sandbox))!;
+  const store = (await familyStore(page.session))!;
   const m = await narrationMetrics(await store.read(), store.plan, store.audio);
   const t = m.totals;
   return (

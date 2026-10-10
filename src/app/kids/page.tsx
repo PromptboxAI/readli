@@ -21,7 +21,7 @@ export default async function KidsHome() {
   if (!child) return <NeedsGrownUp text="A grown-up opens your Readli Kids bookshelf for you." />;
   const favorites = new Set(page.state!.favorites.filter((f) => f.childId === child.id).map((f) => f.bookSlug));
   // Kids browse the family's books and listen to what's already prepared; they can't start generation.
-  const store = (await familyStore(page.session!.sandbox))!;
+  const store = (await familyStore(page.session!))!;
   const books = await Promise.all(
     CATALOG.map(async (b) => ({ book: b, ready: (await kidsReadiness(store, actor!, child.id, b.slug)).some((r) => r.readySentenceIds.length > 0) })),
   );

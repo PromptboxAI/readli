@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { buttonPrimary } from "@/components/brand/buttons";
+import { currentSession } from "@/lib/family/session";
 
 export function FamilyShell({ children }: { children: React.ReactNode }) {
   return (
@@ -13,7 +14,9 @@ export function FamilyShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function PreviewNote() {
+/** Shown on preview pages only; a signed-in grown-up's family is real. */
+export async function PreviewNote() {
+  if ((await currentSession())?.account) return null;
   return (
     <p className="rounded-2xl bg-sunshine/60 p-3 text-sm font-semibold">
       Preview family: these people are examples, and family accounts with real sign-in are coming soon.
