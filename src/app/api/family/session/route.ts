@@ -7,14 +7,25 @@ import { fail } from "@/lib/server/http";
 export const dynamic = "force-dynamic";
 
 /**
- * Family preview sign-in. "adult:<id>" signs in as a preview family member (real accounts replace
- * this in Phase 4). "child:<id>" opens a Readli Kids profile and needs a signed-in guardian of that
- * child, so a child can never open a profile, or get back to the grown-up side, on their own.
+ * Who is using this device. "adult:<id>" signs in as a preview family member (preview only; real
+ * grown-ups sign in at /login). "child:<id>" opens a Readli Kids profile and needs a signed-in
+ * guardian of that child, so a child can never open a profile, or get back to the grown-up side, on
+ * their own. DELETE signs out, including a real account.
  */
 export async function POST(req: Request) {
   const { as } = await jsonBody(req);
   const [kind, id] = typeof as === "string" ? as.split(":") : [];
   const existing = await currentSession();
+  if (existing?.account) {
+    if (kind !== "child" || !id) return fail(400, "bad_request", "Choose a kids profile.");
+    return withFamily(async ({ actor, store, session }) => {
+      if (actor.kind !== "adult" || !isGuardianOf(await store.read(), actor.adultId, id)) {
+        return fail(403, "not_guardian", "Only this child's parent or guardian can open their profile.");
+      }
+      await setSession({ ...session, actor: { kind: "child", childId: id } });
+      return NextResponse.json({ ok: true });
+    });
+  }
   const sandbox = existing?.sandbox ?? newSandbox();
   const store = await familyStore(sandbox);
   if (!store) return fail(404, "family_off", FAMILY_OFF);

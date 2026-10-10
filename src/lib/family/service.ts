@@ -315,6 +315,23 @@ export async function guardianHousehold(store: FamilyStore, actor: Actor | null)
   return state.members.find((m) => m.adultId === actor.adultId && m.role === "guardian" && m.removedAt === null)?.householdId ?? null;
 }
 
+/** Starts a family with this grown-up as its first parent or guardian. One family per grown-up for now. */
+export async function createHousehold(store: FamilyStore, actor: Actor | null, name: string, clock: Clock = now): Promise<string> {
+  const adultId = requireAdult(actor);
+  const state = await store.read();
+  const existing = state.members.find((m) => m.adultId === adultId && m.role === "guardian" && m.removedAt === null);
+  if (existing) return existing.householdId;
+  const familyName = name.trim().slice(0, 60);
+  if (!familyName) throw new PermissionError(400, "bad_name", "Give your family a name.");
+  const id = randomUUID();
+  const at = clock().toISOString();
+  await store.write((s) => {
+    s.households.push({ id, name: familyName });
+    s.members.push({ householdId: id, adultId, role: "guardian", joinedAt: at, removedAt: null });
+  });
+  return id;
+}
+
 const DAY = 24 * 60 * 60 * 1000;
 
 /** Releases a household chose itself (not owner revocations) in the last 30 days, from the audit log. */

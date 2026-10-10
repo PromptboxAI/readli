@@ -23,7 +23,7 @@ export default async function KidsListen({ params }: { params: Promise<{ slug: s
   const session = page.session;
   const child = session?.actor.kind === "child" && page.state ? activeChild(page.state, session.actor.childId) : null;
   if (!session || !child) return <NeedsGrownUp text="A grown-up opens your Readli Kids bookshelf for you." />;
-  const store = (await familyStore(session.sandbox))!;
+  const store = (await familyStore(session))!;
   const narrators = await narratorsFor(store, session.actor, child.id);
   const resume = await childBookState(store, session.actor, child.id, book.slug);
   const readiness = await kidsReadiness(store, session.actor, child.id, book.slug);

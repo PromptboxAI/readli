@@ -24,7 +24,7 @@ export default async function CreditsPage({ searchParams }: { searchParams: Prom
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   if (page.session?.actor.kind !== "adult") return <NeedsGrownUp text="Only a parent or guardian can manage Readli credits." />;
-  const store = (await familyStore(page.session.sandbox))!;
+  const store = (await familyStore(page.session))!;
   const householdId = await guardianHousehold(store, page.session.actor);
   if (!householdId) return <NeedsGrownUp text="Only a parent or guardian can manage Readli credits." />;
   const state = await store.read();

@@ -7,8 +7,9 @@ export const dynamic = "force-dynamic";
 
 /** Puts this visitor's preview family back to how it started. Grown-ups only. */
 export async function POST() {
-  return withFamily(async ({ actor, sandbox }) => {
+  return withFamily(async ({ actor, sandbox, session }) => {
     if (actor.kind !== "adult") return fail(403, "adults_only", "Ask a grown-up to do this.");
+    if (session.account) return fail(400, "not_preview", "Only the preview family can be reset.");
     resetSandbox(sandbox);
     return NextResponse.json({ ok: true });
   });
