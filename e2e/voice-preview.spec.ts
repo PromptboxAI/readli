@@ -24,9 +24,13 @@ test("a finished take becomes a voice and reads a story, within the free preview
   await expect(preview.getByText("1 free preview left.", { exact: false })).toBeVisible();
   await page.screenshot({ path: `e2e/screenshots/try-preview-${info.project.name}.png` });
 
-  // Second preview reuses the same voice, then the free limit is reached.
+  // Second preview with noise clean-up flipped re-makes the voice from the saved take, then the free limit is reached.
+  const cleanUp = preview.getByLabel(/Clean up background noise/);
+  const wasOn = await cleanUp.isChecked();
+  await cleanUp.setChecked(!wasOn);
   await preview.getByRole("article", { name: "Winnie-the-Pooh" }).getByRole("button", { name: "Hear this passage" }).click();
   await expect(preview.getByText("Winnie-the-Pooh · read by you")).toBeVisible({ timeout: 15_000 });
+  await expect(preview.getByText(`Noise clean-up ${wasOn ? "off" : "on"}`)).toBeVisible();
   await expect(preview.getByText("0 free previews left.", { exact: false })).toBeVisible();
   await expect(preview.getByRole("article", { name: "Alice’s Adventures in Wonderland" }).getByRole("button")).toBeDisabled();
 });

@@ -10,7 +10,14 @@ export interface SynthesizedAudio {
 }
 
 export interface VoiceProvider {
-  createInstantVoice(input: { name: string; audio: Blob; filename: string; description: string }): Promise<{ voiceId: string }>;
+  createInstantVoice(input: {
+    name: string;
+    audio: Blob;
+    filename: string;
+    description: string;
+    /** Provider-side noise clean-up. Defaults to on; it can change how a clean take sounds. */
+    removeBackgroundNoise?: boolean;
+  }): Promise<{ voiceId: string }>;
   synthesize(input: { voiceId: string; text: string }): Promise<SynthesizedAudio>;
   deleteVoice(voiceId: string): Promise<void>;
 }

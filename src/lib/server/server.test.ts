@@ -85,6 +85,8 @@ describe("ElevenLabs provider", () => {
     expect((calls[0]!.init.headers as Record<string, string>)["xi-api-key"]).toBe("key");
     expect((calls[0]!.init.body as FormData).get("files")).toBeInstanceOf(Blob);
     expect((calls[0]!.init.body as FormData).get("remove_background_noise")).toBe("true");
+    await provider.createInstantVoice({ name: "n", audio: new Blob(["x"]), filename: "take.webm", description: "d", removeBackgroundNoise: false });
+    expect((calls[1]!.init.body as FormData).get("remove_background_noise")).toBe("false");
 
     const failing = new ElevenLabsProvider("key", "m", (async () => new Response("quota", { status: 401 })) as typeof fetch);
     const err = await failing.synthesize({ voiceId: "v", text: "hi" }).catch((e: unknown) => e);

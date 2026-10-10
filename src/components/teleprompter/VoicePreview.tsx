@@ -42,9 +42,13 @@ export function VoicePreview({ take, heading }: { take: TakeDetails; heading: st
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [previewsLeft, setPreviewsLeft] = useState<number | null>(null);
-  const [playing, setPlaying] = useState<{ book: DemoBook; url: string; standIn: boolean } | null>(null);
+  const [playing, setPlaying] = useState<{ book: DemoBook; url: string; standIn: boolean; cleanUp: boolean } | null>(null);
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
-  const voiceForTake = useRef<number | null>(null);
+  // Noise clean-up starts on only when the recorder heard a noisy room; quiet takes keep their natural sound.
+  const [cleanUp, setCleanUp] = useState(() => take.recorded.qc.issues.includes("noisy"));
+  const uploadedTake = useRef<number | null>(null);
+  /** The take and clean-up setting the current voice was made from. */
+  const voiceMadeFrom = useRef<string | null>(null);
   const topRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -69,8 +73,23 @@ export function VoicePreview({ take, heading }: { take: TakeDetails; heading: st
   }, [playing]);
 
   const ensureVoice = async (): Promise<boolean> => {
-    if (voiceForTake.current === take.takeNumber) return true;
+    const voiceKey = `${take.takeNumber}:${cleanUp}`;
+    if (voiceMadeFrom.current === voiceKey) return true;
+    // Switching clean-up on or off re-makes the voice from the saved take; no need to upload again.
+    if (uploadedTake.current !== take.takeNumber) await uploadTake();
 
+    setPhase("cloning");
+    const clone = await fetch("/api/guest/clone", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ removeBackgroundNoise: cleanUp }),
+    });
+    if (!clone.ok) throw new Error(await errorMessage(clone, "We couldn't make your voice just now. Please try again."));
+    voiceMadeFrom.current = voiceKey;
+    return true;
+  };
+
+  const uploadTake = async () => {
     setPhase("saving");
     const session = await fetch("/api/guest/session", {
       method: "POST",
@@ -91,12 +110,7 @@ export function VoicePreview({ take, heading }: { take: TakeDetails; heading: st
     if (take.scriptOffsetEnd !== null) form.append("scriptOffsetEnd", String(take.scriptOffsetEnd));
     const upload = await fetch("/api/guest/recording", { method: "POST", body: form });
     if (!upload.ok) throw new Error(await errorMessage(upload, "We couldn't save your recording. Please try again."));
-
-    setPhase("cloning");
-    const clone = await fetch("/api/guest/clone", { method: "POST" });
-    if (!clone.ok) throw new Error(await errorMessage(clone, "We couldn't make your voice just now. Please try again."));
-    voiceForTake.current = take.takeNumber;
-    return true;
+    uploadedTake.current = take.takeNumber;
   };
 
   const hear = async (book: DemoBook) => {
@@ -114,7 +128,7 @@ export function VoicePreview({ take, heading }: { take: TakeDetails; heading: st
       const left = Number(res.headers.get("x-readli-previews-left"));
       if (Number.isFinite(left)) setPreviewsLeft(left);
       const url = URL.createObjectURL(await res.blob());
-      setPlaying({ book, url, standIn: res.headers.get("x-readli-stand-in") === "1" });
+      setPlaying({ book, url, standIn: res.headers.get("x-readli-stand-in") === "1", cleanUp });
       setPhase("playing");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
@@ -156,6 +170,7 @@ export function VoicePreview({ take, heading }: { take: TakeDetails; heading: st
             <p className="font-display text-xl font-semibold">
               {playing.book.title} · read by you
             </p>
+            <p className="text-sm text-white/85">Noise clean-up {playing.cleanUp ? "on" : "off"}</p>
             <audio key={playing.url} controls autoPlay src={playing.url} className="w-full" aria-label={`${playing.book.title}, read in your voice`} />
             {playing.standIn && (
               <p className="rounded-xl bg-sunshine px-3 py-2 text-sm font-semibold text-ink">
@@ -174,6 +189,25 @@ export function VoicePreview({ take, heading }: { take: TakeDetails; heading: st
         <p role="alert" className="rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold">
           {error}
         </p>
+      )}
+
+      {mode !== "off" && (
+        <label className="flex min-h-11 items-start gap-3 rounded-2xl border-2 border-ink/10 bg-surface p-4">
+          <input
+            type="checkbox"
+            className="mt-1 size-6 shrink-0 accent-coral-deep"
+            checked={cleanUp}
+            disabled={busy}
+            onChange={(e) => setCleanUp(e.target.checked)}
+          />
+          <span className="flex flex-col gap-1">
+            <span className="font-semibold">Clean up background noise</span>
+            <span className="text-sm text-muted">
+              Helps with echoey or noisy rooms, but it can make a clean recording sound less like you. Change it and pick a
+              story again to hear the difference.
+            </span>
+          </span>
+        </label>
       )}
 
       <DemoBookShelf heading={heading} onHear={hear} activeSlug={busy || playing ? activeSlug : null} disabledReason={disabledReason} />
