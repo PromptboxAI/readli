@@ -29,7 +29,8 @@ const BADGE: Record<MemberStatus, string> = {
 const ACTION: Record<MemberStatus, { label: string; note: (m: ExampleMember) => string }> = {
   ready_shared: {
     label: "Hear a sample",
-    note: (m) => `In your family, this plays ${m.name} reading. Sample voices switch on soon.`,
+    note: (m) =>
+      `${m.name} chose to share their voice with this family. Each child hears it only after a parent approves it for them. Sample voices switch on soon.`,
   },
   invited: {
     label: "Resend invite",
@@ -41,7 +42,7 @@ const ACTION: Record<MemberStatus, { label: string; note: (m: ExampleMember) => 
   },
   listener: {
     label: "Open their bookshelf",
-    note: (m) => `Kids listen in a profile you manage. ${m.name} never needs a login.`,
+    note: (m) => `Kids listen in a profile you manage and hear only the storytellers you approve. ${m.name} never needs a login.`,
   },
 };
 
