@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { normalizeGiftCode } from "./codes";
 import { generateGiftCode, hashGiftCode } from "./codes.server";
-import { addMonths, cancelGift, redeemGift, renewalNotices, statusAt, UNCLAIMED_DAYS, type Gift } from "./lifecycle";
+import { addMonths, cancelGift, subscriptionFromGift, redeemGift, renewalNotices, statusAt, UNCLAIMED_DAYS, type Gift } from "./lifecycle";
 import { GIFT_PLANS, giftPaymentsOpen, giftPlan, priceLabel } from "./plans";
 
 const NOW = new Date("2026-10-10T12:00:00Z");
@@ -34,12 +34,24 @@ describe("gift plans", () => {
     ]);
   });
 
-  it("keeps payments off until prices are final, even if the switch is on", () => {
-    expect(GIFT_PLANS.every((p) => p.priceCents === null)).toBe(true);
-    expect(giftPaymentsOpen(GIFT_PLANS, true)).toBe(false);
-    expect(giftPaymentsOpen(GIFT_PLANS.map((p) => ({ ...p, priceCents: 999 })), false)).toBe(false);
-    expect(giftPaymentsOpen(GIFT_PLANS.map((p) => ({ ...p, priceCents: 999 })), true)).toBe(true);
-    expect(priceLabel(GIFT_PLANS[0]!)).toBe("Price coming soon");
+  it("prices gifts at the Readli Family monthly price and keeps payments off until switched on", () => {
+    expect(GIFT_PLANS.map((p) => priceLabel(p))).toEqual(["$14.99", "$44.97", "$179.88", "$14.99 a month"]);
+    expect(giftPaymentsOpen(GIFT_PLANS, false)).toBe(false);
+    expect(giftPaymentsOpen(GIFT_PLANS, true)).toBe(true);
+    expect(giftPaymentsOpen(GIFT_PLANS.map((p) => ({ ...p, priceCents: null })), true)).toBe(false);
+    expect(priceLabel({ ...GIFT_PLANS[0]!, priceCents: null })).toBe("Price coming soon");
+  });
+
+  it("turns a redeemed gift into the same household subscription a paid family gets", () => {
+    const r = redeemGift(gift("prepaid_3m"), NOW);
+    if (!r.ok) throw new Error();
+    expect(subscriptionFromGift(r.gift, "h-ben")).toEqual({
+      householdId: "h-ben",
+      source: "gift",
+      status: "active",
+      paidThrough: "2027-01-10T12:00:00.000Z",
+      extraNarratorSlots: 0,
+    });
   });
 });
 

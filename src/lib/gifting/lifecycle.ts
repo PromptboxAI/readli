@@ -1,3 +1,4 @@
+import type { HouseholdSubscription } from "@/lib/entitlements/entitlements";
 import type { GiftPlan } from "./plans";
 
 /**
@@ -158,3 +159,9 @@ export const STATUS_LABEL: Record<GiftStatus, string> = {
   cancelled: "Cancelled",
   unclaimed: "Never opened",
 };
+
+/** A redeemed gift is a Readli Family subscription for the recipient's household, sourced "gift". */
+export function subscriptionFromGift(gift: Gift, householdId: string): HouseholdSubscription | null {
+  if (gift.status !== "active" || !gift.paidThrough) return null;
+  return { householdId, source: "gift", status: "active", paidThrough: gift.paidThrough.toISOString(), extraNarratorSlots: 0 };
+}

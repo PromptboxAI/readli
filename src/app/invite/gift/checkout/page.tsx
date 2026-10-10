@@ -87,7 +87,7 @@ export default async function GiftCheckoutPage({ searchParams }: { searchParams:
               <p>You&apos;ll pay securely on the next step.</p>
             ) : (
               <p data-testid="payments-off">
-                Gifting opens as soon as Readli&apos;s prices are final. Nothing has been charged, and no gift was sent.
+                Gift checkout isn&apos;t switched on yet. Nothing has been charged, and no gift was sent.
               </p>
             )}
             <button type="button" className={`${buttonPrimary} w-full`} disabled={!paymentsOpen}>

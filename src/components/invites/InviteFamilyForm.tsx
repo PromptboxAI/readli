@@ -34,7 +34,7 @@ export function InviteFamilyForm({ fromName = "Sara" }: { fromName?: string }) {
   const [copied, setCopied] = useState(false);
 
   const message = inviteMessage({ from: fromName, to: name, relationship });
-  const link = "https://readli.ai/join/preview";
+  const link = "https://readli.ai/signup?invite=preview";
   const canSend = name.trim().length > 0 && (how === "link" || /\S+@\S+\.\S+/.test(email));
 
   function send(e: React.FormEvent) {
