@@ -19,9 +19,6 @@ export default function TryPage() {
         </Link>
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-6 sm:px-6">
-        <p role="note" className="mb-3 rounded-2xl bg-lavender/50 px-4 py-1.5 text-center text-xs sm:text-sm">
-          <strong>Preview.</strong> Your recording stays in this browser. Voice previews switch on soon.
-        </p>
         <TeleprompterRecorder script={DEMO_SCRIPT} />
       </main>
     </div>
