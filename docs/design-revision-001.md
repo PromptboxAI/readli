@@ -34,11 +34,15 @@
 - Visually prominent on the homepage.
 
 ### 3. Six-book demo as a bookstore
+**First pass built** 2026-10-10: the six books stand on wooden shelves in a bookcase panel (three per shelf on desktop, two on phones), and the classics row sits on a shelf too.
+
 - Replace coloured rectangles with high-quality covers (see asset swaps).
 - Browsing should feel like a children's bookstore shelf, not a grid of cards.
 - Keep the ungated recording flow and "hear this passage in your cloned voice".
 
 ### 4. Readi as a recurring guide
+**Started** 2026-10-10: Readi now appears in the hero, beside the scrolling-script preview, guiding the family tree, in Meet Readi and in the final call to action. Poses for recording and invites still need artwork.
+
 - Same character throughout, based on the selected design above: guiding recording, discovering books, inviting family.
 - Use **At rest** on idle screens and **Listening** whenever audio plays (demo previews, player). The listening panel's player bar ("[Story title] · read by [Narrator]") is the reference for the demo narration player.
 - Subtle animation (blink, bob, page flip) that switches off under reduced motion.

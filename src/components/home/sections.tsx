@@ -91,12 +91,13 @@ export function TryYourVoice() {
           </div>
           <div
             aria-hidden="true"
-            className="relative h-64 overflow-hidden rounded-3xl bg-ivory p-6 font-semibold text-ink/40 sm:text-xl"
+            className="relative h-64 overflow-hidden rounded-3xl bg-ivory p-6 pr-24 font-semibold text-ink/40 sm:pr-32 sm:text-xl"
           >
             <p>Once upon a time, in a little house at the edge of a sleepy town,</p>
             <p className="my-2 rounded-lg bg-sunshine/50 text-ink">there lived a family who loved stories</p>
             <p>more than anything. Every night, just after the moon peeked over the rooftops...</p>
             <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-ivory" />
+            <ReadiMascot size={110} decorative className="animate-bob absolute bottom-3 right-4" />
           </div>
         </div>
         <DemoBookShelf />
@@ -247,6 +248,7 @@ export function KidsShelf() {
             </li>
           ))}
         </ul>
+        <div aria-hidden="true" className="-mt-8 h-3.5 rounded-sm bg-wood shadow-[0_6px_0_var(--color-wood-deep)]" />
       </div>
     </section>
   );

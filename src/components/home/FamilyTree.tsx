@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary } from "@/components/brand/buttons";
 import {
   EXAMPLE_FAMILY,
@@ -98,7 +99,12 @@ export function FamilyTree() {
   return (
     <div className="flex flex-col gap-5" data-testid="family-tree">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="rounded-full bg-sunshine px-4 py-1.5 text-sm font-bold">Example family · try tapping someone</span>
+        <div className="flex items-center gap-2">
+          <ReadiMascot size={64} decorative />
+          <span className="relative rounded-2xl bg-sunshine px-4 py-2 text-sm font-bold before:absolute before:-left-1.5 before:top-1/2 before:size-3 before:-translate-y-1/2 before:rotate-45 before:bg-sunshine">
+            Example family · tap anyone to meet them
+          </span>
+        </div>
         <div role="group" aria-label="Family view" className="flex rounded-full border-[3px] border-ink bg-surface p-1">
           {(["tree", "list"] as const).map((v) => (
             <button

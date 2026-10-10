@@ -14,6 +14,9 @@
   --color-lavender: #cbb7f5;
   --color-muted: #5b6676;
   --color-plum: #44354f;
+  --color-wood: #e8b479;
+  --color-wood-deep: #b97d45;
+  --color-bookcase: #f7e6cc;
 
   --font-display: var(--font-fredoka), ui-rounded, system-ui, sans-serif;
   --font-sans: var(--font-nunito-sans), system-ui, sans-serif;
