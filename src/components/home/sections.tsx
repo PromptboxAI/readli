@@ -70,8 +70,8 @@ export function TryYourVoice() {
     <section id="try-your-voice" aria-labelledby="try-heading" className="scroll-mt-20 bg-ivory">
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 md:gap-10 md:py-16">
         <div className="grid items-center gap-8 rounded-[var(--radius-panel)] bg-surface p-6 sm:p-10 lg:grid-cols-[1fr_1.1fr]">
-          <div className="flex flex-col gap-4">
-            {/* Phones and tablets get Kevin's short pitch; desktop keeps the steps beside the studio preview. */}
+          <div className="flex flex-col gap-4 text-center lg:text-left">
+            {/* Phones and tablets get Kevin's short pitch, centred; desktop keeps the steps beside the studio preview. */}
             <h2 id="try-heading" className="font-display text-3xl font-semibold sm:text-4xl">
               <span className="lg:hidden">Hear your voice tell a story.</span>
               <span className="hidden lg:inline">Try your voice. No signup.</span>
@@ -88,7 +88,7 @@ export function TryYourVoice() {
               ))}
             </ol>
             <div className="flex flex-col gap-2">
-              <Link href="/try" className={`${buttonPrimary} w-full sm:w-auto sm:self-start`}>
+              <Link href="/try" className={`${buttonPrimary} w-full sm:w-auto sm:self-center lg:self-start`}>
                 <span className="lg:hidden">Try Your Voice Free</span>
                 <span className="hidden lg:inline">Start recording</span>
               </Link>
