@@ -3,7 +3,8 @@
  *
  * Originally locked by PRD F-05 / Design Brief §6 / Amendment 001 F-9. Kevin
  * replaced the selection on 2026-10-10 (see docs/decisions.md); that decision
- * supersedes the earlier lock. Do not change titles without a new decision.
+ * supersedes the earlier lock. Order is deliberate (no two bunnies side by side).
+ * Do not change titles or order without a new decision.
  *
  * Passage text stays unset until each edition passes rights review and the
  * excerpt is editorially approved (PRD §15 step 4). Covers are original
@@ -42,14 +43,15 @@ export const DEMO_BOOKS: readonly DemoBook[] = [
     passageText: null,
   },
   {
-    slug: "alices-adventures-in-wonderland",
-    title: "Alice’s Adventures in Wonderland",
-    author: "Lewis Carroll",
-    firstPublished: 1865,
-    gutenbergId: 11,
+    slug: "the-lion-and-the-mouse",
+    title: "The Lion and the Mouse",
+    author: "Aesop",
+    firstPublished: 1919,
+    gutenbergId: null,
     editionConfirmed: false,
+    editionNote: "Fable. Candidate text: The Aesop for Children (1919, illustrated by Milo Winter). Gutenberg ID to confirm.",
     rightsStatus: "pending_review",
-    passageTargetSeconds: 45,
+    passageTargetSeconds: 30,
     passageText: null,
   },
   {
@@ -89,15 +91,14 @@ export const DEMO_BOOKS: readonly DemoBook[] = [
     passageText: null,
   },
   {
-    slug: "the-lion-and-the-mouse",
-    title: "The Lion and the Mouse",
-    author: "Aesop",
-    firstPublished: 1919,
-    gutenbergId: null,
+    slug: "alices-adventures-in-wonderland",
+    title: "Alice’s Adventures in Wonderland",
+    author: "Lewis Carroll",
+    firstPublished: 1865,
+    gutenbergId: 11,
     editionConfirmed: false,
-    editionNote: "Fable. Candidate text: The Aesop for Children (1919, illustrated by Milo Winter). Gutenberg ID to confirm.",
     rightsStatus: "pending_review",
-    passageTargetSeconds: 30,
+    passageTargetSeconds: 45,
     passageText: null,
   },
 ];

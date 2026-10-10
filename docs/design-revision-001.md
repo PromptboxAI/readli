@@ -8,7 +8,7 @@
 
 | Asset | Owner | Notes |
 |---|---|---|
-| Readli logo | Kevin's designer, in progress | Replaces the placeholder wordmark in `src/components/brand/Wordmark.tsx` and the favicon |
+| Readli logo | **Done** 2026-10-10 | Character logo (Readi at rest) in the hero; simplified face icon in the header and favicon; listening logo for playback states. Files in `public/brand/` |
 | Readi mascot | **Selected** (received 2026-10-10, [reference](design/readi-mascot-states.png)) | Open-book buddy: white pages on a coral cover, yellow bookmark ribbon, dot eyes, pink cheeks, small legs. Two states: **At rest** (eyes open, pages together; used everywhere nothing is playing) and **Listening** (eyes closed, pages fanned in sunshine/mint/sky, shown while a story plays, paired with a player bar on a deep plum panel). Needs SVG source files to replace `ReadiMascot.tsx`. Extra poses for guiding recording, books and invites to be drawn in the same style |
 | Hero and use-case illustrations | Designer / illustrator | Original artwork; hero shows Readi in a storytelling world |
 | Six book covers | Designer, after rights review | Original or rights-cleared art per edition (PRD F-05). No modern or Disney artwork |

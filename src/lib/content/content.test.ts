@@ -8,11 +8,11 @@ describe("demo books (Kevin's 2026-10-10 selection, supersedes Amendment 001 F-9
   it("keeps exactly the six chosen books in order", () => {
     expect(DEMO_BOOKS.map((b) => b.title)).toEqual([
       "The Tale of Peter Rabbit",
-      "Alice’s Adventures in Wonderland",
+      "The Lion and the Mouse",
       "Winnie-the-Pooh",
       "The Three Little Pigs",
       "The Princess and the Pea",
-      "The Lion and the Mouse",
+      "Alice’s Adventures in Wonderland",
     ]);
   });
 

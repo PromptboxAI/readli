@@ -39,11 +39,11 @@ export function Hero() {
           </div>
         </div>
         <div className="relative mx-auto flex aspect-square w-full max-w-sm items-center justify-center" aria-hidden="true">
-          <div className="absolute inset-6 rounded-[40%_60%_55%_45%] bg-sunshine" />
-          <div className="absolute bottom-10 left-4 size-20 rounded-3xl bg-mint" />
+          <div className="absolute inset-6 rounded-[40%_60%_55%_45%] bg-mint" />
+          <div className="absolute bottom-10 left-4 size-20 rounded-3xl bg-sunshine" />
           <div className="absolute right-6 top-8 size-16 rounded-full bg-lavender" />
           <div className="animate-bob relative">
-            <ReadiMascot size={220} />
+            <ReadiMascot size={280} priority />
           </div>
         </div>
       </div>
@@ -99,6 +99,54 @@ export function TryYourVoice() {
           </div>
         </div>
         <DemoBookShelf />
+      </div>
+    </section>
+  );
+}
+
+export function MeetReadi() {
+  return (
+    <section aria-labelledby="readi-heading" className="bg-ivory">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-14 sm:px-6">
+        <div className="flex flex-col gap-2">
+          <p className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-coral-deep">Meet Readi</p>
+          <h2 id="readi-heading" className="font-display text-3xl font-semibold sm:text-4xl">
+            Your book buddy, at rest and listening
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="flex flex-col items-center gap-5 rounded-[2rem] bg-mint/70 p-8 sm:flex-row">
+            <ReadiMascot size={180} className="animate-bob shrink-0" />
+            <div>
+              <h3 className="font-display text-2xl font-semibold">At rest</h3>
+              <p className="mt-1">Eyes open, pages together. Readi waits with you whenever nothing is playing.</p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-6 rounded-[2rem] bg-plum p-8 text-white">
+            <div className="flex flex-col items-center gap-5 sm:flex-row">
+              <ReadiMascot size={200} state="listening" className="shrink-0" />
+              <div>
+                <h3 className="font-display text-2xl font-semibold">Listening</h3>
+                <p className="mt-1 text-white/80">Eyes close and the pages fan out while a story plays.</p>
+              </div>
+            </div>
+            {/* Illustration of the player, not a working control. */}
+            <div className="flex items-center gap-4 rounded-2xl bg-white/10 p-4" aria-hidden="true">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-sunshine text-plum">
+                <svg viewBox="0 0 24 24" className="size-5" fill="currentColor">
+                  <rect x="6" y="5" width="4" height="14" rx="1" />
+                  <rect x="14" y="5" width="4" height="14" rx="1" />
+                </svg>
+              </span>
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <p className="truncate text-sm font-semibold">The Tale of Peter Rabbit · read by Grandpa</p>
+                <div className="h-1.5 overflow-hidden rounded-full bg-white/20">
+                  <div className="h-full w-2/5 rounded-full bg-coral" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -272,7 +320,7 @@ export function FinalCta() {
   return (
     <section className="bg-sunshine">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-14 text-center sm:px-6">
-        <ReadiMascot size={96} />
+        <ReadiMascot size={120} decorative />
         <h2 className="font-display text-3xl font-semibold sm:text-4xl">Start a family library</h2>
         <Link href="#try-your-voice" className={buttonPrimary}>
           Hear a story in your voice, free

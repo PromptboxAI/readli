@@ -14,5 +14,12 @@ test("homepage follows the design brief order with six books under the demo", as
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 
+  // Scroll through so lazy-loaded images render, then confirm every image loaded.
+  for (let y = 0; y < (await page.evaluate(() => document.body.scrollHeight)); y += 600) {
+    await page.evaluate((top) => window.scrollTo(0, top), y);
+    await page.waitForTimeout(50);
+  }
+  await expect.poll(() => page.evaluate(() => [...document.images].every((img) => img.complete && img.naturalWidth > 0))).toBe(true);
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: `e2e/screenshots/home-${info.project.name}.png`, fullPage: true });
 });
