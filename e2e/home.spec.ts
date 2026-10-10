@@ -73,7 +73,7 @@ test("family voices section shows the parent controls illustration and links to 
   const section = page.locator("#family-privacy");
   await expect(section.getByRole("heading", { level: 2 })).toHaveText("Your family. Your voices. Your rules.");
   await expect(section.getByRole("img", { name: /Manage voices for Milly/ })).toBeVisible();
-  for (const name of ["Mom", "Grandpa", "Aunt Sarah", "Uncle Mike"]) await expect(section.getByText(name, { exact: true })).toBeVisible();
+  for (const name of ["Mom", "Grandpa", "Aunt Pook", "Uncle Chris"]) await expect(section.getByText(name, { exact: true })).toBeVisible();
   await expect(section.getByText("Awaiting voice-owner permission")).toBeVisible();
   await section.scrollIntoViewIfNeeded();
   await section.screenshot({ path: `e2e/screenshots/family-voices-${info.project.name}.png` });

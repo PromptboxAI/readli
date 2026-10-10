@@ -1,155 +1,132 @@
+import Image from "next/image";
 import Link from "next/link";
-import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary } from "@/components/brand/buttons";
-import { Face, SKIN } from "@/components/home/StoryIllustrations";
 
 type Approval = "approved" | "not_approved" | "awaiting";
 
-type Storyteller = {
-  name: string;
-  approval: Approval;
-  tint: string;
-  face: Omit<Parameters<typeof Face>[0], "cx" | "cy" | "r">;
-};
+type Storyteller = { name: string; avatar: string; approval: Approval; status: string; row: string };
 
-/** Example storytellers for the illustration. Not real data, and not a working settings panel. */
+/** Example storytellers for the illustration (Kevin's "Family Voices Shared Safely" design). Not a working settings panel. */
 const STORYTELLERS: Storyteller[] = [
-  { name: "Mom", approval: "approved", tint: "bg-sunshine", face: { skin: SKIN[0], hair: "#5a3a2a", style: "long" } },
-  { name: "Grandpa", approval: "approved", tint: "bg-sky", face: { skin: SKIN[3], hair: "#e9e4dc", style: "bald", glasses: true } },
-  { name: "Aunt Sarah", approval: "not_approved", tint: "bg-coral/70", face: { skin: SKIN[0], hair: "#b5532f", style: "long" } },
-  { name: "Uncle Mike", approval: "awaiting", tint: "bg-lavender", face: { skin: SKIN[2], hair: "#2b211c", style: "short" } },
+  { name: "Mom", avatar: "mom", approval: "approved", status: "Voice shared with family", row: "bg-sunshine/30" },
+  { name: "Grandpa", avatar: "grandpa", approval: "approved", status: "Voice shared with family", row: "bg-mint/35" },
+  { name: "Aunt Pook", avatar: "pook", approval: "not_approved", status: "Not approved for Milly", row: "bg-sky/25" },
+  { name: "Uncle Chris", avatar: "chris", approval: "awaiting", status: "Awaiting voice-owner permission", row: "bg-lavender/30" },
 ];
 
-const ROW: Record<Approval, string> = {
-  approved: "bg-mint/45",
-  not_approved: "bg-coral/20",
-  awaiting: "bg-ink/[0.06] text-ink/60",
-};
-
-const STATUS: Record<Approval, { label: string; className: string }> = {
-  approved: { label: "Approved", className: "bg-mint/70 text-ink" },
-  not_approved: { label: "Not approved", className: "bg-coral/30 text-coral-deep" },
-  awaiting: { label: "Awaiting voice-owner permission", className: "text-ink/60" },
-};
-
-function StatusIcon({ approval }: { approval: Approval }) {
-  if (approval === "approved")
-    return (
-      <svg viewBox="0 0 20 20" className="size-4 shrink-0">
-        <circle cx="10" cy="10" r="10" fill="var(--color-mint-deep)" />
-        <path d="M5.5 10.5 8.5 13.5 14.5 7" stroke="white" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  if (approval === "not_approved")
-    return (
-      <svg viewBox="0 0 20 20" className="size-4 shrink-0">
-        <circle cx="10" cy="10" r="10" fill="var(--color-coral-deep)" />
-        <path d="M6.5 6.5 13.5 13.5 M13.5 6.5 6.5 13.5" stroke="white" strokeWidth="2.4" strokeLinecap="round" />
-      </svg>
-    );
-  return (
-    <svg viewBox="0 0 20 20" className="size-4 shrink-0 text-[#8a6fd1]">
-      <circle cx="10" cy="10" r="8.5" stroke="currentColor" strokeWidth="2" fill="none" />
-      <path d="M10 5.5V10l3 2" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function Toggle({ on, disabled }: { on: boolean; disabled?: boolean }) {
+function Toggle({ approval }: { approval: Approval }) {
+  const on = approval === "approved";
+  const disabled = approval === "awaiting";
   return (
     <span
-      className={`relative h-8 w-14 shrink-0 rounded-full transition-colors ${
+      className={`relative h-8 w-14 shrink-0 rounded-full sm:h-9 sm:w-16 ${
         on ? "bg-mint-deep" : disabled ? "bg-ink/10" : "bg-ink/25"
       }`}
     >
       <span
-        className={`absolute top-1 size-6 rounded-full bg-white shadow-[0_2px_3px_rgba(40,53,72,0.25)] ${on ? "right-1" : "left-1"} ${
-          disabled ? "opacity-70" : ""
+        className={`absolute top-1 size-6 rounded-full bg-white shadow-[0_2px_3px_rgba(40,53,72,0.25)] sm:size-7 ${on ? "right-1" : "left-1"} ${
+          disabled ? "opacity-60" : ""
         }`}
       />
     </span>
   );
 }
 
-function FaceAvatar({ face, tint, className = "" }: { face: Storyteller["face"]; tint: string; className?: string }) {
+function Avatar({ name, size, className = "" }: { name: string; size: number; className?: string }) {
   return (
-    <span className={`grid shrink-0 place-items-center overflow-hidden rounded-full border-[3px] border-surface ${tint} ${className}`}>
-      <svg viewBox="0 0 60 60" className="size-full">
-        <Face cx={30} cy={33} r={17} {...face} />
-      </svg>
-    </span>
+    <Image
+      src={`/family-voices/${name}.webp`}
+      alt=""
+      width={size}
+      height={size}
+      className={`shrink-0 rounded-full ring-4 ring-surface ${className}`}
+    />
+  );
+}
+
+function Heart({ className }: { className: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" className={className}>
+      <path d="M0 4 C0 -2 8 -3 8 3 C8 -3 16 -2 16 4 C16 10 8 14 8 16 C8 14 0 10 0 4Z" fill="currentColor" />
+    </svg>
   );
 }
 
 const ILLUSTRATION_LABEL =
-  "Illustration of the Readli Family parent controls: Manage voices for Milly. Mom and Grandpa are approved, Aunt Sarah is not approved, and Uncle Mike is awaiting the voice owner's permission.";
+  "Illustration of Readli Family parent controls: Manage voices for Milly. Mom and Grandpa are switched on, Aunt Pook is not approved for Milly, and Uncle Chris is awaiting the voice owner's permission. Below, Milly reads a storybook with her puppy.";
 
 /** Marketing illustration of the parental voice controls. The real approval portal lives in Readli Family. */
 function VoicePermissionsIllustration() {
   return (
-    <div role="img" aria-label={ILLUSTRATION_LABEL} className="relative mx-auto w-full max-w-lg pb-16 pt-6 sm:px-6">
-      {/* Backdrop shapes */}
-      <div aria-hidden="true" className="absolute inset-x-6 top-0 h-3/4 rounded-[45%_55%_40%_60%] bg-sky/60" />
-      <div aria-hidden="true" className="absolute -right-2 top-10 size-28 rounded-full bg-sunshine sm:size-36" />
-      <div aria-hidden="true" className="absolute bottom-4 left-0 h-32 w-40 rounded-[50%_50%_40%_40%] bg-mint" />
-      <div aria-hidden="true" className="absolute bottom-6 -right-4 size-28 rounded-full bg-mint/80" />
-      <svg aria-hidden="true" viewBox="0 0 40 40" className="absolute left-4 top-0 size-10 text-sunshine sm:left-10">
-        <path d="M6 30 16 22 M18 6 20 18 M34 10 26 20" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-      </svg>
-      <svg aria-hidden="true" viewBox="0 0 16 16" className="absolute -right-1 top-1/2 size-6 text-coral">
-        <path d="M0 4 C0 -2 8 -3 8 3 C8 -3 16 -2 16 4 C16 10 8 14 8 16 C8 14 0 10 0 4Z" fill="currentColor" />
-      </svg>
+    <div role="img" aria-label={ILLUSTRATION_LABEL} className="relative mx-auto w-full max-w-xl">
+      <div aria-hidden="true" className="absolute -inset-x-4 -top-4 bottom-16 rounded-[42%_58%_46%_54%] bg-sunshine/35" />
+      <Heart className="absolute -left-1 top-1/3 size-6 text-coral" />
+      <Heart className="absolute -right-2 top-1/2 size-5 text-coral-strong" />
 
-      <div className="relative rotate-1 rounded-[2rem] border-[3px] border-ink bg-surface p-4 shadow-[0_8px_0_rgba(40,53,72,0.9)] sm:p-6">
-        <div className="flex items-center gap-3 sm:gap-4">
-          <FaceAvatar face={{ skin: SKIN[0], hair: "#6b4430", style: "bun" }} tint="bg-lavender" className="size-14 sm:size-16" />
-          <div className="min-w-0">
-            <p className="font-display text-xl font-semibold leading-tight sm:text-2xl">Manage voices for Milly</p>
-            <p className="text-sm text-muted">Choose who can read stories to this child.</p>
+      <div className="relative z-10 mx-2 rounded-[2rem] bg-surface p-4 shadow-[0_18px_40px_-18px_rgba(40,53,72,0.35)] ring-1 ring-ink/5 sm:mx-6 sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 pt-1">
+            <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-mint-deep">Readli Family</p>
+            <p className="mt-1 font-display text-xl font-semibold leading-tight sm:text-3xl">Manage voices for Milly</p>
+            <p className="mt-1 text-sm text-muted sm:text-base">Choose who can read stories to this child.</p>
           </div>
+          <span className="relative shrink-0">
+            <Avatar name="milly" size={96} className="size-16 sm:size-24" />
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="absolute -right-3 -top-2 size-6 text-sunshine">
+              <path d="M6 4 9 9 M16 2 15 8 M22 10 17 12" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+            </svg>
+          </span>
         </div>
         <ul className="mt-4 flex flex-col gap-2.5 sm:gap-3">
-          {STORYTELLERS.map((s) => {
-            const status = STATUS[s.approval];
-            return (
-              <li key={s.name} className={`flex items-center gap-3 rounded-2xl p-2.5 sm:p-3 ${ROW[s.approval]}`}>
-                <FaceAvatar
-                  face={s.face}
-                  tint={s.tint}
-                  className={`size-12 sm:size-14 ${s.approval === "awaiting" ? "opacity-70" : ""}`}
-                />
-                <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-                  <p className="font-display text-lg font-semibold leading-none">{s.name}</p>
-                  <span
-                    className={`inline-flex items-center gap-1.5 rounded-full text-xs font-bold sm:text-sm ${
-                      s.approval === "awaiting" ? "" : "px-2.5 py-1"
-                    } ${status.className}`}
-                  >
-                    <StatusIcon approval={s.approval} />
-                    {status.label}
-                  </span>
-                </div>
-                <Toggle on={s.approval === "approved"} disabled={s.approval === "awaiting"} />
-              </li>
-            );
-          })}
+          {STORYTELLERS.map((s) => (
+            <li key={s.name} className={`flex items-center gap-3 rounded-2xl p-2.5 sm:gap-4 sm:p-3 ${s.row}`}>
+              <Avatar name={s.avatar} size={64} className="size-12 sm:size-16" />
+              <div className="min-w-0 flex-1">
+                <p className="font-display text-lg font-semibold leading-tight">{s.name}</p>
+                <p className="text-sm text-ink/75">{s.status}</p>
+              </div>
+              <Toggle approval={s.approval} />
+            </li>
+          ))}
         </ul>
       </div>
 
-      <ReadiMascot size={96} decorative className="animate-bob absolute -bottom-1 -left-1 sm:-left-4" />
+      <Image
+        src="/family-voices/milly-reading.webp"
+        alt=""
+        width={896}
+        height={266}
+        sizes="(min-width: 768px) 576px, 100vw"
+        className="relative -mt-3 w-full sm:-mt-12"
+      />
     </div>
   );
 }
 
 const POINTS = [
-  { text: "Voices are private by default.", tint: "bg-coral/35", icon: "lock" },
-  { text: "Parents approve storytellers for each child.", tint: "bg-mint", icon: "people" },
-  { text: "Permissions can be changed or revoked.", tint: "bg-sunshine", icon: "gear" },
+  {
+    title: "Voices are private by default",
+    body: "Recording a voice doesn't automatically share it with anyone.",
+    tint: "bg-sunshine/45 text-[#7a4f0f]",
+    icon: "lock",
+  },
+  {
+    title: "Parents approve storytellers",
+    body: "You choose exactly which voices appear for each child.",
+    tint: "bg-mint/50 text-mint-deep",
+    icon: "people",
+  },
+  {
+    title: "Permissions can be changed or revoked",
+    body: "Update your child's storytellers anytime.",
+    tint: "bg-sky/35 text-ink",
+    icon: "gear",
+  },
 ] as const;
 
 function PointIcon({ icon }: { icon: (typeof POINTS)[number]["icon"] }) {
   return (
-    <svg viewBox="0 0 24 24" className="size-6" fill="currentColor" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="size-7" fill="currentColor" aria-hidden="true">
       {icon === "lock" && (
         <>
           <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" strokeWidth="2.4" fill="none" />
@@ -177,22 +154,23 @@ function PointIcon({ icon }: { icon: (typeof POINTS)[number]["icon"] }) {
   );
 }
 
-const DOTS = ["text-coral", "text-mint-deep", "text-sunshine"];
-
 export function FamilyVoices() {
   return (
     <section id="family-privacy" aria-labelledby="family-voices-heading" className="scroll-mt-20 overflow-hidden bg-ivory">
       {/* Mobile: headline, illustration, then the copy. Desktop: copy left, illustration right. */}
-      <div className="mx-auto grid max-w-6xl items-center gap-x-10 gap-y-8 px-4 py-14 sm:px-6 md:grid-cols-[1fr_1.05fr] md:grid-rows-[auto_auto] md:py-20">
-        <div className="flex flex-col gap-3 md:self-end">
-          <p className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-coral-deep">Made for families</p>
-          <h2 id="family-voices-heading" className="font-display text-4xl font-semibold leading-[1.05] sm:text-5xl lg:text-6xl">
-            {["Your family", "Your voices", "Your rules"].map((line, i) => (
-              <span key={line} className="block">
-                {line}
-                <span className={DOTS[i]}>.</span>{" "}
-              </span>
-            ))}
+      <div className="mx-auto grid max-w-6xl items-center gap-x-10 gap-y-8 px-4 py-14 sm:px-6 md:grid-cols-[1fr_1.1fr] md:grid-rows-[auto_auto] md:py-20">
+        <div className="flex flex-col gap-4 md:self-end">
+          <p className="flex items-center gap-2 font-display text-sm font-semibold uppercase tracking-[0.18em] text-mint-deep">
+            <svg viewBox="0 0 24 24" className="size-6" aria-hidden="true">
+              <path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5Z" fill="currentColor" />
+              <path d="m8.5 12 2.5 2.5 4.5-5" stroke="white" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Made for families
+          </p>
+          <h2 id="family-voices-heading" className="font-display text-5xl font-bold leading-[0.98] text-plum sm:text-6xl">
+            <span className="block">Your family. </span>
+            <span className="block text-coral-strong">Your voices. </span>
+            <span className="block">Your rules.</span>
           </h2>
         </div>
 
@@ -201,17 +179,20 @@ export function FamilyVoices() {
         </div>
 
         <div className="flex flex-col gap-6 md:self-start">
-          <p className="max-w-xl text-lg">
+          <p className="max-w-xl text-lg sm:text-xl">
             Family voices stay private until they&apos;re shared. And you decide which approved storytellers your child can
             listen to.
           </p>
-          <ul className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-4">
             {POINTS.map((p) => (
-              <li key={p.text} className="flex items-center gap-4">
-                <span className={`grid size-12 shrink-0 place-items-center rounded-2xl text-ink ${p.tint}`}>
+              <li key={p.title} className="flex items-center gap-4">
+                <span className={`grid size-14 shrink-0 place-items-center rounded-full sm:size-16 ${p.tint}`}>
                   <PointIcon icon={p.icon} />
                 </span>
-                <span className="text-lg">{p.text}</span>
+                <span>
+                  <span className="block font-display text-lg font-semibold text-plum">{p.title}</span>
+                  <span className="block text-ink/80">{p.body}</span>
+                </span>
               </li>
             ))}
           </ul>
