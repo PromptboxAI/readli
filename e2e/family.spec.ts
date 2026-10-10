@@ -204,7 +204,7 @@ test("kids can only switch to a storyteller whose reading is prepared at their p
 test("a parent prepares narration ahead of time and is told when it's ready", async ({ page }) => {
   await signIn(page, "adult:sara");
   await page.goto("/family");
-  await page.getByRole("link", { name: "Family library" }).click();
+  await page.getByRole("link", { name: "Family library", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Your family library" })).toBeVisible();
   await page.getByTestId("collection-all").getByTestId("book-the-tale-of-peter-rabbit").click();
   await expect(page.getByRole("heading", { name: "The Tale of Peter Rabbit" })).toBeVisible();
