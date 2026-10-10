@@ -19,6 +19,7 @@ The phase order follows Amendment 001 section G (recorder first, real-device tes
 |---|---|---|---|
 | 1 | Foundation and experience system | (prerequisite) | Phase 0 |
 | 2 | Guest demo with continuous teleprompter + six books | **G1** | Phase 1 |
+| 2b | Homepage design pass ([Design Revision 001](design-revision-001.md)) | (design) | Phase 0 polish |
 | 3 | Real mobile browser and audio verification | **G2** | Phase 1 exit gate |
 | 4 | Accounts, families and Family Voice recording | (prerequisite for G3) | Phase 2 |
 | 5 | Premium Private Voice (feature-flagged) | **G3** | Later → pulled forward, flagged |
@@ -102,6 +103,20 @@ Phases 6 and 7 are independent and can swap or run in parallel; phase 6 is small
 *Analytics:* PRD funnel events plus `recorder_started`, `recording_paused`, `recording_resumed`, `recording_completed`, `qc_rejected`, `preview_book_selected`, `demo_audio_played`. Proposed mapping to avoid double counting: amendment names replace PRD `record_start` → `recorder_started`, `record_success` → `recording_completed`, `sample_book_select` → `preview_book_selected`, `preview_play` → `demo_audio_played`. No audio, transcripts or child data in analytics.
 
 **Exit:** amendment acceptance tests F-1 (desktop and emulators), F-3, F-4, F-9 pass; PRD §14 guest tests pass in automation.
+
+---
+
+## Phase 2b — Homepage design pass (Design Revision 001)
+
+**Source:** designer notes of 2026-10-10, recorded in [`design-revision-001.md`](design-revision-001.md). Kevin likes the current direction; this is polish, not a rebuild.
+
+**Build:** interactive family tree (7+ members, statuses, explorable without signup, pan + list view on mobile), bookstore-style six-book shelf, Readi as one recurring guide, richer section composition. Built against current placeholders so final assets drop in.
+
+**Waits on:** the new Readli logo (in progress with Kevin's designer), the final Readi mascot, hero/use-case illustrations and rights-cleared covers.
+
+**Timing:** after Phase 2's cloning work lands. The interaction work can also fill gaps while Phase 2 waits on ElevenLabs/Supabase access.
+
+**Exit:** no empty illustration placeholders remain once assets arrive; screenshots at 375 / 820 / 1440; everything in the revision's "must not break" list still works.
 
 ---
 
