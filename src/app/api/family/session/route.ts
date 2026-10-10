@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   const [kind, id] = typeof as === "string" ? as.split(":") : [];
   const existing = await currentSession();
   const sandbox = existing?.sandbox ?? newSandbox();
-  const store = familyStore(sandbox);
+  const store = await familyStore(sandbox);
   if (!store) return fail(404, "family_off", FAMILY_OFF);
   const state = await store.read();
 

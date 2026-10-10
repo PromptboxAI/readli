@@ -4,11 +4,12 @@ import { notFound } from "next/navigation";
 import { FamilyOff, NeedsGrownUp } from "@/components/family/FamilyShell";
 import { KidsPlayer } from "@/components/family/KidsPlayer";
 import { findDemoBook } from "@/lib/content/demo-books";
-import { sentencesOf } from "@/lib/content/sentences";
 import { activeChild } from "@/lib/family/permissions";
 import { familyPage } from "@/lib/family/page-data";
-import { narratorsFor } from "@/lib/family/service";
+import { childBookState, narratorsFor } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
+import { kidsReadiness } from "@/lib/narration/narration";
+import { bookText } from "@/lib/narration/text";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Story time | Readli Kids" };
@@ -22,7 +23,11 @@ export default async function KidsListen({ params }: { params: Promise<{ slug: s
   const session = page.session;
   const child = session?.actor.kind === "child" && page.state ? activeChild(page.state, session.actor.childId) : null;
   if (!session || !child) return <NeedsGrownUp text="A grown-up opens your Readli Kids bookshelf for you." />;
-  const narrators = await narratorsFor(familyStore(session.sandbox)!, session.actor, child.id);
+  const store = (await familyStore(session.sandbox))!;
+  const narrators = await narratorsFor(store, session.actor, child.id);
+  const resume = await childBookState(store, session.actor, child.id, book.slug);
+  const readiness = await kidsReadiness(store, session.actor, child.id, book.slug);
+  const text = bookText(book.slug)!;
   return (
     <main className="mx-auto flex min-h-dvh max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6">
       <Link href="/kids" className="self-start font-display font-semibold underline underline-offset-4">
@@ -33,8 +38,11 @@ export default async function KidsListen({ params }: { params: Promise<{ slug: s
         childId={child.id}
         childName={child.nickname}
         book={{ slug: book.slug, title: book.title }}
-        sentences={sentencesOf(book.passageText)}
+        sentences={text.sentences.map((x) => x.text)}
+        sentenceIds={text.sentences.map((x) => x.id)}
+        initialReadiness={readiness}
         initialNarrators={narrators}
+        resume={resume}
       />
     </main>
   );

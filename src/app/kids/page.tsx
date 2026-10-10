@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
+import { FavoriteButton } from "@/components/family/FavoriteButton";
 import { FamilyOff, NeedsGrownUp } from "@/components/family/FamilyShell";
 import { DEMO_BOOKS } from "@/lib/content/demo-books";
 import { activeChild } from "@/lib/family/permissions";
@@ -16,6 +17,7 @@ export default async function KidsHome() {
   const actor = page.session?.actor;
   const child = actor?.kind === "child" && page.state ? activeChild(page.state, actor.childId) : null;
   if (!child) return <NeedsGrownUp text="A grown-up opens your Readli Kids bookshelf for you." />;
+  const favorites = new Set(page.state!.favorites.filter((f) => f.childId === child.id).map((f) => f.bookSlug));
   return (
     <main className="mx-auto flex min-h-dvh max-w-5xl flex-col gap-8 px-4 py-10 sm:px-6">
       <div className="flex items-center gap-4">
@@ -24,11 +26,12 @@ export default async function KidsHome() {
       </div>
       <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         {DEMO_BOOKS.filter((b) => b.passageText).map((b) => (
-          <li key={b.slug}>
-            <Link href={`/kids/listen/${b.slug}`} className="flex h-full flex-col gap-1 rounded-3xl bg-surface p-5 ring-2 ring-ink/10 hover:-translate-y-0.5 hover:ring-ink">
+          <li key={b.slug} className="flex h-full items-start gap-1 rounded-3xl bg-surface p-3 ring-2 ring-ink/10 hover:ring-ink">
+            <Link href={`/kids/listen/${b.slug}`} className="flex min-w-0 flex-1 flex-col gap-1 p-2">
               <span className="font-display text-xl font-semibold">{b.title}</span>
               <span className="text-sm text-muted">{b.author}</span>
             </Link>
+            <FavoriteButton childId={child.id} bookSlug={b.slug} title={b.title} initial={favorites.has(b.slug)} />
           </li>
         ))}
       </ul>

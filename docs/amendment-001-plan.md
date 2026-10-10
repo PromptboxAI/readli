@@ -152,6 +152,8 @@ Phases 6 and 7 are independent and can swap or run in parallel; phase 6 is small
 
 *Family voice permissions (Amendment 002, 2026-10-10, launch-critical):* built ahead of sign-in as a preview. Two-key model (owner share plus per-child guardian approval), Manage Storytellers at `/family/kids/[childId]/storytellers`, owner sharing at `/family/my-voice`, Readli Kids player at `/kids/listen/[slug]` showing only approved narrators with sentence-level switching, migration `20261010000300_family_voice_permissions.sql`, and the amendment's eight acceptance tests (`src/lib/family/family.test.ts`, `e2e/family.spec.ts`). Phase 4 swaps the preview session for Supabase Auth and adds a Supabase-backed `FamilyStore`; the checks stay as they are. Privacy and Terms wording is in a separate thread.
 
+*Signup and pricing amendment (2026-10-10):* household entitlements, narrator slots as the third permission gate, slot purchase (payments off), child profiles up to six with no per-child charge, three concurrent kids sessions, per-child progress and favourites, migration `20261010000600_household_entitlements.sql`, tests in `src/lib/family/plan.test.ts` and `e2e/family.spec.ts`. Signup, checkout, contributor onboarding and admin UI are in the invitations thread.
+
 **Exit:** PRD §14 family tests and amendment F-8 pass.
 
 ---
@@ -207,6 +209,14 @@ Phases 6 and 7 are independent and can swap or run in parallel; phase 6 is small
 - Every switch is logged (`voice_switch_events`, `narrator_switch` / `resume_after_switch` events).
 
 **Acceptance (from the designer's example):** a child starts Peter Rabbit in Mom's voice, taps Grandpa's avatar on page 3, and the story continues from the same sentence in Grandpa's voice, with the page unchanged; switching back to Mom later works the same way.
+
+### Narration libraries (built 2026-10-10)
+
+- Shared libraries, segments, jobs, credit ledger and provider usage: `src/lib/narration/`, migration `20261010000700_narration_libraries.sql` (`claim_narration_segments()` serializes claims per library; `settle_narration_job()` refunds once; `child_can_play_segment()` gates playback).
+- Parent Prepare Narration: `/family/books`, `/family/books/[slug]` (status per voice, estimate, confirm, progress, stop). Notifications on `/family`.
+- Kids player shows only approved narrators, marks "Ready here", switches at the same sentence, and explains when a part isn't prepared.
+- Admin: `/admin/narration` (totals, readiness, failed jobs, characters, credits and cost, storage, served-from-storage rate, work avoided, unused audio, plan comparison).
+- Production worker: replace the `after()` call with Inngest; real accounts swap `MemoryFamilyStore` for a Supabase store calling the SQL functions above.
 
 ## Phase 8 — Launch and evidence
 

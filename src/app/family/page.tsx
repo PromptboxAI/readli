@@ -47,6 +47,9 @@ export default async function FamilyHome() {
   }
 
   const kids = guardianChildren(state, adult.id);
+  const isGuardian = state.members.some((m) => m.adultId === adult.id && m.role === "guardian" && m.removedAt === null);
+  const homes = new Set(state.members.filter((m) => m.adultId === adult.id && m.role === "guardian" && m.removedAt === null).map((m) => m.householdId));
+  const notes = state.notifications.filter((n) => homes.has(n.householdId)).slice(-3).reverse();
   return (
     <FamilyShell>
       <div className="flex items-center gap-4">
@@ -67,9 +70,44 @@ export default async function FamilyHome() {
         </Link>
       </section>
 
-      {kids.length > 0 && (
+      {isGuardian && notes.length > 0 && (
+        <section className="flex flex-col gap-2 rounded-panel bg-mint/40 p-4" aria-label="Updates" data-testid="notifications">
+          {notes.map((n) => (
+            <Link key={n.id} href={n.href} className="font-semibold underline underline-offset-4">
+              {n.text}
+            </Link>
+          ))}
+        </section>
+      )}
+
+      {isGuardian && (
+        <section className="flex flex-col gap-3" aria-labelledby="books-h">
+          <h2 id="books-h" className="font-display text-2xl font-semibold">Books and narration</h2>
+          <p>Prepare readings ahead of time so kids can switch storytellers instantly.</p>
+          <Link href="/family/books" className={`${buttonSecondary} self-start`}>
+            Prepare narration
+          </Link>
+        </section>
+      )}
+
+      {isGuardian && (
+        <section className="flex flex-col gap-3" aria-labelledby="slots-h">
+          <h2 id="slots-h" className="font-display text-2xl font-semibold">Your family&apos;s narrators</h2>
+          <p>Choose which shared voices fill your narrator slots.</p>
+          <Link href="/family/narrators" className={`${buttonSecondary} self-start`}>
+            Narrator slots
+          </Link>
+        </section>
+      )}
+
+      {isGuardian && (
         <section className="flex flex-col gap-3" aria-labelledby="kids-h">
-          <h2 id="kids-h" className="font-display text-2xl font-semibold">Kids profiles</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="kids-h" className="font-display text-2xl font-semibold">Kids profiles</h2>
+            <Link href="/family/kids" className="font-semibold underline underline-offset-4">
+              Add or remove kids
+            </Link>
+          </div>
           <ul className="grid gap-3 sm:grid-cols-2">
             {kids.map((c) => (
               <li key={c.id} className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">

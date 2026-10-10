@@ -15,6 +15,8 @@ function statusText(s: StorytellerView, child: string): { badge: string; tone: s
       return { badge: "Not available to this child", tone: "bg-surface border-2 border-ink/30", note: "Available to your family" };
     case "waiting_for_owner":
       return { badge: "Waiting for permission", tone: "bg-sunshine", note: `${s.ownerName} hasn't shared their voice with your family yet.` };
+    case "needs_slot":
+      return { badge: "Needs a narrator slot", tone: "bg-sky/60", note: "Shared with your family. Add them to a narrator slot to approve them." };
     case "processing":
       return { badge: "Voice still being made", tone: "bg-lavender/70", note: "You can approve it once it's ready and shared." };
   }
@@ -30,6 +32,7 @@ export function ManageStorytellers({ initial }: { initial: ManageStorytellersVie
   const groups: { title: string; items: StorytellerView[] }[] = [
     { title: `Storytellers ${child} can hear`, items: view.storytellers.filter((s) => s.status === "approved") },
     { title: "Shared with your family", items: available },
+    { title: "Not in a narrator slot", items: view.storytellers.filter((s) => s.status === "needs_slot") },
     { title: "Waiting for the storyteller", items: view.storytellers.filter((s) => s.status === "waiting_for_owner" || s.status === "processing") },
   ];
 
@@ -57,8 +60,8 @@ export function ManageStorytellers({ initial }: { initial: ManageStorytellersVie
         <p className="font-display font-semibold text-coral-deep">Kids profiles</p>
         <h1 className="font-display text-4xl font-semibold">Manage storytellers for {child}</h1>
         <p className="max-w-2xl text-lg">
-          A voice appears for {child} only when its owner has shared it with your family <em>and</em> you approve it
-          here. Joining the family tree doesn&apos;t share anyone&apos;s voice.
+          A voice appears for {child} only when its owner has shared it with your family, it&apos;s in one of your
+          narrator slots, <em>and</em> you approve it here. Joining the family tree doesn&apos;t share anyone&apos;s voice.
         </p>
         {view.children.length > 1 && (
           <nav aria-label="Choose a child" className="flex flex-wrap gap-2">
@@ -80,7 +83,7 @@ export function ManageStorytellers({ initial }: { initial: ManageStorytellersVie
         {message}
       </p>
 
-      {groups.map((g) => (
+      {groups.filter((g) => g.items.length > 0 || !g.title.startsWith("Not in")).map((g) => (
         <section key={g.title} className="flex flex-col gap-3" aria-label={g.title}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-display text-2xl font-semibold">{g.title}</h2>
@@ -101,7 +104,7 @@ export function ManageStorytellers({ initial }: { initial: ManageStorytellersVie
             <ul className="flex flex-col gap-3">
               {g.items.map((s) => {
                 const t = statusText(s, child);
-                const locked = s.status === "waiting_for_owner" || s.status === "processing";
+                const locked = s.status !== "approved" && s.status !== "available";
                 return (
                   <li key={s.voiceId} data-testid={`storyteller-${s.voiceId}`} className={`flex items-center gap-4 rounded-3xl p-4 ${s.status === "approved" ? "bg-mint/40" : locked ? "bg-ink/5" : "bg-surface ring-2 ring-ink/10"}`}>
                     <StorytellerAvatar name={s.ownerName} avatarUrl={s.avatarUrl} tint={s.tint} muted={locked} />
@@ -110,6 +113,11 @@ export function ManageStorytellers({ initial }: { initial: ManageStorytellersVie
                       <p className="text-sm text-muted">{s.relationship}</p>
                       <span className={`mt-1 inline-block rounded-full px-3 py-0.5 text-sm font-bold text-ink ${t.tone}`}>{t.badge}</span>
                       <p className="mt-1 text-sm text-muted">{t.note}</p>
+                      {s.status === "needs_slot" && (
+                        <Link href="/family/narrators" className="mt-1 inline-block text-sm font-semibold underline underline-offset-4">
+                          Manage narrator slots
+                        </Link>
+                      )}
                     </div>
                     <Toggle
                       checked={s.status === "approved"}

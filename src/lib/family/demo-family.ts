@@ -2,8 +2,9 @@ import type { FamilyState } from "./model";
 
 /**
  * Preview household for local dev and tests, matching the homepage example family. Nothing here is
- * a real person. Lou has recorded but not shared; Sam's voice is still being made; Priya has shared
- * but no child has her approved yet.
+ * a real person. The family is on Readli Family with two extra narrator slots (four in all), held by
+ * Mom, Dad, Grandma June and Nana Rose. Priya has shared but isn't in a slot; Lou has recorded but
+ * not shared; Sam's voice is still being made.
  */
 export const DEMO_HOUSEHOLD_ID = "home-demo";
 export const DEMO_POLICY_VERSION = "family-voice-2026-10";
@@ -22,6 +23,7 @@ export function demoFamilyState(): FamilyState {
     { id: "sam", displayName: "Uncle Sam", relationship: "Dad's brother", tint: "bg-lavender", role: "member" as const },
   ];
   const shared = ["sara", "ben", "june", "rose", "priya"];
+  const slotted = ["sara", "ben", "june", "rose"];
   const approvals: [string, string][] = [
     ["maya", "sara"],
     ["maya", "june"],
@@ -40,6 +42,7 @@ export function demoFamilyState(): FamilyState {
     voices: adults.map((a) => ({
       id: `voice-${a.id}`,
       ownerId: a.id,
+      version: 1,
       status: a.id === "sam" ? ("processing" as const) : ("ready" as const),
       createdAt: T0,
       deletedAt: null,
@@ -64,7 +67,28 @@ export function demoFamilyState(): FamilyState {
       revokedBy: null,
       revokeReason: null,
     })),
-    assets: [],
     audit: [],
+    entitlements: [
+      { id: "plan-demo", householdId: DEMO_HOUSEHOLD_ID, source: "subscription", status: "active", extraNarratorSlots: 2, extraStreams: 0, startsAt: T0, endsAt: null },
+    ],
+    slots: slotted.map((id) => ({
+      id: `slot-${id}`,
+      householdId: DEMO_HOUSEHOLD_ID,
+      voiceId: `voice-${id}`,
+      activatedBy: "sara",
+      activatedAt: T0,
+      releasedAt: null,
+      releasedBy: null,
+    })),
+    sessions: [],
+    progress: [],
+    favorites: [],
+    libraries: [],
+    segments: [],
+    jobs: [],
+    ledger: [],
+    usage: [],
+    notifications: [],
+    plays: [],
   };
 }

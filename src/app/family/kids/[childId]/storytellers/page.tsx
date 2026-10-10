@@ -14,7 +14,7 @@ export default async function ManageStorytellersPage({ params }: { params: Promi
   if (!page.enabled) return <FamilyOff />;
   if (page.session?.actor.kind !== "adult") return <NeedsGrownUp text="Only a parent or guardian can choose storytellers." />;
   try {
-    const view = await manageStorytellers(familyStore(page.session.sandbox)!, page.session.actor, childId);
+    const view = await manageStorytellers((await familyStore(page.session.sandbox))!, page.session.actor, childId);
     return (
       <FamilyShell>
         <PreviewNote />
