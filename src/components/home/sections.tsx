@@ -326,7 +326,7 @@ export function SiteFooter() {
   return (
     <footer className="bg-ivory">
       <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-8 text-sm sm:px-6">
-        <ul aria-label="Readli on social media" className="grid w-fit grid-cols-4 gap-2 sm:flex sm:flex-wrap">
+        <ul aria-label="Readli on social media" className="flex w-full max-w-sm justify-between sm:w-fit sm:max-w-none sm:gap-3">
           {SOCIAL_ACCOUNTS.map((a) => (
             <li key={a.platform}>
               <a
@@ -334,9 +334,9 @@ export function SiteFooter() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`Readli on ${a.name} (opens in a new tab)`}
-                className="grid size-11 place-items-center rounded-full bg-surface text-ink ring-2 ring-ink/10 transition-transform hover:-translate-y-0.5 hover:bg-ink hover:text-white"
+                className="grid size-9 place-items-center rounded-full text-ink transition-transform sm:size-10 hover:-translate-y-0.5 hover:text-coral-deep"
               >
-                <SocialIcon platform={a.platform} />
+                <SocialIcon platform={a.platform} className="size-6" />
               </a>
             </li>
           ))}
