@@ -15,7 +15,8 @@
     "@supabase/supabase-js": "^2.117.3",
     "next": "^15.5.27",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "simple-icons": "^16.34.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.7",

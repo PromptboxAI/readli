@@ -1,11 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { DemoBookShelf } from "@/components/books/DemoBookShelf";
+import { SocialIcon } from "@/components/brand/SocialIcon";
 import { FamilyTree } from "@/components/home/FamilyTree";
 import { FamilyOfStorytellers, HearLovedOnes, MakeStorytimeYourOwn } from "@/components/home/StoryIllustrations";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { coverSrc, DEMO_BOOKS } from "@/lib/content/demo-books";
+import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
 
 function Cloud({ className }: { className: string }) {
   return (
@@ -333,6 +335,7 @@ export function FinalCta() {
 
 export function SiteFooter() {
   const links = [
+    { href: "/company", label: "Company" },
     { href: "/privacy", label: "Privacy" },
     { href: "/terms", label: "Terms" },
     { href: "/help", label: "Help" },
@@ -341,15 +344,32 @@ export function SiteFooter() {
   ];
   return (
     <footer className="bg-ivory">
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p>© {new Date().getFullYear()} Readli. Every Book. Every Voice.</p>
-        <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
-          {links.map((l) => (
-            <Link key={l.href} href={l.href} className="underline-offset-4 hover:underline">
-              {l.label}
-            </Link>
+      <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-8 text-sm sm:px-6">
+        <ul aria-label="Readli on social media" className="flex flex-wrap gap-2">
+          {SOCIAL_ACCOUNTS.map((a) => (
+            <li key={a.platform}>
+              <a
+                href={a.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Readli on ${a.name} (opens in a new tab)`}
+                className="grid size-11 place-items-center rounded-full bg-surface text-ink ring-2 ring-ink/10 transition-transform hover:-translate-y-0.5 hover:bg-ink hover:text-white"
+              >
+                <SocialIcon platform={a.platform} />
+              </a>
+            </li>
           ))}
-        </nav>
+        </ul>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <p>© {new Date().getFullYear()} Readli. Every Book. Every Voice.</p>
+          <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
+            {links.map((l) => (
+              <Link key={l.href} href={l.href} className="underline-offset-4 hover:underline">
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
       </div>
     </footer>
   );

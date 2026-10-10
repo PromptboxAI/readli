@@ -33,3 +33,19 @@ test("homepage follows the design brief order with six books under the demo", as
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: `e2e/screenshots/home-${info.project.name}.png`, fullPage: true });
 });
+
+test("footer and company page link every official account in a new tab", async ({ page }) => {
+  for (const path of ["/", "/company"]) {
+    await page.goto(path);
+    const social = page.getByRole("list", { name: "Readli on social media" }).getByRole("link");
+    await expect(social).toHaveCount(8);
+    for (const link of await social.all()) {
+      await expect(link).toHaveAttribute("target", "_blank");
+      await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    }
+  }
+  await expect(page.getByTestId("official-accounts").getByRole("link")).toHaveCount(8);
+  await expect(page.getByRole("link", { name: /LinkedIn/ }).first()).toHaveAttribute("href", "https://www.linkedin.com/company/readli/");
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});
