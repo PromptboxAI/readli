@@ -539,6 +539,8 @@ export async function createChildProfile(store: FamilyStore, actor: Actor | null
   const adultId = requireHouseholdGuardian(state, actor, householdId);
   const name = nickname.trim().slice(0, 30);
   if (!name) throw new PermissionError(400, "bad_name", "Give the profile a name.");
+  // Readli Voice (free contributor) households have no kids profiles.
+  if (!activeEntitlement(state, householdId)) throw new PermissionError(402, "no_family_plan", "Kids profiles come with Readli Family.");
   const count = state.children.filter((c) => c.householdId === householdId && c.deletedAt === null).length;
   if (count >= store.plan.maxChildProfiles) {
     throw new PermissionError(409, "child_limit", `Readli Family includes up to ${store.plan.maxChildProfiles} child profiles.`);

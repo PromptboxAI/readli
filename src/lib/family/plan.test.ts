@@ -186,6 +186,12 @@ describe("signup and pricing amendment", () => {
     expect((await narratorSlots(store, priya, "home-priya", clock)).active.map((n) => n.voiceId)).toEqual(["voice-priya"]);
   });
 
+  it("free contributor households get no kids profiles", async () => {
+    const { state, store } = basePlanFamily();
+    addSecondHousehold(state);
+    await rejects(createChildProfile(store, { kind: "adult", adultId: "kim" }, H2, "Ivy two", clock), 402, "no_family_plan");
+  });
+
   it("gift and donated memberships use the same household entitlement", async () => {
     const { state, store } = basePlanFamily();
     addSecondHousehold(state);

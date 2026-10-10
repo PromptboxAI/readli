@@ -217,10 +217,14 @@ begin
 end;
 $$;
 
--- Up to max_child_profiles per household; never billed per child.
+-- Kids profiles need Readli Family; up to max_child_profiles per household; never billed per child.
 create or replace function public.guard_child_limit() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
+  if not exists (select 1 from household_entitlements where household_id = new.household_id and status = 'active'
+                 and starts_at <= now() and (ends_at is null or ends_at > now())) then
+    raise exception 'kids profiles need Readli Family' using errcode = '42501';
+  end if;
   if (select count(*) from child_profiles where household_id = new.household_id and deleted_at is null)
      >= (select max_child_profiles from plan_settings) then
     raise exception 'child profile limit reached' using errcode = '53400';
