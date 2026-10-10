@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { normalizeGiftCode } from "./codes";
 import { generateGiftCode, hashGiftCode } from "./codes.server";
-import { addMonths, cancelGift, subscriptionFromGift, redeemGift, renewalNotices, statusAt, UNCLAIMED_DAYS, type Gift } from "./lifecycle";
+import { addMonths, cancelGift, entitlementGrantFromGift, redeemGift, renewalNotices, statusAt, UNCLAIMED_DAYS, type Gift } from "./lifecycle";
 import { GIFT_PLANS, giftPaymentsOpen, giftPlan, priceLabel } from "./plans";
 
 const NOW = new Date("2026-10-10T12:00:00Z");
@@ -42,16 +42,13 @@ describe("gift plans", () => {
     expect(priceLabel({ ...GIFT_PLANS[0]!, priceCents: null })).toBe("Price coming soon");
   });
 
-  it("turns a redeemed gift into the same household subscription a paid family gets", () => {
+  it("grants the recipient's household the same Readli Family entitlement, sourced as a gift", () => {
     const r = redeemGift(gift("prepaid_3m"), NOW);
     if (!r.ok) throw new Error();
-    expect(subscriptionFromGift(r.gift, "h-ben")).toEqual({
-      householdId: "h-ben",
-      source: "gift",
-      status: "active",
-      paidThrough: "2027-01-10T12:00:00.000Z",
-      extraNarratorSlots: 0,
-    });
+    expect(entitlementGrantFromGift(r.gift)).toEqual({ source: "gift", months: 3 });
+    const s = redeemGift(gift("sponsored_monthly"), NOW);
+    expect(s.ok && entitlementGrantFromGift(s.gift)).toEqual({ source: "gift", months: 1 });
+    expect(entitlementGrantFromGift(gift("prepaid_1m"))).toBeNull();
   });
 });
 

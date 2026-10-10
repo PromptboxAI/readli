@@ -1,4 +1,3 @@
-import type { HouseholdSubscription } from "@/lib/entitlements/entitlements";
 import type { GiftPlan } from "./plans";
 
 /**
@@ -160,8 +159,12 @@ export const STATUS_LABEL: Record<GiftStatus, string> = {
   unclaimed: "Never opened",
 };
 
-/** A redeemed gift is a Readli Family subscription for the recipient's household, sourced "gift". */
-export function subscriptionFromGift(gift: Gift, householdId: string): HouseholdSubscription | null {
-  if (gift.status !== "active" || !gift.paidThrough) return null;
-  return { householdId, source: "gift", status: "active", paidThrough: gift.paidThrough.toISOString(), extraNarratorSlots: 0 };
+/**
+ * What a redeemed gift grants the recipient's household, in the family engine's terms
+ * (grantEntitlement in src/lib/family/service.ts): the same Readli Family entitlements as a paid
+ * plan, sourced "gift". A sponsorship grants one month at a time as each payment succeeds.
+ */
+export function entitlementGrantFromGift(gift: Gift): { source: "gift"; months: number } | null {
+  if (gift.status !== "active") return null;
+  return { source: "gift", months: gift.plan.kind === "prepaid" ? (gift.plan.months ?? 1) : 1 };
 }

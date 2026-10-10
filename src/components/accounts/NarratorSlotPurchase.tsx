@@ -2,20 +2,23 @@
 
 import { useState } from "react";
 import { buttonPrimary } from "@/components/brand/buttons";
-import { DEFAULT_PLAN, money } from "@/lib/entitlements/config";
-import { extraSlotsForSale, monthlyChargeCents } from "@/lib/entitlements/entitlements";
+import { DEFAULT_PLAN, formatPrice } from "@/lib/family/plan";
 
 const IN_USE = [
   { name: "Mom", tint: "bg-coral" },
   { name: "Grandpa Lou", tint: "bg-sky" },
 ];
 
-/** Buy extra active narrator slots. Not on sale while the slot price is only proposed. */
+/**
+ * Buy extra active narrator slots. Not on sale while the slot price is only proposed.
+ * Once billing is on, a successful charge calls addNarratorSlot (src/lib/family/service.ts) per slot.
+ */
 export function NarratorSlotPurchase() {
   const [add, setAdd] = useState(1);
-  const forSale = extraSlotsForSale();
+  const forSale = DEFAULT_PLAN.extraSlotPriceApproved;
   const included = DEFAULT_PLAN.includedNarratorSlots;
-  const total = monthlyChargeCents({ source: "paid", extraNarratorSlots: add });
+  // Never depends on how many children the family has.
+  const total = DEFAULT_PLAN.familyMonthlyPriceCents + add * DEFAULT_PLAN.extraSlotPriceCents;
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
@@ -56,7 +59,7 @@ export function NarratorSlotPurchase() {
         <div className="flex items-center justify-between gap-4 rounded-2xl bg-surface p-4">
           <span>
             <span className="block font-display text-lg font-semibold">Extra slot</span>
-            <span className="text-sm">{money(DEFAULT_PLAN.extraNarratorSlotPriceCents)} a month each</span>
+            <span className="text-sm">{formatPrice(DEFAULT_PLAN.extraSlotPriceCents)} a month each</span>
           </span>
           <span className="flex items-center gap-2">
             <button type="button" aria-label="One fewer slot" className="grid size-11 place-items-center rounded-full border-[3px] border-ink font-display text-xl disabled:opacity-40" disabled={add <= 1} onClick={() => setAdd(add - 1)}>
@@ -72,14 +75,14 @@ export function NarratorSlotPurchase() {
         </div>
         <dl className="grid grid-cols-[1fr_auto] gap-y-1">
           <dt>Readli Family</dt>
-          <dd>{money(DEFAULT_PLAN.familyMonthlyPriceCents)}</dd>
+          <dd>{formatPrice(DEFAULT_PLAN.familyMonthlyPriceCents)}</dd>
           <dt>
             {add} extra {add === 1 ? "slot" : "slots"}
           </dt>
-          <dd>{money(add * DEFAULT_PLAN.extraNarratorSlotPriceCents)}</dd>
+          <dd>{formatPrice(add * DEFAULT_PLAN.extraSlotPriceCents)}</dd>
           <dt className="border-t-2 border-ink/10 pt-2 font-semibold">New monthly total</dt>
           <dd className="border-t-2 border-ink/10 pt-2 font-semibold" data-testid="slot-total">
-            {money(total)}
+            {formatPrice(total)}
           </dd>
         </dl>
         {!forSale && (

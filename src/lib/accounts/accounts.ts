@@ -1,4 +1,7 @@
-import { DEFAULT_PLAN, type PlanConfig } from "@/lib/entitlements/config";
+import { DEFAULT_PLAN, type PlanConfig } from "@/lib/family/plan";
+
+/** Separately verified adults in one free contributor household (e.g. Grandma and Grandpa). */
+export const CONTRIBUTOR_HOUSEHOLD_MAX_ADULTS = 2;
 
 /**
  * Account types (Final Signup Architecture amendment, Kevin 2026-10-10).
@@ -67,15 +70,15 @@ export interface OwnedVoice {
 export function canCreateVoice(identity: Identity, voices: readonly OwnedVoice[], config: PlanConfig = DEFAULT_PLAN) {
   if (!identity.verifiedAt) return { ok: false as const, reason: "unverified" as const, message: "Verify your identity before recording." };
   const owned = voices.filter((v) => v.ownerId === identity.id && v.deletedAt === null).length;
-  if (owned >= config.freeContributorVoiceAllowance) {
+  if (owned >= config.freeContributorVoices) {
     return { ok: false as const, reason: "voice_limit" as const, message: "You already have a voice. You can replace it instead." };
   }
   return { ok: true as const };
 }
 
 /** Each adult in a free contributor household verifies and controls their own voice. */
-export function canJoinContributorHousehold(memberCount: number, config: PlanConfig = DEFAULT_PLAN) {
-  return memberCount < config.contributorHouseholdMaxAdults;
+export function canJoinContributorHousehold(memberCount: number) {
+  return memberCount < CONTRIBUTOR_HOUSEHOLD_MAX_ADULTS;
 }
 
 /**

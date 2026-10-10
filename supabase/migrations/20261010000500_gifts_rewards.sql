@@ -75,11 +75,14 @@ create table public.gift_plans (
   check (not active or price_cents is not null)
 );
 
-insert into public.gift_plans (id, kind, months) values
-  ('prepaid_1m', 'prepaid', 1),
-  ('prepaid_3m', 'prepaid', 3),
-  ('prepaid_12m', 'prepaid', 12),
-  ('sponsored_monthly', 'recurring', null)
+-- Priced at the Readli Family monthly price ($14.99), one month per month gifted. Not on sale
+-- (active = false) until checkout is switched on. A redeemed gift becomes a
+-- household_entitlements row with source 'gift' (family migration 000600).
+insert into public.gift_plans (id, kind, months, price_cents) values
+  ('prepaid_1m', 'prepaid', 1, 1499),
+  ('prepaid_3m', 'prepaid', 3, 4497),
+  ('prepaid_12m', 'prepaid', 12, 17988),
+  ('sponsored_monthly', 'recurring', null, 1499)
 on conflict (id) do nothing;
 
 create table public.gifts (

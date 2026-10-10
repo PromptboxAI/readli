@@ -1,4 +1,4 @@
-import { DEFAULT_PLAN } from "@/lib/entitlements/config";
+import { DEFAULT_PLAN } from "@/lib/family/plan";
 
 /**
  * Invite & Gift plans (Kevin, 2026-10-10). The giver pays; the recipient runs their own household,

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonQuiet, buttonSecondary } from "@/components/brand/buttons";
-import { DEFAULT_PLAN, money } from "@/lib/entitlements/config";
+import { CONTRIBUTOR_HOUSEHOLD_MAX_ADULTS } from "@/lib/accounts/accounts";
+import { DEFAULT_PLAN, formatPrice } from "@/lib/family/plan";
 
 interface Family {
   id: string;
@@ -163,7 +164,7 @@ export function ContributorDashboard({ invited = false }: { invited?: boolean })
             <span className="text-sm">Invited. He&apos;ll verify and control his own voice.</span>
           </li>
         </ul>
-        <p className="text-sm text-muted">Up to {DEFAULT_PLAN.contributorHouseholdMaxAdults} adults, each verified separately. Nobody can share someone else&apos;s voice.</p>
+        <p className="text-sm text-muted">Up to {CONTRIBUTOR_HOUSEHOLD_MAX_ADULTS} adults, each verified separately. Nobody can share someone else&apos;s voice.</p>
       </section>
 
       <section aria-labelledby="upgrade" className="flex flex-col items-start gap-3 rounded-[var(--radius-panel)] bg-sky/40 p-6">
@@ -171,7 +172,7 @@ export function ContributorDashboard({ invited = false }: { invited?: boolean })
           Want stories for kids in your home?
         </h2>
         <p>
-          Start Readli Family for {money(DEFAULT_PLAN.familyMonthlyPriceCents)} a month. You keep your account, your voice and every family you
+          Start Readli Family for {formatPrice(DEFAULT_PLAN.familyMonthlyPriceCents)} a month. You keep your account, your voice and every family you
           share with.
         </p>
         <Link href="/signup/family" className={buttonSecondary}>

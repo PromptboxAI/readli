@@ -5,14 +5,14 @@ import { PlanList } from "@/components/accounts/PlanList";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
 import { ACCOUNT_TYPES } from "@/lib/accounts/accounts";
-import { DEFAULT_PLAN, money } from "@/lib/entitlements/config";
-import { familyCheckoutOpen } from "@/lib/entitlements/checkout";
+import { DEFAULT_PLAN, formatPrice } from "@/lib/family/plan";
+import { familyCheckoutOpen } from "@/lib/accounts/checkout";
 
 export const metadata: Metadata = { title: "Create a Family | Readli", robots: { index: false } };
 
 export default function FamilySignupPage() {
   const open = familyCheckoutOpen();
-  const price = money(DEFAULT_PLAN.familyMonthlyPriceCents);
+  const price = formatPrice(DEFAULT_PLAN.familyMonthlyPriceCents);
   return (
     <AdultPage wide>
       <header className="flex flex-col gap-2">

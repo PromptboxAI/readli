@@ -6,7 +6,7 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { PlanList } from "@/components/accounts/PlanList";
 import { AdultPage } from "@/components/invites/AdultPage";
 import { ACCOUNT_TYPES, signupPath, signupStart } from "@/lib/accounts/accounts";
-import { DEFAULT_PLAN, money } from "@/lib/entitlements/config";
+import { DEFAULT_PLAN, formatPrice } from "@/lib/family/plan";
 
 export const metadata: Metadata = { title: "Join Readli" };
 
@@ -30,7 +30,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
               {family.cta}
             </h2>
             <p className="mt-1 font-display text-2xl">
-              {money(DEFAULT_PLAN.familyMonthlyPriceCents)}
+              {formatPrice(DEFAULT_PLAN.familyMonthlyPriceCents)}
               <span className="text-lg text-muted">/month</span>
             </p>
             <p className="mt-1">{family.name}: classic stories read by the people your kids love.</p>
