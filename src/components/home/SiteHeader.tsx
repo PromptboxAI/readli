@@ -3,8 +3,8 @@ import { Wordmark } from "@/components/brand/Wordmark";
 import { buttonPrimary } from "@/components/brand/buttons";
 
 const NAV = [
-  { href: "/stories", label: "Stories" },
-  { href: "/how-it-works", label: "How it Works" },
+  { href: "/#stories", label: "Stories" },
+  { href: "/#how-it-works", label: "How it Works" },
   { href: "/#families", label: "For Families" },
 ];
 

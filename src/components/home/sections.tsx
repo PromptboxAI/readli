@@ -37,7 +37,7 @@ export function Hero() {
             <Link href="#try-your-voice" className={buttonPrimary}>
               Hear a story in your voice, free
             </Link>
-            <Link href="/stories" className={buttonSecondary}>
+            <Link href="/#stories" className={buttonSecondary}>
               Browse storybooks
             </Link>
           </div>
@@ -166,7 +166,7 @@ const FAMILY_STEPS = [
 
 export function HowFamiliesWork() {
   return (
-    <section aria-labelledby="how-heading" className="bg-lavender/40">
+    <section id="how-it-works" aria-labelledby="how-heading" className="scroll-mt-20 bg-lavender/40">
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-14 sm:px-6">
         <h2 id="how-heading" className="font-display text-3xl font-semibold sm:text-4xl">
           How Readli Family Works
@@ -236,14 +236,14 @@ export function ThreeWaysToListen() {
 
 export function KidsShelf() {
   return (
-    <section aria-labelledby="shelf-heading" className="bg-mint/40">
+    <section id="stories" aria-labelledby="shelf-heading" className="scroll-mt-20 bg-mint/40">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-14 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <h2 id="shelf-heading" className="font-display text-3xl font-semibold sm:text-4xl">
             A shelf of classics
           </h2>
-          <Link href="/stories" className={buttonSecondary}>
-            Browse all stories
+          <Link href="/try" className={buttonSecondary}>
+            Hear one in your voice
           </Link>
         </div>
         <div className="flex flex-wrap gap-2" aria-label="Browse by">
@@ -275,7 +275,7 @@ export function KidsShelf() {
 
 export function FamilyCircles() {
   return (
-    <section id="families" aria-labelledby="circles-heading" className="bg-ivory">
+    <section id="families" aria-labelledby="circles-heading" className="scroll-mt-20 bg-ivory">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-14 sm:px-6">
         <div className="flex max-w-2xl flex-col gap-3">
           <h2 id="circles-heading" className="font-display text-3xl font-semibold sm:text-4xl">

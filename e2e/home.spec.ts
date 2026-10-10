@@ -49,3 +49,21 @@ test("footer and company page link every official account in a new tab", async (
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("links from the footer open the next page at the top", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("footer").scrollIntoViewIfNeeded();
+  await page.locator("footer").getByRole("link", { name: "Company" }).click();
+  await expect(page).toHaveURL(/\/company$/);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+});
+
+test("header and page links never lead to a missing page", async ({ page, request }) => {
+  const hrefs = new Set<string>();
+  for (const path of ["/", "/company", "/login"]) {
+    await page.goto(path);
+    for (const href of await page.locator("header a[href^='/'], main a[href^='/']").evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? "/")))
+      hrefs.add(href.split("#")[0] || "/");
+  }
+  for (const href of hrefs) expect((await request.get(href)).status(), href).toBe(200);
+});
