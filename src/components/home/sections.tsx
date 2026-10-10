@@ -21,8 +21,9 @@ export function Hero() {
   return (
     <section className="relative overflow-hidden bg-sky/60">
       <Cloud className="animate-drift absolute left-[6%] top-8 w-32 opacity-90" />
-      <Cloud className="animate-drift absolute right-[8%] top-24 w-44 opacity-80 [animation-delay:-6s]" />
-      <div className="relative mx-auto grid max-w-6xl items-center gap-8 px-4 py-12 sm:px-6 md:grid-cols-[1.1fr_1fr] md:py-20">
+      <Cloud className="animate-drift absolute right-[8%] top-3 w-44 opacity-80 [animation-delay:-6s] md:top-24" />
+      <div className="relative mx-auto grid max-w-6xl items-center gap-8 px-4 pb-12 pt-28 sm:px-6 md:grid-cols-[1.1fr_1fr] md:py-20">
+        {/* Phones: extra top padding keeps the eyebrow clear of the clouds. */}
         <div className="flex flex-col gap-5">
           <p className="font-display text-lg font-semibold text-coral-deep">Every Book. Every Voice.</p>
           <h1 className="font-display text-4xl font-semibold leading-[1.05] sm:text-5xl lg:text-6xl">
@@ -340,12 +341,12 @@ export function SiteFooter() {
     { href: "/terms", label: "Terms" },
     { href: "/help", label: "Help" },
     { href: "/accessibility", label: "Accessibility" },
-    { href: "/help#copyright", label: "Copyright" },
+    { href: "/parents/safety", label: "Parent Safety" },
   ];
   return (
     <footer className="bg-ivory">
       <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-8 text-sm sm:px-6">
-        <ul aria-label="Readli on social media" className="flex flex-wrap gap-2">
+        <ul aria-label="Readli on social media" className="grid w-fit grid-cols-4 gap-2 sm:flex sm:flex-wrap">
           {SOCIAL_ACCOUNTS.map((a) => (
             <li key={a.platform}>
               <a
