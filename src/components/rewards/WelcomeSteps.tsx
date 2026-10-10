@@ -10,11 +10,12 @@ import { ACTIVITIES, type ActivityId } from "@/lib/rewards/rewards";
 
 /**
  * Last steps of adult onboarding: meet Readli Rewards, then an optional "Follow Readli's Story".
- * Both can be skipped; neither blocks finishing registration.
+ * Both can be skipped; neither blocks finishing registration. While Readli Rewards is off, the
+ * first step welcomes the family without mentioning rewards.
  */
-export function WelcomeSteps() {
+export function WelcomeSteps({ showRewards = true }: { showRewards?: boolean }) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const justJoined = { completed: new Set<ActivityId>(["family_account"]), eligibleNewHousehold: true, qualifyingReferrals: 0 };
+  const justJoined = { completed: new Set<ActivityId>(["family_account"]), pendingReferrals: 0, monthsEarned12: 0, monthsBanked: 0 };
 
   return (
     <div className="flex flex-col gap-6">
@@ -27,18 +28,24 @@ export function WelcomeSteps() {
             <ReadiMascot size={110} decorative />
             <div>
               <h1 className="font-display text-3xl font-semibold sm:text-4xl">Welcome to Readli Family!</h1>
-              <p className="text-lg">You just earned your first sticker for creating your family account.</p>
+              <p className="text-lg">
+                {showRewards ? "You just earned your first sticker for creating your family account." : "Your family's home for stories is ready."}
+              </p>
             </div>
           </div>
-          <h2 className="font-display text-2xl font-semibold">Meet Readli Rewards</h2>
-          <ul className="grid gap-2 sm:grid-cols-2">
-            {ACTIVITIES.slice(1).map((a) => (
-              <li key={a.id} className="rounded-2xl bg-surface p-3">
-                <span className="font-display font-semibold">{a.title}</span>
-              </li>
-            ))}
-          </ul>
-          <RewardsCard state={justJoined} />
+          {showRewards && (
+            <>
+              <h2 className="font-display text-2xl font-semibold">Meet Readli Rewards</h2>
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {ACTIVITIES.slice(1).map((a) => (
+                  <li key={a.id} className="rounded-2xl bg-surface p-3">
+                    <span className="font-display font-semibold">{a.title}</span>
+                  </li>
+                ))}
+              </ul>
+              <RewardsCard state={justJoined} />
+            </>
+          )}
           <div className="flex flex-wrap gap-3">
             <button type="button" className={buttonPrimary} onClick={() => setStep(2)}>
               Next
@@ -68,9 +75,11 @@ export function WelcomeSteps() {
             <Link href="/invite" className={buttonPrimary}>
               Invite family
             </Link>
-            <Link href="/rewards" className={buttonQuiet}>
-              See Readli Rewards
-            </Link>
+            {showRewards && (
+              <Link href="/rewards" className={buttonQuiet}>
+                See Readli Rewards
+              </Link>
+            )}
           </div>
         </section>
       )}
