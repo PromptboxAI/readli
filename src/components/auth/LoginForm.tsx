@@ -1,8 +1,8 @@
 "use client";
 
 import { createBrowserClient } from "@supabase/ssr";
-import { useId, useState } from "react";
-import { buttonPrimary } from "@/components/brand/buttons";
+import { useEffect, useId, useState } from "react";
+import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 
 const field = "min-h-12 w-full rounded-2xl border-[3px] border-ink/20 bg-surface px-4 text-lg focus:border-ink";
 
@@ -17,12 +17,24 @@ export function LoginForm({ next }: { next: string }) {
   const [name, setName] = useState("");
   const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [toGoogle, setToGoogle] = useState(false);
+  // Coming back from Google with the Back button restores this page from cache; reset the button.
+  useEffect(() => {
+    const reset = (e: PageTransitionEvent) => e.persisted && setToGoogle(false);
+    window.addEventListener("pageshow", reset);
+    return () => window.removeEventListener("pageshow", reset);
+  }, []);
   const callback = () => `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
   const google = async () => {
     setError(null);
+    setToGoogle(true);
     const { error } = await client().auth.signInWithOAuth({ provider: "google", options: { redirectTo: callback() } });
-    if (error) setError("We couldn't reach Google just now. Please try again.");
+    if (error) {
+      setToGoogle(false);
+      setError("We couldn't reach Google just now. Please try again.");
+    }
+    // On success the browser is already on its way to Google; keep showing that it's working.
   };
 
   const sendLink = async (e: React.FormEvent) => {
@@ -57,15 +69,15 @@ export function LoginForm({ next }: { next: string }) {
 
   return (
     <div className="flex w-full flex-col gap-4 text-left">
-      <button
-        type="button"
-        onClick={google}
-        className="flex min-h-12 items-center justify-center gap-3 rounded-full border-[3px] border-ink bg-surface px-6 font-display text-lg font-semibold"
-      >
-        <span aria-hidden="true" className="font-bold">
-          G
-        </span>
-        Continue with Google
+      <button type="button" onClick={google} disabled={toGoogle} aria-busy={toGoogle} className={`${buttonSecondary} w-full active:bg-ink/10 disabled:opacity-80`}>
+        {toGoogle ? (
+          <span aria-hidden="true" className="size-5 animate-spin rounded-full border-[3px] border-ink/25 border-t-ink" />
+        ) : (
+          <span aria-hidden="true" className="font-bold">
+            G
+          </span>
+        )}
+        {toGoogle ? "Opening Google…" : "Continue with Google"}
       </button>
       <div className="flex items-center gap-3 text-sm text-muted" aria-hidden="true">
         <span className="h-px flex-1 bg-ink/15" />
@@ -85,7 +97,7 @@ export function LoginForm({ next }: { next: string }) {
           </label>
           <input id={`${id}-name`} className={field} autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
-        <button type="submit" className={buttonPrimary} disabled={state === "sending"}>
+        <button type="submit" className={buttonPrimary} disabled={state === "sending" || toGoogle}>
           {state === "sending" ? "Sending…" : "Email me a sign-in link"}
         </button>
       </form>
