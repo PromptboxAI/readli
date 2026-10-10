@@ -24,7 +24,8 @@ export class ElevenLabsProvider implements VoiceProvider {
     form.append("name", name);
     form.append("description", description);
     form.append("files", audio, filename);
-    form.append("remove_background_noise", "false");
+    // ElevenLabs "enhance": most takes come from phones in echoey rooms, often recorded by grandparents.
+    form.append("remove_background_noise", "true");
     form.append("labels", JSON.stringify({ source: "readli_guest_demo" }));
     const res = await this.call("/voices/add", { method: "POST", body: form });
     const json = (await res.json()) as { voice_id?: string };

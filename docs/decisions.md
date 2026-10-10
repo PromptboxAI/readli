@@ -26,6 +26,7 @@ tracked here and never assumed cleared in code.
 | 2026-10-10 | Demo script stays Readli-authored; ElevenLabs supplies no training script (IVC guide: "find a script that fits the tonality"). Only PVC verification shows provider text (captcha image), handled in Phase 5 | Amendment §A; ElevenLabs docs |
 | 2026-10-10 | Script v2 keeps one steady warm read-aloud tone | ElevenLabs IVC guidance: mixed energy can destabilise a clone |
 | 2026-10-10 | Capture constraints: mono, echo cancellation on, noise suppression and auto gain off; 192 kbps | Browser DSP artefacts get copied into clones; ElevenLabs recommends 192 kbps+ |
+| 2026-10-10 | Every voice clone (guest demo and family voices) asks ElevenLabs to remove background noise (`remove_background_noise=true`, the dashboard's "enhance"). Browser capture constraints stay as above; the clean-up happens on the provider side only | Kevin: most people record on phones, many of them elderly, and the demo sounded echoey |
 | 2026-10-10 | Microphone released as soon as a take finishes; recording stays in the browser until upload exists | Least access; nothing leaves the device before the guest-session API |
 | 2026-10-10 | Next.js 15 App Router, TypeScript strict, Tailwind v4 tokens in `src/app/globals.css` | PRD §8 stack; tokens from Design Brief §2 in one place |
 | 2026-10-10 | Recorder is a continuous teleprompter from day one; no four-card prompt UI is ever built | Amendment 001 §A; no prior code existed |
