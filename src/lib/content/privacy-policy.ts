@@ -1,6 +1,6 @@
 /**
  * Readli Privacy Policy, from Kevin's draft "Readli_Privacy_Policy_Readli_ai_LLC_DRAFT.docx" (2026-10-10).
- * Bracketed placeholders like [PRIVACY EMAIL] are still to be filled before launch; the page highlights them.
+ * Address and contact email come from Kevin's Terms draft; the remaining bracketed placeholders are highlighted on the page.
  * The draft's internal "Required publication details" checklist is intentionally not published.
  */
 
@@ -12,7 +12,7 @@ export const PRIVACY_EFFECTIVE_DATE = "October 10, 2026";
 export const PRIVACY_IS_DRAFT = true;
 
 export const PRIVACY_INTRO: string[] = [
-  'Readli ("Readli," "we," "our," or "us"), operated by Readli.ai LLC at [POSTAL ADDRESS], provides family storytelling, children’s reading experiences, and optional AI-generated narration using voices volunteered by participating adults. This Privacy Policy describes how we collect, use, disclose, retain, and protect information when you visit readli.ai, try our voice demo, or use Readli Family, Readli Kids, and related features (together, the "Services").',
+  'Readli ("Readli," "we," "our," or "us"), operated by Readli.ai LLC at 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790, provides family storytelling, children’s reading experiences, and optional AI-generated narration using voices volunteered by participating adults. This Privacy Policy describes how we collect, use, disclose, retain, and protect information when you visit readli.ai, try our voice demo, or use Readli Family, Readli Kids, and related features (together, the "Services").',
   "Our goal is simple: private family storytelling with meaningful control over the voices and information people share. Readli Kids is designed for use through parent- or guardian-managed profiles. Adults control invitations and voice permissions. Public narrator participation, if offered, uses a separate opt-in program.",
 ];
 
@@ -154,7 +154,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
         text: "We retain information only as long as reasonably necessary for the purposes described above, legal obligations, security, and dispute resolution. Retention periods vary by category and will be documented before launch: [DEMO RECORDINGS], [ACTIVE VOICES], [DELETED VOICES], [CHILD PROFILES], [ACCOUNT RECORDS], [BACKUPS], [SECURITY LOGS].",
       },
       {
-        text: "Adults may request access, correction, consent withdrawal, family-permission changes, and account, child-profile, or enrolled-voice deletion through available controls or by contacting [PRIVACY EMAIL]. We may verify identity or parental authority before acting. Deleting a Readli item may not immediately remove lawful backup copies or data retained by an independent processor; applicable timelines will be explained.",
+        text: "Adults may request access, correction, consent withdrawal, family-permission changes, and account, child-profile, or enrolled-voice deletion through available controls or by contacting admin@readli.ai. We may verify identity or parental authority before acting. Deleting a Readli item may not immediately remove lawful backup copies or data retained by an independent processor; applicable timelines will be explained.",
       },
     ],
   },
@@ -172,7 +172,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     title: "11. Privacy rights",
     paragraphs: [
       {
-        text: "Depending on residence and the laws that apply, individuals may have rights to request access, correction, deletion, portability, consent withdrawal, or information about certain disclosures, and to appeal a privacy decision. Contact [PRIVACY EMAIL] and we will respond as required by law. We will not discriminate against users for exercising applicable privacy rights.",
+        text: "Depending on residence and the laws that apply, individuals may have rights to request access, correction, deletion, portability, consent withdrawal, or information about certain disclosures, and to appeal a privacy decision. Contact admin@readli.ai and we will respond as required by law. We will not discriminate against users for exercising applicable privacy rights.",
       },
     ],
   },
@@ -184,7 +184,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
         text: "We will post updated versions with an effective date and provide additional notice or obtain renewed consent if required for material changes, especially changes involving children’s information, family voice access, or voice processing.",
       },
       {
-        text: "Privacy inquiries and parental requests: [PRIVACY EMAIL]. Service support: [SUPPORT EMAIL]. Legal operator: Readli.ai LLC, [POSTAL ADDRESS]. Website: https://readli.ai.",
+        text: "Privacy inquiries and parental requests: admin@readli.ai. Service support: admin@readli.ai. Legal operator: Readli.ai LLC, 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790. Website: https://readli.ai.",
       },
     ],
   },

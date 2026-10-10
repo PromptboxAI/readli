@@ -1,17 +1,24 @@
 import { Fragment } from "react";
 import type { PolicySection } from "@/lib/content/privacy-policy";
 
-/** Highlights launch placeholders like [PRIVACY EMAIL] so they are easy to spot before publishing. */
-function WithPlaceholders({ text }: { text: string }) {
-  return text.split(/(\[[A-Z][A-Z -]*\])/).map((part, i) =>
-    /^\[[A-Z][A-Z -]*\]$/.test(part) ? (
-      <mark key={i} className="rounded bg-sunshine/60 px-1 text-ink">
+const TOKEN = /(\[[A-Z][A-Z -]*\]|[\w.+-]+@[\w-]+\.[\w.]+\w|https:\/\/[^\s]+\w)/;
+
+/** Links emails and URLs, and highlights launch placeholders like [PRIVACY EMAIL] so they are easy to spot. */
+function RichText({ text }: { text: string }) {
+  return text.split(TOKEN).map((part, i) => {
+    if (i % 2 === 0) return <Fragment key={i}>{part}</Fragment>;
+    if (part.startsWith("["))
+      return (
+        <mark key={i} className="rounded bg-sunshine/60 px-1 text-ink">
+          {part}
+        </mark>
+      );
+    return (
+      <a key={i} href={part.includes("@") ? `mailto:${part}` : part} className="font-semibold underline underline-offset-4">
         {part}
-      </mark>
-    ) : (
-      <Fragment key={i}>{part}</Fragment>
-    ),
-  );
+      </a>
+    );
+  });
 }
 
 /** Shared layout for Readli's legal pages: title, effective date, intro, contents and numbered sections. */
@@ -45,7 +52,7 @@ export function PolicyDocument({
         )}
         {intro.map((p) => (
           <p key={p} className="text-lg">
-            <WithPlaceholders text={p} />
+            <RichText text={p} />
           </p>
         ))}
       </header>
@@ -73,7 +80,7 @@ export function PolicyDocument({
           {s.paragraphs.map((p) => (
             <p key={p.text} className="leading-relaxed">
               {p.lead && <strong className="font-bold">{p.lead}: </strong>}
-              <WithPlaceholders text={p.text} />
+              <RichText text={p.text} />
             </p>
           ))}
         </section>

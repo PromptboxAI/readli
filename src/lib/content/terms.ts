@@ -1,165 +1,204 @@
-import type { PolicySection } from "@/lib/content/privacy-policy";
-
 /**
- * Readli Terms of Service, first draft written for Kevin's review (2026-10-10). No source copy existed.
- * Section 4 follows the Family Voice Permissions amendment (§7): private by default, owner control,
- * per-child parent approval, both approvals required, either revocable, no access from family connection alone.
- * Must be reviewed by counsel before launch; bracketed placeholders are highlighted on the page.
+ * Readli Terms of Service, from Kevin's draft "Readli_Terms_of_Service_Readli_ai_LLC_DRAFT.docx" (2026-10-10).
+ * Not published from the draft: the internal "Pre-publication verification" checklist and the two
+ * [COUNSEL REVIEW REQUIRED] notes (§14: whether to add a liability cap and exclusions; §15: courts or dispute
+ * process, consumer notices, and whether arbitration is appropriate). Counsel must review before launch.
  */
 
+import type { PolicySection } from "@/lib/content/privacy-policy";
+
+/** The draft says to set the real effective date when it is published. */
 export const TERMS_EFFECTIVE_DATE = "October 10, 2026";
-export const TERMS_DRAFT_NOTE = "This is a working draft for legal review. It is not yet in effect.";
 
 export const TERMS_INTRO: string[] = [
-  'These Terms of Service ("Terms") are an agreement between you and Readli.ai LLC ("Readli," "we," "our," or "us"), [POSTAL ADDRESS]. They govern your use of readli.ai, the voice demo, Readli Family, Readli Kids, and related features (together, the "Services").',
-  "By creating an account or using the Services you agree to these Terms and acknowledge our Privacy Policy. If you do not agree, please do not use the Services.",
+  'These Terms of Service ("Terms") govern access to readli.ai and the Readli Family, Readli Kids, voice preview, and related services (together, "Readli" or the "Services"), provided by Readli.ai LLC ("Readli," "we," "us," or "our"). By creating an adult account or using the Services, you agree to these Terms. Parent or guardian consent is required for child-managed experiences as provided below.',
+  "Readli generates synthetic narration. Audio produced in a familiar voice is not a recording of that person reading the words live.",
 ];
 
 export const TERMS_SECTIONS: PolicySection[] = [
   {
-    id: "who-can-use-readli",
-    title: "1. Who can use Readli",
+    id: "eligibility-and-accounts",
+    title: "1. Eligibility and accounts",
     paragraphs: [
       {
-        text: "You must be at least 18, or the age of majority where you live, to create a Readli account, record or enroll a voice, invite others, or manage a child profile.",
+        text: "Adult account holders, paying customers, family invitation administrators, and persons licensing or approving voice sharing must be at least 18 years old or the legal age of majority where they live, if higher. Children use Readli Kids only through parent- or guardian-managed profiles and may not independently enter contracts or purchase plans.",
       },
       {
-        text: "Children use Readli only through a Readli Kids profile created and managed by their parent or legal guardian. Children cannot create accounts, record voices for cloning, invite adults, or change any voice approvals.",
+        text: "Account holders must provide accurate information, protect credentials, and promptly report suspected unauthorized account or voice use. A family relationship or invitation does not, by itself, authorize access to another person’s voice or content.",
       },
     ],
   },
   {
-    id: "your-account",
-    title: "2. Your account",
+    id: "what-readli-provides",
+    title: "2. What Readli provides",
     paragraphs: [
       {
-        text: "Keep your sign-in details secure and tell us promptly at [SUPPORT EMAIL] if you think your account has been used without permission. You are responsible for activity under your account, including the child profiles you manage.",
+        text: "Subject to availability and rights clearance, Readli may offer classic books, family-circle invitations, AI voice enrollment and narration, narrated previews, read-along text highlighting, book progress, and narrator switching. Features may change, be limited, or be labeled beta; not all features are available at all times.",
       },
       {
-        text: "Parental controls require authenticated adult access. Do not share your adult sign-in with a child.",
+        text: "Book text, illustrations, translations, and audio may have different rights in different countries and editions. Readli may remove or restrict titles as needed.",
       },
     ],
   },
   {
-    id: "your-voice-and-consent",
-    title: "3. Your voice and consent",
+    id: "voice-enrollment-consent-and-ownership",
+    title: "3. Voice enrollment, consent and ownership",
     paragraphs: [
       {
-        text: "Voice cloning is optional. You may record and enroll only your own voice. You must not upload, record, or attempt to clone anyone else's voice, including through an invitation, unless a separately reviewed and lawful authorization process expressly permits it.",
+        text: "Voice enrollment is voluntary. You may submit your own voice only with informed consent and any required identity verification. Do not clone, upload, or impersonate another person’s voice without a separately approved lawful authorization process. Any rights you own in submitted original recordings remain yours.",
       },
       {
-        text: "You keep ownership of your voice and your recordings. You give Readli a limited, revocable permission to process your recordings and create a voice model solely to provide the Services you and the people you approve request, as described in the Privacy Policy. We do not sell family voice recordings or voice models.",
+        text: "You grant Readli and necessary service providers a limited, nonexclusive right to process, store, transform, and synthesize the recordings and authorized narration only to provide and secure the Services in accordance with your choices and the Privacy Policy. Readli does not acquire ownership of your natural voice.",
       },
       {
-        text: "A cloned voice can generate speech you never personally said. Please understand this before recording and before approving anyone to use your voice.",
+        text: "Generated narration is synthetic. It must not be used to deceive others into believing a person spoke words they did not actually say, including for fraudulent endorsements, harassment, scams, or other unlawful impersonation.",
       },
     ],
   },
   {
-    id: "family-voices-and-parent-approval",
-    title: "4. Family voices and parent approval",
+    id: "private-family-voices-and-child-level-approval",
+    title: "4. Private family voices and child-level approval",
     paragraphs: [
-      { lead: "Private by default", text: "Every family voice is private when it is created. Recording a voice does not share it with anyone." },
       {
-        lead: "Voice owners decide",
-        text: "Only the voice owner can choose which household or family members may use their voice, and they can change that choice at any time.",
+        text: "All family voices are private by default. Voice recording, acceptance of a family invitation, or membership in a family tree does not automatically make a voice available to any other adult or child.",
       },
       {
-        lead: "Parents decide for each child",
-        text: "A child's parent or guardian separately chooses which shared voices appear in that child's Readli Kids profile. Each newly shared voice starts switched off for every child, and each child's approvals are managed independently.",
+        text: "Before a child can see or play a family narrator, two independent permissions must remain in effect: (a) the voice owner affirmatively allows the relevant family or household to use the voice, and (b) an authorized parent or guardian enables that storyteller for that specific child profile.",
       },
       {
-        lead: "Both approvals are required",
-        text: "A voice appears for a child only while the voice owner has shared it with that household and the parent has approved it for that child. A parent cannot override a voice owner's refusal or withdrawal.",
-      },
-      {
-        lead: "Either approval can be withdrawn",
-        text: "If the voice owner or the parent withdraws approval, the voice is removed from that child's storytellers, no new narration is generated, and access to previously generated narration in that voice is blocked for anyone no longer authorized.",
-      },
-      {
-        lead: "Family connections are not permission",
-        text: "Joining a family circle, being invited, or appearing in a family tree does not give anyone access to another person's voice recordings or cloned narrations.",
+        text: "The voice owner may revoke their authorization; a parent or guardian may remove a voice from a child profile. Neither party can override the other. Readli may block new narration requests and access to existing generated audio following revocation, subject to legally required preservation and reasonable technical limitations. Children cannot manage these approvals.",
       },
     ],
   },
   {
-    id: "voice-demo",
-    title: "5. The free voice demo",
+    id: "children-and-parental-responsibilities",
+    title: "5. Children and parental responsibilities",
     paragraphs: [
       {
-        text: "The demo lets you record a short sample and hear a story preview without an account. You may use it only with your own voice. Demo recordings are kept for [VERIFIED PERIOD] and then deleted unless you create an account and choose to save your voice. We may limit demo use to prevent abuse.",
+        text: "Adults creating a child profile represent that they are the parent, legal guardian, or otherwise legally authorized caregiver. They are responsible for child profile accuracy, selecting age-appropriate content, and supervising invitations and approved narrators.",
+      },
+      {
+        text: "Readli may seek verifiable parental consent where required and may limit, suspend, or delete a child profile when needed for legal compliance, privacy, or safety. Children may not grant voice licenses, buy subscriptions, or independently change parental permissions.",
       },
     ],
   },
   {
-    id: "acceptable-use",
-    title: "6. Acceptable use",
+    id: "public-demo",
+    title: "6. Public demo",
     paragraphs: [
       {
-        text: "Do not use Readli to impersonate anyone, deceive or defraud anyone, create content that harasses, threatens or sexualizes anyone, target children inappropriately, or generate speech intended to mislead people about what a real person said.",
-      },
-      {
-        text: "Do not attempt to access voices, narrations, or child profiles you are not authorized to use, bypass parental controls or permission checks, scrape or reverse engineer the Services, or interfere with their security or operation.",
-      },
-      {
-        text: "We may remove content, disable a voice, or suspend an account that breaks these Terms or puts families at risk.",
+        text: "An anonymous voice preview may be available subject to a recording consent notice, provider disclosures, short-term retention, rate limits, and fraud prevention measures. Preview availability is not guaranteed; the Privacy Policy explains the actual processing and deletion practices.",
       },
     ],
   },
   {
-    id: "books-and-content",
-    title: "7. Books and Readli content",
+    id: "subscriptions-trials-and-cancellation",
+    title: "7. Subscriptions, trials and cancellation",
     paragraphs: [
       {
-        text: "Readli's library, illustrations, software, and branding are owned by Readli or its licensors. You may use them for personal, non-commercial family listening through the Services. Generated narrations are provided for listening within Readli and may not be downloaded, redistributed, or published unless a feature expressly allows it.",
+        text: "When paid plans launch, the checkout page will present the then-current price, included features, recurring billing interval, applicable taxes, any usage quotas, trial conditions, how to cancel, and refund rules. You authorize charges only through a clearly disclosed checkout process.",
+      },
+      {
+        text: "Unless the applicable checkout terms or law provide otherwise, cancellation stops future renewals at the end of the current paid period. Free-month offers, promotional eligibility, and referral rewards require separate published rules and may be restricted to one qualifying household.",
       },
     ],
   },
   {
-    id: "subscriptions-and-payments",
-    title: "8. Subscriptions and payments",
+    id: "invite-family-invite-gift-and-sponsored-subscriptions",
+    title: "8. Invite Family, Invite & Gift, and sponsored subscriptions",
     paragraphs: [
       {
-        text: "Some features require a paid subscription. Prices, billing periods, renewal terms, trials, and gift or sponsored subscriptions will be shown before you buy. Payments are handled by an independent payment provider. [SUBSCRIPTION TERMS] will be added before paid plans launch.",
+        text: "Inviting a family member to join Readli, contribute a voice, or accept a family-tree connection does not create a paid membership or grant automatic voice access.",
+      },
+      {
+        text: 'If available, "Invite & Gift" permits an adult purchaser to pay for another adult’s or household’s plan using a fixed-duration gift or a recurring sponsorship. The buyer controls their payment method and recurring sponsorship; the recipient retains control of their account, children’s profiles, family connections, and voice permissions.',
+      },
+      {
+        text: "Fixed-term gifts do not authorize charges to the recipient. Recurring gifts must clearly disclose the amount, frequency, renewal, and cancellation method to the purchaser before checkout. Cancellation or payment failure may end sponsored access after notice or an applicable grace period; recipients may be offered the option to pay independently. Refunds and redemption periods are disclosed at purchase.",
       },
     ],
   },
   {
-    id: "ending-your-use",
-    title: "9. Ending your use",
+    id: "private-and-public-narrator-programs",
+    title: "9. Private and public narrator programs",
     paragraphs: [
       {
-        text: "You can stop using Readli, delete an enrolled voice, delete a child profile, or close your account at any time through your settings or by contacting [PRIVACY EMAIL]. Deletion follows the retention schedule in the Privacy Policy. We may suspend or end access if you seriously or repeatedly break these Terms, or if required by law.",
+        text: "Enhanced private-voice offerings may require additional samples, verification, fees, and consent. Any future Public Narrator marketplace is separate from family sharing and will require express application, review, public-distribution permission, and a separate written license or compensation agreement. Private family voices are never automatically public.",
       },
     ],
   },
   {
-    id: "disclaimers-and-liability",
-    title: "10. Disclaimers and limits of liability",
+    id: "book-content-and-readli-intellectual-property",
+    title: "10. Book content and Readli intellectual property",
     paragraphs: [
       {
-        text: 'The Services are provided "as is" and "as available." AI-generated narration may contain errors in pronunciation, pacing, or tone. To the extent the law allows, Readli is not liable for indirect, incidental, or consequential damages, and our total liability is limited to [LIABILITY CAP]. Nothing in these Terms limits rights you have under consumer protection law that cannot be waived.',
+        text: "Readli or its licensors retain rights in the Readli software, brand, mascot, interfaces, and original platform content. Book texts, illustrations, and translations remain subject to their respective copyright or public-domain status. Access does not grant permission to redistribute files, synthetic narrations, or cloned models.",
+      },
+      {
+        text: "Except where expressly licensed otherwise, the Services are for personal, noncommercial family listening.",
       },
     ],
   },
   {
-    id: "disputes-and-governing-law",
-    title: "11. Disputes and governing law",
+    id: "prohibited-uses-and-safety",
+    title: "11. Prohibited uses and safety",
     paragraphs: [
       {
-        text: "These Terms are governed by the laws of [GOVERNING LAW STATE], without regard to conflict-of-law rules. Before filing a claim, please contact us at [SUPPORT EMAIL] so we can try to resolve it. [DISPUTE RESOLUTION TERMS]",
+        text: "You may not use Readli to deceive, defraud, harass, exploit children, violate privacy or intellectual-property rights, generate abusive or unlawful audio, scrape books or family content, bypass quotas or consent checks, interfere with security, or use a private cloned voice beyond authorized family listening.",
+      },
+      {
+        text: "Readli may investigate reports and restrict generation, remove unauthorized content, or suspend access where appropriate, consistent with applicable law.",
+      },
+    ],
+  },
+  {
+    id: "service-limitations-and-ai-output",
+    title: "12. Service limitations and AI output",
+    paragraphs: [
+      {
+        text: "AI narration may have pronunciation errors, delays, imperfect voice likeness, or problems with sentence synchronization. Readli cannot guarantee uninterrupted service, permanent availability of a particular book, voice model, or provider, or error-free output.",
+      },
+    ],
+  },
+  {
+    id: "privacy-suspension-and-deletion",
+    title: "13. Privacy, suspension and deletion",
+    paragraphs: [
+      {
+        text: "Our Privacy Policy describes processing of recordings, children’s information, consent records, and account data. You may request deletion or withdraw applicable authorizations using available controls or by contacting admin@readli.ai. Some information may be retained as required by law or for legitimate security and dispute purposes.",
+      },
+      {
+        text: "We may suspend or terminate accounts for serious violations, fraud, unauthorized cloning, or legal requirements. Details concerning remaining subscriptions or gifted access depend on applicable purchase terms and law.",
+      },
+    ],
+  },
+  {
+    id: "warranties-and-liability",
+    title: "14. Warranties and liability",
+    paragraphs: [
+      {
+        text: "To the extent permitted by law, the Services are provided on an “as available” basis without a promise of uninterrupted or error-free operation. Nothing in these Terms limits consumer protections, warranties, or rights that cannot lawfully be excluded.",
+      },
+    ],
+  },
+  {
+    id: "governing-law-and-disputes",
+    title: "15. Governing law and disputes",
+    paragraphs: [
+      {
+        text: "These Terms are intended to be governed by the laws of New York, subject to mandatory consumer protections that apply where you live.",
       },
     ],
   },
   {
     id: "changes-and-contact",
-    title: "12. Changes and contact",
+    title: "16. Changes and contact",
     paragraphs: [
       {
-        text: "We will post updated Terms with a new effective date and give additional notice for material changes, especially changes involving children, family voice access, or voice processing.",
+        text: "We may update the Terms and post a new effective date. We will give additional notice or request consent when required for material changes.",
       },
       {
-        text: "Questions: [SUPPORT EMAIL]. Privacy and parental requests: [PRIVACY EMAIL]. Readli.ai LLC, [POSTAL ADDRESS]. Website: https://readli.ai.",
+        text: "Readli.ai LLC • 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790 • admin@readli.ai • https://readli.ai",
       },
     ],
   },

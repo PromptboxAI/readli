@@ -60,7 +60,7 @@ test("links from the footer open the next page at the top", async ({ page }) => 
 
 test("header and page links never lead to a missing page", async ({ page, request }) => {
   const hrefs = new Set<string>();
-  for (const path of ["/", "/company", "/login", "/privacy", "/terms", "/parents/safety"]) {
+  for (const path of ["/", "/company", "/login", "/privacy", "/terms", "/accessibility", "/parents/safety"]) {
     await page.goto(path);
     for (const href of await page.locator("header a[href^='/'], main a[href^='/']").evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? "/")))
       hrefs.add(href.split("#")[0] || "/");
@@ -92,12 +92,18 @@ test("privacy page shows every policy section and fits the screen", async ({ pag
   await page.screenshot({ path: `e2e/screenshots/privacy-${info.project.name}.png`, fullPage: true });
 });
 
-test("terms draft explains that both voice approvals are required", async ({ page }) => {
+test("terms explain both voice approvals and accessibility gives a contact", async ({ page }) => {
   await page.goto("/terms");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Terms of Service");
-  await expect(page.getByText("This is a working draft for legal review.")).toBeVisible();
-  await expect(page.locator("main section h2")).toHaveCount(12);
-  await expect(page.locator("#family-voices-and-parent-approval")).toContainText("Both approvals are required");
+  await expect(page.locator("main section h2")).toHaveCount(16);
+  await expect(page.locator("#private-family-voices-and-child-level-approval")).toContainText("two independent permissions");
+  await expect(page.getByText("COUNSEL REVIEW REQUIRED")).toHaveCount(0);
+  await expect(page.getByText("Pre-publication verification")).toHaveCount(0);
+
+  await page.goto("/accessibility");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Accessibility Statement");
+  await expect(page.getByRole("link", { name: "admin@readli.ai" })).toHaveAttribute("href", "mailto:admin@readli.ai");
+  await expect(page.getByText("IMPLEMENTATION CHECK")).toHaveCount(0);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
