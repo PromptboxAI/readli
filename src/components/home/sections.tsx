@@ -339,7 +339,7 @@ export function SiteFooter() {
     { href: "/privacy", label: "Privacy" },
     { href: "/terms", label: "Terms" },
     { href: "/help", label: "Help" },
-    { href: "/help#accessibility", label: "Accessibility" },
+    { href: "/accessibility", label: "Accessibility" },
     { href: "/help#copyright", label: "Copyright" },
   ];
   return (
