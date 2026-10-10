@@ -68,13 +68,16 @@ const DEMO_STEPS = [
 export function TryYourVoice() {
   return (
     <section id="try-your-voice" aria-labelledby="try-heading" className="scroll-mt-20 bg-ivory">
-      <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-12 sm:px-6 md:py-16">
-        <div className="grid items-center gap-8 rounded-[var(--radius-panel)] bg-surface p-6 sm:p-10 lg:grid-cols-[1fr_1fr]">
+      <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 md:gap-10 md:py-16">
+        <div className="grid items-center gap-8 rounded-[var(--radius-panel)] bg-surface p-6 sm:p-10 lg:grid-cols-[1fr_1.1fr]">
           <div className="flex flex-col gap-4">
+            {/* Phones and tablets get Kevin's short pitch; desktop keeps the steps beside the studio preview. */}
             <h2 id="try-heading" className="font-display text-3xl font-semibold sm:text-4xl">
-              Try your voice. No signup.
+              <span className="lg:hidden">Hear your voice tell a story.</span>
+              <span className="hidden lg:inline">Try your voice. No signup.</span>
             </h2>
-            <ol className="flex flex-col gap-3">
+            <p className="text-lg lg:hidden">Read a short passage, then hear your voice bring a story to life.</p>
+            <ol className="hidden flex-col gap-3 lg:flex">
               {DEMO_STEPS.map((step, i) => (
                 <li key={step} className="flex items-start gap-3">
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-coral font-display font-semibold">
@@ -84,25 +87,18 @@ export function TryYourVoice() {
                 </li>
               ))}
             </ol>
-            <div>
-              <Link href="/try" className={buttonPrimary}>
-                Start recording
+            <div className="flex flex-col gap-2">
+              <Link href="/try" className={`${buttonPrimary} w-full sm:w-auto sm:self-start`}>
+                <span className="lg:hidden">Try Your Voice Free</span>
+                <span className="hidden lg:inline">Start recording</span>
               </Link>
+              <p className="text-sm font-semibold text-muted lg:hidden">No signup required</p>
             </div>
-            <p className="text-sm text-muted">
+            <p className="hidden text-sm text-muted lg:block">
               Your recording stays private and is deleted within 24 hours unless you choose to save it.
             </p>
           </div>
-          <div
-            aria-hidden="true"
-            className="relative h-64 overflow-hidden rounded-3xl bg-ivory p-6 pr-24 font-semibold text-ink/40 sm:pr-32 sm:text-xl"
-          >
-            <p>Once upon a time, in a little house at the edge of a sleepy town,</p>
-            <p className="my-2 rounded-lg bg-sunshine/50 text-ink">there lived a family who loved stories</p>
-            <p>more than anything. Every night, just after the moon peeked over the rooftops...</p>
-            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-ivory" />
-            <ReadiMascot size={110} decorative className="animate-bob absolute bottom-3 right-4" />
-          </div>
+          <VoiceStudioPreview />
         </div>
         <DemoBookShelf />
       </div>
@@ -110,51 +106,61 @@ export function TryYourVoice() {
   );
 }
 
-export function MeetReadi() {
+/**
+ * Picture of the real recording screen on /try (teleprompter, mic level, progress), drawn with the
+ * same styles. Desktop only: `hidden` removes it on smaller screens so it takes no space there.
+ */
+function VoiceStudioPreview() {
   return (
-    <section aria-labelledby="readi-heading" className="bg-ivory">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-14 sm:px-6">
-        <div className="flex flex-col gap-2">
-          <p className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-coral-deep">Meet Readi</p>
-          <h2 id="readi-heading" className="font-display text-3xl font-semibold sm:text-4xl">
-            Your book buddy, at rest and listening
-          </h2>
+    <div aria-hidden="true" data-testid="voice-studio-preview" className="hidden rounded-[2rem] bg-ivory p-4 lg:block">
+      <div className="grid grid-cols-[minmax(0,1fr)_12rem] gap-3">
+        <div className="relative h-72 overflow-hidden rounded-3xl bg-surface px-5 py-4 text-lg font-semibold leading-relaxed">
+          <p className="text-ink/45">Once upon a time, in a little house at the edge of a sleepy town,</p>
+          <p className="my-1">
+            <span className="rounded-md bg-sunshine/45 text-ink">there lived a family who loved stories more than anything.</span>
+          </p>
+          <p className="text-ink/45">Every night, just after the moon peeked over the rooftops, someone would pick up a book...</p>
+          <span className="absolute left-0 top-[38%] h-0 w-0 border-y-[10px] border-l-[14px] border-y-transparent border-l-coral-deep" />
+          <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-surface" />
         </div>
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <div className="flex flex-col items-center gap-5 rounded-[2rem] bg-mint/70 p-8 sm:flex-row">
-            <ReadiMascot size={180} className="animate-bob shrink-0" />
-            <div>
-              <h3 className="font-display text-2xl font-semibold">At rest</h3>
-              <p className="mt-1">Eyes open, pages together. Readi waits with you whenever nothing is playing.</p>
+        <div className="flex flex-col gap-3 rounded-3xl bg-surface p-4">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-2 font-display font-semibold">
+              <span className="size-3 animate-pulse rounded-full bg-coral-deep" />
+              Recording
+            </span>
+            <span className="font-display text-xl tabular-nums">0:48</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <div className="relative h-3 overflow-hidden rounded-full bg-ivory">
+              <div className="h-full w-2/5 rounded-full bg-mint" />
+              <div className="absolute inset-y-0 left-1/2 w-0.5 bg-ink/40" />
+            </div>
+            <div className="flex justify-between text-xs text-muted">
+              <span>0:00</span>
+              <span>2:00</span>
             </div>
           </div>
-          <div className="flex flex-col gap-6 rounded-[2rem] bg-plum p-8 text-white">
-            <div className="flex flex-col items-center gap-5 sm:flex-row">
-              <ReadiMascot size={200} state="listening" className="shrink-0" />
-              <div>
-                <h3 className="font-display text-2xl font-semibold">Listening</h3>
-                <p className="mt-1 text-white/80">Eyes close and the pages fan out while a story plays.</p>
-              </div>
+          <div className="flex items-center gap-2">
+            <svg viewBox="0 0 24 24" className="size-5 shrink-0 text-coral-deep" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <rect x="9" y="3" width="6" height="11" rx="3" />
+              <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" />
+            </svg>
+            <div className="flex h-4 flex-1 items-end gap-0.5">
+              {[40, 70, 55, 90, 65, 80, 45, 60, 30, 20, 15, 10].map((h, i) => (
+                <span key={i} className={`flex-1 rounded-sm ${i < 8 ? "bg-mint-deep" : "bg-ink/15"}`} style={{ height: `${h}%` }} />
+              ))}
             </div>
-            {/* Illustration of the player, not a working control. */}
-            <div className="flex items-center gap-4 rounded-2xl bg-white/10 p-4" aria-hidden="true">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-sunshine text-plum">
-                <svg viewBox="0 0 24 24" className="size-5" fill="currentColor">
-                  <rect x="6" y="5" width="4" height="14" rx="1" />
-                  <rect x="14" y="5" width="4" height="14" rx="1" />
-                </svg>
-              </span>
-              <div className="flex min-w-0 flex-1 flex-col gap-2">
-                <p className="truncate text-sm font-semibold">The Tale of Peter Rabbit · read by Grandpa</p>
-                <div className="h-1.5 overflow-hidden rounded-full bg-white/20">
-                  <div className="h-full w-2/5 rounded-full bg-coral" />
-                </div>
-              </div>
-            </div>
+          </div>
+          <div className="mt-auto grid grid-cols-2 gap-2">
+            <span className="flex min-h-10 items-center justify-center rounded-full border-[3px] border-ink font-display font-semibold">Pause</span>
+            <span className="flex min-h-10 items-center justify-center rounded-full bg-coral-deep font-display font-semibold text-white shadow-[0_3px_0_#8f2a1e]">
+              Finish
+            </span>
           </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -168,16 +174,17 @@ const FAMILY_STEPS = [
 export function HowFamiliesWork() {
   return (
     <section id="how-it-works" aria-labelledby="how-heading" className="scroll-mt-20 bg-lavender/40">
-      <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-14 sm:px-6">
+      <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-10 sm:gap-8 sm:px-6 sm:py-14">
         <h2 id="how-heading" className="font-display text-3xl font-semibold sm:text-4xl">
           How Readli Family Works
         </h2>
-        <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Phones: a 2x2 grid of short cards. */}
+        <ol className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {FAMILY_STEPS.map((step, i) => (
-            <li key={step.title} className={`flex flex-col gap-2 rounded-[var(--radius-panel)] p-6 ${step.color}`}>
-              <span className="font-display text-sm font-semibold">Step {i + 1}</span>
-              <h3 className="font-display text-2xl font-semibold">{step.title}</h3>
-              <p>{step.body}</p>
+            <li key={step.title} className={`flex flex-col gap-1 rounded-3xl p-4 sm:gap-2 sm:rounded-[var(--radius-panel)] sm:p-6 ${step.color}`}>
+              <span className="font-display text-xs font-semibold sm:text-sm">Step {i + 1}</span>
+              <h3 className="font-display text-xl font-semibold sm:text-2xl">{step.title}</h3>
+              <p className="text-sm sm:text-base">{step.body}</p>
             </li>
           ))}
         </ol>
@@ -288,33 +295,6 @@ export function FamilyCircles() {
           </p>
         </div>
         <FamilyTree />
-      </div>
-    </section>
-  );
-}
-
-const TRUST = [
-  "Voices are recorded with consent and are private by default.",
-  "Kids listen inside parent-managed profiles. No child logins.",
-  "No targeted ads to children, ever.",
-  "Delete a voice or remove someone's access in a couple of taps.",
-];
-
-export function TrustAndSafety() {
-  return (
-    <section aria-labelledby="trust-heading" className="bg-navy text-white">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-14 sm:px-6">
-        <h2 id="trust-heading" className="font-display text-3xl font-semibold sm:text-4xl">
-          Safe for families by design
-        </h2>
-        <ul className="grid gap-4 sm:grid-cols-2">
-          {TRUST.map((item) => (
-            <li key={item} className="flex gap-3 rounded-3xl bg-white/10 p-5">
-              <span aria-hidden="true" className="mt-1 size-4 shrink-0 rounded-full bg-mint" />
-              {item}
-            </li>
-          ))}
-        </ul>
       </div>
     </section>
   );
