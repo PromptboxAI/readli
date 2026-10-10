@@ -27,8 +27,8 @@ export function Hero() {
             Their favorite stories. Read by their favorite people.
           </h1>
           <p className="max-w-xl text-lg">
-            Record a minute of your voice, and hear a classic storybook read the way only you can. Then invite Grandma
-            and Grandpa to read too.
+            Record a minute of your voice, and hear a classic storybook read the way only you can. Then invite the people
+            you love to become part of your family&apos;s storytelling library.
           </p>
           {/* CTA sits above the illustration on mobile so it can't be missed. */}
           <div className="flex flex-wrap gap-3">
@@ -156,10 +156,10 @@ export function MeetReadi() {
 }
 
 const FAMILY_STEPS = [
-  { title: "Record", body: "Read a short script once. Your voice is yours, private by default.", color: "bg-coral/70" },
-  { title: "Approve", body: "You decide exactly who can listen. Nothing is shared without your say.", color: "bg-sunshine" },
-  { title: "Invite", body: "Ask Grandma or Grandpa to join and record in their own voice.", color: "bg-mint" },
-  { title: "Listen", body: "Kids pick a story and a reader, and can switch readers mid-book.", color: "bg-sky" },
+  { title: "Create", body: "Start your family circle and add the people you'd love to hear.", color: "bg-coral/70" },
+  { title: "Invite", body: "Invite family members and loved ones to join Readli.", color: "bg-sunshine" },
+  { title: "Record", body: "Each person records and approves their own voice, choosing who can use it.", color: "bg-mint" },
+  { title: "Listen", body: "Choose a book and storyteller. Switch voices anytime without losing your place.", color: "bg-sky" },
 ];
 
 export function HowFamiliesWork() {
@@ -167,7 +167,7 @@ export function HowFamiliesWork() {
     <section aria-labelledby="how-heading" className="bg-lavender/40">
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-14 sm:px-6">
         <h2 id="how-heading" className="font-display text-3xl font-semibold sm:text-4xl">
-          How families work
+          How Readli Family Works
         </h2>
         <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {FAMILY_STEPS.map((step, i) => (
