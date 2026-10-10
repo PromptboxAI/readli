@@ -8,7 +8,12 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL: "http://localhost:3100",
-    launchOptions: executablePath ? { executablePath } : undefined,
+    // Fake microphone: Chromium feeds a test tone instead of real audio.
+    permissions: ["microphone"],
+    launchOptions: {
+      executablePath,
+      args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
+    },
   },
   projects: [
     { name: "phone", use: { ...devices["Desktop Chrome"], viewport: { width: 375, height: 812 }, hasTouch: true } },

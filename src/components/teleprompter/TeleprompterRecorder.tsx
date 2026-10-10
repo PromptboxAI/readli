@@ -14,7 +14,9 @@ import {
   TARGET_MIN_MS,
 } from "@/lib/teleprompter/recorder-machine";
 import { clampWpm, DEFAULT_FONT_INDEX, DEFAULT_WPM, FONT_SIZES, WPM_STEP } from "@/lib/teleprompter/scroll";
+import { QC_MESSAGES } from "@/lib/audio/qc";
 import { Teleprompter, type TeleprompterProgress } from "./Teleprompter";
+import { MIC_ERROR_MESSAGES, useMicrophone, type RecordedTake } from "./useMicrophone";
 
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
@@ -48,6 +50,10 @@ export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion })
   // Settings start collapsed on phones so the script keeps most of the screen.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const booksRef = useRef<HTMLDivElement>(null);
+  const [take, setTake] = useState<{ url: string; recorded: RecordedTake } | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [interruptions, setInterruptions] = useState(0);
+  const mic = useMicrophone({ onInterrupted: () => setInterruptions((n) => n + 1) });
 
   useEffect(() => {
     if (reducedMotion) setAutoScrollOn(false);
@@ -62,7 +68,7 @@ export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion })
   const isRecording = state.status === "recording";
   const isLive = state.status === "recording" || state.status === "paused";
 
-  // Elapsed recording time (mock clock; real capture duration in Phase 2).
+  // Elapsed recording time for the on-screen clock. The take's own duration comes from the recorder.
   useEffect(() => {
     if (!isRecording) return;
     let last = performance.now();
@@ -74,18 +80,61 @@ export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion })
     return () => window.clearInterval(id);
   }, [isRecording]);
 
+  const pauseRecording = useCallback(
+    (reason?: string) => {
+      mic.pause();
+      dispatch({ type: "pause" });
+      if (reason) setNotice(reason);
+    },
+    [mic],
+  );
+
+  const resumeRecording = () => {
+    setNotice(null);
+    mic.resume();
+    dispatch({ type: "resume" });
+  };
+
+  const startRecording = async () => {
+    setNotice(null);
+    setStarting(true);
+    const ok = await mic.start();
+    setStarting(false);
+    if (ok) dispatch({ type: "start" });
+  };
+
+  const finishRecording = async () => {
+    const recorded = await mic.stop();
+    mic.close(); // release the microphone as soon as the take is done
+    if (recorded) setTake({ url: URL.createObjectURL(recorded.blob), recorded });
+    setNotice(null);
+    dispatch({ type: "finish" });
+  };
+
+  // Calls, Siri, unplugged headsets: pause instead of recording silence.
+  useEffect(() => {
+    if (interruptions > 0 && isRecording) pauseRecording(MIC_ERROR_MESSAGES.interrupted);
+    // Only react to new interruptions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [interruptions]);
+
   // Backgrounding: pause rather than silently keep going (Amendment §A).
   useEffect(() => {
     if (!isRecording) return;
     const onVisibility = () => {
       if (document.visibilityState === "hidden") {
-        dispatch({ type: "pause" });
-        setNotice("Recording paused because the page was hidden. Tap Resume when you're ready.");
+        pauseRecording("Recording paused because the page was hidden. Tap Resume when you're ready.");
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [isRecording]);
+  }, [isRecording, pauseRecording]);
+
+  useEffect(() => {
+    return () => {
+      if (take) URL.revokeObjectURL(take.url);
+    };
+  }, [take]);
 
   // Keyboard: Space pause/resume, +/- speed. Arrow keys scroll the focused script.
   useEffect(() => {
@@ -93,8 +142,8 @@ export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion })
       const target = e.target as HTMLElement | null;
       if (target && ["INPUT", "BUTTON", "SELECT", "TEXTAREA", "A"].includes(target.tagName)) return;
       if (e.key === " ") {
-        if (state.status === "recording") dispatch({ type: "pause" });
-        else if (state.status === "paused") dispatch({ type: "resume" });
+        if (state.status === "recording") pauseRecording();
+        else if (state.status === "paused") resumeRecording();
         else return;
         e.preventDefault();
       } else if (e.key === "+" || e.key === "=") {
@@ -105,7 +154,7 @@ export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion })
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [state.status]);
+  });
 
   useEffect(() => {
     if (showBooks) booksRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth" });
@@ -114,6 +163,8 @@ export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion })
   const onProgress = useCallback((p: TeleprompterProgress) => setProgress(p), []);
 
   const startOver = () => {
+    mic.discard();
+    setTake(null);
     setNotice(null);
     setShowBooks(false);
     dispatch({ type: "start_over" });
@@ -164,6 +215,7 @@ export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion })
 
           <DurationBar elapsedMs={state.elapsedMs} />
 
+          {state.status !== "review" && (
           <p className="text-xs text-muted sm:text-sm" data-testid="duration-guidance">
             {state.status === "ready"
               ? "Aim for 1 to 2 minutes of clear, natural reading. There's no rush and no cut-off."
@@ -173,8 +225,15 @@ export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion })
                   ? "Great length. Finish whenever you reach a natural stopping point."
                   : "That's plenty. Finish when you're ready."}
           </p>
+          )}
 
-          <InputMeter />
+          {state.status !== "review" && <InputMeter levelRef={mic.levelRef} active={mic.isOpen} />}
+
+          {mic.error && (
+            <p role="alert" className="rounded-2xl bg-coral/25 p-3 text-sm">
+              {MIC_ERROR_MESSAGES[mic.error]}
+            </p>
+          )}
 
           {notice && (
             <p role="alert" className="rounded-2xl bg-sunshine/40 p-3 text-sm">
@@ -183,30 +242,37 @@ export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion })
           )}
 
           <div className="grid grid-cols-[1fr_1fr_auto] gap-2 lg:grid-cols-2">
+            {state.status === "ready" && !mic.isOpen && (
+              <button
+                type="button"
+                className={`${buttonSecondary} col-span-3 !text-base lg:col-span-2`}
+                onClick={() => void mic.open()}
+              >
+                Test my microphone
+              </button>
+            )}
             {state.status === "ready" && (
-              <button type="button" className={`${buttonPrimary} col-span-3 lg:col-span-2`} onClick={() => dispatch({ type: "start" })}>
-                Start recording
+              <button
+                type="button"
+                className={`${buttonPrimary} col-span-3 lg:col-span-2`}
+                disabled={starting}
+                onClick={() => void startRecording()}
+              >
+                {starting ? "Starting…" : "Start recording"}
               </button>
             )}
             {state.status === "recording" && (
-              <button type="button" className={buttonSecondary} onClick={() => dispatch({ type: "pause" })}>
+              <button type="button" className={buttonSecondary} onClick={() => pauseRecording()}>
                 Pause
               </button>
             )}
             {state.status === "paused" && (
-              <button
-                type="button"
-                className={buttonSecondary}
-                onClick={() => {
-                  setNotice(null);
-                  dispatch({ type: "resume" });
-                }}
-              >
+              <button type="button" className={buttonSecondary} onClick={resumeRecording}>
                 Resume
               </button>
             )}
             {isLive && (
-              <button type="button" className={buttonPrimary} onClick={() => dispatch({ type: "finish" })}>
+              <button type="button" className={buttonPrimary} onClick={() => void finishRecording()}>
                 Finish
               </button>
             )}
@@ -221,8 +287,15 @@ export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion })
             )}
           </div>
 
+          {state.status === "ready" && (
+            <p className="text-xs text-muted">
+              Find a quiet room, use earphones with a mic if you have them, and make sure you&apos;re the only one
+              speaking.
+            </p>
+          )}
+
           {state.status === "review" && (
-            <ReviewPanel elapsedMs={state.elapsedMs} onContinue={() => setShowBooks(true)} />
+            <ReviewPanel take={take} onContinue={() => setShowBooks(true)} />
           )}
 
           <details
@@ -263,7 +336,8 @@ export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion })
         <div ref={booksRef} className="scroll-mt-6">
           <DemoBookShelf heading="Your take is in. Pick a story to hear it." />
           <p className="mt-4 text-sm text-muted">
-            Real voice previews arrive in the next phase. Nothing here plays a fake or stock voice.
+            Voice previews switch on once our voice provider is connected. We never play a stock voice as if it were
+            yours.
           </p>
         </div>
       )}
@@ -351,17 +425,38 @@ function DurationBar({ elapsedMs }: { elapsedMs: number }) {
   );
 }
 
-function InputMeter() {
-  // Phase 1 has no microphone. Show an empty meter rather than a fabricated one.
+function InputMeter({ levelRef, active }: { levelRef: React.RefObject<number>; active: boolean }) {
+  const barsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const bars = barsRef.current?.children;
+    if (!bars) return;
+    if (!active) {
+      for (const bar of Array.from(bars)) (bar as HTMLElement).style.background = "";
+      return;
+    }
+    let frame = 0;
+    const draw = () => {
+      // Perceptual scale so normal speech fills most of the meter.
+      const lit = Math.round(Math.min(1, Math.sqrt(levelRef.current) * 1.4) * bars.length);
+      Array.from(bars).forEach((bar, i) => {
+        (bar as HTMLElement).style.background =
+          i < lit ? (i > bars.length * 0.85 ? "var(--color-coral-deep)" : "var(--color-mint)") : "";
+      });
+      frame = requestAnimationFrame(draw);
+    };
+    frame = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(frame);
+  }, [active, levelRef]);
+
   return (
     <div className="flex items-center gap-3" data-testid="input-meter">
       <span className="text-sm">Mic level</span>
-      <div className="flex h-4 flex-1 items-end gap-0.5" aria-hidden="true">
+      <div ref={barsRef} className="flex h-4 flex-1 items-end gap-0.5" aria-hidden="true">
         {Array.from({ length: 16 }, (_, i) => (
-          <span key={i} className="h-1 flex-1 rounded-sm bg-ink/15" />
+          <span key={i} className="h-full flex-1 rounded-sm bg-ink/15" />
         ))}
       </div>
-      <span className="text-xs text-muted">Preview: no mic</span>
+      <span className="w-16 text-right text-xs text-muted">{active ? "Listening" : "Mic off"}</span>
     </div>
   );
 }
@@ -405,20 +500,36 @@ function Stepper({
   );
 }
 
-function ReviewPanel({ elapsedMs, onContinue }: { elapsedMs: number; onContinue: () => void }) {
-  const guidance = durationGuidance(elapsedMs);
+function ReviewPanel({
+  take,
+  onContinue,
+}: {
+  take: { url: string; recorded: RecordedTake } | null;
+  onContinue: () => void;
+}) {
+  if (!take) {
+    return (
+      <div role="alert" className="flex flex-col gap-3 rounded-2xl bg-coral/25 p-4">
+        <p className="font-display text-lg font-semibold">We didn&apos;t get any audio from that take.</p>
+        <p className="text-sm">Tap Start over to try again.</p>
+      </div>
+    );
+  }
+  const { recorded } = take;
   return (
     <div className="flex flex-col gap-3 rounded-2xl bg-mint/40 p-4" data-testid="review-panel">
-      <p className="font-display text-lg font-semibold">Nice reading! {formatClock(elapsedMs)} recorded.</p>
-      {guidance === "too_short" && (
-        <p className="text-sm">
-          That&apos;s under a minute, which may not be enough for a good voice match. You can start over or continue
-          anyway.
-        </p>
+      <p className="font-display text-lg font-semibold">Nice reading! {formatClock(recorded.durationMs)} recorded.</p>
+      <audio controls src={take.url} className="w-full" aria-label="Play back your recording" />
+      {recorded.qc.issues.length > 0 && (
+        <ul className="flex list-disc flex-col gap-1 pl-5 text-sm" data-testid="qc-issues">
+          {recorded.qc.issues.map((issue) => (
+            <li key={issue}>{QC_MESSAGES[issue]}</li>
+          ))}
+        </ul>
       )}
-      <button type="button" disabled className={buttonSecondary} title="Playback arrives with real recording">
-        Play my take
-      </button>
+      <p className="text-xs text-muted">
+        These checks are a guide. You can start over or continue. Your recording stays in this browser for now.
+      </p>
       <button type="button" className={buttonPrimary} onClick={onContinue}>
         Choose a story
       </button>

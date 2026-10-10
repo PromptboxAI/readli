@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { TeleprompterRecorder } from "@/components/teleprompter/TeleprompterRecorder";
-import { DEMO_SCRIPT_V1 } from "@/lib/content/voice-scripts";
+import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
 
 export const metadata: Metadata = {
   title: "Record your voice | Readli",
@@ -20,9 +20,9 @@ export default function TryPage() {
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-6 sm:px-6">
         <p role="note" className="mb-3 rounded-2xl bg-lavender/50 px-4 py-1.5 text-center text-xs sm:text-sm">
-          <strong>Design preview.</strong> No microphone yet; timing is simulated.
+          <strong>Preview.</strong> Your recording stays in this browser. Voice previews switch on soon.
         </p>
-        <TeleprompterRecorder script={DEMO_SCRIPT_V1} />
+        <TeleprompterRecorder script={DEMO_SCRIPT} />
       </main>
     </div>
   );

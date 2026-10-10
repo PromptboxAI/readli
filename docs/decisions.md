@@ -3,10 +3,16 @@
 Living log required by PRD §15 step 1. Newest first. Vendor and legal gates are
 tracked here and never assumed cleared in code.
 
-## Decisions (Phase 1)
+## Decisions
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-10-10 | Hosting on Vercel + Supabase cloud | Confirmed by Kevin |
+| 2026-10-10 | Phase 3 device testing on Kevin's own iPhone/Android | Confirmed by Kevin |
+| 2026-10-10 | Demo script stays Readli-authored; ElevenLabs supplies no training script (IVC guide: "find a script that fits the tonality"). Only PVC verification shows provider text (captcha image), handled in Phase 5 | Amendment §A; ElevenLabs docs |
+| 2026-10-10 | Script v2 keeps one steady warm read-aloud tone | ElevenLabs IVC guidance: mixed energy can destabilise a clone |
+| 2026-10-10 | Capture constraints: mono, echo cancellation on, noise suppression and auto gain off; 192 kbps | Browser DSP artefacts get copied into clones; ElevenLabs recommends 192 kbps+ |
+| 2026-10-10 | Microphone released as soon as a take finishes; recording stays in the browser until upload exists | Least access; nothing leaves the device before the guest-session API |
 | 2026-10-10 | Next.js 15 App Router, TypeScript strict, Tailwind v4 tokens in `src/app/globals.css` | PRD §8 stack; tokens from Design Brief §2 in one place |
 | 2026-10-10 | Recorder is a continuous teleprompter from day one; no four-card prompt UI is ever built | Amendment 001 §A; no prior code existed |
 | 2026-10-10 | Teleprompter scroll and capture are separate: `scroll.ts` (pure math) and `recorder-machine.ts` (pure reducer) | Amendment F-3: speed/size independent of mic capture; lets Phase 2 swap the mock clock for MediaRecorder without touching scrolling |
@@ -21,9 +27,7 @@ tracked here and never assumed cleared in code.
 
 ## Open questions for Kevin
 
-1. Hosting: Vercel + Supabase cloud OK?
-2. Device testing for Phase 3: your own iPhone/Android, BrowserStack, or both?
-3. Demo script copy (`voice-scripts.ts`): approve or edit.
+1. Supabase project and ElevenLabs account (paid plan for cloning) so Phase 2 can call real APIs.
 
 ## Vendor and legal gates (block production, not development)
 

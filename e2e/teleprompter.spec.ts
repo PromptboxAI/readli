@@ -35,6 +35,9 @@ test("continuous take: no Next button, scrolls, pauses, resumes, finishes into s
   await page.getByRole("button", { name: "Finish" }).click();
 
   await expect(page.getByTestId("review-panel")).toBeVisible();
+  // A real take from the (fake) microphone is ready to play back.
+  await expect(page.getByLabel("Play back your recording")).toHaveAttribute("src", /^blob:/);
+  await page.screenshot({ path: `e2e/screenshots/try-review-${info.project.name}.png` });
   await page.getByRole("button", { name: "Choose a story" }).click();
   await expect(page.getByTestId("demo-books").getByRole("article")).toHaveCount(6);
 });
@@ -73,4 +76,21 @@ test.describe("reduced motion", () => {
     expect(await page.getByTestId("teleprompter").evaluate((el) => el.scrollTop)).toBe(0);
     await expect(page.getByText(/Auto-scroll is off/)).toBeVisible();
   });
+});
+
+test("blocked microphone shows recovery guidance and does not start", async ({ page }) => {
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException("blocked", "NotAllowedError"));
+  });
+  await consent(page);
+  await page.getByRole("button", { name: "Start recording" }).click();
+  await expect(page.getByText(/Microphone access was blocked/)).toBeVisible();
+  await expect(page.getByRole("status")).toHaveText(/Ready to record/);
+});
+
+test("mic test lights up before recording", async ({ page }) => {
+  await consent(page);
+  await page.getByRole("button", { name: "Test my microphone" }).click();
+  await expect(page.getByTestId("input-meter")).toContainText("Listening");
+  await expect(page.getByRole("status")).toHaveText(/Ready to record/);
 });

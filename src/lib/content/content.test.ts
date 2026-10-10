@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEMO_BOOKS, isPassagePlayable } from "./demo-books";
-import { DEMO_SCRIPT_V1, splitSentences, wordCount } from "./voice-scripts";
+import { DEMO_SCRIPT, splitSentences, wordCount } from "./voice-scripts";
 
 describe("demo books (Amendment 001 F-9)", () => {
   it("keeps exactly the six locked selections in order", () => {
@@ -26,7 +26,7 @@ describe("demo books (Amendment 001 F-9)", () => {
 
 describe("demo script", () => {
   it("fits a 60 to 120 second read at typical pace", () => {
-    const words = wordCount(DEMO_SCRIPT_V1);
+    const words = wordCount(DEMO_SCRIPT);
     // ~130 wpm average reader: 60s = 130 words, 120s = 260 words. Slightly longer for slow readers.
     expect(words).toBeGreaterThanOrEqual(200);
     expect(words).toBeLessThanOrEqual(320);
