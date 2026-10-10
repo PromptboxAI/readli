@@ -65,3 +65,20 @@ test("admin plan settings list every configurable limit", async ({ page }, info)
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/admin-plans-${info.project.name}.png`, fullPage: true });
 });
+
+test("contributors verify, consent, record and approve their voice", async ({ page }, info) => {
+  await page.goto("/voice/record");
+  await page.getByLabel("Code").fill("123456");
+  await page.getByRole("button", { name: "Verify" }).click();
+  const agree = page.getByRole("button", { name: "I agree" });
+  await expect(agree).toBeDisabled();
+  for (const box of await page.getByRole("checkbox").all()) await box.check();
+  await page.screenshot({ path: `e2e/screenshots/voice-consent-${info.project.name}.png`, fullPage: true });
+  await agree.click();
+  await expect(page.getByRole("heading", { name: "Read the story out loud" })).toBeVisible();
+  await page.getByRole("button", { name: "I've finished recording" }).click();
+  await page.screenshot({ path: `e2e/screenshots/voice-approve-${info.project.name}.png`, fullPage: true });
+  await page.getByRole("button", { name: "Approve my voice" }).click();
+  await expect(page.getByText("Nobody can use it until you share it")).toBeVisible();
+  await noOverflow(page);
+});

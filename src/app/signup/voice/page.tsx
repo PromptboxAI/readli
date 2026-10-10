@@ -46,11 +46,11 @@ export default async function VoiceSignupPage({ searchParams }: { searchParams: 
       <PreviewNote>Readli Voice accounts are coming soon, so nothing here is saved yet.</PreviewNote>
 
       <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">
-        <form action="/voice" className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10 sm:p-8" aria-label="Create a free Readli Voice account">
+        <form action="/voice/record" className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10 sm:p-8" aria-label="Create a free Readli Voice account">
           <h2 className="font-display text-2xl font-semibold">Your free account</h2>
           <AccountFields namePlaceholder="Grandma June" />
           <label className="flex items-start gap-3">
-            <input type="checkbox" name="own_voice" required className="mt-1 size-5 accent-coral-deep" />
+            <input type="checkbox" required className="mt-1 size-5 accent-coral-deep" />
             <span>I&apos;ll only record my own voice, and I control who can use it.</span>
           </label>
           <button type="submit" className={`${buttonPrimary} w-full`}>

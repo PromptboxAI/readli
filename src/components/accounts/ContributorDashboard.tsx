@@ -78,7 +78,7 @@ export function ContributorDashboard({ invited = false }: { invited?: boolean })
                 <button type="button" className={buttonSecondary} onClick={() => setNote("Preview: your short sample would play here.")}>
                   Play my preview
                 </button>
-                <Link href="/try" className={buttonSecondary}>
+                <Link href="/voice/record" className={buttonSecondary}>
                   Re-record my voice
                 </Link>
                 <button type="button" className={buttonQuiet} onClick={() => setConfirmDelete(true)}>
@@ -90,7 +90,7 @@ export function ContributorDashboard({ invited = false }: { invited?: boolean })
         ) : (
           <div className="flex flex-col items-start gap-3">
             <p>Your voice is deleted and no family can use it. You can record a new one whenever you like.</p>
-            <Link href="/try" className={buttonPrimary}>
+            <Link href="/voice/record" className={buttonPrimary}>
               Record my voice
             </Link>
           </div>

@@ -27,16 +27,16 @@ export function AccountFields({ namePlaceholder = "Sara" }: { namePlaceholder?: 
         <label htmlFor={`${id}-name`} className="font-semibold">
           Your name
         </label>
-        <input id={`${id}-name`} name="name" className={field} placeholder={namePlaceholder} autoComplete="name" required />
+        <input id={`${id}-name`} className={field} placeholder={namePlaceholder} autoComplete="name" required />
       </div>
       <div className="flex flex-col gap-2">
         <label htmlFor={`${id}-email`} className="font-semibold">
           Email
         </label>
-        <input id={`${id}-email`} name="email" type="email" className={field} autoComplete="email" required />
+        <input id={`${id}-email`} type="email" className={field} autoComplete="email" required />
       </div>
       <label className="flex items-start gap-3">
-        <input type="checkbox" name="adult" required className="mt-1 size-5 accent-coral-deep" />
+        <input type="checkbox" required className="mt-1 size-5 accent-coral-deep" />
         <span>I&apos;m 18 or older.</span>
       </label>
     </div>
