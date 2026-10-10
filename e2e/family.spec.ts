@@ -130,7 +130,7 @@ test("direct API requests can't reach unapproved voices or change approvals", as
   expect((await page.request.put("/api/family/voices/voice-priya/share", { data: { householdId: "home-demo", shared: true } })).status()).toBe(403);
   // Unapproved, unshared, and a sibling's narrators are all refused.
   const narrate = (voiceId: string, childId = "maya") =>
-    page.request.post("/api/kids/narrations", { data: { childId, voiceId, bookSlug: "winnie-the-pooh", sentence: 0 } });
+    page.request.post("/api/kids/narrations", { data: { childId, voiceId, bookSlug: "the-lion-and-the-mouse", sentence: 0 } });
   expect((await narrate("voice-lou")).status()).toBe(403);
   expect((await narrate("voice-rose")).status()).toBe(403);
   expect((await narrate("voice-rose", "leo")).status()).toBe(403);
@@ -173,4 +173,55 @@ test("only three children can listen at once", async ({ page }) => {
     await signIn(page, `child:${id}`);
     expect((await page.request.post(`/api/kids/${id}/listening`)).status(), id).toBe(i < 3 ? 200 : 429);
   }
+});
+
+test("kids can only switch to a storyteller whose reading is prepared at their place", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await signIn(page, "child:maya");
+  await page.goto("/kids/listen/the-tale-of-peter-rabbit");
+  await expect(page.getByTestId("current-narrator")).toHaveText("Mom");
+  await page.getByRole("button", { name: /Change storyteller/ }).click();
+  const picker = page.getByRole("group", { name: "Choose a storyteller" });
+  // Grandma June has only the first two sentences of this book prepared.
+  await expect(picker.getByRole("button", { name: /Grandma June/ })).toContainText("Ready here");
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/);
+  const june = picker.getByRole("button", { name: /Grandma June/ });
+  await expect(june).toContainText("Not ready yet");
+  await expect(june).toBeDisabled();
+  await expect(page.getByTestId("current-narrator")).toHaveText("Mom");
+  // Going back to a prepared sentence, the switch is instant and keeps the place.
+  await page.getByRole("button", { name: "Back" }).click();
+  await june.click();
+  await expect(page.getByTestId("current-narrator")).toHaveText("Grandma June");
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 2 of/);
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByTestId("not-prepared")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Play" })).toBeDisabled();
+});
+
+test("a parent prepares narration ahead of time and is told when it's ready", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family");
+  await page.getByRole("link", { name: "Prepare narration" }).click();
+  await page.getByRole("link", { name: /The Tale of Peter Rabbit/ }).click();
+  await expect(page.getByRole("heading", { name: "The Tale of Peter Rabbit" })).toBeVisible();
+
+  const june = page.getByTestId("prepare-voice-june");
+  await expect(june.getByTestId("readiness")).toHaveText("Partially ready");
+  await expect(page.getByTestId("prepare-voice-rose").getByTestId("readiness")).toHaveText("Not prepared");
+  await expect(page.getByTestId("prepare-voice-sara").getByTestId("readiness")).toHaveText("Ready");
+  // Aunt Priya shared her voice but isn't in a narrator slot.
+  await expect(page.getByTestId("prepare-voice-priya")).toContainText("Add to a narrator slot to prepare");
+
+  await june.getByRole("button", { name: /Prepare the rest/ }).click();
+  const confirm = june.getByTestId("confirm-generation");
+  await expect(confirm).toContainText("already prepared are free");
+  await confirm.getByRole("button", { name: "Prepare now" }).click();
+  await expect(june.getByTestId("readiness")).toHaveText("Ready", { timeout: 15_000 });
+  await expect(page.getByTestId("credits")).toContainText("of new narration left");
+
+  await page.goto("/family");
+  await expect(page.getByTestId("notifications")).toContainText("Grandma June's reading of The Tale of Peter Rabbit is ready.");
 });

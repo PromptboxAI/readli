@@ -51,6 +51,8 @@ export interface ChildProfile {
 export interface VoiceProfile {
   id: string;
   ownerId: string;
+  /** Bumps when the owner replaces their voice; narrations are per version. */
+  version: number;
   status: VoiceStatus;
   createdAt: string;
   deletedAt: string | null;
@@ -80,16 +82,6 @@ export interface ChildVoiceApproval {
   revokeReason: "guardian_removed" | "owner_revoked" | "slot_released" | "voice_deleted" | null;
 }
 
-/** Generated narration audio, re-authorized on every fetch. */
-export interface NarrationAsset {
-  id: string;
-  voiceId: string;
-  childId: string;
-  bookSlug: string;
-  sentence: number;
-  createdAt: string;
-}
-
 export type AuditAction =
   | "voice_shared"
   | "voice_unshared"
@@ -97,6 +89,8 @@ export type AuditAction =
   | "child_voice_removed"
   | "narration_authorized"
   | "narration_denied"
+  | "narration_requested"
+  | "narration_canceled"
   | "narrator_activated"
   | "narrator_released"
   | "narrator_slot_added"
@@ -123,13 +117,20 @@ export interface FamilyState {
   voices: VoiceProfile[];
   shares: VoiceShare[];
   approvals: ChildVoiceApproval[];
-  assets: NarrationAsset[];
   audit: AuditEvent[];
   entitlements: HouseholdEntitlement[];
   slots: NarratorSlotAssignment[];
   sessions: ListeningSession[];
   progress: ChildBookProgress[];
   favorites: { childId: string; bookSlug: string }[];
+  libraries: NarrationLibrary[];
+  segments: NarrationSegment[];
+  jobs: NarrationJob[];
+  ledger: CreditEntry[];
+  usage: ProviderUsage[];
+  notifications: FamilyNotification[];
+  /** Playback URL issues and cache hits, for the admin dashboard. */
+  plays: { libraryKey: string; sentenceId: string; householdId: string; childId: string; at: string }[];
 }
 
 export type Actor = { kind: "adult"; adultId: string } | { kind: "child"; childId: string };
@@ -176,4 +177,99 @@ export interface ChildBookProgress {
   sentence: number;
   voiceId: string | null;
   updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Narration libraries (Voice Narration Libraries & Pre-Generation amendment)
+// ---------------------------------------------------------------------------
+
+/**
+ * One voice's narration of one book text under one generation config. Identified by its key, so
+ * every household authorized for the same voice/book/config shares one copy (when licensing allows).
+ */
+export interface NarrationLibrary {
+  key: string;
+  voiceId: string;
+  voiceVersion: number;
+  bookSlug: string;
+  edition: string;
+  textRevision: string;
+  modelId: string;
+  configHash: string;
+  /** "shared" when cross-household reuse is licensed; otherwise the one household it belongs to. */
+  scope: string;
+  createdAt: string;
+}
+
+export type SegmentStatus = "pending" | "generating" | "ready" | "failed";
+
+/** One stable sentence of narration. Ready only once its audio is stored and readable. */
+export interface NarrationSegment {
+  libraryKey: string;
+  sentenceId: string;
+  ordinal: number;
+  status: SegmentStatus;
+  /** The job that claimed this segment; another household's request never claims it twice. */
+  jobId: string | null;
+  storageKey: string | null;
+  characters: number;
+  durationMs: number | null;
+  providerCredits: number | null;
+  attempts: number;
+  error: string | null;
+  readyAt: string | null;
+}
+
+export type JobScope = "book" | "chapter" | "passage";
+export type JobStatus = "queued" | "running" | "done" | "failed" | "canceled";
+
+export interface NarrationJob {
+  id: string;
+  libraryKey: string;
+  householdId: string;
+  requestedBy: string;
+  scope: JobScope;
+  /** Segments this job pays for, in generation order (priority passages first). */
+  sentenceIds: string[];
+  /** Household narration seconds reserved per segment when the job was confirmed. */
+  reservations: Record<string, number>;
+  status: JobStatus;
+  createdAt: string;
+  finishedAt: string | null;
+}
+
+export type LedgerKind = "allowance" | "purchase" | "reserve" | "commit" | "refund";
+
+/** Household narration credit ledger, in seconds of new narration. Replays never write here. */
+export interface CreditEntry {
+  id: string;
+  householdId: string;
+  period: string;
+  kind: LedgerKind;
+  seconds: number;
+  jobId: string | null;
+  sentenceId: string | null;
+  at: string;
+}
+
+/** Provider usage for every generated segment, for the cost model and benchmarks. */
+export interface ProviderUsage {
+  id: string;
+  libraryKey: string;
+  sentenceId: string;
+  modelId: string;
+  characters: number;
+  providerCredits: number;
+  durationMs: number;
+  bytes: number;
+  at: string;
+}
+
+export interface FamilyNotification {
+  id: string;
+  householdId: string;
+  text: string;
+  href: string;
+  at: string;
+  readAt: string | null;
 }

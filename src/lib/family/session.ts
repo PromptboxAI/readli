@@ -5,6 +5,10 @@ import { StubVoiceProvider } from "@/lib/voice/stub";
 import { demoFamilyState } from "./demo-family";
 import type { Actor } from "./model";
 import { MemoryFamilyStore, type FamilyStore } from "./service";
+import { planConfig } from "./plan";
+import { DEMO_HOUSEHOLD_ID } from "./demo-family";
+import { seedDemoNarrations } from "@/lib/narration/demo-seed";
+import { MemoryNarrationStorage } from "@/lib/narration/storage";
 
 /**
  * Who is asking. Until family accounts ship (Phase 4, Supabase Auth with email and Google), the
@@ -76,18 +80,27 @@ const g = globalThis as typeof globalThis & {
   __readliFamily?: { sandboxes: Map<string, MemoryFamilyStore>; provider: StubVoiceProvider };
 };
 
-/** The store for one preview sandbox, created from the demo household on first use. */
-export function familyStore(sandbox: string): FamilyStore | null {
+/** The store for one preview sandbox, created from the demo household (with seeded narrations) on first use. */
+export async function familyStore(sandbox: string): Promise<FamilyStore | null> {
   if (!familyPreviewEnabled()) return null;
   g.__readliFamily ??= { sandboxes: new Map(), provider: new StubVoiceProvider() };
   const { sandboxes } = g.__readliFamily;
   let store = sandboxes.get(sandbox);
   if (!store) {
     if (sandboxes.size >= MAX_SANDBOXES) sandboxes.delete(sandboxes.keys().next().value!);
-    store = new MemoryFamilyStore(demoFamilyState());
+    const state = demoFamilyState();
+    const audio = new MemoryNarrationStorage();
+    const plan = planConfig();
+    store = new MemoryFamilyStore(state, plan, audio);
     sandboxes.set(sandbox, store);
+    await seedDemoNarrations(state, audio, plan, DEMO_HOUSEHOLD_ID);
   }
   return store;
+}
+
+/** Key for signed narration playback URLs. */
+export function playbackKey(): string {
+  return `${secret()}:playback`;
 }
 
 export function familyProvider(): StubVoiceProvider {

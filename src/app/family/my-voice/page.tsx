@@ -12,7 +12,7 @@ export default async function MyVoicePage() {
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   if (page.session?.actor.kind !== "adult") return <NeedsGrownUp text="Sign in to manage your voice." />;
-  const voices = await myVoices(familyStore(page.session.sandbox)!, page.session.actor);
+  const voices = await myVoices((await familyStore(page.session.sandbox))!, page.session.actor);
   return (
     <FamilyShell>
       <PreviewNote />
