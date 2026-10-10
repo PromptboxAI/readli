@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonSecondary } from "@/components/brand/buttons";
 import { StarSticker } from "@/components/invites/illustrations";
-import { ACTIVITIES, progress, REWARD_RULES, type ActivityId, type RewardsState } from "@/lib/rewards/rewards";
+import { ACTIVITIES, DEFAULT_REWARDS, progress, type ActivityId, type RewardsConfig, type RewardsState } from "@/lib/rewards/rewards";
 
 const NEXT_LINK: Partial<Record<ActivityId, { href: string; label: string }>> = {
   invite_storyteller: { href: "/invite/family", label: "Invite someone" },
@@ -13,20 +13,21 @@ const NEXT_LINK: Partial<Record<ActivityId, { href: string; label: string }>> = 
   referral: { href: "#refer", label: "Get your link" },
 };
 
-/** Sample progress for the preview: two starter steps done. */
+/** Sample progress for the preview: two starter steps done, one referral on its way. */
 export const SAMPLE_REWARDS: RewardsState = {
   completed: new Set<ActivityId>(["family_account", "family_library"]),
-  eligibleNewHousehold: true,
-  qualifyingReferrals: 0,
+  pendingReferrals: 1,
+  monthsEarned12: 1,
+  monthsBanked: 1,
 };
 
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
 /** Readli Rewards progress tracker. Adults only; never rendered in Readli Kids. */
-export function RewardsTracker({ state = SAMPLE_REWARDS }: { state?: RewardsState }) {
+export function RewardsTracker({ state = SAMPLE_REWARDS, config = DEFAULT_REWARDS }: { state?: RewardsState; config?: RewardsConfig }) {
   const [copied, setCopied] = useState(false);
-  const p = progress(state);
+  const p = progress(state, config);
   const pct = Math.round((p.starterDone / p.starterTotal) * 100);
-  const introEarned = p.rewards.some((r) => r.id === "intro_free_month");
-  const referralMonths = p.rewards.filter((r) => r.id === "referral_free_month").length;
   const nextId = ACTIVITIES.find((a) => !state.completed.has(a.id))?.id;
 
   async function copy() {
@@ -89,25 +90,26 @@ export function RewardsTracker({ state = SAMPLE_REWARDS }: { state?: RewardsStat
       </section>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <section aria-labelledby="earned-heading" className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-sunshine/60 p-6">
+        <section aria-labelledby="earned-heading" className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-sunshine/60 p-6" data-testid="rewards-earned">
           <h2 id="earned-heading" className="font-display text-2xl font-semibold">
-            Your rewards
+            Your free months
           </h2>
-          <div className={`flex items-center gap-3 rounded-2xl p-4 ${introEarned ? "bg-mint" : "bg-surface/80"}`}>
+          <div className={`flex items-center gap-3 rounded-2xl p-4 ${state.monthsBanked > 0 ? "bg-mint" : "bg-surface/80"}`}>
             <span aria-hidden="true" className="text-3xl">
-              {introEarned ? "🎉" : "🔒"}
+              {state.monthsBanked > 0 ? "🎉" : "🎁"}
             </span>
             <span>
-              <span className="block font-display text-lg font-semibold">{REWARD_RULES.introFreeMonth.title}</span>
-              <span className="block text-sm">
-                {introEarned
-                  ? "Unlocked! It'll be applied to your first paid month."
-                  : `Finish the ${p.starterTotal - p.starterDone} remaining starter ${p.starterTotal - p.starterDone === 1 ? "activity" : "activities"} to unlock it.`}
-              </span>
+              <span className="block font-display text-lg font-semibold">{plural(state.monthsBanked, "free month")} ready to use</span>
+              <span className="block text-sm">Each one covers a month of your Readli Family subscription.</span>
             </span>
           </div>
           <p className="text-sm">
-            Referral months earned: <span className="font-semibold">{referralMonths}</span>
+            {state.pendingReferrals > 0
+              ? `${plural(state.pendingReferrals, "friend")} on the way: each earns you a month after their ${ordinal(config.referralPaidCyclesRequired)} paid month.`
+              : "No referrals on the way yet."}
+          </p>
+          <p className="text-sm">
+            You can earn {plural(p.monthsLeftThisYear, "more month")} in the next 12 months (up to {config.referralMonthsPerRolling12} a year).
           </p>
         </section>
 
@@ -115,7 +117,10 @@ export function RewardsTracker({ state = SAMPLE_REWARDS }: { state?: RewardsStat
           <h2 id="refer-heading" className="font-display text-2xl font-semibold">
             Share Readli with a friend
           </h2>
-          <p>When a new household you refer starts a qualifying paid subscription, you earn {REWARD_RULES.referralFreeMonth.title.toLowerCase()}.</p>
+          <p>
+            When a new family joins with your link and pays for their {ordinal(config.referralPaidCyclesRequired)} month of Readli Family,
+            you get a month free.
+          </p>
           <p className="break-all rounded-2xl bg-surface p-3 font-mono text-sm">readli.ai/r/preview</p>
           <button type="button" className={`${buttonSecondary} w-fit`} onClick={copy}>
             {copied ? "Link copied" : "Copy my link"}
@@ -124,12 +129,17 @@ export function RewardsTracker({ state = SAMPLE_REWARDS }: { state?: RewardsStat
       </div>
 
       <p className="text-sm text-muted" data-testid="rewards-fine-print">
-        Rewards are for adults and are still being finalised: amounts and eligibility follow Readli&apos;s final pricing. One
-        introductory month per new household. Gifts and free trials don&apos;t count as referrals. Following or liking Readli on
-        social media never earns rewards.
+        Rewards are for grown-ups in a Readli Family account. A referral counts for a new household that pays for Readli Family
+        itself: not your own household or another account of yours, not someone who has had Readli Family before, and only once per
+        family. Trials, gifts and free months don&apos;t count as paid months. A free month covers your subscription price only; it
+        doesn&apos;t add narration minutes. Following or liking Readli on social media never earns rewards.
       </p>
     </div>
   );
+}
+
+function ordinal(n: number) {
+  return ["zeroth", "first", "second", "third", "fourth", "fifth", "sixth"][n] ?? `${n}th`;
 }
 
 /** Compact tracker for the Family dashboard. No props. */
@@ -148,7 +158,8 @@ export function RewardsCard({ state = SAMPLE_REWARDS }: { state?: RewardsState }
       <span>
         <span className="block font-display text-xl font-semibold">Readli Rewards</span>
         <span className="block text-sm">
-          {p.starterDone} of {p.starterTotal} done. {p.rewards.length ? "You've unlocked a reward!" : "Finish them to unlock a free month."}
+          {p.starterDone} of {p.starterTotal} stickers collected.{" "}
+          {state.monthsBanked > 0 ? `${plural(state.monthsBanked, "free month")} ready.` : "Refer a friend to earn a free month."}
         </span>
       </span>
     </Link>

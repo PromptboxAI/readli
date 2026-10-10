@@ -24,12 +24,19 @@ test("homepage follows the design brief order with six books under the demo", as
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 
-  // Load every lazy image now, then confirm none is broken. Scrolling past lazy images in a
-  // headless run doesn't reliably start their fetch, which made this check flaky.
-  await page.evaluate(() => document.querySelectorAll<HTMLImageElement>('img[loading="lazy"]').forEach((img) => (img.loading = "eager")));
-  await expect
-    .poll(() => page.evaluate(() => [...document.images].every((img) => img.complete && img.naturalWidth > 0)), { timeout: 15_000 })
-    .toBe(true);
+  // Confirm no image is broken by fetching each one, rather than waiting for the browser to load
+  // lazy images, which a headless run doesn't reliably start and made this check flaky.
+  const broken = await page.evaluate(async () => {
+    const srcs = [...new Set([...document.images].map((img) => img.currentSrc || img.src).filter(Boolean))];
+    const results = await Promise.all(
+      srcs.map(async (src) => {
+        const res = await fetch(src).catch(() => null);
+        return res?.ok && (res.headers.get("content-type") ?? "").startsWith("image/") ? null : src;
+      }),
+    );
+    return results.filter((src) => src !== null);
+  });
+  expect(broken).toEqual([]);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: `e2e/screenshots/home-${info.project.name}.png`, fullPage: true });
 });
