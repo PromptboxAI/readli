@@ -112,7 +112,9 @@ Phases 6 and 7 are independent and can swap or run in parallel; phase 6 is small
 
 **Build:** interactive family tree (7+ members, statuses, explorable without signup, pan + list view on mobile), bookstore-style six-book shelf, Readi as one recurring guide, richer section composition. Built against current placeholders so final assets drop in.
 
-**Waits on:** the new Readli logo (in progress with Kevin's designer), the final Readi mascot, hero/use-case illustrations and rights-cleared covers.
+**Mascot:** selected design received 2026-10-10 with At rest and Listening states ([reference](design/readi-mascot-states.png)).
+
+**Waits on:** the new Readli logo (in progress with Kevin's designer), SVG source for the mascot, hero/use-case illustrations and rights-cleared covers.
 
 **Timing:** after Phase 2's cloning work lands. The interaction work can also fill gaps while Phase 2 waits on ElevenLabs/Supabase access.
 

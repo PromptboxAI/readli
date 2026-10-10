@@ -9,7 +9,7 @@
 | Asset | Owner | Notes |
 |---|---|---|
 | Readli logo | Kevin's designer, in progress | Replaces the placeholder wordmark in `src/components/brand/Wordmark.tsx` and the favicon |
-| Final Readi mascot | Designer | One selected Book Buddy design, reused everywhere. Replaces `ReadiMascot.tsx`. Poses needed: idle, waving, listening (recording), pointing (books), holding an envelope (invites), celebrating |
+| Readi mascot | **Selected** (received 2026-10-10, [reference](design/readi-mascot-states.png)) | Open-book buddy: white pages on a coral cover, yellow bookmark ribbon, dot eyes, pink cheeks, small legs. Two states: **At rest** (eyes open, pages together; used everywhere nothing is playing) and **Listening** (eyes closed, pages fanned in sunshine/mint/sky, shown while a story plays, paired with a player bar on a deep plum panel). Needs SVG source files to replace `ReadiMascot.tsx`. Extra poses for guiding recording, books and invites to be drawn in the same style |
 | Hero and use-case illustrations | Designer / illustrator | Original artwork; hero shows Readi in a storytelling world |
 | Six book covers | Designer, after rights review | Original or rights-cleared art per edition (PRD F-05). No modern or Disney artwork |
 | Family photos | Kevin | Only with signed model releases (Brief §2) |
@@ -37,7 +37,8 @@
 - Keep the ungated recording flow and "hear this passage in your cloned voice".
 
 ### 4. Readi as a recurring guide
-- Same character throughout: guiding recording, discovering books, inviting family.
+- Same character throughout, based on the selected design above: guiding recording, discovering books, inviting family.
+- Use **At rest** on idle screens and **Listening** whenever audio plays (demo previews, player). The listening panel's player bar ("[Story title] · read by [Narrator]") is the reference for the demo narration player.
 - Subtle animation (blink, bob, page flip) that switches off under reduced motion.
 
 ### 5. Visual hierarchy and composition
