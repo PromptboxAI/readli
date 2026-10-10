@@ -53,7 +53,6 @@ export function DemoBookCard({ book, onHear, activeSlug, disabledReason }: { boo
         <p className="text-sm text-muted">
           {book.author}, {book.firstPublished}
         </p>
-        <p className="text-sm text-muted">About {book.passageTargetSeconds} second passage</p>
       </div>
       {onHear || !playable ? (
         <button
