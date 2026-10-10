@@ -159,7 +159,7 @@ export function FamilyVoices() {
             </svg>
             Made for families
           </p>
-          <h2 id="family-voices-heading" className="font-display text-5xl font-bold leading-[0.98] text-plum sm:text-6xl">
+          <h2 id="family-voices-heading" className="font-display text-4xl font-semibold leading-[1.05] text-plum sm:text-5xl">
             <span className="block">Your family. </span>
             <span className="block text-coral-strong">Your voices. </span>
             <span className="block">Your rules.</span>
