@@ -218,7 +218,7 @@ export function ThreeWaysToListen() {
           {WAYS.map(({ title, body, bg, Art }, i) => (
             <li key={title} className="group flex flex-col gap-3">
               <div
-                className={`aspect-[4/3] overflow-hidden rounded-[var(--radius-panel)] border-[3px] border-ink shadow-[0_6px_0_#283548] transition-transform group-hover:-translate-y-1 motion-reduce:transform-none ${bg} ${["md:-rotate-1", "md:rotate-1", "md:-rotate-1"][i]}`}
+                className={`aspect-[4/3] overflow-hidden rounded-[var(--radius-panel)] transition-transform group-hover:-translate-y-1 motion-reduce:transform-none ${bg} ${["md:-rotate-1", "md:rotate-1", "md:-rotate-1"][i]}`}
               >
                 <Art />
               </div>
