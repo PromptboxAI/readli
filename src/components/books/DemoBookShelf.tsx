@@ -1,17 +1,17 @@
-import { DEMO_BOOKS, gutenbergUrl, isPassagePlayable, type DemoBook } from "@/lib/content/demo-books";
+import Image from "next/image";
+import { coverSrc, DEMO_BOOKS, gutenbergUrl, isPassagePlayable, type DemoBook } from "@/lib/content/demo-books";
 
-function CoverTile({ book }: { book: DemoBook }) {
-  // Placeholder shapes only: no edition artwork until rights review clears it.
+function Cover({ book }: { book: DemoBook }) {
+  // Original Readli artwork; the title is printed on the cover, so the heading below carries the name.
   return (
-    <div
-      className="relative flex aspect-[4/5] items-end overflow-hidden rounded-2xl border-[3px] border-ink p-3"
-      style={{ background: book.tile.background }}
-      aria-hidden="true"
-    >
-      <div className="absolute -right-6 -top-6 size-24 rounded-full opacity-80" style={{ background: book.tile.accent }} />
-      <div className="absolute bottom-10 left-4 size-10 rotate-12 rounded-xl bg-surface/80" />
-      <span className="relative font-display text-sm font-semibold leading-tight text-ink sm:text-base">{book.title}</span>
-    </div>
+    <Image
+      src={coverSrc(book)}
+      alt=""
+      width={600}
+      height={800}
+      sizes="(min-width: 1024px) 300px, 45vw"
+      className="aspect-[3/4] w-full rounded-xl object-cover shadow-[4px_6px_0_rgba(40,53,72,0.18)] transition-transform group-hover:-translate-y-1 group-hover:rotate-[-1deg]"
+    />
   );
 }
 
@@ -19,8 +19,8 @@ export function DemoBookCard({ book }: { book: DemoBook }) {
   const playable = isPassagePlayable(book);
   const headingId = `book-${book.slug}`;
   return (
-    <article aria-labelledby={headingId} className="flex w-full flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-3 sm:p-4">
-      <CoverTile book={book} />
+    <article aria-labelledby={headingId} className="group flex w-full flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-3 sm:p-4">
+      <Cover book={book} />
       <div className="flex flex-1 flex-col gap-1">
         <h3 id={headingId} className="font-display text-base font-semibold leading-snug sm:text-lg">
           {book.title}

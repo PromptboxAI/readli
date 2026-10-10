@@ -1,5 +1,7 @@
+import { existsSync } from "fs";
+import { join } from "path";
 import { describe, expect, it } from "vitest";
-import { DEMO_BOOKS, isPassagePlayable } from "./demo-books";
+import { coverSrc, DEMO_BOOKS, isPassagePlayable } from "./demo-books";
 import { DEMO_SCRIPT, splitSentences, wordCount } from "./voice-scripts";
 
 describe("demo books (Kevin's 2026-10-10 selection, supersedes Amendment 001 F-9)", () => {
@@ -16,6 +18,10 @@ describe("demo books (Kevin's 2026-10-10 selection, supersedes Amendment 001 F-9
 
   it("pins the edition the PRD names", () => {
     expect(DEMO_BOOKS.find((b) => b.slug === "winnie-the-pooh")?.gutenbergId).toBe(67098);
+  });
+
+  it("has original cover art for every book", () => {
+    for (const book of DEMO_BOOKS) expect(existsSync(join(process.cwd(), "public", coverSrc(book)))).toBe(true);
   });
 
   it("plays nothing until rights and passage are approved", () => {

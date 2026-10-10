@@ -1,8 +1,9 @@
+import Image from "next/image";
 import Link from "next/link";
 import { DemoBookShelf } from "@/components/books/DemoBookShelf";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
-import { DEMO_BOOKS } from "@/lib/content/demo-books";
+import { coverSrc, DEMO_BOOKS } from "@/lib/content/demo-books";
 
 function Cloud({ className }: { className: string }) {
   return (
@@ -185,12 +186,15 @@ export function KidsShelf() {
         </div>
         <ul className="flex snap-x gap-4 overflow-x-auto pb-2">
           {DEMO_BOOKS.map((book) => (
-            <li
-              key={book.slug}
-              className="flex w-40 shrink-0 snap-start flex-col justify-end rounded-3xl border-[3px] border-ink p-4 font-display font-semibold"
-              style={{ background: book.tile.background, minHeight: "12rem" }}
-            >
-              {book.title}
+            <li key={book.slug} className="w-40 shrink-0 snap-start">
+              <Image
+                src={coverSrc(book)}
+                alt={book.title}
+                width={600}
+                height={800}
+                sizes="160px"
+                className="aspect-[3/4] w-full rounded-xl object-cover shadow-[4px_6px_0_rgba(40,53,72,0.18)]"
+              />
             </li>
           ))}
         </ul>

@@ -27,8 +27,6 @@ export interface DemoBook {
   passageTargetSeconds: number;
   /** Approved excerpt; null until editorial approval. */
   passageText: string | null;
-  /** Placeholder palette for the cover tile until rights-cleared art exists. */
-  tile: { background: string; accent: string };
 }
 
 export const DEMO_BOOKS: readonly DemoBook[] = [
@@ -42,7 +40,6 @@ export const DEMO_BOOKS: readonly DemoBook[] = [
     rightsStatus: "pending_review",
     passageTargetSeconds: 40,
     passageText: null,
-    tile: { background: "var(--color-mint)", accent: "var(--color-coral)" },
   },
   {
     slug: "alices-adventures-in-wonderland",
@@ -54,7 +51,6 @@ export const DEMO_BOOKS: readonly DemoBook[] = [
     rightsStatus: "pending_review",
     passageTargetSeconds: 45,
     passageText: null,
-    tile: { background: "var(--color-lavender)", accent: "var(--color-coral)" },
   },
   {
     slug: "winnie-the-pooh",
@@ -67,7 +63,6 @@ export const DEMO_BOOKS: readonly DemoBook[] = [
     rightsStatus: "pending_review",
     passageTargetSeconds: 45,
     passageText: null,
-    tile: { background: "var(--color-sunshine)", accent: "var(--color-mint)" },
   },
   {
     slug: "the-three-little-pigs",
@@ -80,7 +75,6 @@ export const DEMO_BOOKS: readonly DemoBook[] = [
     rightsStatus: "pending_review",
     passageTargetSeconds: 40,
     passageText: null,
-    tile: { background: "var(--color-coral)", accent: "var(--color-sunshine)" },
   },
   {
     slug: "the-princess-and-the-pea",
@@ -93,7 +87,6 @@ export const DEMO_BOOKS: readonly DemoBook[] = [
     rightsStatus: "pending_review",
     passageTargetSeconds: 40,
     passageText: null,
-    tile: { background: "var(--color-sky)", accent: "var(--color-lavender)" },
   },
   {
     slug: "the-lion-and-the-mouse",
@@ -106,9 +99,13 @@ export const DEMO_BOOKS: readonly DemoBook[] = [
     rightsStatus: "pending_review",
     passageTargetSeconds: 30,
     passageText: null,
-    tile: { background: "var(--color-sunshine)", accent: "var(--color-sky)" },
   },
 ];
+
+/** Original Readli cover art (600x800 WebP in /public/covers). */
+export function coverSrc(book: DemoBook): string {
+  return `/covers/${book.slug}.webp`;
+}
 
 export function gutenbergUrl(book: DemoBook): string | null {
   return book.gutenbergId === null ? null : `https://www.gutenberg.org/ebooks/${book.gutenbergId}`;
