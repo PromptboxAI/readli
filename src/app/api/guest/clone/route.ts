@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentGuest, effectiveMode, guestDemoDeps } from "@/lib/server/guest-demo";
 import { fail, NO_SESSION, PREVIEWS_OFF } from "@/lib/server/http";
+import { fileExtension } from "@/lib/audio/mime";
 import { VoiceProviderError } from "@/lib/voice/provider";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ export async function POST() {
     const { voiceId } = await deps.provider.createInstantVoice({
       name: `Readli guest ${guest.id.slice(0, 8)}`,
       audio: recording.audio,
-      filename: `take.${recording.mimeType.split("/")[1] ?? "webm"}`,
+      filename: `take.${fileExtension(recording.mimeType)}`,
       description: "Readli guest demo voice. Deleted automatically within 24 hours.",
     });
     await deps.store.setVoice(guest.id, voiceId);
