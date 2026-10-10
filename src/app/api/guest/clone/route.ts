@@ -11,7 +11,7 @@ export const maxDuration = 60;
 const MAX_VOICES_PER_GUEST = 3;
 
 /** Turns the guest's latest take into an instant voice clone. No stock voice is ever substituted. */
-export async function POST() {
+export async function POST(req: Request) {
   const deps = guestDemoDeps();
   if ((await effectiveMode(deps)) === "off" || !deps) return fail(503, "previews_off", PREVIEWS_OFF);
   const guest = await currentGuest(deps);
@@ -23,6 +23,10 @@ export async function POST() {
     return fail(429, "too_many_voices", "You've made a few voices already. Pick a story to hear the latest one.");
   }
 
+  // The guest's choice from the preview panel; missing or malformed means the default (on).
+  const body = (await req.json().catch(() => null)) as { removeBackgroundNoise?: unknown } | null;
+  const removeBackgroundNoise = body?.removeBackgroundNoise !== false;
+
   const previous = await deps.store.getVoice(guest.id);
   try {
     const { voiceId } = await deps.provider.createInstantVoice({
@@ -30,6 +34,7 @@ export async function POST() {
       audio: recording.audio,
       filename: `take.${fileExtension(recording.mimeType)}`,
       description: "Readli guest demo voice. Deleted automatically within 24 hours.",
+      removeBackgroundNoise,
     });
     await deps.store.setVoice(guest.id, voiceId);
   } catch (err) {

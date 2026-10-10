@@ -19,13 +19,20 @@ export class ElevenLabsProvider implements VoiceProvider {
     return res;
   }
 
-  async createInstantVoice({ name, audio, filename, description }: { name: string; audio: Blob; filename: string; description: string }) {
+  async createInstantVoice({
+    name,
+    audio,
+    filename,
+    description,
+    removeBackgroundNoise = true,
+  }: Parameters<VoiceProvider["createInstantVoice"]>[0]) {
     const form = new FormData();
     form.append("name", name);
     form.append("description", description);
     form.append("files", audio, filename);
     // ElevenLabs "enhance": most takes come from phones in echoey rooms, often recorded by grandparents.
-    form.append("remove_background_noise", "true");
+    // The speaker can turn it off, because the clean-up can also change how a clean voice sounds.
+    form.append("remove_background_noise", String(removeBackgroundNoise));
     form.append("labels", JSON.stringify({ source: "readli_guest_demo" }));
     const res = await this.call("/voices/add", { method: "POST", body: form });
     const json = (await res.json()) as { voice_id?: string };
