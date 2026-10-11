@@ -301,7 +301,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
     question: "What's included in the $19.99 Readli Family plan?",
     status: "published",
     answer: [
-      "Readli Family will be $19.99 a month, or $179.99 a year. It's planned to include two family storyteller slots, up to six child profiles, three children listening at the same time, the Readli Kids library, parent-managed storyteller approvals and unlimited family invitations.",
+      "Readli Family will be $19.99 a month, or $179.99 a year. It includes two family storyteller slots, 40 narration credits each month, up to six child profiles, three children listening at the same time, the Readli Kids library, parent-managed storyteller approvals and unlimited family invitations. New families start with a 14-day free trial that includes 10 narration credits.",
+      "See [Pricing](/pricing) for extra storytellers and credit packs.",
       "Each child keeps their own listening history, favorites and progress. Family plans aren't open for sign-up just yet.",
     ],
     keywords: ["price", "cost", "plan", "subscription", "monthly"],
@@ -313,7 +314,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
     question: "How do additional narrator slots work?",
     status: "draft",
     answer: [
-      "Your plan includes two storyteller slots. Each shared voice you want your children to hear uses one slot. If your family would like more storytellers, you'll be able to add extra slots to your plan. Pricing for extra slots will be confirmed before they're offered.",
+      "Your plan includes two storyteller slots. Each shared voice you want your children to hear uses one slot. If your family would like more storytellers, you can add extra slots for $5.99 a month each.",
+      "Extra slots don't add narration credits, and the relative sharing their voice never pays anything. You can remove an extra slot at any time from your subscription settings.",
     ],
     keywords: ["slots", "more storytellers", "third voice"],
     related: ["family-plan-included", "voice-not-available-to-child"],
@@ -324,7 +326,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
     question: "How do monthly narration credits work?",
     status: "draft",
     answer: [
-      "Your plan comes with narration credits each month for preparing new stories in your family's voices. Readli shows exactly how many credits a book or chapter will use before you confirm. Listening to stories you've already prepared never uses credits.",
+      "Your plan comes with 40 narration credits each month, shared by your whole household. One credit prepares 1,000 characters of new narration in your family's voices. Readli shows exactly how many credits a book or chapter will use before you confirm.",
+      "Monthly credits refresh each billing cycle and don't roll over. On the annual plan you still get 40 credits each month. Listening to stories you've already prepared never uses credits.",
     ],
     keywords: ["credits", "allowance", "minutes", "balance"],
     related: ["replays-use-credits", "buy-more-credits", "not-enough-credits"],
@@ -335,7 +338,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
     question: "How can I purchase more credits?",
     status: "draft",
     answer: [
-      "From Narration Credits in Readli Family, choose Get More Narration Credits and pick a pack. If you were preparing a book, you'll go straight back to it afterwards.",
+      "From Narration Credits in Readli Family, choose Get More Narration Credits and pick a pack: 20 credits for $6.99, 50 for $14.99 or 100 for $24.99. If you were preparing a book, you'll go straight back to it afterwards.",
+      "Credit packs are one-time purchases for Readli Family households. Your monthly credits are used first.",
     ],
     keywords: ["buy", "top up", "credit pack", "purchase"],
     related: ["monthly-narration-credits", "not-enough-credits"],

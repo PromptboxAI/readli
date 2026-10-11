@@ -1,0 +1,233 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { PlanList } from "@/components/accounts/PlanList";
+import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { SiteHeader } from "@/components/home/SiteHeader";
+import { SiteFooter } from "@/components/home/sections";
+import { annualSavingsPercent, monthlyTotalCents, pricing, type Pricing } from "@/lib/content/pricing";
+import { formatPrice as dollars } from "@/lib/family/plan";
+
+export const metadata: Metadata = {
+  title: "Pricing | Readli",
+  description: "Readli Family is $19.99 a month with two family storytellers and 40 narration credits. Readli Voice is always free.",
+  alternates: { canonical: "/pricing" },
+};
+
+// Shows the prices an admin saved, so it renders per request.
+export const dynamic = "force-dynamic";
+
+const familyHighlights = (P: Pricing) => [
+  `${P.includedNarratorSlots} family storytellers included`,
+  `${P.maxChildProfiles} child profiles`,
+  `${P.simultaneousListeners} children listening at once`,
+  `${P.monthlyCredits} narration credits every month`,
+  "Replay your prepared stories as often as you like",
+  "Invite loved ones to share their voices for free",
+];
+
+const VOICE_HIGHLIGHTS = [
+  "Record your voice once",
+  "Share it with every family you choose",
+  "Change or stop sharing at any time",
+  "Never pay to record or share your voice",
+];
+
+const NO_CREDITS = [
+  "Replaying stories you've already prepared",
+  "Switching between prepared family voices",
+  "Browsing the library",
+  "Inviting relatives",
+  "Adding child profiles",
+];
+
+const NARRATOR_EXAMPLES = [
+  { who: "Mom + Dad", count: 2 },
+  { who: "Mom + Dad + Grandma", count: 3 },
+  { who: "Mom + Dad + Grandma + Grandpa", count: 4 },
+];
+
+export default async function PricingPage() {
+  const P = await pricing();
+  return (
+    <>
+      <SiteHeader />
+      <main className="flex flex-col">
+        <section aria-labelledby="pricing-heading" className="bg-sunshine/35 px-4 pb-10 pt-12 sm:px-6 sm:pt-16">
+          <div className="mx-auto flex max-w-3xl flex-col items-center gap-3 text-center">
+            <h1 id="pricing-heading" className="font-display text-4xl font-semibold sm:text-5xl">
+              Pricing
+            </h1>
+            <p className="text-lg sm:text-xl">Bring your favorite stories to life with the voices of the people you love.</p>
+          </div>
+        </section>
+
+        <section aria-label="Plans" className="bg-sunshine/35 px-4 pb-14 sm:px-6">
+          <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-[1.25fr_1fr]">
+            <article
+              aria-labelledby="plan-family"
+              data-testid="plan-family"
+              className="flex flex-col gap-5 rounded-[var(--radius-panel)] border-[3px] border-ink bg-surface p-6 shadow-[6px_8px_0_rgba(40,53,72,0.15)] sm:p-8"
+            >
+              <div className="flex flex-col gap-1">
+                <h2 id="plan-family" className="font-display text-3xl font-semibold">
+                  Readli Family
+                </h2>
+                <p className="font-display text-4xl font-semibold">
+                  {dollars(P.familyMonthlyCents)}
+                  <span className="text-lg font-normal text-muted">/month</span>
+                </p>
+                <p className="text-muted">
+                  or {dollars(P.familyAnnualCents)}/year, about {annualSavingsPercent(P)}% less than paying monthly
+                </p>
+              </div>
+              <PlanList items={familyHighlights(P)} />
+              <div className="mt-auto flex flex-col gap-2">
+                <Link href="/signup/family" className={`${buttonPrimary} w-full`}>
+                  Start your family
+                </Link>
+                <p className="text-center text-sm text-muted">
+                  Includes a {P.trialDays}-day free trial with {P.trialCredits} narration credits. Family accounts open soon, and
+                  nothing is charged yet.
+                </p>
+              </div>
+            </article>
+
+            <article
+              aria-labelledby="plan-voice"
+              data-testid="plan-voice"
+              className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-mint/60 p-6 ring-2 ring-ink/10 sm:p-8"
+            >
+              <div className="flex flex-col gap-1">
+                <h2 id="plan-voice" className="font-display text-3xl font-semibold">
+                  Readli Voice
+                </h2>
+                <p className="font-display text-4xl font-semibold">Always free</p>
+                <p className="text-muted">Record your voice once. Share it with the families you love.</p>
+              </div>
+              <PlanList items={VOICE_HIGHLIGHTS} />
+              <Link href="/signup/voice" className={`${buttonSecondary} mt-auto w-full`}>
+                Share your voice
+              </Link>
+            </article>
+          </div>
+        </section>
+
+        <section aria-labelledby="extras-heading" className="px-4 py-14 sm:px-6">
+          <div className="mx-auto flex max-w-5xl flex-col gap-6">
+            <div className="flex flex-col gap-2 text-center">
+              <h2 id="extras-heading" className="font-display text-3xl font-semibold sm:text-4xl">
+                Room to grow
+              </h2>
+              <p className="text-lg">Add storytellers or narration only when your family wants them.</p>
+            </div>
+            <div className="grid gap-5 md:grid-cols-2">
+              <article aria-labelledby="extra-slot" className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-lavender/40 p-6 sm:p-8">
+                <div className="flex flex-col gap-1">
+                  <h3 id="extra-slot" className="font-display text-2xl font-semibold">
+                    Add a Family Storyteller
+                  </h3>
+                  <p className="font-display text-3xl font-semibold">
+                    {dollars(P.extraSlotMonthlyCents)}
+                    <span className="text-base font-normal text-muted">/month each</span>
+                  </p>
+                  <p>Make room for Grandma, Grandpa, or another special voice.</p>
+                </div>
+                <table className="w-full text-left">
+                  <caption className="sr-only">Monthly total by number of storytellers</caption>
+                  <thead>
+                    <tr className="border-b-2 border-ink/15 text-sm text-muted">
+                      <th scope="col" className="py-2 font-semibold">
+                        Storytellers
+                      </th>
+                      <th scope="col" className="py-2 text-right font-semibold">
+                        Per month
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {NARRATOR_EXAMPLES.map((row) => (
+                      <tr key={row.who} className="border-b border-ink/10 last:border-0">
+                        <td className="py-2">{row.who}</td>
+                        <td className="py-2 text-right font-semibold">{dollars(monthlyTotalCents(P, row.count))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </article>
+
+              <article aria-labelledby="extra-credits" className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-sky/30 p-6 sm:p-8">
+                <div className="flex flex-col gap-1">
+                  <h3 id="extra-credits" className="font-display text-2xl font-semibold">
+                    More Stories, Anytime
+                  </h3>
+                  <p>Get more narration credits whenever your family wants to prepare another story.</p>
+                </div>
+                <table className="w-full text-left">
+                  <caption className="sr-only">Narration credit packs</caption>
+                  <thead>
+                    <tr className="border-b-2 border-ink/15 text-sm text-muted">
+                      <th scope="col" className="py-2 font-semibold">
+                        Credit pack
+                      </th>
+                      <th scope="col" className="py-2 text-right font-semibold">
+                        One-time price
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {P.creditPacks.map((pack) => (
+                      <tr key={pack.credits} className="border-b border-ink/10 last:border-0">
+                        <td className="py-2">{pack.credits} credits</td>
+                        <td className="py-2 text-right font-semibold">{dollars(pack.priceCents)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="text-sm text-muted">Credit packs are for Readli Family households and are used after your monthly credits.</p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="difference-heading" className="bg-mint/40 px-4 py-14 sm:px-6">
+          <div className="mx-auto flex max-w-5xl flex-col gap-6">
+            <h2 id="difference-heading" className="text-center font-display text-3xl font-semibold sm:text-4xl">
+              Storytellers and credits are different
+            </h2>
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="flex flex-col gap-2 rounded-[var(--radius-panel)] bg-surface p-6 sm:p-8">
+                <h3 className="font-display text-2xl font-semibold">Storyteller slots: who can read</h3>
+                <p>
+                  Each family voice your children can hear uses one slot. Readli Family includes {P.includedNarratorSlots}, and you can add
+                  more for {dollars(P.extraSlotMonthlyCents)} a month each. Extra slots don&apos;t add narration credits.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 rounded-[var(--radius-panel)] bg-surface p-6 sm:p-8">
+                <h3 className="font-display text-2xl font-semibold">Narration credits: how much new reading</h3>
+                <p>
+                  One credit prepares {P.charactersPerCredit.toLocaleString("en-US")} characters of new narration. Your household shares{" "}
+                  {P.monthlyCredits} credits a month, and they refresh each month. Readli shows exactly how many credits a story needs
+                  before you confirm.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-6 sm:p-8">
+              <h3 className="font-display text-2xl font-semibold">These never use credits</h3>
+              <PlanList items={NO_CREDITS} className="sm:grid sm:grid-cols-2" />
+            </div>
+          </div>
+        </section>
+
+        <section className="px-4 py-12 text-center sm:px-6">
+          <p className="text-lg">
+            Questions about plans or credits?{" "}
+            <Link href="/help/billing-credits-and-gifts" className="font-semibold underline underline-offset-4">
+              Visit the Help Center
+            </Link>
+          </p>
+        </section>
+      </main>
+      <SiteFooter />
+    </>
+  );
+}
