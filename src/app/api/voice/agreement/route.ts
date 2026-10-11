@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { serverConfig } from "@/lib/server/config";
 import { fail } from "@/lib/server/http";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
-import { acceptVoiceAgreement, setThirdPartyLicensing, VoiceAgreementError } from "@/lib/voice/agreements";
+import { acceptVoiceAgreement, setThirdPartyLicensing, VoiceAgreementError, withdrawTrainingRights } from "@/lib/voice/agreements";
 import { voiceOwner } from "@/lib/voice/owner";
 
 export const dynamic = "force-dynamic";
@@ -50,14 +50,26 @@ export async function POST(req: Request) {
   }
 }
 
-/** Turns optional licensing to other companies on or off. Body: { thirdPartyLicensing: boolean }. */
+/**
+ * Changes optional permissions. Body: { thirdPartyLicensing: boolean } turns licensing to other
+ * companies on or off; { aiTraining: false } withdraws all AI-training permission (Readli development
+ * and licensing) without deleting recordings or changing family sharing.
+ */
 export async function PATCH(req: Request) {
   const ctx = await context();
   if ("error" in ctx) return ctx.error;
-  const body = (await req.json().catch(() => null)) as { thirdPartyLicensing?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { thirdPartyLicensing?: unknown; aiTraining?: unknown } | null;
+  const ua = req.headers.get("user-agent")?.slice(0, 500) ?? null;
+  if (body?.aiTraining === false) {
+    try {
+      return NextResponse.json({ agreement: await withdrawTrainingRights(ctx.deps.agreements, ctx.contributor, ua) });
+    } catch (err) {
+      return handle(err);
+    }
+  }
   if (typeof body?.thirdPartyLicensing !== "boolean") return fail(400, "bad_request", "Please choose on or off.");
   try {
-    const agreement = await setThirdPartyLicensing(ctx.deps.agreements, ctx.contributor, body.thirdPartyLicensing, req.headers.get("user-agent")?.slice(0, 500) ?? null);
+    const agreement = await setThirdPartyLicensing(ctx.deps.agreements, ctx.contributor, body.thirdPartyLicensing, ua);
     return NextResponse.json({ agreement });
   } catch (err) {
     return handle(err);

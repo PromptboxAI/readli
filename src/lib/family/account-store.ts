@@ -111,6 +111,14 @@ export class AccountFamilyStore implements FamilyStore {
         childIds.length ? this.q(this.db.from("child_voice_approvals").select("*").in("child_id", childIds), "read approvals") : Promise.resolve([] as Row[]),
       ]);
       const profiles = await this.q(this.db.from("adult_profiles").select("user_id, display_name, avatar_path, photo_consent_at").in("user_id", people), "read people");
+      // Voices whose owner deleted their account: the stories already made in them still play for the
+      // families they were shared with, so they're read through those families' live shares.
+      const known = new Set(voices.map((v) => v.id as string));
+      const orphanIds = [...new Set(shares.filter((x) => x.revoked_at === null && !known.has(x.voice_id as string)).map((x) => x.voice_id as string))];
+      const orphans = orphanIds.length
+        ? await this.q(this.db.from("voice_profiles").select("*").in("id", orphanIds).not("owner_deleted_at", "is", null).is("deleted_at", null), "read former voices")
+        : [];
+      const formerOwner = (voiceId: string) => `former:${voiceId}`;
 
       state.households = homes.map((h) => ({ id: h.id as string, name: h.name as string }));
       state.members = members.map((m) => ({
@@ -156,9 +164,10 @@ export class AccountFamilyStore implements FamilyStore {
         voiceId: str(p.voice_id),
         updatedAt: p.updated_at as string,
       }));
-      state.voices = voices.map((v) => ({
+      state.voices = [...voices, ...orphans].map((v) => ({
         id: v.id as string,
-        ownerId: v.owner_id as string,
+        ownerId: (v.owner_id as string | null) ?? formerOwner(v.id as string),
+        ownerDeleted: Boolean(v.owner_deleted_at),
         version: Number(v.version ?? 1),
         status: v.status as VoiceStatus,
         createdAt: v.created_at as string,
@@ -170,7 +179,7 @@ export class AccountFamilyStore implements FamilyStore {
         id: x.id as string,
         voiceId: x.voice_id as string,
         householdId: x.household_id as string,
-        grantedBy: x.granted_by as string,
+        grantedBy: (x.granted_by as string | null) ?? formerOwner(x.voice_id as string),
         policyVersion: x.policy_version as string,
         grantedAt: x.granted_at as string,
         revokedAt: str(x.revoked_at),

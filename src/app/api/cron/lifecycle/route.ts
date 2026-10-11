@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { billingConfig } from "@/lib/billing/config";
+import { deliverEmails } from "@/lib/email/send";
 import { StripeApi } from "@/lib/billing/stripe-api";
 import { lifecycleFlags, runLifecycle } from "@/lib/lifecycle/run";
 import { serverConfig } from "@/lib/server/config";
@@ -11,10 +12,10 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 /**
- * The daily lifecycle run: recovery windows and their reminder emails, Day-30 deletion of stored
- * narration, and retiring clones no Readli Family household needs. Vercel Cron calls this with
- * CRON_SECRET. Deletion and clone retirement are dry runs unless LIFECYCLE_DELETION=on and
- * LIFECYCLE_CLONE_RETIREMENT=on.
+ * The daily lifecycle run: recovery windows and their reminder emails, Day-30 household cleanup,
+ * recording deletion requests, retiring clones no Readli Family household needs, and sending queued
+ * emails through Resend. Vercel Cron calls this with CRON_SECRET. Every destructive step is a dry run
+ * unless LIFECYCLE_DELETION=on, LIFECYCLE_CLONE_RETIREMENT=on or LIFECYCLE_RECORDING_DELETION=on.
  */
 export async function GET(req: Request) {
   const config = serverConfig();
@@ -33,6 +34,7 @@ export async function GET(req: Request) {
     subscriptionStatuses: stripe ? (customer) => stripe.subscriptionStatuses(customer) : null,
     retireClone: voices ? (voiceId) => retireUnusedClone(voices, voiceId) : null,
     billingUrl: `${new URL(req.url).origin}/family/billing`,
+    sendEmails: () => deliverEmails(db),
   });
   if (report.errors.length) console.error("lifecycle run errors", report.errors);
   return NextResponse.json(report);

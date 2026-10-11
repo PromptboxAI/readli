@@ -116,3 +116,43 @@ revoke all on public.email_events from anon, authenticated;
 alter table public.email_outbox drop constraint if exists email_outbox_recipient_user_id_fkey;
 alter table public.email_outbox add constraint email_outbox_recipient_user_id_fkey
   foreign key (recipient_user_id) references auth.users (id) on delete set null;
+
+create or replace view public.voice_recordings_usable with (security_invoker = true) as
+  select
+    s.id as session_id,
+    s.owner_id as contributor_id,
+    s.voice_profile_id,
+    g.storage_key,
+    g.mime_type,
+    g.duration_ms,
+    s.recorded_duration_ms,
+    s.language,
+    s.transcript,
+    s.quality,
+    s.capture,
+    s.agreement_version as recorded_under_version,
+    s.created_at as recorded_at,
+    c.id as current_agreement_id,
+    c.agreement_version as current_agreement_version,
+    c.readli_development_rights,
+    c.third_party_licensing
+  from public.voice_training_sessions s
+  join public.voice_training_segments g on g.session_id = s.id
+  join public.voice_rights_current c on c.contributor_id = s.owner_id
+  join public.voice_profiles v on v.id = s.voice_profile_id
+  where v.status in ('processing', 'ready')
+    and s.owner_id is not null
+    and s.guest_session_id is null
+    and s.recording_mode in ('family_short', 'premium_private')
+    and s.source_kind = 'original_human'
+    and s.agreement_id is not null
+    and s.recording_deleted_at is null
+    and c.service_rights
+    and not exists (
+      select 1 from public.voice_recording_deletions d
+      where d.status = 'pending' and d.owner_id = s.owner_id
+        and (d.voice_id is null or d.voice_id = s.voice_profile_id)
+    );
+comment on view public.voice_recordings_usable is
+  'Original adult recordings with the rights currently in force. Filter readli_development_rights or third_party_licensing. Withdrawn or deleted voices, recordings with a pending or completed deletion request, guest demo recordings and children never appear.';
+revoke all on public.voice_recordings_usable from anon, authenticated;

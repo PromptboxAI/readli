@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { cleanHousehold, openException, purchasedBalance } from "@/lib/lifecycle/cleanup";
+import { writeAudit } from "@/lib/lifecycle/db";
 import type { ProviderRefCipher } from "@/lib/server/provider-ref";
 import type { VoiceProvider } from "@/lib/voice/provider";
 
@@ -59,7 +61,8 @@ export const DELETE_CONFIRMATION = "DELETE";
 
 export type DeletionBlocker =
   | { kind: "only_guardian"; householdId: string; householdName: string }
-  | { kind: "sponsoring"; giftId: string; recipientName: string };
+  | { kind: "sponsoring"; giftId: string; recipientName: string }
+  | { kind: "active_plan"; householdId: string; householdName: string };
 
 interface Homes {
   /** Families nobody else belongs to; they go with the account. */
@@ -116,6 +119,19 @@ export async function deletionBlockers(db: SupabaseClient, userId: string): Prom
 async function assess(db: SupabaseClient, userId: string): Promise<Homes> {
   const homes = await homesOf(db, userId);
   const blockers = homes.blockers;
+  // A family only they belong to can't be left paying for a plan nobody can use.
+  if (homes.solo.length) {
+    const [plans, names] = await Promise.all([
+      rows(db.from("household_entitlements").select("household_id, status, ends_at, provider_subscription_ref").in("household_id", homes.solo), "read plans"),
+      rows(db.from("households").select("id, name").in("id", homes.solo), "read households"),
+    ]);
+    for (const home of homes.solo) {
+      const renewing = plans.some(
+        (p) => p.household_id === home && p.status === "active" && p.provider_subscription_ref && (p.ends_at === null || p.ends_at === undefined),
+      );
+      if (renewing) blockers.push({ kind: "active_plan", householdId: home, householdName: (names.find((h) => h.id === home)?.name as string) ?? "your family" });
+    }
+  }
   const [gifts, plans] = await Promise.all([
     rows(db.from("gifts").select("id, plan_id, recipient_name, status, renewals_stopped").eq("giver_id", userId), "read gifts"),
     rows(db.from("gift_plans").select("id, kind"), "read gift plans"),
@@ -157,62 +173,118 @@ export interface DeletionResult {
 }
 
 /**
- * Deletes a grown-up's account, in an order that can be safely retried if any step fails:
- * 1. their cloned voices at the voice provider (ElevenLabs), so nothing can speak in their voice again;
- * 2. every recording of them (including takes whose clone failed), every audio file made from
- *    their voice in any family, and their profile photo, from storage;
- * 3. families only they belong to, with those families' kids profiles;
- * 4. the sign-in itself, which removes the rest of their rows (profile, voices, memberships,
- *    guardianships, consents, invitations, rewards) through the database's cascades.
- * In families they share, their approvals end with them, and the family carries on.
+ * Deletes a grown-up's account (Kevin, 2026-10-11, decision 3), in an order that can be safely retried
+ * if any step fails:
+ * 1. their clones at the voice provider (ElevenLabs), so nothing new can be made in their voice;
+ * 2. their voices are withdrawn: unfinished narration stops everywhere (unused credits go back),
+ *    no new narration can be requested, and their AI-training permission ends (a database trigger
+ *    records the withdrawal on their agreement history);
+ * 3. every original recording of them and their profile photo are removed from storage, with a
+ *    completed recording-deletion record kept for audit;
+ * 4. families only they belong to are cleaned up the same way as at Day 30 (their saved stories, kids
+ *    profiles and listening history go), but the family record stays so its plans, credits and
+ *    payment records survive; unspent purchased credits go to the admin exception queue;
+ * 5. the sign-in itself goes, which removes their profile, memberships and guardianships.
+ * Stories already made in their voice for other families stay playable there, as the Voice Recording
+ * & AI Training Agreement allows. Removing a specific story for legal reasons is a separate, audited
+ * admin process (lifecycle/legal-removal.ts). Their agreement history is kept with the account link
+ * cleared.
  */
 export async function deleteAccount(
-  deps: { db: SupabaseClient; provider: VoiceProvider | null; refs: ProviderRefCipher | null },
+  deps: { db: SupabaseClient; provider: VoiceProvider | null; refs: ProviderRefCipher | null; now?: () => Date },
   userId: string,
 ): Promise<DeletionResult> {
   const { db, provider, refs } = deps;
+  const now = (deps.now ?? (() => new Date()))();
+  const at = now.toISOString();
   const { solo, blockers } = await assess(db, userId);
   if (blockers.length) return { deleted: false, blockers, voicesRemoved: 0, audioFilesRemoved: 0 };
 
-  const voices = await rows(db.from("voice_profiles").select("id, provider_voice_id_encrypted").eq("owner_id", userId), "read voices");
+  const voices = (await rows(db.from("voice_profiles").select("id, status, provider_voice_id_encrypted").eq("owner_id", userId), "read voices")).filter(
+    (v) => v.status !== "deleted",
+  );
   const cloned = voices.filter((v) => typeof v.provider_voice_id_encrypted === "string" && v.provider_voice_id_encrypted);
   if (cloned.length && (!provider || !refs)) {
     throw new AccountError(503, "voice_provider_off", "We can't reach our voice service right now, so your account hasn't been deleted. Please try again later.");
   }
   for (const v of cloned) await provider!.deleteVoice(refs!.decrypt(v.provider_voice_id_encrypted as string));
 
-  let audioFilesRemoved = 0;
-  const voiceIds = ids(voices);
-  if (voiceIds.length) {
-    const libraries = await rows(db.from("narration_libraries").select("key").in("voice_id", voiceIds), "read narration libraries");
-    const segments = libraries.length
-      ? await rows(db.from("narration_segments").select("storage_key").in("library_key", ids(libraries, "key")), "read narration audio")
-      : [];
-    const assets = await rows(db.from("narration_assets").select("storage_key").in("voice_id", voiceIds), "read older narration audio");
-    audioFilesRemoved += await removeObjects(db, NARRATION_BUCKETS.segments, keysOf(segments));
-    audioFilesRemoved += await removeObjects(db, NARRATION_BUCKETS.assets, keysOf(assets));
+  for (const v of voices) {
+    await run(
+      db
+        .from("voice_profiles")
+        .update({
+          status: "withdrawn",
+          withdrawn_at: v.status === "withdrawn" ? undefined : at,
+          clone_retired_at: at,
+          provider_voice_id_encrypted: null,
+          owner_deleted_at: at,
+          updated_at: at,
+        })
+        .eq("id", v.id as string),
+      "withdraw voice",
+    );
+    await run(db.from("voice_consents").update({ revoked_at: at }).eq("voice_id", v.id as string).is("revoked_at", null), "withdraw voice consent");
+    await run(db.rpc("stop_voice_narration", { p_voice: v.id as string }), "stop narration in progress");
   }
+
+  let audioFilesRemoved = 0;
   const sessions = await rows(db.from("voice_training_sessions").select("id").eq("owner_id", userId), "read recording sessions");
-  const takes = sessions.length
-    ? await rows(db.from("voice_training_segments").select("storage_key").in("session_id", ids(sessions)), "read recordings")
-    : [];
+  const takes = sessions.length ? await rows(db.from("voice_training_segments").select("storage_key").in("session_id", ids(sessions)), "read recordings") : [];
   const recordings = new Set([...keysOf(takes), ...(await folderKeys(db, RECORDINGS_BUCKET, userId))]);
   audioFilesRemoved += await removeObjects(db, RECORDINGS_BUCKET, [...recordings]);
+  await run(
+    db.from("voice_recording_deletions").insert({
+      owner_id: userId,
+      voice_id: null,
+      reason: "account_deletion",
+      requested_at: at,
+      due_at: at,
+      status: "completed",
+      completed_at: at,
+      files_removed: recordings.size,
+      detail: { voices: voices.length, sessions: sessions.length },
+    }),
+    "record recording deletion",
+  );
   await removeObjects(db, PHOTOS_BUCKET, await folderKeys(db, PHOTOS_BUCKET, userId));
 
   await run(
     db
       .from("child_voice_approvals")
-      .update({ revoked_at: new Date().toISOString(), revoked_by: userId, revoke_reason: "guardian_removed" })
+      .update({ revoked_at: at, revoked_by: userId, revoke_reason: "guardian_removed" })
       .eq("approved_by", userId)
       .is("revoked_at", null),
     "end approvals",
   );
-  if (solo.length) await run(db.from("households").delete().in("id", solo), "delete families");
+
+  for (const home of solo) {
+    await run(db.rpc("stop_household_narration", { p_household: home }), "stop family narration");
+    audioFilesRemoved += (await cleanHousehold(db, home, await soloLibraries(db, home), at)).audioFiles;
+    const balance = await purchasedBalance(db, home);
+    if (balance > 0) {
+      await openException(db, {
+        kind: "purchased_credits_unreconciled",
+        householdId: home,
+        reason: `Account deleted with ${balance} purchased credits unspent; kept until reconciled`,
+        detail: { credits: balance },
+      });
+    }
+  }
+
+  await writeAudit(db, [
+    { actor: "account-owner", action: "account_deleted", detail: { voices: voices.length, clones_deleted: cloned.length, recordings_removed: recordings.size, families_cleaned: solo.length } },
+    ...voices.map((v) => ({ actor: "account-owner", action: "voice_withdrawn", voiceId: v.id as string, detail: { reason: "account_deleted" } })),
+  ]);
 
   const { error } = await db.auth.admin.deleteUser(userId);
   if (error) throw new Error(`delete sign-in: ${error.message}`);
   return { deleted: true, blockers: [], voicesRemoved: cloned.length, audioFilesRemoved };
+}
+
+/** A solo family's own narration: libraries scoped to it (shared libraries belong to the voice). */
+async function soloLibraries(db: SupabaseClient, householdId: string): Promise<string[]> {
+  return ids(await rows(db.from("narration_libraries").select("key").eq("scope", householdId), "read family narration"), "key");
 }
 
 export function keysOf(list: Row[]): string[] {

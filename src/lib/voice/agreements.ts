@@ -118,6 +118,30 @@ export async function setThirdPartyLicensing(
   });
 }
 
+/**
+ * Withdraws AI-training permission (Readli development and third-party licensing) as a new row. The
+ * recordings stop appearing in voice_recordings_usable for development or licensing at once; the
+ * Readli service right, sharing with families and the recordings themselves are unchanged. Deleting
+ * the recordings is a separate request (recording deletion).
+ */
+export async function withdrawTrainingRights(store: VoiceAgreementStore, contributor: Contributor, userAgent: string | null): Promise<VoiceAgreement> {
+  const current = (await store.history(contributor.id))[0];
+  if (!current) throw new VoiceAgreementError(409, "no_agreement", "There's no voice agreement to change.");
+  if (!current.rights.readliDevelopment && !current.rights.thirdPartyLicensing) return current;
+  return store.record(contributor.id, {
+    version: current.version,
+    event: "updated",
+    rights: { service: current.rights.service, readliDevelopment: false, thirdPartyLicensing: false },
+    adultOwnerDeclared: true,
+    statements: ["Withdrew permission to use my recordings to develop Readli's voice technology or to license them to other companies."],
+    contributorName: contributor.name,
+    contributorEmail: contributor.email,
+    source: "settings",
+    userAgent,
+    supersedesId: current.id,
+  });
+}
+
 /** The agreement a new recording is made under: theirs, current version, and still in force. */
 export async function agreementInForce(store: VoiceAgreementStore, contributorId: string, agreementId: string | null): Promise<VoiceAgreement> {
   const current = (await store.history(contributorId))[0];

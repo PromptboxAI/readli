@@ -67,6 +67,8 @@ export interface VoiceProfile {
   withdrawnAt?: string | null;
   /** The provider clone was retired to save capacity; stored stories don't need it, new ones re-clone. */
   cloneRetiredAt?: string | null;
+  /** The owner deleted their account. Stories already made still play where the voice was shared. */
+  ownerDeleted?: boolean;
 }
 
 /** Key 1: the voice owner's consent to share with one household. */

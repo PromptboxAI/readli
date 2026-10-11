@@ -1,15 +1,17 @@
 import type { PlanTier } from "@/lib/family/model";
-import { NOTICE_DAYS_LEFT, NOTICE_ORDER, type RecoveryNotice } from "./notices";
+import { NOTICE_DAYS_LEFT, type RecoveryNotice } from "./notices";
 
 /**
  * The daily lifecycle run, as a pure plan: who enters the 30-day recovery window, which reminder emails
- * are due, whose stories are deleted at the end of it, and which unused voice clones are retired.
+ * are due, which households are cleaned up at the end of it, and which unused voice clones are retired.
  * The runner (run.ts) reads a snapshot, calls this, and carries out the actions. Keeping the decisions
  * here means the dry run, the real run and the tests can't disagree.
  *
- * What is never deleted here: original voice recordings, voices, kids profiles, permissions and
- * credits. Day-30 deletion removes the household's stored narration only, and never narration another
- * Readli Family, Archive or recovering household can still play.
+ * Day-30 cleanup (Kevin, 2026-10-11, decision 2) removes what belongs to that household alone: its
+ * saved stories no other household can play, its kids profiles and their listening progress, its
+ * notifications and pending invitations, and recordings only it needed. It never removes narration or
+ * recordings another Readli Family, Archive or recovering household needs, recordings whose agreement
+ * still grants Readli development rights, or plans, credits, payments and audit records.
  */
 
 const DAY = 86_400_000;
@@ -19,9 +21,7 @@ export interface LifecycleConfig {
   recoveryDays: number;
   /** The family always gets at least this many days' warning, even if the window started late. */
   minNoticeDays: number;
-  /** Deletion waits this long after the Day-30 email. */
-  graceAfterFinalHours: number;
-  /** And at least this long after the two-days-left reminder. */
+  /** Cleanup waits at least this long after the two-days-left reminder. */
   finalReminderLeadHours: number;
   /** A plan changed this recently may still be settling in billing webhooks: don't delete yet. */
   webhookQuietHours: number;
@@ -35,8 +35,7 @@ export interface LifecycleConfig {
 
 export const DEFAULT_LIFECYCLE: LifecycleConfig = {
   recoveryDays: 30,
-  minNoticeDays: 10,
-  graceAfterFinalHours: 12,
+  minNoticeDays: 11,
   finalReminderLeadHours: 24,
   webhookQuietHours: 48,
   cloneRetireAfterDays: 30,
@@ -69,6 +68,13 @@ export interface SnapVoice {
   status: string;
   hasClone: boolean;
   unlinkedSince: string | null;
+  ownerId: string | null;
+  /** Narration jobs for this voice are queued or running. */
+  pendingJobs: boolean;
+  /** The owner's agreement in force grants Readli development rights, so recordings are kept. */
+  developmentRights: boolean;
+  /** Original recordings are still in storage. */
+  hasRecordings: boolean;
 }
 
 export interface LifecycleSnapshot {
@@ -79,6 +85,8 @@ export interface LifecycleSnapshot {
   shares: { voiceId: string; householdId: string }[];
   libraries: { key: string; voiceId: string; scope: string }[];
   voices: SnapVoice[];
+  /** Active household memberships. */
+  memberships: { userId: string; householdId: string }[];
   /**
    * Households whose billing provider still shows a live subscription (active, trialing, past_due,
    * unpaid, incomplete or paused): our own record may be wrong, so hold instead of deleting. A
@@ -102,7 +110,14 @@ export type LifecycleAction =
       moved?: boolean;
     }
   | { kind: "hold"; householdId: string; reason: string }
-  | { kind: "delete_household_narration"; householdId: string; libraryKeys: string[]; keptShared: number }
+  | {
+      kind: "clean_household";
+      householdId: string;
+      libraryKeys: string[];
+      keptShared: number;
+      /** Voices whose original recordings only this household needed. */
+      recordingVoices: string[];
+    }
   | { kind: "defer"; householdId: string; reason: string }
   | { kind: "unlink_voice"; voiceId: string }
   | { kind: "relink_voice"; voiceId: string }
@@ -173,7 +188,7 @@ export function planLifecycleRun(snap: LifecycleSnapshot, config: LifecycleConfi
     if (r.status !== "recovering") continue;
 
     const due = at(r.deletionDueAt);
-    const notice = dueNotice(r, now, config);
+    const notice = dueNotice(r, now);
     if (notice) {
       const { newDeletionDueAt, ...rest } = notice;
       actions.push({ kind: "notice", householdId, ...rest, accessEndedAt: r.accessEndedAt, deletionDueAt: newDeletionDueAt ?? r.deletionDueAt, moved: Boolean(newDeletionDueAt) });
@@ -181,11 +196,9 @@ export function planLifecycleRun(snap: LifecycleSnapshot, config: LifecycleConfi
     }
     if (now < due) continue;
 
-    const final = sentTime(r, "day30");
     const reminder = sentTime(r, "day28");
     if (billingUnknown.has(householdId)) actions.push({ kind: "defer", householdId, reason: "billing_check_failed" });
     else if (billingLive.has(householdId)) actions.push({ kind: "hold", householdId, reason: "billing_shows_live_subscription" });
-    else if (final === null || now - final < config.graceAfterFinalHours * HOUR) actions.push({ kind: "defer", householdId, reason: "final_notice_too_recent" });
     else if (reminder === null || now - reminder < config.finalReminderLeadHours * HOUR) actions.push({ kind: "defer", householdId, reason: "reminder_too_recent" });
     else if (ents.some((e) => now - at(e.updatedAt) < config.webhookQuietHours * HOUR)) actions.push({ kind: "defer", householdId, reason: "plan_changed_recently" });
     else deletions.push({ householdId });
@@ -204,11 +217,21 @@ export function planLifecycleRun(snap: LifecycleSnapshot, config: LifecycleConfi
       const own = snap.libraries.filter((l) => l.scope === d.householdId);
       const shared = snap.libraries.filter((l) => l.scope === "shared" && snap.shares.some((s) => s.voiceId === l.voiceId && s.householdId === d.householdId));
       const orphaned = shared.filter((l) => !snap.shares.some((s) => s.voiceId === l.voiceId && keeps.has(s.householdId)));
+      const recordingVoices = snap.voices
+        .filter((v) => v.hasRecordings && v.ownerId && !v.developmentRights && v.status !== "deleted")
+        .filter((v) => {
+          const homes = snap.memberships.filter((m) => m.userId === v.ownerId).map((m) => m.householdId);
+          const onlyHere = homes.length > 0 && homes.every((h) => h === d.householdId);
+          const neededElsewhere = snap.shares.some((s) => s.voiceId === v.id && s.householdId !== d.householdId && keeps.has(s.householdId));
+          return onlyHere && !neededElsewhere && !v.pendingJobs;
+        })
+        .map((v) => v.id);
       actions.push({
-        kind: "delete_household_narration",
+        kind: "clean_household",
         householdId: d.householdId,
         libraryKeys: [...own, ...orphaned].map((l) => l.key),
         keptShared: shared.length - orphaned.length,
+        recordingVoices,
       });
     }
   }
@@ -230,7 +253,7 @@ export function planLifecycleRun(snap: LifecycleSnapshot, config: LifecycleConfi
       actions.push({ kind: "unlink_voice", voiceId: v.id });
       continue;
     }
-    if (v.hasClone && v.status === "ready" && now - at(v.unlinkedSince) >= config.cloneRetireAfterDays * DAY && retiring < config.maxCloneRetirements) {
+    if (v.hasClone && v.status === "ready" && !v.pendingJobs && now - at(v.unlinkedSince) >= config.cloneRetireAfterDays * DAY && retiring < config.maxCloneRetirements) {
       retiring += 1;
       actions.push({ kind: "retire_clone", voiceId: v.id, unlinkedSince: v.unlinkedSince });
     }
@@ -240,27 +263,22 @@ export function planLifecycleRun(snap: LifecycleSnapshot, config: LifecycleConfi
 }
 
 /**
- * The reminder email due now, if any. Day 0 goes first, on its own. The nine-days-left email is skipped
- * if the two-days-left one is already due. The two-days-left reminder is never skipped: if it goes out
- * late, the deletion date moves so the family still gets two full days. The Day-30 email goes out on
- * the deletion date, at least a day after that reminder.
+ * The reminder email due now, if any. Day 0 goes first, on its own. The ten-days-left (Day 20) email is
+ * skipped if the two-days-left one is already due. The two-days-left (Day 28) reminder is never
+ * skipped: if it goes out late, the deletion date moves so the family still gets two full days.
  */
 export function dueNotice(
   r: SnapRecovery,
   now: number,
-  config: LifecycleConfig = DEFAULT_LIFECYCLE,
 ): { notice: RecoveryNotice; skipped: RecoveryNotice[]; newDeletionDueAt?: string } | null {
   if (!r.notices.day0) return { notice: "day0", skipped: [] };
   const due = at(r.deletionDueAt);
-  const sentAt = (n: RecoveryNotice) => sentTime(r, n);
   if (!r.notices.day28 && now >= due - NOTICE_DAYS_LEFT.day28 * DAY) {
     const lead = NOTICE_DAYS_LEFT.day28 * DAY;
     const late = due - now < lead - HOUR;
-    return { notice: "day28", skipped: r.notices.day21 ? [] : ["day21"], ...(late ? { newDeletionDueAt: new Date(now + lead).toISOString() } : {}) };
+    return { notice: "day28", skipped: r.notices.day20 ? [] : ["day20"], ...(late ? { newDeletionDueAt: new Date(now + lead).toISOString() } : {}) };
   }
-  if (!r.notices.day21 && now >= due - NOTICE_DAYS_LEFT.day21 * DAY) return { notice: "day21", skipped: [] };
-  const reminder = sentAt("day28");
-  if (!r.notices.day30 && now >= due && reminder !== null && now - reminder >= config.finalReminderLeadHours * HOUR) return { notice: "day30", skipped: [] };
+  if (!r.notices.day20 && now >= due - NOTICE_DAYS_LEFT.day20 * DAY) return { notice: "day20", skipped: [] };
   return null;
 }
 

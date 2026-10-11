@@ -18,6 +18,7 @@ function blockerText(b: DeletionBlocker): string {
   if (b.kind === "only_guardian") {
     return `You're the only parent or guardian for kids profiles in ${b.householdName}. Another grown-up there needs to look after every kids profile first, or remove the kids profiles.`;
   }
+  if (b.kind === "active_plan") return `${b.householdName} still has a Readli plan that renews. Cancel it in Billing first.`;
   return `Your gift for ${b.recipientName} still renews every month. Stop the renewals first.`;
 }
 
@@ -99,17 +100,22 @@ export function AccountSettings({ name, email, blockers }: { name: string; email
         </h2>
         <p>This can&apos;t be undone. Deleting your account:</p>
         <ul className="list-disc pl-6">
-          <li>removes your voice from our voice service, so no one can hear a story in your voice again,</li>
-          <li>deletes your recordings and every story made in your voice,</li>
-          <li>deletes families only you belong to, with their kids profiles,</li>
+          <li>removes your voice from our voice service, so no new stories can be made in your voice,</li>
+          <li>deletes your original voice recordings and ends any permission to use them for AI training,</li>
+          <li>removes the saved stories, kids profiles and listening history of families only you belong to,</li>
           <li>removes you from families you share, which carry on without you.</li>
+        </ul>
+        <p>What stays:</p>
+        <ul className="list-disc pl-6">
+          <li>stories already made in your voice for other families stay available to them, as the Voice Recording Agreement explains,</li>
+          <li>payment, credit and other records we must keep by law. Unspent purchased credits are never forfeited automatically; we review them before closing the records.</li>
         </ul>
         {blockers.length > 0 ? (
           <div role="status" className="flex flex-col gap-2 rounded-2xl bg-sunshine/50 p-3" data-testid="deletion-blockers">
             <p className="font-semibold">Before you can delete your account:</p>
             <ul className="list-disc pl-6">
               {blockers.map((b) => (
-                <li key={b.kind === "only_guardian" ? b.householdId : b.giftId}>{blockerText(b)}</li>
+                <li key={b.kind === "sponsoring" ? b.giftId : `${b.kind}:${b.householdId}`}>{blockerText(b)}</li>
               ))}
             </ul>
           </div>

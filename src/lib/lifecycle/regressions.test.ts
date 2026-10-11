@@ -127,6 +127,23 @@ describe("finished stories survive the voice lifecycle", () => {
     expect(state.segments.some((x) => x.status === "ready")).toBe(true);
   });
 
+  it("deleting the owner's account keeps finished stories in the families it was shared with, and stops new ones", async () => {
+    const { store } = await setup();
+    await prepare(store);
+    // What account deletion leaves in the database: the voice withdrawn with its owner cleared, the
+    // owner's memberships gone, and the shares they granted still live.
+    await store.write((s) => {
+      const v = s.voices.find((x) => x.id === "voice-june")!;
+      const at = clock().toISOString();
+      Object.assign(v, { status: "withdrawn", withdrawnAt: at, cloneRetiredAt: at, ownerId: "former:voice-june", ownerDeleted: true });
+      for (const sh of s.shares) if (sh.voiceId === "voice-june") sh.grantedBy = "former:voice-june";
+      s.members = s.members.filter((m) => m.adultId !== "june");
+    });
+    expect(await plays(store, maya)).toBe(true);
+    expect(await plays(store, ivy)).toBe(true);
+    await rejects(requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: "the-little-red-hen", scope: "book" }, clock), "voice_withdrawn");
+  });
+
   it("re-recording keeps finished books in the voice version they were made with", async () => {
     const { store } = await setup();
     await prepare(store);

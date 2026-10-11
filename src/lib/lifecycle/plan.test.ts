@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { recoveryEmail } from "./notices";
-import { DEFAULT_LIFECYCLE, dueNotice, planLifecycleRun, type LifecycleSnapshot, type SnapEntitlement, type SnapRecovery } from "./plan";
+import { DEFAULT_LIFECYCLE, dueNotice, planLifecycleRun, type LifecycleSnapshot, type SnapEntitlement, type SnapRecovery, type SnapVoice } from "./plan";
 
 const DAY = 86_400_000;
 const T0 = Date.parse("2026-11-01T06:00:00Z");
@@ -20,13 +20,13 @@ function recovering(householdId: string, endedAt: number, notices: SnapRecovery[
 }
 
 function snap(now: number, over: Partial<LifecycleSnapshot> = {}): LifecycleSnapshot {
-  return { now: iso(now), entitlements: [], recoveries: [], shares: [], libraries: [], voices: [], billingLive: [], billingUnknown: [], ...over };
+  return { now: iso(now), entitlements: [], recoveries: [], shares: [], libraries: [], voices: [], memberships: [], billingLive: [], billingUnknown: [], ...over };
 }
 
 /** A household whose window ran out, with every reminder sent on time. */
 function dueForDeletion(householdId: string, endedAt: number): SnapRecovery {
   const due = endedAt + 30 * DAY;
-  return recovering(householdId, endedAt, { day0: iso(endedAt), day21: iso(due - 9 * DAY), day28: iso(due - 2 * DAY), day30: iso(due) });
+  return recovering(householdId, endedAt, { day0: iso(endedAt), day20: iso(due - 10 * DAY), day28: iso(due - 2 * DAY) });
 }
 
 const kinds = (s: LifecycleSnapshot) => planLifecycleRun(s).actions.map((a) => `${a.kind}:${"householdId" in a ? a.householdId : a.voiceId}`);
@@ -51,30 +51,30 @@ describe("the 30-day recovery window", () => {
     expect(email.body).toContain("Sunday, November 1, 2026");
     expect(email.body).toContain("Tuesday, December 1, 2026");
     expect(email.body).toContain("$6.99");
+    expect(email.body).toContain("You have until Tuesday, December 1, 2026");
   });
 
-  it("gives at least ten days' warning when the end is found late", () => {
+  it("gives at least eleven days' warning when the end is found late, so Day 20 still goes out", () => {
     const end = T0 - 28 * DAY;
     const start = planLifecycleRun(snap(T0, { entitlements: [ended("h1", end)] })).actions[0];
-    expect(start).toMatchObject({ kind: "start_recovery", deletionDueAt: iso(T0 + 10 * DAY) });
+    expect(start).toMatchObject({ kind: "start_recovery", deletionDueAt: iso(T0 + 11 * DAY) });
   });
 
-  it("sends the nine-days, two-days and Day 30 emails on time, each once", () => {
+  it("sends the Day 20 (ten days left) and Day 28 (two days left) emails on time, each once", () => {
     const end = T0;
     const due = end + 30 * DAY;
     const r = recovering("h1", end, { day0: iso(end) });
     expect(dueNotice(r, end + 10 * DAY)).toBeNull();
-    expect(dueNotice(r, due - 9 * DAY)).toEqual({ notice: "day21", skipped: [] });
-    r.notices.day21 = iso(due - 9 * DAY);
+    expect(dueNotice(r, end + 20 * DAY)).toEqual({ notice: "day20", skipped: [] });
+    r.notices.day20 = iso(end + 20 * DAY);
     expect(dueNotice(r, due - 5 * DAY)).toBeNull();
-    expect(dueNotice(r, due - 2 * DAY)).toEqual({ notice: "day28", skipped: [] });
+    expect(dueNotice(r, end + 28 * DAY)).toEqual({ notice: "day28", skipped: [] });
     r.notices.day28 = iso(due - 2 * DAY);
-    expect(dueNotice(r, due - 1)).toBeNull();
-    expect(dueNotice(r, due)).toEqual({ notice: "day30", skipped: [] });
-    r.notices.day30 = iso(due);
+    expect(dueNotice(r, due)).toBeNull();
     expect(dueNotice(r, due + DAY)).toBeNull();
-    const words = (daysLeft: number) => recoveryEmail("day21", { familyName: "R", endedAt: iso(end), deletesAt: iso(due), familyMonthlyPriceCents: 1999, archiveMonthlyPriceCents: 699, billingUrl: "x", daysLeft });
-    expect(words(9).subject).toBe("Nine days left to keep your Readli stories");
+    const words = (daysLeft: number) => recoveryEmail("day20", { familyName: "R", endedAt: iso(end), deletesAt: iso(due), familyMonthlyPriceCents: 1999, archiveMonthlyPriceCents: 699, billingUrl: "x", daysLeft });
+    expect(words(10).subject).toBe("Ten days left to keep your Readli stories");
+    expect(words(10).body).toContain("ten days remaining before your family's stories are deleted on Tuesday, December 1, 2026");
     expect(recoveryEmail("day28", { familyName: "R", endedAt: iso(end), deletesAt: iso(due), familyMonthlyPriceCents: 1999, archiveMonthlyPriceCents: 699, billingUrl: "x", daysLeft: 2 }).subject).toBe(
       "Final reminder: two days left to keep your Readli stories",
     );
@@ -84,7 +84,7 @@ describe("the 30-day recovery window", () => {
     const end = T0 - 30 * DAY;
     const r = recovering("h1", end, { day0: iso(end) });
     const late = dueNotice(r, T0 + 3600_000);
-    expect(late).toEqual({ notice: "day28", skipped: ["day21"], newDeletionDueAt: iso(T0 + 3600_000 + 2 * DAY) });
+    expect(late).toEqual({ notice: "day28", skipped: ["day20"], newDeletionDueAt: iso(T0 + 3600_000 + 2 * DAY) });
   });
 
   it("restores a family that comes back on either plan", () => {
@@ -104,10 +104,10 @@ describe("the 30-day recovery window", () => {
   });
 });
 
-describe("Day-30 deletion safeguards", () => {
+describe("Day-30 cleanup safeguards", () => {
   const end = T0 - 31 * DAY;
 
-  it("deletes the family's own narration once every reminder has gone out", () => {
+  it("cleans up the family's own narration once every reminder has gone out", () => {
     const s = snap(T0, {
       entitlements: [ended("h1", end)],
       recoveries: [dueForDeletion("h1", end)],
@@ -116,7 +116,7 @@ describe("Day-30 deletion safeguards", () => {
         { key: "other", voiceId: "v1", scope: "h2" },
       ],
     });
-    expect(planLifecycleRun(s).actions).toEqual([{ kind: "delete_household_narration", householdId: "h1", libraryKeys: ["own"], keptShared: 0 }]);
+    expect(planLifecycleRun(s).actions).toEqual([{ kind: "clean_household", householdId: "h1", libraryKeys: ["own"], keptShared: 0, recordingVoices: [] }]);
   });
 
   it("keeps shared narration another paying or recovering household can still play", () => {
@@ -134,11 +134,11 @@ describe("Day-30 deletion safeguards", () => {
         { key: "uncle-book", voiceId: "uncle", scope: "shared" },
       ],
     });
-    const del = planLifecycleRun(s, { ...DEFAULT_LIFECYCLE, brakeMaxFraction: 1 }).actions.filter((a) => a.kind === "delete_household_narration");
+    const del = planLifecycleRun(s, { ...DEFAULT_LIFECYCLE, brakeMaxFraction: 1 }).actions.filter((a) => a.kind === "clean_household");
     // Grandma's book stays for the Archive family; the uncle's goes only because both his families are deleted.
     expect(del).toEqual([
-      { kind: "delete_household_narration", householdId: "h1", libraryKeys: ["uncle-book"], keptShared: 1 },
-      { kind: "delete_household_narration", householdId: "h3", libraryKeys: ["uncle-book"], keptShared: 0 },
+      { kind: "clean_household", householdId: "h1", libraryKeys: ["uncle-book"], keptShared: 1, recordingVoices: [] },
+      { kind: "clean_household", householdId: "h3", libraryKeys: ["uncle-book"], keptShared: 0, recordingVoices: [] },
     ]);
   });
 
@@ -155,10 +155,31 @@ describe("Day-30 deletion safeguards", () => {
     ]);
   });
 
-  it("waits after the Day 30 email and after any recent plan change", () => {
-    const fresh = { ...dueForDeletion("h1", end), notices: { ...dueForDeletion("h1", end).notices, day30: iso(T0 - 3600_000) } };
+  it("removes recordings only this household needed, and keeps those with development rights or needed elsewhere", () => {
+    const voice = (id: string, ownerId: string, over: Partial<SnapVoice> = {}): SnapVoice => ({
+      id, status: "ready", hasClone: false, unlinkedSince: null, ownerId, pendingJobs: false, developmentRights: false, hasRecordings: true, ...over,
+    });
+    const s = snap(T0, {
+      entitlements: [ended("h1", end), ent("h2")],
+      recoveries: [dueForDeletion("h1", end)],
+      memberships: [
+        { userId: "mom", householdId: "h1" },
+        { userId: "dad", householdId: "h1" },
+        { userId: "gran", householdId: "h1" },
+        { userId: "gran", householdId: "h2" },
+        { userId: "aunt", householdId: "h1" },
+      ],
+      shares: [{ voiceId: "aunt", householdId: "h2" }],
+      voices: [voice("mom", "mom"), voice("dad", "dad", { developmentRights: true }), voice("gran", "gran"), voice("aunt", "aunt"), voice("gone", "mom", { hasRecordings: false })],
+    });
+    const clean = planLifecycleRun(s, { ...DEFAULT_LIFECYCLE, brakeMaxFraction: 1 }).actions.find((a) => a.kind === "clean_household");
+    expect(clean).toMatchObject({ recordingVoices: ["mom"] });
+  });
+
+  it("waits two full days after the final reminder and after any recent plan change", () => {
+    const fresh = { ...dueForDeletion("h1", end), notices: { ...dueForDeletion("h1", end).notices, day28: iso(T0 - 3600_000) } };
     expect(planLifecycleRun(snap(T0, { entitlements: [ended("h1", end)], recoveries: [fresh] })).actions).toEqual([
-      { kind: "defer", householdId: "h1", reason: "final_notice_too_recent" },
+      { kind: "defer", householdId: "h1", reason: "reminder_too_recent" },
     ]);
     const changed = ent("h1", { status: "canceled", endsAt: iso(end), updatedAt: iso(T0 - DAY) });
     expect(planLifecycleRun(snap(T0, { entitlements: [changed], recoveries: [dueForDeletion("h1", end)] })).actions).toEqual([
@@ -178,6 +199,9 @@ describe("Day-30 deletion safeguards", () => {
 describe("clone retirement", () => {
   it("marks voices no Family household uses, retires them after the wait, and relinks", () => {
     const old = iso(T0 - 31 * DAY);
+    const v = (id: string, hasClone: boolean, unlinkedSince: string | null, pendingJobs = false): SnapVoice => ({
+      id, status: "ready", hasClone, unlinkedSince, ownerId: "o", pendingJobs, developmentRights: false, hasRecordings: true,
+    });
     const s = snap(T0, {
       entitlements: [ent("family"), ent("archive", { tier: "archive" })],
       shares: [
@@ -185,13 +209,7 @@ describe("clone retirement", () => {
         { voiceId: "archive-only", householdId: "archive" },
         { voiceId: "back", householdId: "family" },
       ],
-      voices: [
-        { id: "used", status: "ready", hasClone: true, unlinkedSince: null },
-        { id: "archive-only", status: "ready", hasClone: true, unlinkedSince: null },
-        { id: "idle", status: "ready", hasClone: true, unlinkedSince: old },
-        { id: "recent", status: "ready", hasClone: true, unlinkedSince: iso(T0 - 5 * DAY) },
-        { id: "back", status: "ready", hasClone: false, unlinkedSince: old },
-      ],
+      voices: [v("used", true, null), v("archive-only", true, null), v("idle", true, old), v("recent", true, iso(T0 - 5 * DAY)), v("back", false, old), v("busy", true, old, true)],
     });
     expect(kinds(s)).toEqual(["unlink_voice:archive-only", "retire_clone:idle", "relink_voice:back"]);
   });

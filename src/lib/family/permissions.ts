@@ -145,7 +145,9 @@ function keptVoice(state: FamilyState, voiceId: string): VoiceProfile | null {
  */
 export function storedShare(state: FamilyState, voiceId: string, householdId: string): VoiceShare | null {
   const voice = keptVoice(state, voiceId);
-  if (!voice || !isActiveMember(state, voice.ownerId, householdId)) return null;
+  if (!voice) return null;
+  // A deleted account is no longer a member anywhere; its live shares still cover stored stories.
+  if (!voice.ownerDeleted && !isActiveMember(state, voice.ownerId, householdId)) return null;
   return (
     state.shares.find((s) => s.voiceId === voiceId && s.householdId === householdId && s.grantedBy === voice.ownerId && live(s)) ??
     null
