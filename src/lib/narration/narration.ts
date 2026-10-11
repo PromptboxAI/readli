@@ -580,7 +580,7 @@ export async function cancelGeneration(store: FamilyStore, actor: Actor | null, 
  * limit. Credits are committed per segment at most once (capped at what was reserved; Readli
  * absorbs any overrun), and anything not generated is refunded when the job ends.
  */
-export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId: string, clock: Clock = now): Promise<NarrationJob> {
+export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId: string, clock: Clock = now, deadline = Infinity): Promise<NarrationJob> {
   const state = await store.read();
   const job = state.jobs.find((j) => j.id === jobId);
   if (!job) throw new Error(`no job ${jobId}`);
@@ -593,8 +593,14 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
     job.status = "running";
   });
 
+  let outOfTime = false;
   for (const id of job.sentenceIds) {
     if (job.status !== "running") break; // canceled
+    // Stop between sentences when this worker's time is up; the next one picks up from here.
+    if (Date.now() > deadline) {
+      outOfTime = true;
+      break;
+    }
     const seg = state.segments.find((x) => x.libraryKey === job.libraryKey && x.sentenceId === id)!;
     if (seg.jobId !== job.id || seg.status === "ready") continue;
     // The owner may have revoked, or the voice been deleted, since the job was confirmed.
@@ -654,6 +660,7 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
     }
   }
 
+  if (outOfTime) return job;
   const at = clock().toISOString();
   await store.write((s) => {
     if (job.status !== "running") return;
@@ -677,10 +684,29 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
   return job;
 }
 
-/** Runs every queued job (background worker; resumes interrupted jobs). */
-export async function runPendingJobs(store: FamilyStore, provider: VoiceProvider, clock: Clock = now) {
+/**
+ * Runs a household's queued and interrupted jobs (background worker). Each job is leased first, so two
+ * workers never prepare the same job at once; a worker stops at `budgetMs` and the next request resumes.
+ */
+export async function runPendingJobs(
+  store: FamilyStore,
+  provider: VoiceProvider,
+  opts: { householdId?: string; budgetMs?: number } = {},
+  clock: Clock = now,
+) {
+  const deadline = opts.budgetMs === undefined ? Infinity : Date.now() + opts.budgetMs;
+  const leaseMs = opts.budgetMs === undefined ? 10 * 60_000 : opts.budgetMs + 60_000;
   const state = await store.read();
-  for (const job of state.jobs.filter((j) => j.status === "queued" || j.status === "running")) await runJob(store, provider, job.id, clock);
+  const pending = state.jobs.filter((j) => (j.status === "queued" || j.status === "running") && (!opts.householdId || j.householdId === opts.householdId));
+  for (const job of pending) {
+    if (Date.now() > deadline) break;
+    if (store.claimJob && !(await store.claimJob(job.id, leaseMs))) continue;
+    try {
+      await runJob(store, provider, job.id, clock, deadline);
+    } finally {
+      await store.releaseJob?.(job.id);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

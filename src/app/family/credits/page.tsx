@@ -78,7 +78,8 @@ export default async function CreditsPage({ searchParams }: { searchParams: Prom
       </section>
       {b.held > 0 && <p className="text-sm">{n(b.held)} credits are set aside for narration being prepared. Anything not used comes back.</p>}
 
-      <CreditsPanel packs={plan.creditPacks} need={need} returnTo={returnTo} canBuy={plan.narrationPurchasesEnabled || plan.simulatedCheckout} simulated={!plan.narrationPurchasesEnabled && plan.simulatedCheckout} />
+      <CreditsPanel packs={plan.creditPacks} need={need} returnTo={returnTo} canBuy={plan.narrationPurchasesEnabled || (plan.simulatedCheckout && !page.session.account)}
+        simulated={!plan.narrationPurchasesEnabled && plan.simulatedCheckout && !page.session.account} />
 
       <section className="flex flex-col gap-2" aria-labelledby="history-h" data-testid="credit-history">
         <h2 id="history-h" className="font-display text-2xl font-semibold">History</h2>

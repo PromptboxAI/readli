@@ -6,6 +6,9 @@ import { cancelGeneration, prepareView, quoteGeneration, requestGeneration, runP
 import { fail } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
+// Background preparation runs after the response, up to this long; the next request resumes it.
+export const maxDuration = 300;
+const WORK_BUDGET_MS = 270_000;
 
 type Params = { params: Promise<{ slug: string }> };
 const notGuardian = () => fail(403, "not_guardian", "Only a parent or guardian can prepare narration.");
@@ -13,10 +16,17 @@ const notGuardian = () => fail(403, "not_guardian", "Only a parent or guardian c
 /** Prepare Narration: this family's voices for the book, their audio status, and credits left. */
 export async function GET(_req: Request, { params }: Params) {
   const { slug } = await params;
-  return withFamily(async ({ store, actor }) => {
+  return withFamily(async ({ store, actor, session }) => {
     const householdId = await guardianHousehold(store, actor);
     if (!householdId) return notGuardian();
-    return NextResponse.json(await prepareView(store, actor, householdId, slug), { headers: { "cache-control": "no-store" } });
+    const view = await prepareView(store, actor, householdId, slug);
+    // The page polls while preparing; this picks up a job whose worker stopped (one worker per job).
+    const provider = familyProvider(session);
+    const state = await store.read();
+    if (provider && state.jobs.some((j) => j.householdId === householdId && (j.status === "queued" || j.status === "running"))) {
+      after(() => runPendingJobs(store, provider, { householdId, budgetMs: WORK_BUDGET_MS }));
+    }
+    return NextResponse.json(view, { headers: { "cache-control": "no-store" } });
   });
 }
 
@@ -38,13 +48,15 @@ export async function POST(req: Request, { params }: Params) {
     chapter: typeof body.chapter === "number" ? body.chapter : undefined,
     sentenceIds: Array.isArray(body.sentenceIds) ? body.sentenceIds.filter((x): x is string => typeof x === "string").slice(0, 500) : undefined,
   };
-  return withFamily(async ({ store, actor }) => {
+  return withFamily(async ({ store, actor, session }) => {
     const householdId = await guardianHousehold(store, actor);
     if (!householdId) return notGuardian();
     if (body.confirm !== true) return NextResponse.json({ quote: await quoteGeneration(store, actor, householdId, request) });
+    const provider = familyProvider(session);
+    if (!provider) return fail(503, "narration_off", "Preparing stories isn't switched on yet.");
     const result = await requestGeneration(store, actor, householdId, request);
     // Background generation; the job is resumable if the worker stops partway.
-    if (result.job) after(() => runPendingJobs(store, familyProvider()));
+    if (result.job) after(() => runPendingJobs(store, provider, { householdId, budgetMs: WORK_BUDGET_MS }));
     return NextResponse.json({ jobId: result.job?.id ?? null, quote: result.quote, view: await prepareView(store, actor, householdId, slug) });
   });
 }
