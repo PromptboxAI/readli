@@ -25,6 +25,8 @@ const ids = (list: Row[], key = "id") => [...new Set(list.map((r) => r[key] as s
 
 /** Buckets that hold a person's voice recordings and the audio made from their voice. */
 export const RECORDINGS_BUCKET = "voice-recordings";
+/** Grown-ups' profile photos, one folder per person. */
+export const PHOTOS_BUCKET = "profile-photos";
 export const NARRATION_BUCKETS = { segments: "narrations", assets: "generated-audio" } as const;
 
 export class AccountError extends Error {
@@ -157,8 +159,8 @@ export interface DeletionResult {
 /**
  * Deletes a grown-up's account, in an order that can be safely retried if any step fails:
  * 1. their cloned voices at the voice provider (ElevenLabs), so nothing can speak in their voice again;
- * 2. every recording of them (including takes whose clone failed) and every audio file made from
- *    their voice, in any family, from storage;
+ * 2. every recording of them (including takes whose clone failed), every audio file made from
+ *    their voice in any family, and their profile photo, from storage;
  * 3. families only they belong to, with those families' kids profiles;
  * 4. the sign-in itself, which removes the rest of their rows (profile, voices, memberships,
  *    guardianships, consents, invitations, rewards) through the database's cascades.
@@ -196,6 +198,7 @@ export async function deleteAccount(
     : [];
   const recordings = new Set([...keysOf(takes), ...(await folderKeys(db, RECORDINGS_BUCKET, userId))]);
   audioFilesRemoved += await removeObjects(db, RECORDINGS_BUCKET, [...recordings]);
+  await removeObjects(db, PHOTOS_BUCKET, await folderKeys(db, PHOTOS_BUCKET, userId));
 
   await run(
     db
@@ -261,7 +264,13 @@ export async function exportAccountData(db: SupabaseClient, user: { id: string; 
     exportedAt: new Date().toISOString(),
     about:
       "Everything Readli keeps about you and the kids profiles you look after. Voice recordings and narration audio aren't in this file; ask Readli support for a copy.",
-    account: { id: me, email: user.email, name: user.name, ...pick(profile[0] ?? {}, ["display_name", "marketing_opt_in", "created_at", "updated_at"]) },
+    account: {
+      id: me,
+      email: user.email,
+      name: user.name,
+      ...pick(profile[0] ?? {}, ["display_name", "marketing_opt_in", "created_at", "updated_at"]),
+      profilePhoto: profile[0]?.avatar_path ? { consentGivenAt: profile[0].photo_consent_at ?? null } : null,
+    },
     families: memberships.map((m) => ({
       family: homeName(m.household_id),
       ...pick(m, ["role", "relationship_label", "joined_at", "removed_at"]),
