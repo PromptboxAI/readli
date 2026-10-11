@@ -236,7 +236,7 @@ test("the library leads with short stories and keeps longer books visible", asyn
   await expect(page.getByTestId("collection-fits").getByTestId("book-aesops-fables-retold")).toHaveCount(0);
   await expect(page.getByTestId("collection-all").getByTestId("book-aesops-fables-retold")).toContainText("More credits needed");
   await expect(page.getByTestId("collection-prepared").getByTestId("book-the-lion-and-the-mouse")).toBeVisible();
-  await expect(page.getByTestId("collection-coming-soon").getByTestId("soon-the-velveteen-rabbit")).toContainText("Coming soon");
+  await expect(page.getByTestId("collection-all").getByTestId("book-the-velveteen-rabbit")).toBeVisible();
 });
 
 test("short on credits: prepare a chapter, or buy credits and come straight back to confirm", async ({ page }) => {
