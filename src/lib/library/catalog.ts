@@ -65,7 +65,7 @@ export const CATALOG: readonly CatalogBook[] = [
     title: "Aesop's Fables",
     author: "Retold by Readli",
     firstPublished: null,
-    coverUrl: null,
+    coverUrl: "/covers/aesops-fables-retold.webp",
     tint: "bg-mint",
     edition: "readli-retelling-1",
     chapters: READLI_FABLES,
