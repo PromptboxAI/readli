@@ -22,7 +22,7 @@ export function SiteHeader() {
           <Link href="/login" className="font-display font-medium hover:underline">
             Login
           </Link>
-          <Link href="/#try-your-voice" className={buttonPrimary}>
+          <Link href="/try" className={buttonPrimary}>
             Try It Free
           </Link>
         </nav>
@@ -40,7 +40,7 @@ export function SiteHeader() {
                 {item.label}
               </Link>
             ))}
-            <Link href="/#try-your-voice" className={`${buttonPrimary} mt-1`}>
+            <Link href="/try" className={`${buttonPrimary} mt-1`}>
               Try It Free
             </Link>
           </nav>

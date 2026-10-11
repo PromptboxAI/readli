@@ -35,7 +35,7 @@ export function Hero() {
           </p>
           {/* CTA sits above the illustration on mobile so it can't be missed. */}
           <div className="flex flex-wrap gap-3">
-            <Link href="#try-your-voice" className={buttonPrimary}>
+            <Link href="/try" className={buttonPrimary}>
               Hear a story in your voice, free
             </Link>
             <Link href="/#stories" className={buttonSecondary}>
@@ -315,7 +315,7 @@ export function FinalCta() {
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-14 text-center sm:px-6">
         <ReadiMascot size={120} decorative />
         <h2 className="font-display text-3xl font-semibold sm:text-4xl">Start a family library</h2>
-        <Link href="#try-your-voice" className={buttonPrimary}>
+        <Link href="/try" className={buttonPrimary}>
           Hear a story in your voice, free
         </Link>
       </div>
