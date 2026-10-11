@@ -17,7 +17,7 @@ function fakeDb(tables: Record<string, Row[]>) {
       eq: (k: string, v: unknown) => (filters.push((r) => r[k] === v), q),
       in: (k: string, v: unknown[]) => (filters.push((r) => v.includes(r[k])), q),
       update: (values: Row) => ((update = values), q),
-      maybeSingle: async () => ({ data: hits()[0] ?? null, error: null }),
+      maybeSingle: async () => ({ data: hits()[0] ? { ...hits()[0] } : null, error: null }),
       upsert: async (row: Row) => {
         const old = t(name).find((r) => r.user_id === row.user_id);
         if (old) Object.assign(old, row);

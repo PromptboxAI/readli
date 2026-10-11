@@ -43,7 +43,7 @@ export async function savePhoto(db: SupabaseClient, user: { id: string; name: st
   const kind = photoType(input.bytes);
   if (!kind) throw new AccountError(415, "photo_type", "Please choose a JPEG, PNG or WebP photo.");
 
-  const before = await profile(db, user.id);
+  const oldPath = (await profile(db, user.id))?.avatar_path ?? null;
   const path = `${user.id}/${randomUUID()}.${kind.ext}`;
   const up = await db.storage.from(PHOTOS_BUCKET).upload(path, input.bytes, { contentType: kind.type, upsert: false });
   if (up.error) throw new Error(`upload photo: ${up.error.message}`);
@@ -55,7 +55,7 @@ export async function savePhoto(db: SupabaseClient, user: { id: string; name: st
     await db.storage.from(PHOTOS_BUCKET).remove([path]);
     throw new Error(`save photo: ${error.message}`);
   }
-  if (before?.avatar_path) await db.storage.from(PHOTOS_BUCKET).remove([before.avatar_path]);
+  if (oldPath) await db.storage.from(PHOTOS_BUCKET).remove([oldPath]);
   return { avatarUrl: photoUrl(user.id, consentAt) };
 }
 
