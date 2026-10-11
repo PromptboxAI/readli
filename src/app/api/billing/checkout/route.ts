@@ -3,6 +3,7 @@ import { checkoutRequest } from "@/lib/billing/checkout";
 import { billingConfig } from "@/lib/billing/config";
 import { StripeApi, StripeError } from "@/lib/billing/stripe-api";
 import { catalogItem } from "@/lib/billing/catalog";
+import { effectivePlan } from "@/lib/billing/price-settings";
 import { accountDb } from "@/lib/family/account-store";
 import { jsonBody, withFamily } from "@/lib/family/http";
 import { activeEntitlement } from "@/lib/family/permissions";
@@ -28,7 +29,8 @@ export async function POST(req: Request) {
     if (!db || !session.account) return fail(503, "no_account", "Sign in with a Readli account to check out.");
 
     const state = await store.read();
-    const request = checkoutRequest(store.plan, activeEntitlement(state, householdId), String(body.item ?? ""), body.extraSlots);
+    const plan = await effectivePlan(db, store.plan);
+    const request = checkoutRequest(plan, activeEntitlement(state, householdId), String(body.item ?? ""), body.extraSlots);
     if (!request.ok) return fail(request.status, request.code, request.message);
 
     const { data: customer } = await db.from("billing_customers").select("customer_ref").eq("household_id", householdId).maybeSingle();
@@ -40,7 +42,7 @@ export async function POST(req: Request) {
         request.mode === "subscription"
           ? [
               { price: await stripe.priceFor(request.plan), quantity: 1 },
-              ...(request.extraSlots ? [{ price: await stripe.priceFor(catalogItem(store.plan, "extra_slot")!), quantity: request.extraSlots }] : []),
+              ...(request.extraSlots ? [{ price: await stripe.priceFor(catalogItem(plan, "extra_slot")!), quantity: request.extraSlots }] : []),
             ]
           : [{ price: await stripe.priceFor(request.pack), quantity: 1 }];
       const checkout = await stripe.createCheckoutSession({
