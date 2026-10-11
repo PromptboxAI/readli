@@ -162,11 +162,9 @@ export default async function FamilyHome() {
             <Link href="/family/billing" className={buttonSecondary}>
               Plan and billing
             </Link>
-            {!account && (
-              <Link href="/family/credits" className={buttonSecondary}>
-                Readli credits
-              </Link>
-            )}
+            <Link href="/family/credits" className={buttonSecondary}>
+              Readli credits
+            </Link>
           </div>
         </section>
       )}

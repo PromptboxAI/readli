@@ -48,6 +48,9 @@ export interface FamilyStore {
   readonly audio: NarrationStorage;
   read(): Promise<FamilyState>;
   write(mutate: (state: FamilyState) => void): Promise<void>;
+  /** Takes a narration job for one worker until the lease ends; false while another worker holds it. */
+  claimJob?(jobId: string, leaseMs: number): Promise<boolean>;
+  releaseJob?(jobId: string): Promise<void>;
 }
 
 export class MemoryFamilyStore implements FamilyStore {
@@ -61,6 +64,15 @@ export class MemoryFamilyStore implements FamilyStore {
   }
   async write(mutate: (state: FamilyState) => void) {
     mutate(this.state);
+  }
+  private leases = new Map<string, number>();
+  async claimJob(jobId: string, leaseMs: number) {
+    if ((this.leases.get(jobId) ?? 0) > Date.now()) return false;
+    this.leases.set(jobId, Date.now() + leaseMs);
+    return true;
+  }
+  async releaseJob(jobId: string) {
+    this.leases.delete(jobId);
   }
 }
 

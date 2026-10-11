@@ -148,6 +148,23 @@ describe("financial report", () => {
     expect(withPlan.operatingContributionUsd).toBeCloseTo(19.99 - 99);
   });
 
+  it("prefers recorded provider cost and household over the estimate", () => {
+    const r = financeReport(
+      input({
+        usage: [
+          { library_key: "L", sentence_id: "s1", model_id: "eleven_multilingual_v2", characters: 10_000, provider_credits: 10_000, bytes: 0, usd: "0.250000", household_id: "h2" },
+          { library_key: "L", sentence_id: "s2", model_id: "eleven_multilingual_v2", characters: 10_000, provider_credits: 10_000, bytes: 0, usd: null },
+        ],
+        jobs: [{ library_key: "L", household_id: "h1", sentence_ids: ["s1", "s2"] }],
+      }),
+    );
+    expect(r.costs30d.generationUsd).toBeCloseTo(1.25);
+    expect(r.households.map((h) => [h.householdId, h.costUsd])).toEqual([
+      ["h1", 1],
+      ["h2", 0.25],
+    ]);
+  });
+
   it("reads cost overrides from env and ignores bad values", () => {
     const c = costConfig({ FINANCE_COST_PER_1K_CHARS_USD: "0.2", FINANCE_PROVIDER_PLAN_MONTHLY_USD: "abc" } as unknown as NodeJS.ProcessEnv);
     expect(c.defaultPer1kUsd).toBe(0.2);
