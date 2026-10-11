@@ -9,9 +9,43 @@ import { TheirHome } from "@/components/gifting/TheirHome";
 import { GiftBoxArt } from "@/components/invites/illustrations";
 import type { GiftPlan } from "@/lib/gifting/plans";
 
-/** The recipient's side of a gift: unwrap, see what's theirs, then claim it into their own household. */
-export function GiftOpen({ plan, to, from, message }: { plan: GiftPlan; to: string; from: string; message: string }) {
-  const [stage, setStage] = useState<"wrapped" | "open" | "claimed" | "declined">("wrapped");
+export interface LiveGift {
+  code: string;
+  signedIn: boolean;
+  status: "ready" | "redeemed" | "unavailable";
+}
+
+/**
+ * The recipient's side of a gift: unwrap, see what's theirs, then claim it into their own household.
+ * With `live`, it's a real gift: claiming signs in first and starts Readli Family for their family.
+ */
+export function GiftOpen({ plan, to, from, message, live }: { plan: GiftPlan; to: string; from: string; message: string; live?: LiveGift }) {
+  const [stage, setStage] = useState<"wrapped" | "open" | "claimed" | "declined">(live?.status === "redeemed" ? "claimed" : "wrapped");
+  const [paidThrough, setPaidThrough] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function claim() {
+    if (!live) return setStage("claimed");
+    setBusy(true);
+    setError("");
+    const res = await fetch("/api/gifts/redeem", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code: live.code }) });
+    const body = await res.json().catch(() => null);
+    setBusy(false);
+    if (!res.ok) return setError(body?.error?.message ?? "That didn't work. Please try again.");
+    setPaidThrough(body.paidThrough);
+    setStage("claimed");
+  }
+
+  if (live && live.status === "unavailable") {
+    return (
+      <section role="alert" className="flex flex-col items-center gap-3 rounded-[var(--radius-panel)] bg-coral/20 px-6 py-12 text-center">
+        <GiftBoxArt className="w-28" />
+        <h1 className="font-display text-3xl font-semibold">This gift can&apos;t be opened</h1>
+        <p className="max-w-md">It may have been cancelled or expired. Ask {from} to get in touch with us and we&apos;ll sort it out.</p>
+      </section>
+    );
+  }
   const term = plan.kind === "recurring" ? "every month, for as long as they sponsor you" : plan.months === 12 ? "for a whole year" : `for ${plan.name.toLowerCase()}`;
 
   if (stage === "wrapped") {
@@ -31,15 +65,21 @@ export function GiftOpen({ plan, to, from, message }: { plan: GiftPlan; to: stri
     return (
       <section aria-live="polite" className="flex flex-col items-center gap-4 rounded-[var(--radius-panel)] bg-mint/50 px-6 py-12 text-center">
         <ReadiMascot size={140} decorative />
-        <h1 className="font-display text-3xl font-semibold">{stage === "claimed" ? "Let's set up your family" : "No problem"}</h1>
-        <p className="max-w-md">
-          {stage === "claimed"
-            ? "Family accounts are coming soon. When they arrive, this is where you'd create your account and the gift would start."
-            : `We'd let ${from} know, kindly, and they'd get a full refund. This is a preview, so nothing was sent.`}
+        <h1 className="font-display text-3xl font-semibold">
+          {stage === "declined" ? "No problem" : live ? "Your gift is open" : "Let's set up your family"}
+        </h1>
+        <p className="max-w-md" data-testid="gift-claimed">
+          {stage === "declined"
+            ? live
+              ? "Nothing has started. Your gift stays here for a year if you change your mind."
+              : `We'd let ${from} know, kindly, and they'd get a full refund. This is a preview, so nothing was sent.`
+            : live
+              ? `Readli Family is on for your family${paidThrough ? ` until ${new Date(paidThrough).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : ""}. No card needed, and nothing renews on its own.`
+              : "Family accounts are coming soon. When they arrive, this is where you'd create your account and the gift would start."}
         </p>
         {stage === "claimed" ? (
-          <Link href="/welcome" className={buttonPrimary}>
-            See your welcome
+          <Link href={live ? "/family" : "/welcome"} className={buttonPrimary}>
+            {live ? "Go to my family" : "See your welcome"}
           </Link>
         ) : (
           <button type="button" className={buttonSecondary} onClick={() => setStage("open")}>
@@ -73,13 +113,26 @@ export function GiftOpen({ plan, to, from, message }: { plan: GiftPlan; to: stri
         </p>
       </section>
       <TheirHome audience="recipient" giver={from} />
+      {error && (
+        <p role="alert" className="rounded-2xl bg-coral/30 p-3 font-semibold">
+          {error}
+        </p>
+      )}
       <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-        <button type="button" className={buttonPrimary} onClick={() => setStage("claimed")}>
-          Accept my gift
-        </button>
-        <Link href="/login" className={buttonSecondary}>
-          I already have Readli
-        </Link>
+        {live && !live.signedIn ? (
+          <Link href={`/login?next=${encodeURIComponent(`/gift/open?code=${live.code}`)}`} className={buttonPrimary}>
+            Sign in to accept my gift
+          </Link>
+        ) : (
+          <button type="button" className={buttonPrimary} onClick={claim} disabled={busy}>
+            {busy ? "Opening…" : "Accept my gift"}
+          </button>
+        )}
+        {!live && (
+          <Link href="/login" className={buttonSecondary}>
+            I already have Readli
+          </Link>
+        )}
         <button type="button" className={buttonQuiet} onClick={() => setStage("declined")}>
           No thanks
         </button>
