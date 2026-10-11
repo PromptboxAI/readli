@@ -77,7 +77,11 @@ export default async function PricingPage() {
                   <span className="text-lg font-normal text-muted">/month</span>
                 </p>
                 <p className="text-muted">
-                  or {dollars(P.familyAnnualCents)}/year, about {annualSavingsPercent(P)}% less than paying monthly
+                  or{" "}
+                  <Link href="/signup/family?billing=annual" className="font-semibold text-ink underline underline-offset-4">
+                    {dollars(P.familyAnnualCents)}/year
+                  </Link>
+                  , about {annualSavingsPercent(P)}% less than paying monthly
                 </p>
               </div>
               <PlanList items={familyHighlights(P)} />

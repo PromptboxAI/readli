@@ -23,8 +23,21 @@ test("family invitations land on Readli Voice signup", async ({ page }, info) =>
   await page.screenshot({ path: `e2e/screenshots/signup-voice-${info.project.name}.png`, fullPage: true });
 });
 
+test("the yearly link on the pricing page opens signup with yearly picked", async ({ page }) => {
+  await page.goto("/pricing");
+  await page.getByRole("link", { name: "$179.99/year" }).click();
+  await expect(page).toHaveURL(/\/signup\/family\?billing=annual$/);
+  await expect(page.getByLabel("Yearly")).toBeChecked();
+  await expect(page.getByTestId("family-price")).toContainText("$179.99");
+});
+
 test("family checkout shows the plan and stays switched off", async ({ page }, info) => {
   await page.goto("/signup/family");
+  await expect(page.getByTestId("family-price")).toContainText("$19.99");
+  await page.getByLabel("Yearly").check();
+  await expect(page.getByTestId("family-price")).toContainText("$179.99");
+  await expect(page.getByText("Renews yearly")).toBeVisible();
+  await page.getByLabel("Monthly").check();
   await expect(page.getByTestId("family-price")).toContainText("$19.99");
   await expect(page.getByText("Up to six child profiles").first()).toBeVisible();
   await expect(page.getByTestId("checkout-off")).toBeVisible();
