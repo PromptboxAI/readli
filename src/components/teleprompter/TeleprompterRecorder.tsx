@@ -241,7 +241,7 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
           {state.status !== "review" && (
           <p className="text-xs text-muted sm:text-sm" data-testid="duration-guidance">
             {state.status === "ready"
-              ? "Read for at least 1 minute, ideally 1 to 2, in your normal reading voice. Finish unlocks at 1:00."
+              ? "Read for at least 1 minute, ideally 1 to 2. Finish unlocks at 1:00."
               : guidance === "too_short"
                 ? progress.remainingSeconds > 0
                   ? `Keep going: Finish unlocks at 1:00. About ${progress.remainingSeconds}s of script left at this speed.`
@@ -316,6 +316,13 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
               </button>
             )}
           </div>
+
+          {state.status === "ready" && (
+            <p className="rounded-2xl bg-sunshine/40 p-3 text-sm" data-testid="expressive-tip">
+              <span className="font-semibold">Read it like a bedtime story.</span> Be warm, lively and expressive, not a flat
+              reading voice. Your Readli voice copies how you sound here.
+            </p>
+          )}
 
           {state.status === "ready" && (
             <p className="text-xs text-muted">

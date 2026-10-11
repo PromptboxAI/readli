@@ -2,6 +2,14 @@ import { VoiceProviderError, type SynthesizedAudio, type VoiceProvider } from ".
 
 const API = "https://api.elevenlabs.io/v1";
 
+/**
+ * Sent with every story read. ElevenLabs suggests stability 0.5, similarity 0.75 and style 0 as a
+ * start; stability sits a little lower because higher values read flat and robotic for storytime,
+ * and similarity a little higher with speaker boost so the clone stays close to the parent.
+ * Style exaggeration stays 0: ElevenLabs advises it, as it adds latency and makes voices less stable.
+ */
+export const VOICE_SETTINGS = { stability: 0.4, similarity_boost: 0.8, style: 0, use_speaker_boost: true } as const;
+
 /** ElevenLabs Instant Voice Cloning + text to speech. Requires a paid plan for cloning. */
 export class ElevenLabsProvider implements VoiceProvider {
   constructor(
@@ -44,7 +52,7 @@ export class ElevenLabsProvider implements VoiceProvider {
     const res = await this.call(`/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`, {
       method: "POST",
       headers: { "content-type": "application/json", accept: "audio/mpeg" },
-      body: JSON.stringify({ text, model_id: this.modelId }),
+      body: JSON.stringify({ text, model_id: this.modelId, voice_settings: VOICE_SETTINGS }),
     });
     return { audio: await res.arrayBuffer(), contentType: "audio/mpeg", standIn: false };
   }
