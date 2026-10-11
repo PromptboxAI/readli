@@ -1,8 +1,9 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
 import type { ServerConfig } from "./config";
 import { GUEST_TTL_MS } from "./guest-token";
+import { ProviderRefCipher } from "./provider-ref";
 import { baseMimeType } from "./recording-qc";
 
 export interface GuestSession {
@@ -158,28 +159,22 @@ type Row = Record<string, any>;
 
 export class SupabaseGuestStore implements GuestStore {
   private scriptVersionId: string | null = null;
-  private readonly key: Buffer;
+  private readonly refs: ProviderRefCipher;
 
   constructor(
     private readonly db: SupabaseClient,
     secret: string,
   ) {
     // Provider voice ids are stored encrypted (guest_assets.provider_ref_encrypted).
-    this.key = createHash("sha256").update(`readli-provider-ref:${secret}`).digest();
+    this.refs = new ProviderRefCipher(secret);
   }
 
   private encrypt(plain: string): string {
-    const iv = randomBytes(12);
-    const cipher = createCipheriv("aes-256-gcm", this.key, iv);
-    const body = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
-    return `\\x${Buffer.concat([iv, cipher.getAuthTag(), body]).toString("hex")}`;
+    return this.refs.encrypt(plain);
   }
 
   private decrypt(stored: string): string {
-    const raw = Buffer.from(stored.replace(/^\\x/, ""), "hex");
-    const decipher = createDecipheriv("aes-256-gcm", this.key, raw.subarray(0, 12));
-    decipher.setAuthTag(raw.subarray(12, 28));
-    return Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString("utf8");
+    return this.refs.decrypt(stored);
   }
 
   /** Runs a query that must return data. Rows are untyped until we generate Supabase types. */
