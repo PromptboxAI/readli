@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { BookCard } from "@/components/family/BookCard";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
 import { familyPage } from "@/lib/family/page-data";
 import { guardianHousehold } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
+import { UPCOMING_BOOKS } from "@/lib/library/catalog";
 import { familyLibrary, type LibraryCard } from "@/lib/library/discovery";
 
 export const dynamic = "force-dynamic";
@@ -63,6 +65,26 @@ export default async function FamilyBooksPage() {
         <Shelf key={c.id} {...c} />
       ))}
       <Shelf id="all" title="All books" description="The whole library, shortest first." books={lib.all} />
+      {UPCOMING_BOOKS.length > 0 && (
+        <section className="flex flex-col gap-3" aria-labelledby="soon-h" data-testid="collection-coming-soon">
+          <div>
+            <h2 id="soon-h" className="font-display text-2xl font-semibold">
+              Coming soon
+            </h2>
+            <p className="text-muted">More stories joining the library shortly.</p>
+          </div>
+          <ul className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2">
+            {UPCOMING_BOOKS.map((b) => (
+              <li key={b.slug} className="flex w-44 shrink-0 flex-col gap-2 rounded-3xl bg-surface p-3 ring-2 ring-ink/10 sm:w-52" data-testid={`soon-${b.slug}`}>
+                <Image src={b.coverUrl} alt="" width={180} height={240} className="aspect-[3/4] w-full rounded-2xl object-cover opacity-90" />
+                <span className="font-display text-lg font-semibold leading-tight">{b.title}</span>
+                <span className="text-sm text-muted">About {b.approxMinutes} min</span>
+                <span className="self-start rounded-full bg-ink/10 px-2 py-0.5 text-xs font-bold">Coming soon</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </FamilyShell>
   );
 }
