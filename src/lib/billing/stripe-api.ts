@@ -38,6 +38,16 @@ export class StripeError extends Error {
   }
 }
 
+export interface StripeSubscription {
+  id: string;
+  status: string;
+  customer: string;
+  cancel_at_period_end?: boolean;
+  current_period_end?: number;
+  metadata?: Record<string, string>;
+  items: { data: { id: string; quantity?: number; current_period_end?: number; price: { id: string; lookup_key?: string | null; recurring?: { interval?: string } | null } }[] };
+}
+
 export class StripeApi {
   private readonly config: BillingConfig;
   private readonly fetchImpl: typeof fetch;
@@ -47,13 +57,17 @@ export class StripeApi {
     this.fetchImpl = fetchImpl;
   }
 
-  private async call<T>(method: "GET" | "POST", path: string, params: Params = {}): Promise<T> {
+  private async call<T>(method: "GET" | "POST", path: string, params: Params = {}, idempotencyKey?: string): Promise<T> {
     if (this.config.mode === "off" || !this.config.secretKey) throw new StripeError(503, "Payments are switched off.");
     const body = encodeForm(params);
     const url = `https://api.stripe.com/v1/${path}${method === "GET" && body ? `?${body}` : ""}`;
     const res = await this.fetchImpl(url, {
       method,
-      headers: { authorization: `Bearer ${this.config.secretKey}`, "content-type": "application/x-www-form-urlencoded" },
+      headers: {
+        authorization: `Bearer ${this.config.secretKey}`,
+        "content-type": "application/x-www-form-urlencoded",
+        ...(idempotencyKey ? { "idempotency-key": idempotencyKey } : {}),
+      },
       body: method === "POST" ? body : undefined,
     });
     const json = (await res.json().catch(() => ({}))) as T & { error?: { message?: string } };
@@ -84,6 +98,21 @@ export class StripeApi {
   async subscriptionStatuses(customer: string): Promise<string[]> {
     const list = await this.call<{ data: { status: string }[] }>("GET", "subscriptions", { customer, status: "all", limit: 20 });
     return list.data.map((s) => s.status);
+  }
+
+  /** The Stripe card fingerprint of a payment method, if it is a card. Used only to spot a reused trial card. */
+  async cardFingerprint(paymentMethod: string): Promise<string | null> {
+    const pm = await this.call<{ card?: { fingerprint?: string } }>("GET", `payment_methods/${encodeURIComponent(paymentMethod)}`);
+    return pm.card?.fingerprint ?? null;
+  }
+
+  async subscription(id: string): Promise<StripeSubscription> {
+    return this.call<StripeSubscription>("GET", `subscriptions/${encodeURIComponent(id)}`);
+  }
+
+  /** Changes a subscription's items (Readli's plan change flow). The idempotency key makes a retried click safe. */
+  async updateSubscription(id: string, params: Params, idempotencyKey: string): Promise<StripeSubscription> {
+    return this.call<StripeSubscription>("POST", `subscriptions/${encodeURIComponent(id)}`, params, idempotencyKey);
   }
 
   /** Stripe's hosted page where a parent updates their card, changes slots or cancels. */

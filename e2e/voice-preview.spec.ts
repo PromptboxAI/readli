@@ -22,6 +22,12 @@ test("a finished take becomes a voice and reads a story, within the free preview
   await expect(preview.getByLabel("The Tale of Peter Rabbit, read in your voice")).toHaveAttribute("src", /^blob:/);
   await expect(preview.getByText("Test mode: this is a stand-in sound, not your voice.")).toBeVisible();
   await expect(preview.getByText("1 free preview left.", { exact: false })).toBeVisible();
+  // Having heard their voice, the guest is offered the free trial, which takes a card.
+  const trial = preview.getByTestId("demo-trial");
+  await expect(trial).toContainText("Try Readli Family free for 14 days");
+  await expect(trial).toContainText("We ask for a card");
+  await expect(trial).toContainText("keep this recording as your Readli voice");
+  await expect(trial.getByRole("link", { name: "Start your free trial" })).toHaveAttribute("href", "/signup/family?from=demo");
   await page.screenshot({ path: `e2e/screenshots/try-preview-${info.project.name}.png` });
 
   // Second preview with noise clean-up flipped re-makes the voice from the saved take, then the free limit is reached.

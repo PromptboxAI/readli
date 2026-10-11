@@ -61,6 +61,9 @@ export function inTrial(e: HouseholdEntitlement, at: string): boolean {
   return e.source === "trial" || Boolean(e.trialEndsAt && at < e.trialEndsAt);
 }
 
+/** The plan's trial credits, unless this plan has its own number (0 when withheld for a reused trial card). */
+export const trialCreditsOf = (e: HouseholdEntitlement, plan: PlanConfig) => (typeof e.trialCredits === "number" ? e.trialCredits : plan.trialCredits);
+
 /** When paid billing months start counting: after a subscription's free trial, if it had one. */
 const billingAnchor = (e: HouseholdEntitlement) => (e.trialEndsAt && e.trialEndsAt > e.startsAt ? e.trialEndsAt : e.startsAt);
 
@@ -82,7 +85,7 @@ function subscriptionLots(state: FamilyState, plan: PlanConfig, householdId: str
         id: `trial:${entitlement.id}`,
         householdId,
         source: "trial",
-        credits: creditUnits(plan.trialCredits, plan),
+        credits: creditUnits(trialCreditsOf(entitlement, plan), plan),
         grantedAt: entitlement.startsAt,
         expiresAt: entitlement.source === "trial" ? entitlement.endsAt : entitlement.trialEndsAt!,
         note: "Free trial credits",
@@ -181,7 +184,7 @@ export function creditBalance(state: FamilyState, plan: PlanConfig, householdId:
     bySource,
     held: Math.max(0, held),
     usedThisPeriod: sum("commit", (e) => e.at >= since),
-    allowance: !entitlement ? 0 : trial ? creditUnits(plan.trialCredits, plan) : allowanceUnits(plan),
+    allowance: !entitlement ? 0 : trial ? creditUnits(trialCreditsOf(entitlement, plan), plan) : allowanceUnits(plan),
     renewsAt: !entitlement || trial ? null : addMonths(cycleStart(billingAnchor(entitlement), at), 1),
     unitsPerCredit: unitsPerCredit(plan),
     lots: lots.map((l) => ({ id: l.lot.id, source: l.lot.source, left: l.left, credits: l.lot.credits, expiresAt: l.lot.expiresAt, note: l.lot.note })),

@@ -57,6 +57,25 @@ describe("billingChange", () => {
     }
   });
 
+  it("keeps one plan row through a trial and its conversion, with the trial end recorded", () => {
+    const trialing = sub({ status: "trialing", start_date: 1_760_000_000, trial_end: 1_761_209_600, current_period_end: 1_761_209_600 });
+    expect(billingChange(event("customer.subscription.created", trialing))).toMatchObject({
+      status: "active",
+      startsAt: new Date(1_760_000_000 * 1000).toISOString(),
+      endsAt: null,
+      trialEndsAt: new Date(1_761_209_600 * 1000).toISOString(),
+    });
+    expect(billingChange(event("customer.subscription.updated", { ...trialing, status: "active" }))).toMatchObject({
+      status: "active",
+      startsAt: new Date(1_760_000_000 * 1000).toISOString(),
+      endsAt: null,
+    });
+    expect(billingChange(event("customer.subscription.deleted", { ...trialing, status: "canceled", ended_at: 1_761_209_600 }))).toMatchObject({
+      status: "canceled",
+      endsAt: new Date(1_761_209_600 * 1000).toISOString(),
+    });
+  });
+
   it("ends the plan at period end when the family cancels, and right away when Stripe ends it", () => {
     expect(billingChange(event("customer.subscription.updated", sub({ cancel_at_period_end: true })))).toMatchObject({
       status: "active",

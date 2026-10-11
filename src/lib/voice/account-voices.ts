@@ -44,6 +44,11 @@ export interface TakeUpload {
   /** What the recorder measured, kept with the recording. */
   qc: { speechMs: number | null; issues: readonly string[] } | null;
   userAgent: string | null;
+  /**
+   * guest_demo: a take recorded in the guest demo before the agreement, carried over to make this
+   * voice. It is never used for training or licensing (voice_recordings_usable leaves it out).
+   */
+  origin?: "account" | "guest_demo";
 }
 
 /** The take with its agreement checked, as the store saves it. */
@@ -255,7 +260,18 @@ export async function accountVoiceSample(deps: AccountVoiceDeps, ownerId: string
 export class MemoryAccountVoiceStore implements AccountVoiceStore {
   readonly voices = new Map<string, AccountVoice & { ownerId: string; providerVoiceId: string | null; cloneRetiredAt?: string | null }>();
   readonly receipts: { id: string; ownerId: string; agreementId: string; removeBackgroundNoise: boolean }[] = [];
-  readonly takes: { key: string; ownerId: string; voiceId?: string; bytes: number; agreementId: string; language: string; transcript: string; audio?: Blob; excludedFromTraining?: boolean }[] = [];
+  readonly takes: {
+    key: string;
+    ownerId: string;
+    voiceId?: string;
+    bytes: number;
+    agreementId: string;
+    language: string;
+    transcript: string;
+    audio?: Blob;
+    excludedFromTraining?: boolean;
+    origin?: "account" | "guest_demo";
+  }[] = [];
   readonly events: LifecycleEvent[] = [];
   /** Narration jobs to stop when a voice is withdrawn; tests wire this to a family store. */
   onWithdraw: (voiceId: string) => Promise<number> = async () => 0;
@@ -281,6 +297,8 @@ export class MemoryAccountVoiceStore implements AccountVoiceStore {
       agreementId: take.agreement.id,
       language: DEMO_SCRIPT.locale,
       transcript: expectedTranscript(take.scriptOffsetEnd),
+      origin: take.origin ?? "account",
+      excludedFromTraining: take.origin === "guest_demo",
     });
     const id = randomUUID();
     this.receipts.push({ id, ownerId: owner.id, agreementId: take.agreement.id, removeBackgroundNoise: take.removeBackgroundNoise });
@@ -331,7 +349,7 @@ export class MemoryAccountVoiceStore implements AccountVoiceStore {
   async recloneSource(voiceId: string) {
     const v = this.voices.get(voiceId);
     if (!v || v.status !== "ready" || !this.authorized(v.ownerId)) return null;
-    const take = [...this.takes].reverse().find((t) => t.voiceId === voiceId && t.audio && !t.excludedFromTraining);
+    const take = [...this.takes].reverse().find((t) => t.voiceId === voiceId && t.audio);
     return take ? { ownerId: v.ownerId, audio: take.audio!, removeBackgroundNoise: false } : null;
   }
 
@@ -495,6 +513,7 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
           audio_mime_type: baseMimeType(take.audio.type),
           audio_bytes: take.audio.size,
           remove_background_noise: take.removeBackgroundNoise,
+          source_kind: take.origin === "guest_demo" ? "guest_demo_carryover" : "original_human",
         })
         .select("id")
         .single(),

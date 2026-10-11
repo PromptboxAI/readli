@@ -3,6 +3,7 @@ import Link from "next/link";
 import { buttonSecondary } from "@/components/brand/buttons";
 import { ArchiveChoice, ManagePlan, StartPlan } from "@/components/family/BillingActions";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
+import { accountEmail, loadTrialFacts, trialDecision } from "@/lib/billing/trial";
 import { billingConfig } from "@/lib/billing/config";
 import { effectivePlan } from "@/lib/billing/price-settings";
 import { billingSummary, type BillingSummary } from "@/lib/billing/summary";
@@ -11,6 +12,7 @@ import { familyPage } from "@/lib/family/page-data";
 import { formatPrice } from "@/lib/family/plan";
 import { guardianHousehold } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
+import { rewardsConfig } from "@/lib/rewards/rewards";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Plan and billing | Readli", robots: { index: false } };
@@ -26,6 +28,15 @@ const PLAN_NAMES: Record<BillingSummary["plan"], string> = {
   donated: "Readli Family (complimentary)",
   tester: "Readli Family (tester plan)",
 };
+
+/** The free-trial days checkout would offer this family (src/lib/billing/trial.ts decides). */
+async function offeredTrialDays(account: { id: string } | null, householdId: string, hadPlan: boolean): Promise<number> {
+  const days = rewardsConfig().trialDays;
+  const db = account ? accountDb() : null;
+  if (!db || !account) return hadPlan ? 0 : days;
+  const email = await accountEmail(db, account.id);
+  return trialDecision(await loadTrialFacts(db, { userId: account.id, email: email.email, emailVerified: email.verified, householdId }, days)).days;
+}
 
 function planNote(s: BillingSummary): string {
   if (s.recovery) {
@@ -50,8 +61,12 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const householdId = await guardianHousehold(store, page.session.actor);
   if (!householdId) return <NeedsGrownUp text={NOT_GUARDIAN} />;
   const plan = await effectivePlan(page.session.account ? accountDb() : null, store.plan);
-  const s = billingSummary(await store.read(), plan, householdId);
+  const state = await store.read();
+  const s = billingSummary(state, plan, householdId);
   const paymentsOn = billingConfig().mode !== "off";
+  // A trial started through checkout is already the Stripe subscription: it's managed, not bought again.
+  const trialing = s.plan === "subscription" && s.trialEndsAt !== null;
+  const trialDays = s.plan === "none" ? await offeredTrialDays(page.session.account ?? null, householdId, state.entitlements.some((e) => e.householdId === householdId)) : 0;
 
   return (
     <FamilyShell>
@@ -64,7 +79,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       </header>
       {q.checkout === "success" && (
         <p role="status" className="rounded-2xl bg-mint/40 px-4 py-3">
-          Thank you! Your plan starts as soon as the payment goes through, usually within a minute.
+          Thank you! Your plan starts within a minute or so.
         </p>
       )}
       {q.checkout === "canceled" && <p role="status" className="rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/10">Checkout was canceled. Nothing was charged.</p>}
@@ -78,6 +93,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
             {s.extraNarratorSlots > 0 ? ` (${s.extraNarratorSlots} extra${s.extraSlotsMonthlyCents ? `, ${formatPrice(s.extraSlotsMonthlyCents)} a month` : ""})` : ""}.
           </p>
         )}
+        {trialing && <p>Readli Family starts on the card you added when the trial ends, unless you cancel first.</p>}
         {s.plan === "subscription" && <ManagePlan paymentsOn={paymentsOn} />}
       </section>
 
@@ -100,6 +116,8 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
             slotsForSale={plan.extraSlotPriceApproved}
             includedSlots={plan.includedNarratorSlots}
             paymentsOn={paymentsOn}
+            trialDays={trialDays}
+            trialCredits={plan.trialCredits}
           />
         </section>
       )}

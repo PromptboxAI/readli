@@ -4,6 +4,7 @@ import type { HouseholdEntitlement } from "@/lib/family/model";
 import { DEFAULT_PLAN } from "@/lib/family/plan";
 import { catalog, catalogItem, lookupKey } from "./catalog";
 import { checkoutRequest } from "./checkout";
+import { normalizeEmail, trialDecision } from "./trial";
 import { billingConfig } from "./config";
 import { encodeForm, StripeApi, StripeError } from "./stripe-api";
 
@@ -58,6 +59,26 @@ describe("checkoutRequest", () => {
     expect(checkoutRequest(DEFAULT_PLAN, entitlement("subscription"), pack)).toMatchObject({ ok: false, code: "purchases_off" });
     expect(checkoutRequest(packs, null, pack)).toMatchObject({ ok: false, code: "needs_family" });
     expect(checkoutRequest(packs, entitlement("gift"), pack)).toMatchObject({ ok: true, mode: "payment" });
+  });
+
+  it("offers the free trial only to a family with no plan, and never a second Stripe subscription", () => {
+    const fresh = { hadPlan: false, hasSubscription: false, trialDays: 14 };
+    expect(checkoutRequest(DEFAULT_PLAN, null, "family_monthly", 0, fresh)).toMatchObject({ ok: true, trialDays: 14 });
+    expect(checkoutRequest(DEFAULT_PLAN, entitlement("tester"), "family_monthly", 0, fresh)).toMatchObject({ ok: true, trialDays: 0 });
+    expect(checkoutRequest(DEFAULT_PLAN, entitlement("trial"), "family_monthly", 0, { ...fresh, hasSubscription: true })).toMatchObject({ ok: false, code: "already_on_plan" });
+  });
+
+  it("gives one trial per household, account and email, only with a verified email", () => {
+    const facts = { trialDays: 14, emailVerified: true, plans: [], priorClaims: 0 };
+    expect(trialDecision(facts)).toEqual({ eligible: true, days: 14 });
+    expect(trialDecision({ ...facts, plans: [{ source: "tester" }] })).toMatchObject({ eligible: true });
+    expect(trialDecision({ ...facts, plans: [{ source: "subscription" }] })).toMatchObject({ eligible: false, reason: "had_plan" });
+    expect(trialDecision({ ...facts, plans: [{ source: "gift" }] })).toMatchObject({ eligible: false, reason: "had_plan" });
+    expect(trialDecision({ ...facts, priorClaims: 1 })).toMatchObject({ eligible: false, days: 0, reason: "already_claimed" });
+    expect(trialDecision({ ...facts, emailVerified: false })).toMatchObject({ eligible: false, reason: "email_unverified" });
+    expect(trialDecision({ ...facts, trialDays: 0 })).toMatchObject({ eligible: false, reason: "trials_off" });
+    expect(normalizeEmail(" Jo.Smith+kids@GoogleMail.com ")).toBe("josmith@gmail.com");
+    expect(normalizeEmail("jo.smith+x@example.com")).toBe("jo.smith@example.com");
   });
 
   it("refuses unknown items and a bare extra slot", () => {

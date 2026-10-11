@@ -12,7 +12,17 @@ async function goTo(path: string, body: unknown, setError: (e: string) => void) 
 }
 
 /** Pick monthly or annual Readli Family, with optional extra storyteller slots, then go to checkout. */
-export function StartPlan(props: { monthlyCents: number; annualCents: number; slotCents: number; slotsForSale: boolean; includedSlots: number; paymentsOn: boolean }) {
+export function StartPlan(props: {
+  monthlyCents: number;
+  annualCents: number;
+  slotCents: number;
+  slotsForSale: boolean;
+  includedSlots: number;
+  paymentsOn: boolean;
+  /** Free-trial days for this family; 0 when they've had Readli Family before. */
+  trialDays: number;
+  trialCredits: number;
+}) {
   const [choice, setChoice] = useState<"family_monthly" | "family_annual">("family_monthly");
   const [extra, setExtra] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -58,7 +68,17 @@ export function StartPlan(props: { monthlyCents: number; annualCents: number; sl
           </span>
         </div>
       )}
+      {props.trialDays > 0 && (
+        <div className="flex flex-col gap-1 rounded-3xl bg-mint/60 p-4" data-testid="trial-offer">
+          <p className="font-display text-lg font-semibold">Free for {props.trialDays} days</p>
+          <p className="text-sm">
+            Your trial includes {props.trialCredits} narration credits. We ask for a card at checkout, and nothing is charged until the trial ends.
+            Cancel before then and you won&apos;t pay anything.
+          </p>
+        </div>
+      )}
       <p data-testid="plan-total" className="font-semibold">
+        {props.trialDays > 0 ? "After your trial, " : ""}
         {formatPrice(base)} {choice === "family_monthly" ? "a month" : "a year"}
         {extra > 0 ? ` plus ${formatPrice(extra * props.slotCents)} a month for ${extra} extra ${extra === 1 ? "slot" : "slots"}` : ""}. Renews automatically until you cancel.
       </p>
@@ -78,7 +98,7 @@ export function StartPlan(props: { monthlyCents: number; annualCents: number; sl
           void goTo("/api/billing/checkout", { item: choice, extraSlots: extra }, setError).finally(() => setBusy(false));
         }}
       >
-        Continue to checkout
+        {props.trialDays > 0 ? "Start your free trial" : "Continue to checkout"}
       </button>
     </div>
   );

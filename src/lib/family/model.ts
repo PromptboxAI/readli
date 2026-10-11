@@ -165,6 +165,8 @@ export interface HouseholdEntitlement {
   tier?: PlanTier;
   /** A paid subscription's free trial: until then it gets the trial credits, not the monthly ones. */
   trialEndsAt?: string | null;
+  /** Trial credits for this plan when they differ from the plan default (0 when withheld for a reused trial card). */
+  trialCredits?: number | null;
   /** Narrator slots bought on top of the plan's included slots. */
   extraNarratorSlots: number;
   /** Future paid upgrade; stays 0 until approved (plan.extraStreamsUpgradeEnabled). */

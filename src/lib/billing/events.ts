@@ -13,7 +13,10 @@ export interface SubscriptionChange {
   status: "active" | "canceled";
   /** Readli Family, or the Family Archive when the subscription is for the Archive price. */
   tier: "family" | "archive";
-  /** When the subscription's free trial ends, if it has one. */
+  /**
+   * When the subscription's free trial ends, if it has one. One plan row covers the trial and the paid
+   * plan it turns into: until this date the household gets the trial credits, then the monthly ones.
+   */
   trialEndsAt: string | null;
   extraNarratorSlots: number;
   startsAt: string;
@@ -89,6 +92,8 @@ export function billingChange(event: { type: string; data?: { object?: StripeObj
     if (!householdId || !subscriptionRef) return { kind: "ignore", reason: "subscription without household" };
     const live = ["active", "trialing", "past_due"].includes(String(obj.status)) && event.type !== "customer.subscription.deleted";
     const periodEnd = iso(obj.current_period_end) ?? iso(((obj.items as StripeObject | undefined)?.data as StripeObject[] | undefined)?.[0]?.current_period_end);
+    // A trial doesn't end the plan: Stripe either turns it into Readli Family on the card taken at
+    // checkout or cancels the subscription, which arrives as its own event.
     const endsAt = live ? (obj.cancel_at_period_end ? periodEnd : iso(obj.cancel_at)) : (iso(obj.ended_at) ?? new Date().toISOString());
     return {
       kind: "subscription",

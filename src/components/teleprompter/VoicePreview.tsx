@@ -37,7 +37,7 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
 }
 
 /** Turns the finished take into a voice and reads a demo passage in it (PRD F-01, brief §6). */
-export function VoicePreview({ take, heading }: { take: TakeDetails; heading: string }) {
+export function VoicePreview({ take, heading, afterListen }: { take: TakeDetails; heading: string; afterListen?: React.ReactNode }) {
   const [mode, setMode] = useState<Mode>("loading");
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -184,6 +184,8 @@ export function VoicePreview({ take, heading }: { take: TakeDetails; heading: st
           </div>
         </div>
       )}
+
+      {playing && !busy && afterListen}
 
       {error && (
         <p role="alert" className="rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold">

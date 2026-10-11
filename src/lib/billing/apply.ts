@@ -3,9 +3,28 @@ import { planConfig, type PlanConfig } from "@/lib/family/plan";
 import { creditUnits } from "@/lib/narration/credits";
 import type { BillingChange } from "./events";
 import type { RevenueRow } from "./revenue";
+import { recordTrialClaim, type TrialStart } from "./trial";
 
-/** Writes a billing change with the service role. Safe to repeat: the same event gives the same rows. */
-export async function applyBillingChange(db: SupabaseClient, change: BillingChange, livemode: boolean, plan: PlanConfig = planConfig(), at = new Date()): Promise<void> {
+export interface ApplyOptions {
+  /** When Stripe created the event. An older event than the one already applied to a plan is skipped. */
+  eventAt?: string;
+  /** Who started a trial and with which card, read from Stripe and Supabase Auth by the webhook route. */
+  trialStart?: (change: Extract<BillingChange, { kind: "subscription" }>) => Promise<TrialStart | null>;
+}
+
+/**
+ * Writes a billing change with the service role. Successful Stripe events are the source of truth for
+ * a household's plan. Safe to repeat: the same event gives the same rows, and an event older than the
+ * last one applied to that subscription changes nothing (Stripe doesn't promise delivery order).
+ */
+export async function applyBillingChange(
+  db: SupabaseClient,
+  change: BillingChange,
+  livemode: boolean,
+  plan: PlanConfig = planConfig(),
+  at = new Date(),
+  opts: ApplyOptions = {},
+): Promise<void> {
   if (change.kind === "ignore") return;
   const check = ({ error }: { error: { message: string } | null }, what: string) => {
     if (error) throw new Error(`${what}: ${error.message}`);
@@ -45,6 +64,7 @@ export async function applyBillingChange(db: SupabaseClient, change: BillingChan
 
   const row = {
     household_id: change.householdId,
+    // One row covers a trial and the paid plan it becomes; trial_ends_at marks the trial.
     source: "subscription",
     status: change.status,
     tier: change.tier,
@@ -53,19 +73,23 @@ export async function applyBillingChange(db: SupabaseClient, change: BillingChan
     provider_subscription_ref: change.subscriptionRef,
     starts_at: change.startsAt,
     ends_at: change.endsAt,
+    ...(opts.eventAt ? { billing_event_at: opts.eventAt } : {}),
   };
   const { data: existing, error } = await db
     .from("household_entitlements")
-    .select("id, tier")
+    .select("id, tier, billing_event_at")
     .eq("provider_subscription_ref", change.subscriptionRef)
     .maybeSingle();
   check({ error }, "read plan");
   const from = (existing?.tier as string | undefined) ?? null;
+  const last = existing?.billing_event_at as string | null | undefined;
+  if (existing && opts.eventAt && last && Date.parse(last) > Date.parse(opts.eventAt)) return;
   if (existing) check(await db.from("household_entitlements").update(row).eq("id", existing.id), "update plan");
   else {
     const { data: earlier, error: historyError } = await db.from("household_entitlements").select("id").eq("household_id", change.householdId).limit(1);
     check({ error: historyError }, "read plan history");
     check(await db.from("household_entitlements").insert(row), "start plan");
+    if (change.trialEndsAt && change.status === "active" && opts.trialStart) await claimTrial(db, change, await opts.trialStart(change));
     // Welcome credits for a family's very first plan, if the admin turned them on (they never expire unless set to).
     if (!earlier?.length && plan.welcomePromoCredits > 0) {
       check(
@@ -97,6 +121,25 @@ export async function applyBillingChange(db: SupabaseClient, change: BillingChan
       .select("household_id");
     if (restored?.length) await logLifecycle(db, { actor: "stripe", action: "recovery_restored", household_id: change.householdId, detail: { tier: change.tier } });
   }
+}
+
+/**
+ * Records the trial claim. A card that already started a trial for another household keeps Readli
+ * Family but not the free trial credits, and the case goes to the admin exception queue.
+ */
+async function claimTrial(db: SupabaseClient, change: Extract<BillingChange, { kind: "subscription" }>, start: TrialStart | null): Promise<void> {
+  if (!start) return;
+  const { withheld } = await recordTrialClaim(db, start);
+  if (!withheld) return;
+  const { error } = await db.from("household_entitlements").update({ trial_credits: 0 }).eq("provider_subscription_ref", change.subscriptionRef);
+  if (error) throw new Error(`withhold trial credits: ${error.message}`);
+  const { error: queueError } = await db.from("lifecycle_exceptions").insert({
+    kind: "trial_card_reused",
+    household_id: change.householdId,
+    reason: "The card that started this trial already started one for another household.",
+    detail: { subscription: change.subscriptionRef },
+  });
+  if (queueError) console.error("exception queue write failed", queueError.message);
 }
 
 /** Best effort: a missing lifecycle log (before its migration runs) never fails a billing event. */

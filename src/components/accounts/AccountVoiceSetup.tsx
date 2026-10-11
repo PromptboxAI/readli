@@ -41,6 +41,22 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [sample, setSample] = useState<{ url: string; cleanUp: boolean; standIn: boolean } | null>(null);
+  /** This browser still has the take from the guest demo, which can become this grown-up's voice. */
+  const [demoAvailable, setDemoAvailable] = useState(false);
+  const [fromDemo, setFromDemo] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/voice/from-demo", { cache: "no-store" })
+      .then((r) => (r.ok ? (r.json() as Promise<{ available?: boolean }>) : null))
+      .then((s) => {
+        if (!cancelled) setDemoAvailable(s?.available === true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -48,7 +64,18 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
     };
   }, [sample]);
 
+  const chooseDemo = () => {
+    setFromDemo(true);
+    setTake(null);
+    setCleanUp(false);
+    setSample(null);
+    setPhase("idle");
+    setError(null);
+    setStep(2);
+  };
+
   const takeChosen = (t: TakeDetails) => {
+    setFromDemo(false);
     setTake(t);
     // Clean-up starts on only when the recorder heard a noisy room; quiet takes keep their natural sound.
     setCleanUp(t.recorded.qc.issues.includes("noisy"));
@@ -59,21 +86,17 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
   };
 
   const makeVoice = async () => {
-    if (!take) return;
+    if (!take && !fromDemo) return;
     setError(null);
     setPhase("making");
     try {
-      const form = new FormData();
-      form.append("audio", take.recorded.blob, "take");
-      form.append("durationMs", String(Math.round(take.recorded.durationMs)));
-      form.append("wpm", String(take.wpm));
-      form.append("pauseCount", String(take.pauseCount));
-      form.append("deviceClass", deviceClass());
-      if (take.scriptOffsetEnd !== null) form.append("scriptOffsetEnd", String(take.scriptOffsetEnd));
-      if (agreementId) form.append("agreementId", agreementId);
-      form.append("qc", JSON.stringify({ speechMs: take.recorded.qc.speechMs, issues: take.recorded.qc.issues }));
-      form.append("removeBackgroundNoise", String(cleanUp));
-      const made = await fetch("/api/voice", { method: "POST", body: form });
+      const made = take
+        ? await uploadTake(take)
+        : await fetch("/api/voice/from-demo", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ agreementId, removeBackgroundNoise: cleanUp }),
+          });
       if (!made.ok) throw new Error(await errorMessage(made, "We couldn't make your voice just now. Please try again."));
 
       setPhase("sampling");
@@ -85,6 +108,20 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setPhase("error");
     }
+  };
+
+  const uploadTake = (t: TakeDetails) => {
+    const form = new FormData();
+    form.append("audio", t.recorded.blob, "take");
+    form.append("durationMs", String(Math.round(t.recorded.durationMs)));
+    form.append("wpm", String(t.wpm));
+    form.append("pauseCount", String(t.pauseCount));
+    form.append("deviceClass", deviceClass());
+    if (t.scriptOffsetEnd !== null) form.append("scriptOffsetEnd", String(t.scriptOffsetEnd));
+    if (agreementId) form.append("agreementId", agreementId);
+    form.append("qc", JSON.stringify({ speechMs: t.recorded.qc.speechMs, issues: t.recorded.qc.issues }));
+    form.append("removeBackgroundNoise", String(cleanUp));
+    return fetch("/api/voice", { method: "POST", body: form });
   };
 
   const busy = phase === "making" || phase === "sampling";
@@ -186,11 +223,20 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
         <section className="flex flex-col gap-4">
           <h2 className="font-display text-2xl font-semibold">Read the story out loud</h2>
           <p>At least a minute, ideally one to two. Find a quiet spot and read it like a bedtime story, with lots of expression. Your voice copies how you read.</p>
+          {demoAvailable && (
+            <div className="flex flex-col gap-2 rounded-2xl bg-mint/50 p-4" data-testid="use-demo-take">
+              <p className="font-semibold">You recorded a story in the demo on this device.</p>
+              <p className="text-sm">Use that recording for your voice, or record a new one below for better quality. A demo recording is used only to make your voice, never for training, and the demo copy is deleted after 24 hours.</p>
+              <button type="button" className={`${buttonSecondary} w-fit`} onClick={chooseDemo}>
+                Use my demo recording
+              </button>
+            </div>
+          )}
           <TeleprompterRecorder script={DEMO_SCRIPT} onTake={takeChosen} takeActionLabel="Use this recording" />
         </section>
       )}
 
-      {step === 2 && take && (
+      {step === 2 && (take || fromDemo) && (
         <section className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-sky/40 p-6 sm:p-8" data-testid="account-voice-check">
           <h2 className="font-display text-2xl font-semibold">Does this sound like you?</h2>
           <label className="flex items-start gap-3 rounded-2xl bg-surface p-4">

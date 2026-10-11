@@ -47,9 +47,11 @@ interface TeleprompterRecorderProps {
    */
   onTake?: (take: TakeDetails) => void;
   takeActionLabel?: string;
+  /** Shown under a story once the guest has heard it in their voice, such as the free-trial sign-up. */
+  afterListen?: React.ReactNode;
 }
 
-export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose a story" }: TeleprompterRecorderProps) {
+export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose a story", afterListen }: TeleprompterRecorderProps) {
   const [state, dispatch] = useReducer(recorderReducer, initialRecorderState, (s) =>
     onTake ? { ...s, status: "ready" as const, consent: { adultOwner: true, processing: true } } : s,
   );
@@ -375,7 +377,7 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
 
       {showBooks && take && (
         <div ref={booksRef} className="scroll-mt-6">
-          <VoicePreview key={take.details.takeNumber} take={take.details} heading="Your take is in. Pick a story to hear it." />
+          <VoicePreview key={take.details.takeNumber} take={take.details} heading="Your take is in. Pick a story to hear it." afterListen={afterListen} />
         </div>
       )}
     </div>

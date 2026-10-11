@@ -4,6 +4,8 @@ import { billingConfig } from "@/lib/billing/config";
 import { billingChange } from "@/lib/billing/events";
 import { revenueRows } from "@/lib/billing/revenue";
 import { verifyStripeSignature } from "@/lib/billing/stripe-signature";
+import { StripeApi } from "@/lib/billing/stripe-api";
+import { accountEmail } from "@/lib/billing/trial";
 import { accountDb } from "@/lib/family/account-store";
 import { fail } from "@/lib/server/http";
 
@@ -57,7 +59,19 @@ export async function POST(req: Request) {
   if (stored.processed_at) return NextResponse.json({ received: true, duplicate: true });
 
   try {
-    await applyBillingChange(db, billingChange(event), event.livemode);
+    const obj = event.data?.object ?? {};
+    const stripe = new StripeApi(config);
+    await applyBillingChange(db, billingChange(event), event.livemode, undefined, undefined, {
+      eventAt: typeof event.created === "number" ? new Date(event.created * 1000).toISOString() : undefined,
+      // Who started a trial, and a hash of the card's fingerprint, for the one-trial-per-family check.
+      trialStart: async (change) => {
+        const adult = typeof (obj.metadata as Record<string, unknown> | undefined)?.adult_id === "string" ? ((obj.metadata as Record<string, string>).adult_id ?? null) : null;
+        const pm = typeof obj.default_payment_method === "string" ? obj.default_payment_method : null;
+        const fingerprint = pm ? await stripe.cardFingerprint(pm).catch(() => null) : null;
+        const email = adult ? await accountEmail(db, adult) : { email: null };
+        return { householdId: change.householdId, subscriptionRef: change.subscriptionRef, userId: adult, email: email.email, cardFingerprint: fingerprint };
+      },
+    });
     await recordRevenue(db, revenueRows(event));
   } catch (err) {
     await db.from("payment_events").update({ error: String(err instanceof Error ? err.message : err).slice(0, 500) }).eq("id", stored.id);
