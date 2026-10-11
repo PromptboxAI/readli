@@ -151,7 +151,7 @@ export const VOICE_AGREEMENT_SECTIONS: PolicySection[] = [
     title: "8. Changing your mind",
     paragraphs: [
       {
-        text: "You can turn independent commercial licensing off at any time; that stops new licensing of your recordings, but cannot recall copies already licensed under your earlier authorization unless the license or law requires it. You can withdraw from Readli Voice by deleting your voice or your account, which ends the service and development rights for future use and deletes your original recordings as described in the Privacy Policy. Models or systems already trained may not be able to remove what they learned from a recording. Contact admin@readli.ai for help or to exercise any legally required withdrawal, deletion or privacy right.",
+        text: "You can turn independent commercial licensing off at any time; that stops new licensing of your recordings, but cannot recall copies already licensed under your earlier authorization unless the license or law requires it. You can withdraw from Readli Voice by deleting your voice (in Readli Family, under My voice) or your account. That ends the service and development rights for future use, is recorded as a withdrawal, removes your voice from every family, and deletes the narration made in it and your original recordings as described in the Privacy Policy. Recording again later needs a new agreement. Models or systems already trained may not be able to remove what they learned from a recording. Contact admin@readli.ai for help or to exercise any legally required withdrawal, deletion or privacy right.",
       },
     ],
   },

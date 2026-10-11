@@ -33,7 +33,8 @@ export function VoicePermissions() {
   }, []);
 
   const current = history?.[0];
-  if (!current) return null;
+  // Nothing to choose until they have an agreement in force (none yet, or they deleted their voice).
+  if (!current || !current.rights.service) return null;
 
   const toggle = async (on: boolean) => {
     setBusy(true);

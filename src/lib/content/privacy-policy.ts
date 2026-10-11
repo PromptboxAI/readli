@@ -112,7 +112,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Your choices",
-        text: "you can turn independent commercial licensing off at any time, stop sharing a voice, or delete your voice or account. Deleting removes your original recordings and ends future development use; models already trained may not be able to remove what they learned. Use the controls in Readli or contact admin@readli.ai to exercise these or any other privacy rights described in section 12.",
+        text: "you can turn independent commercial licensing off at any time, stop sharing a voice, or delete your voice or account. Deleting your voice removes it from every family, deletes your original recordings and the narration made in it, and is recorded as a withdrawal that ends future development and licensing use; models already trained may not be able to remove what they learned. Use the controls in Readli or contact admin@readli.ai to exercise these or any other privacy rights described in section 12.",
       },
     ],
   },

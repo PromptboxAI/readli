@@ -248,7 +248,7 @@ export const TERMS_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Service and Readli development rights",
-        text: "these are a condition of using Readli Voice. You can withdraw them by deleting your voice or your account, which stops Readli from making new narration in your voice and deletes your original recordings as the Privacy Policy describes. Models or systems already trained may not be able to remove what they learned from a recording, and previously generated narration may be deleted.",
+        text: "these are a condition of using Readli Voice. You can withdraw them by deleting your voice (in Readli Family, under My voice) or your account. That removes your voice from every family at once, stops Readli from making new narration in it, deletes the narration already made in it and your original recordings as the Privacy Policy describes, and is recorded as a withdrawal. Models or systems already trained may not be able to remove what they learned from a recording. You can record a new voice later, which needs a new agreement.",
       },
       {
         lead: "Where the law requires",
