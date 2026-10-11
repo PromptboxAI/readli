@@ -1,0 +1,154 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
+import { requireAdmin } from "@/lib/admin/access";
+import { costConfig, loadFinance, type FinanceReport } from "@/lib/admin/finance";
+import { accountDb } from "@/lib/family/account-store";
+
+export const metadata: Metadata = { title: "Finances | Readli admin", robots: { index: false } };
+export const dynamic = "force-dynamic";
+
+const n = (x: number) => x.toLocaleString("en-US");
+const money = (cents: number) => (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+const usd = (dollars: number) => dollars.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pct = (x: number | null) => (x === null ? "None yet" : `${Math.round(x * 1000) / 10}%`);
+
+function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
+  return (
+    <div className="rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
+      <p className="text-sm text-muted">{label}</p>
+      <p className="font-display text-2xl font-semibold">{value}</p>
+      {note && <p className="text-sm text-muted">{note}</p>}
+    </div>
+  );
+}
+
+function Section({ id, title, children, note }: { id: string; title: string; children: React.ReactNode; note?: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-3" aria-labelledby={id}>
+      <h2 id={id} className="font-display text-2xl font-semibold">{title}</h2>
+      {note && <p className="text-sm">{note}</p>}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">{children}</div>
+    </section>
+  );
+}
+
+type Params = Record<string, string | string[] | undefined>;
+
+/** Section 12 of the pricing pack: the money side of Readli, kept apart from the product numbers on /admin. */
+export default async function FinancePage({ searchParams }: { searchParams: Promise<Params> }) {
+  const gate = await requireAdmin("/admin/finance");
+  const test = (await searchParams).mode === "test";
+  const db = gate.preview ? null : accountDb();
+  const r = db ? await loadFinance(db, { live: !test }) : null;
+
+  return (
+    <AdultPage wide>
+      <header className="flex flex-col gap-2">
+        <Eyebrow>Admin</Eyebrow>
+        <h1 className="font-display text-4xl font-semibold">Finances</h1>
+        <p className="text-lg">
+          Recurring revenue only counts subscriptions and narrator slots. Credit packs and gifts are one-time and never part of MRR.
+        </p>
+        <p className="flex flex-wrap gap-4 text-sm">
+          <Link href="/admin" className="underline underline-offset-4">Back to the admin overview</Link>
+          <Link href={test ? "/admin/finance" : "/admin/finance?mode=test"} className="underline underline-offset-4">
+            {test ? "Show live payments" : "Show test-mode payments"}
+          </Link>
+        </p>
+      </header>
+      {!r ? <PreviewNote>Financial reporting shows here once sign-in and Supabase are connected.</PreviewNote> : <Report r={r} test={test} />}
+    </AdultPage>
+  );
+}
+
+function Report({ r, test }: { r: FinanceReport; test: boolean }) {
+  const c = r.costs30d;
+  const costs = costConfig();
+  return (
+    <>
+      {!r.hasRevenueData && (
+        <p role="note" className="rounded-2xl bg-lavender/40 px-4 py-3 text-sm">
+          No {test ? "test-mode" : "live"} payments recorded yet, so revenue reads $0. Payments are still switched off; families and costs below are real.
+        </p>
+      )}
+
+      <Section id="families-h" title="Families and voices">
+        <Stat label="Paying families" value={n(r.payingFamilies)} note={`${n(r.slotsPurchased)} extra narrator slot${r.slotsPurchased === 1 ? "" : "s"} bought`} />
+        <Stat label="Gift memberships" value={n(r.giftFamilies)} />
+        <Stat label="On a free trial" value={n(r.trialFamilies)} />
+        <Stat label="Complimentary" value={n(r.complimentaryFamilies)} note="Donated and tester plans" />
+        <Stat label="Free Readli Voice contributors" value={n(r.voiceContributors)} note="Grown-ups with no Family plan" />
+        <Stat label="Active verified voices" value={n(r.verifiedVoices)} />
+      </Section>
+
+      <Section id="recurring-h" title="Recurring revenue">
+        <Stat label="Subscription MRR" value={money(r.subscriptionMrrCents)} note={`ARR ${money(r.subscriptionArrCents)}`} />
+        <Stat label="Narrator slot MRR" value={money(r.slotMrrCents)} note="Kept separate from subscriptions" />
+        <Stat label="Total recurring ARR" value={money(r.recurringArrCents)} note="Subscriptions and slots" />
+        <Stat label="Average revenue per paying family" value={r.arpuCents === null ? "None yet" : money(r.arpuCents)} note="Monthly, subscriptions and slots" />
+      </Section>
+
+      <Section id="onetime-h" title="One-time revenue" note="Refunds are subtracted. Not part of MRR.">
+        <Stat label="Credit packs, last 30 days" value={money(r.creditPacks30d.cents)} note={`${n(r.creditPacks30d.count)} sold`} />
+        <Stat label="Credit packs, all time" value={money(r.creditPacksAllTime.cents)} note={`${n(r.creditPacksAllTime.count)} sold`} />
+        <Stat label="Gifts, last 30 days" value={money(r.gifts30d.cents)} note={`${n(r.gifts30d.count)} sold`} />
+        <Stat label="Gifts, all time" value={money(r.giftsAllTime.cents)} note={`${n(r.giftsAllTime.count)} sold`} />
+      </Section>
+
+      <Section id="retention-h" title="Trials and retention">
+        <Stat label="Trial conversion" value={pct(r.trials.rate)} note={`${n(r.trials.converted)} of ${n(r.trials.ended)} finished trials`} />
+        <Stat label="Churn, last 30 days" value={pct(r.churn.rate)} note={`${n(r.churn.churned)} of ${n(r.churn.startingFamilies)} paying families`} />
+        <Stat label="Retention, last 30 days" value={pct(r.churn.retention)} />
+      </Section>
+
+      <Section
+        id="costs-h"
+        title="Costs, last 30 days"
+        note={`Estimates from the pricing pack's planning numbers (${usd(costs.per1kUsd.eleven_flash_v2_5 ?? costs.defaultPer1kUsd)} or ${usd(costs.defaultPer1kUsd)} per 1,000 characters by model, a ${usd(costs.providerPlanMonthlyUsd)} ElevenLabs plan), not invoices.`}
+      >
+        <Stat label="Generated narration cost" value={usd(c.generationUsd)} note={`${n(c.characters)} characters, ${n(c.providerCredits)} provider credits`} />
+        <Stat label="ElevenLabs expense" value={usd(c.providerExpenseUsd)} note="Plan fee, or usage when it's higher" />
+        <Stat label="Audio storage" value={usd(c.storageUsd)} />
+        <Stat label="Audio delivery" value={usd(c.deliveryUsd)} />
+      </Section>
+
+      <Section id="contribution-h" title="Contribution, last 30 days">
+        <Stat label="Revenue" value={money(r.revenue30dCents)} note="This month's recurring plus one-time sales" />
+        <Stat label="Costs" value={usd(c.totalUsd)} />
+        <Stat label="Total operating contribution" value={usd(r.operatingContributionUsd)} />
+      </Section>
+
+      <section className="flex flex-col gap-3" aria-labelledby="margin-h">
+        <h2 id="margin-h" className="font-display text-2xl font-semibold">Contribution margin by family</h2>
+        <p className="text-sm">Revenue this month minus the narration that family generated. Lowest margin first.</p>
+        {r.households.length === 0 ? (
+          <p className="text-muted">No family has revenue or generation costs yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm" data-testid="household-margins">
+              <thead>
+                <tr className="border-b-2 border-ink/10">
+                  <th className="py-2 pr-3">Family</th>
+                  <th className="py-2 pr-3">Revenue</th>
+                  <th className="py-2 pr-3">Narration cost</th>
+                  <th className="py-2">Margin</th>
+                </tr>
+              </thead>
+              <tbody>
+                {r.households.slice(0, 50).map((h) => (
+                  <tr key={h.householdId} className="border-b border-ink/10">
+                    <td className="py-2 pr-3">{h.name ?? "Deleted family"}</td>
+                    <td className="py-2 pr-3">{money(h.revenueCents)}</td>
+                    <td className="py-2 pr-3">{usd(h.costUsd)}</td>
+                    <td className="py-2">{usd(h.marginUsd)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
