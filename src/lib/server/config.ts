@@ -7,6 +7,8 @@
  * - stub: VOICE_PROVIDER=stub for local dev and tests; in-memory storage and stand-in audio.
  * - off:  anything else, or DEMO_AUDIO_ENABLED=false (the global kill switch).
  */
+import { DEFAULT_MODEL } from "@/lib/voice/elevenlabs";
+
 export type PreviewMode = "live" | "stub" | "off";
 
 export interface ServerConfig {
@@ -35,7 +37,7 @@ export function serverConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig
     supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
     supabaseServiceKey: env.SUPABASE_SERVICE_ROLE_KEY,
     elevenLabsKey: env.ELEVENLABS_API_KEY,
-    elevenLabsModel: env.ELEVENLABS_MODEL_ID ?? "eleven_multilingual_v2",
+    elevenLabsModel: env.ELEVENLABS_MODEL_ID || DEFAULT_MODEL,
     cookieSecret,
     cronSecret: env.CRON_SECRET,
     // The recorder won't finish before 1:00; a second of slack covers timer drift between browser clocks.
