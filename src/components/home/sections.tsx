@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { DemoBookShelf } from "@/components/books/DemoBookShelf";
 import { SocialIcon } from "@/components/brand/SocialIcon";
@@ -6,6 +7,7 @@ import { FamilyOfStorytellers, HearLovedOnes, MakeStorytimeYourOwn } from "@/com
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
+import { UPCOMING_BOOKS } from "@/lib/library/catalog";
 
 function Cloud({ className }: { className: string }) {
   return (
@@ -254,22 +256,33 @@ export function ThreeWaysToListen() {
 export function KidsShelf() {
   return (
     <section id="stories" aria-labelledby="shelf-heading" className="scroll-mt-20 bg-mint/40">
-      <div className="mx-auto flex max-w-3xl flex-col items-center gap-5 px-4 py-12 text-center sm:px-6 sm:py-16">
-        <h2 id="shelf-heading" className="font-display text-3xl font-semibold sm:text-4xl">
-          A Whole World of Stories Awaits
-        </h2>
-        <p className="text-lg">
-          Browse classic storybooks for every age and every bedtime, then hear them read in the voices your family loves. No
-          account needed to look around.
-        </p>
-        <ul className="flex flex-wrap justify-center gap-2" aria-label="Some of what you'll find">
-          {["Ages 3–5", "Ages 6–8", "Bedtime", "Animals", "Adventure", "Fairy tales"].map((tag) => (
-            <li key={tag} className="rounded-full border-2 border-ink/15 bg-surface px-4 py-1.5 text-sm font-semibold">
-              {tag}
-            </li>
-          ))}
-        </ul>
-        <Link href="/books" className={`${buttonPrimary} mt-2 w-full sm:w-auto`}>
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-12 sm:px-6 sm:py-14">
+        <div className="flex flex-col gap-2 text-center">
+          <h2 id="shelf-heading" className="font-display text-3xl font-semibold sm:text-4xl">
+            A Whole World of Stories Awaits
+          </h2>
+          <p className="text-lg">Browse classic storybooks for every age and every bedtime. No account needed to look around.</p>
+        </div>
+        <div>
+          <ul className="flex snap-x gap-4 overflow-x-auto pb-2 sm:justify-center">
+            {UPCOMING_BOOKS.map((book) => (
+              <li key={book.slug} className="w-28 shrink-0 snap-start sm:w-32">
+                <Link href={`/books/${book.slug}`} className="block rounded-xl transition-transform hover:-translate-y-1">
+                  <Image
+                    src={book.coverUrl}
+                    alt={book.title}
+                    width={600}
+                    height={800}
+                    sizes="128px"
+                    className="aspect-[3/4] w-full rounded-xl object-cover shadow-[4px_6px_0_rgba(40,53,72,0.18)]"
+                  />
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div aria-hidden="true" className="-mt-4 h-3.5 rounded-sm bg-wood shadow-[0_6px_0_var(--color-wood-deep)]" />
+        </div>
+        <Link href="/books" className={`${buttonPrimary} mt-2 w-full self-center sm:w-auto`}>
           Explore the Readli Library
         </Link>
       </div>

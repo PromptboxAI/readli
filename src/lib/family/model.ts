@@ -142,8 +142,11 @@ export type Actor = { kind: "adult"; adultId: string } | { kind: "child"; childI
 export interface HouseholdEntitlement {
   id: string;
   householdId: string;
-  /** A trial gives Family access for its days, with the trial narration allowance instead of the monthly one. */
-  source: "subscription" | "gift" | "donated" | "trial";
+  /**
+   * A trial gives Family access for its days, with the trial narration allowance instead of the monthly one.
+   * "tester" is a free Family plan an admin gave a tester household before payments are on.
+   */
+  source: "subscription" | "gift" | "donated" | "trial" | "tester";
   status: "active" | "canceled";
   /** Narrator slots bought on top of the plan's included slots. */
   extraNarratorSlots: number;

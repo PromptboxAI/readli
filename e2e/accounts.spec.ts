@@ -58,6 +58,14 @@ test("extra narrator slots add to the bill but aren't sold until approved", asyn
   await page.screenshot({ path: `e2e/screenshots/narrator-slots-${info.project.name}.png`, fullPage: true });
 });
 
+test("admin home links the admin pages and explains real numbers need Supabase", async ({ page }) => {
+  await page.goto("/admin");
+  await expect(page.getByRole("heading", { name: "Readli admin" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Plan settings" })).toHaveAttribute("href", "/admin/plans");
+  await expect(page.getByText("Real numbers and tester plans show here once sign-in and Supabase are connected.")).toBeVisible();
+  await noOverflow(page);
+});
+
 test("admin plan settings list every configurable limit", async ({ page }, info) => {
   await page.goto("/admin/plans");
   const settings = page.getByTestId("plan-settings");
