@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { currentUser } from "@/lib/auth/supabase";
 import { serverConfig } from "@/lib/server/config";
 import { fail } from "@/lib/server/http";
 import { AccountVoiceError, accountVoiceDeps, createAccountVoice, deleteAccountVoice } from "@/lib/voice/account-voices";
+import { voiceOwner } from "@/lib/voice/owner";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -33,9 +33,9 @@ function parseQc(v: FormDataEntryValue | null): { speechMs: number | null; issue
 export async function GET() {
   const deps = accountVoiceDeps(serverConfig());
   if (!deps) return fail(503, "voices_off", VOICES_OFF);
-  const user = await currentUser();
-  if (!user) return fail(401, "sign_in_required", SIGN_IN);
-  const voice = await deps.store.findVoice(user.id);
+  const owner = await voiceOwner(SIGN_IN);
+  if ("error" in owner) return owner.error;
+  const voice = await deps.store.findVoice(owner.user.id);
   return NextResponse.json({ voice: voice ? { id: voice.id, status: voice.status, version: voice.version, updatedAt: voice.updatedAt } : null }, { headers: { "cache-control": "no-store" } });
 }
 
@@ -43,8 +43,9 @@ export async function GET() {
 export async function POST(req: Request) {
   const deps = accountVoiceDeps(serverConfig());
   if (!deps) return fail(503, "voices_off", VOICES_OFF);
-  const user = await currentUser();
-  if (!user) return fail(401, "sign_in_required", SIGN_IN);
+  const owner = await voiceOwner(SIGN_IN);
+  if ("error" in owner) return owner.error;
+  const user = owner.user;
 
   const form = await req.formData().catch(() => null);
   const audio = form?.get("audio");
@@ -70,15 +71,19 @@ export async function POST(req: Request) {
   }
 }
 
-/** Deletes the grown-up's voice everywhere. They can record a new one at any time. */
+/**
+ * Deletes (withdraws) the grown-up's voice: no new stories in it, its clone retired, unfinished
+ * narration stopped with credits returned, its recordings out of training. Stories already prepared
+ * keep playing for the families it was shared with. They can record a new one at any time.
+ */
 export async function DELETE() {
   const deps = accountVoiceDeps(serverConfig());
   if (!deps) return fail(503, "voices_off", VOICES_OFF);
-  const user = await currentUser();
-  if (!user) return fail(401, "sign_in_required", "Please sign in to delete your voice.");
+  const owner = await voiceOwner("Please sign in to delete your voice.");
+  if ("error" in owner) return owner.error;
   try {
-    await deleteAccountVoice(deps, user.id);
-    return NextResponse.json({ voice: null });
+    const result = await deleteAccountVoice(deps, owner.user.id);
+    return NextResponse.json({ voice: null, stoppedJobs: result.stoppedJobs });
   } catch (err) {
     if (err instanceof AccountVoiceError) return fail(err.status, err.code, err.userMessage);
     throw err;

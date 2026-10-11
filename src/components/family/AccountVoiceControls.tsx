@@ -31,7 +31,7 @@ export function AccountVoiceControls({ voice }: { voice: { status: string; versi
     setConfirming(false);
     if (!res.ok) return setMessage((await res.json().catch(() => null))?.error?.message ?? "We couldn't delete your voice. Please try again.");
     setSample(null);
-    setMessage("Your voice is deleted. No family can use it, and the stories made with it are gone.");
+    setMessage("Your voice is deleted. Nothing new can be made in it. Stories already prepared in it stay with the families you shared it with.");
     router.refresh();
   };
 
@@ -44,14 +44,15 @@ export function AccountVoiceControls({ voice }: { voice: { status: string; versi
         <>
           <p>
             Recorded {new Date(voice.updatedAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
-            {voice.version > 1 ? ` (take ${voice.version})` : ""}. Recording again in a quiet room replaces it, and families you share it
-            with keep hearing you, with the new recording.
+            {voice.version > 1 ? ` (take ${voice.version})` : ""}. Recording again in a quiet room replaces it: new stories use the new
+            recording, and stories already prepared keep the one they were made with.
           </p>
           {confirming ? (
             <div className="flex flex-col gap-3 rounded-2xl bg-coral/15 p-4">
               <p className="font-semibold">
-                Delete your voice? Every family you share it with loses it straight away, and stories already prepared in it are removed.
-                You can record a new one whenever you like.
+                Delete your voice? No new stories can be made in it, and anything still being prepared stops (unused credits go back to
+                the family). Stories already prepared in your voice stay with the families you shared it with. To have those removed too,
+                email admin@readli.ai. You can record a new voice whenever you like.
               </p>
               <div className="flex flex-wrap gap-3">
                 <button type="button" className={buttonPrimary} disabled={busy} onClick={remove}>

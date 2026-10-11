@@ -56,14 +56,17 @@ export function ContributorDashboard({ invited = false }: { invited?: boolean })
             <p>One voice, yours alone. Families you approve use this same voice; it&apos;s never copied for each family.</p>
             {confirmDelete ? (
               <div className="flex flex-col gap-3 rounded-2xl bg-coral/20 p-4">
-                <p className="font-semibold">Delete your voice? Every family loses it straight away, and their kids can&apos;t hear it any more.</p>
+                <p className="font-semibold">
+                  Delete your voice? No new stories can be made in it and families can&apos;t add it as a narrator. Stories they&apos;ve already
+                  prepared in your voice stay with them.
+                </p>
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
                     className={buttonPrimary}
                     onClick={() => {
                       setVoice("deleted");
-                      setFamilies((fs) => fs.map((f) => (f.state === "shared" ? { ...f, state: "stopped", activeNarrator: false } : f)));
+                      setFamilies((fs) => fs.map((f) => ({ ...f, activeNarrator: false })));
                       setConfirmDelete(false);
                     }}
                   >
@@ -90,7 +93,7 @@ export function ContributorDashboard({ invited = false }: { invited?: boolean })
           </>
         ) : (
           <div className="flex flex-col items-start gap-3">
-            <p>Your voice is deleted and no family can use it. You can record a new one whenever you like.</p>
+            <p>Your voice is deleted, so no new stories can be made in it. Stories families already prepared keep playing for them. You can record a new one whenever you like.</p>
             <Link href="/voice/record" className={buttonPrimary}>
               Record my voice
             </Link>

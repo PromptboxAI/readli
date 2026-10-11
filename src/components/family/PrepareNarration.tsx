@@ -175,10 +175,15 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
                 </p>
               </div>
 
-              {v.availability === "unavailable" ? (
-                <p className="text-sm font-semibold">
+              {v.stored && (
+                <p className="text-sm text-muted" data-testid="stored-version">
+                  Kids still hear the earlier recording for {v.stored.ready === v.stored.total ? "this book" : `${v.stored.ready} of ${v.stored.total} sentences`} until this one is prepared.
+                </p>
+              )}
+              {v.unavailableReason ? (
+                <p className="text-sm font-semibold" data-testid="unavailable-reason">
                   {v.unavailableReason}.{" "}
-                  {!v.inSlot && (
+                  {v.needsSlot && (
                     <Link href="/family/narrators" className="underline underline-offset-4">
                       Manage narrator slots
                     </Link>
@@ -213,7 +218,7 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
 
               {openFor(book) && pending && <Confirm view={view} voice={v} quote={pending.quote} busy={busy} onConfirm={confirm} onCancel={() => setPending(null)} />}
 
-              {view.chapterGenerationEnabled && v.availability !== "unavailable" && (
+              {view.chapterGenerationEnabled && !v.unavailableReason && (
                 <details className="rounded-2xl bg-ivory p-3" open={v.missingCredits > balance || Boolean(pending && pending.target.voiceId === v.voiceId && pending.target.scope === "chapter")}>
                   <summary className="cursor-pointer font-semibold">Chapters</summary>
                   <ol className="mt-2 flex flex-col gap-2">

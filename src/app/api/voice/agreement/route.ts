@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { currentUser } from "@/lib/auth/supabase";
 import { serverConfig } from "@/lib/server/config";
 import { fail } from "@/lib/server/http";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
 import { acceptVoiceAgreement, setThirdPartyLicensing, VoiceAgreementError } from "@/lib/voice/agreements";
+import { voiceOwner } from "@/lib/voice/owner";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +13,9 @@ const SIGN_IN = "Please sign in to make your Readli voice.";
 async function context() {
   const deps = accountVoiceDeps(serverConfig());
   if (!deps) return { error: fail(503, "voices_off", VOICES_OFF) };
-  const user = await currentUser();
-  if (!user) return { error: fail(401, "sign_in_required", SIGN_IN) };
+  const owner = await voiceOwner(SIGN_IN);
+  if ("error" in owner) return { error: owner.error };
+  const user = owner.user;
   return { deps, contributor: { id: user.id, name: user.name, email: user.email } };
 }
 
