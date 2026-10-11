@@ -1,8 +1,3 @@
--- Kevin's updated pricing (Updated Pricing, Credits & Subscription Architecture, 2026-10-11).
--- Readli Family $19.99/month or $179.99/year; extra narrator slot $5.99/month (approved).
--- Gifts follow the Family prices: $19.99, $59.97 and $179.99 (proposed, gift checkout still off).
--- Mirrors DEFAULT_PLAN in src/lib/family/plan.ts. Rows an admin already changed are left alone.
--- Nothing here switches payments on.
 
 alter table public.plan_settings
   add column family_annual_price_cents integer not null default 17999 check (family_annual_price_cents > 0),

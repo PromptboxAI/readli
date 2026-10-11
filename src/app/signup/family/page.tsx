@@ -54,6 +54,7 @@ export default function FamilySignupPage() {
               <p className="text-sm">
                 For new families. Your trial includes {rewards.trialCredits} narration credits for new stories in your storytellers&apos; voices.
               </p>
+              <p className="text-sm">We ask for a card to start the trial. Nothing is charged until it ends, and you can cancel before then.</p>
               {!rewards.programPublic && <p className="text-sm text-muted">Not switched on yet. This is how it will look.</p>}
             </div>
           )}

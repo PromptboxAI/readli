@@ -30,6 +30,7 @@ describe("billingChange", () => {
       subscriptionRef: "sub_1",
       customerRef: "cus_1",
       status: "active",
+      trial: false,
       extraNarratorSlots: 2,
       startsAt: "2025-10-09T08:53:20.000Z",
       endsAt: null,
@@ -40,6 +41,22 @@ describe("billingChange", () => {
     for (const status of ["trialing", "past_due"]) {
       expect(billingChange(event("customer.subscription.updated", sub({ status })))).toMatchObject({ status: "active" });
     }
+  });
+
+  it("makes a Stripe trial a Readli trial until it converts, then counts paid months from the trial's end", () => {
+    const trialing = sub({ status: "trialing", trial_start: 1_760_000_000, trial_end: 1_761_209_600, current_period_end: 1_761_209_600 });
+    expect(billingChange(event("customer.subscription.created", trialing))).toMatchObject({
+      status: "active",
+      trial: true,
+      startsAt: new Date(1_760_000_000 * 1000).toISOString(),
+      endsAt: new Date(1_761_209_600 * 1000).toISOString(),
+    });
+    expect(billingChange(event("customer.subscription.updated", { ...trialing, status: "active" }))).toMatchObject({
+      trial: false,
+      startsAt: new Date(1_761_209_600 * 1000).toISOString(),
+      endsAt: null,
+    });
+    expect(billingChange(event("customer.subscription.deleted", { ...trialing, status: "canceled", ended_at: 1_761_209_600 }))).toMatchObject({ status: "canceled", trial: false });
   });
 
   it("ends the plan at period end when the family cancels, and right away when Stripe ends it", () => {

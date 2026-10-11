@@ -30,6 +30,7 @@ test("family checkout shows the plan and stays switched off", async ({ page }, i
   await expect(page.getByTestId("checkout-off")).toBeVisible();
   await expect(page.getByTestId("family-trial")).toContainText("Try it free for 14 days");
   await expect(page.getByTestId("family-trial")).toContainText("Not switched on yet");
+  await expect(page.getByTestId("family-trial")).toContainText("We ask for a card");
   await expect(page.getByRole("button", { name: "Start Readli Family" })).toBeDisabled();
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/signup-family-${info.project.name}.png`, fullPage: true });

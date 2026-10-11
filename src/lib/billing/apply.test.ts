@@ -65,6 +65,7 @@ describe("applyBillingChange", () => {
       subscriptionRef: "sub_1",
       customerRef: "cus_1",
       status: "active" as const,
+      trial: false,
       extraNarratorSlots: 1,
       startsAt: at.toISOString(),
       endsAt: null,
@@ -74,5 +75,25 @@ describe("applyBillingChange", () => {
     expect(tables.household_entitlements).toHaveLength(1);
     expect(tables.household_entitlements![0]).toMatchObject({ status: "canceled", extra_narrator_slots: 1, provider_subscription_ref: "sub_1" });
     expect(tables.billing_customers![0]).toMatchObject({ household_id: "h1", customer_ref: "cus_1" });
+  });
+
+  it("keeps a trial and the paid plan it turns into on one row", async () => {
+    const { db, tables } = fakeDb();
+    const sub = {
+      kind: "subscription" as const,
+      householdId: "h1",
+      subscriptionRef: "sub_2",
+      customerRef: "cus_2",
+      status: "active" as const,
+      trial: true,
+      extraNarratorSlots: 0,
+      startsAt: at.toISOString(),
+      endsAt: "2026-10-25T00:00:00.000Z",
+    };
+    await applyBillingChange(db, sub, false, DEFAULT_PLAN, at);
+    expect(tables.household_entitlements![0]).toMatchObject({ source: "trial", ends_at: "2026-10-25T00:00:00.000Z" });
+    await applyBillingChange(db, { ...sub, trial: false, startsAt: "2026-10-25T00:00:00.000Z", endsAt: null }, false, DEFAULT_PLAN, at);
+    expect(tables.household_entitlements).toHaveLength(1);
+    expect(tables.household_entitlements![0]).toMatchObject({ source: "subscription", starts_at: "2026-10-25T00:00:00.000Z", ends_at: null });
   });
 });

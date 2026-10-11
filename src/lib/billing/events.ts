@@ -11,6 +11,8 @@ export interface SubscriptionChange {
   customerRef: string | null;
   /** active covers Stripe's active, trialing and past_due (Stripe is still retrying the card). */
   status: "active" | "canceled";
+  /** In Stripe's free trial: the plan is a Readli trial (trial credits, not the monthly allowance) until it converts. */
+  trial: boolean;
   extraNarratorSlots: number;
   startsAt: string;
   endsAt: string | null;
@@ -76,15 +78,21 @@ export function billingChange(event: { type: string; data?: { object?: StripeObj
     if (!householdId || !subscriptionRef) return { kind: "ignore", reason: "subscription without household" };
     const live = ["active", "trialing", "past_due"].includes(String(obj.status)) && event.type !== "customer.subscription.deleted";
     const periodEnd = iso(obj.current_period_end) ?? iso(((obj.items as StripeObject | undefined)?.data as StripeObject[] | undefined)?.[0]?.current_period_end);
-    const endsAt = live ? (obj.cancel_at_period_end ? periodEnd : iso(obj.cancel_at)) : (iso(obj.ended_at) ?? new Date().toISOString());
+    const trial = live && obj.status === "trialing";
+    const trialEnd = iso(obj.trial_end);
+    const cancelEnd = obj.cancel_at_period_end ? periodEnd : iso(obj.cancel_at);
+    const endsAt = !live ? (iso(obj.ended_at) ?? new Date().toISOString()) : trial ? (cancelEnd ?? trialEnd) : cancelEnd;
+    // Once a trial converts, paid months count from the trial's end, so the monthly credits line up with billing.
+    const startsAt = trial ? (iso(obj.trial_start) ?? iso(obj.start_date)) : (trialEnd ?? iso(obj.start_date));
     return {
       kind: "subscription",
       householdId,
       subscriptionRef,
       customerRef: ref(obj.customer),
       status: live ? "active" : "canceled",
+      trial,
       extraNarratorSlots: extraSlots(obj),
-      startsAt: iso(obj.start_date) ?? new Date().toISOString(),
+      startsAt: startsAt ?? new Date().toISOString(),
       endsAt,
     };
   }

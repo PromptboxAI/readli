@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { checkoutRequest } from "@/lib/billing/checkout";
+import { checkoutRequest, trialDaysFor } from "@/lib/billing/checkout";
 import { billingConfig } from "@/lib/billing/config";
 import { StripeApi, StripeError } from "@/lib/billing/stripe-api";
 import { catalogItem } from "@/lib/billing/catalog";
@@ -8,6 +8,7 @@ import { accountDb } from "@/lib/family/account-store";
 import { jsonBody, withFamily } from "@/lib/family/http";
 import { activeEntitlement } from "@/lib/family/permissions";
 import { guardianHousehold } from "@/lib/family/service";
+import { rewardsConfig } from "@/lib/rewards/rewards";
 import { fail } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,8 @@ export const runtime = "nodejs";
 
 /**
  * Starts a Stripe Checkout for Readli Family ({ item: "family_monthly" | "family_annual", extraSlots })
- * or a credit pack ({ item: "credit_pack:<id>" }) and returns its URL. Answers 404 while payments are
+ * or a credit pack ({ item: "credit_pack:<id>" }) and returns its URL. A new family's Readli Family
+ * starts with the free trial, and checkout always takes a card. Answers 404 while payments are
  * off. Plans and credits are granted from the webhook, never from here.
  */
 export async function POST(req: Request) {
@@ -30,7 +32,18 @@ export async function POST(req: Request) {
 
     const state = await store.read();
     const plan = await effectivePlan(db, store.plan);
-    const request = checkoutRequest(plan, activeEntitlement(state, householdId), String(body.item ?? ""), body.extraSlots);
+    const { data: running, error } = await db
+      .from("household_entitlements")
+      .select("id")
+      .eq("household_id", householdId)
+      .eq("status", "active")
+      .not("provider_subscription_ref", "is", null)
+      .limit(1);
+    if (error) throw new Error(`read subscriptions: ${error.message}`);
+    const request = checkoutRequest(plan, activeEntitlement(state, householdId), String(body.item ?? ""), body.extraSlots, {
+      hasSubscription: (running ?? []).length > 0,
+      trialDays: trialDaysFor(state.entitlements, rewardsConfig()),
+    });
     if (!request.ok) return fail(request.status, request.code, request.message);
 
     const { data: customer } = await db.from("billing_customers").select("customer_ref").eq("household_id", householdId).maybeSingle();
@@ -58,7 +71,16 @@ export async function POST(req: Request) {
         customer: customer?.customer_ref ?? undefined,
         customer_email: customer ? undefined : (session.account.email ?? undefined),
         metadata,
-        ...(request.mode === "subscription" ? { subscription_data: { metadata } } : { payment_intent_data: { metadata } }),
+        ...(request.mode === "subscription"
+          ? {
+              // A card is always taken, trial or not, so a trial turns into Readli Family on its own.
+              payment_method_collection: "always",
+              subscription_data: {
+                metadata,
+                ...(request.trialDays ? { trial_period_days: request.trialDays, trial_settings: { end_behavior: { missing_payment_method: "cancel" } } } : {}),
+              },
+            }
+          : { payment_intent_data: { metadata } }),
         success_url: `${origin}/family/billing?checkout=success`,
         cancel_url: `${origin}/family/billing?checkout=canceled`,
       });

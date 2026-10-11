@@ -1,8 +1,10 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { buttonSecondary } from "@/components/brand/buttons";
 import { ManagePlan, StartPlan } from "@/components/family/BillingActions";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
+import { trialDaysFor } from "@/lib/billing/checkout";
 import { billingConfig } from "@/lib/billing/config";
 import { effectivePlan } from "@/lib/billing/price-settings";
 import { billingSummary, type BillingSummary } from "@/lib/billing/summary";
@@ -11,6 +13,7 @@ import { familyPage } from "@/lib/family/page-data";
 import { formatPrice } from "@/lib/family/plan";
 import { guardianHousehold } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
+import { rewardsConfig } from "@/lib/rewards/rewards";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Plan and billing | Readli", robots: { index: false } };
@@ -26,6 +29,18 @@ const PLAN_NAMES: Record<BillingSummary["plan"], string> = {
   donated: "Readli Family (complimentary)",
   tester: "Readli Family (tester plan)",
 };
+
+async function hasStripePlan(db: SupabaseClient | null, householdId: string): Promise<boolean> {
+  if (!db) return false;
+  const { data } = await db
+    .from("household_entitlements")
+    .select("id")
+    .eq("household_id", householdId)
+    .eq("status", "active")
+    .not("provider_subscription_ref", "is", null)
+    .limit(1);
+  return (data ?? []).length > 0;
+}
 
 function planNote(s: BillingSummary): string {
   if (s.plan === "none") return "Start Readli Family to set up kids profiles, add family storytellers and prepare stories.";
@@ -45,8 +60,12 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const householdId = await guardianHousehold(store, page.session.actor);
   if (!householdId) return <NeedsGrownUp text={NOT_GUARDIAN} />;
   const plan = await effectivePlan(page.session.account ? accountDb() : null, store.plan);
-  const s = billingSummary(await store.read(), plan, householdId);
+  const state = await store.read();
+  const s = billingSummary(state, plan, householdId);
   const paymentsOn = billingConfig().mode !== "off";
+  const rewards = rewardsConfig();
+  // A trial started through checkout is already a Stripe subscription: it's managed, not bought again.
+  const stripePlan = s.plan === "trial" && (await hasStripePlan(page.session.account ? accountDb() : null, householdId));
 
   return (
     <FamilyShell>
@@ -59,7 +78,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       </header>
       {q.checkout === "success" && (
         <p role="status" className="rounded-2xl bg-mint/40 px-4 py-3">
-          Thank you! Your plan starts as soon as the payment goes through, usually within a minute.
+          Thank you! Your plan starts within a minute or so.
         </p>
       )}
       {q.checkout === "canceled" && <p role="status" className="rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/10">Checkout was canceled. Nothing was charged.</p>}
@@ -73,10 +92,11 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
             {s.extraNarratorSlots > 0 ? ` (${s.extraNarratorSlots} extra${s.extraSlotsMonthlyCents ? `, ${formatPrice(s.extraSlotsMonthlyCents)} a month` : ""})` : ""}.
           </p>
         )}
-        {s.plan === "subscription" && <ManagePlan paymentsOn={paymentsOn} />}
+        {stripePlan && <p>Readli Family starts on the card you added when the trial ends, unless you cancel first.</p>}
+        {(s.plan === "subscription" || stripePlan) && <ManagePlan paymentsOn={paymentsOn} />}
       </section>
 
-      {s.canStartPlan && (
+      {s.canStartPlan && !stripePlan && (
         <section className="flex flex-col gap-3" aria-labelledby="start-h">
           <h2 id="start-h" className="font-display text-2xl font-semibold">{s.plan === "none" ? "Start Readli Family" : "Keep Readli Family going"}</h2>
           <StartPlan
@@ -86,6 +106,8 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
             slotsForSale={plan.extraSlotPriceApproved}
             includedSlots={plan.includedNarratorSlots}
             paymentsOn={paymentsOn}
+            trialDays={s.plan === "none" ? trialDaysFor(state.entitlements, rewards) : 0}
+            trialCredits={plan.trialCredits}
           />
         </section>
       )}

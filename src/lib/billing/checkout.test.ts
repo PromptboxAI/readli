@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { HouseholdEntitlement } from "@/lib/family/model";
 import { DEFAULT_PLAN } from "@/lib/family/plan";
 import { catalog, catalogItem, lookupKey } from "./catalog";
-import { checkoutRequest } from "./checkout";
+import { DEFAULT_REWARDS } from "@/lib/rewards/rewards";
+import { checkoutRequest, trialDaysFor } from "./checkout";
 import { billingConfig } from "./config";
 import { encodeForm, StripeApi, StripeError } from "./stripe-api";
 
@@ -58,6 +59,21 @@ describe("checkoutRequest", () => {
     expect(checkoutRequest(DEFAULT_PLAN, entitlement("subscription"), pack)).toMatchObject({ ok: false, code: "purchases_off" });
     expect(checkoutRequest(packs, null, pack)).toMatchObject({ ok: false, code: "needs_family" });
     expect(checkoutRequest(packs, entitlement("gift"), pack)).toMatchObject({ ok: true, mode: "payment" });
+  });
+
+  it("offers the free trial only to a family with no plan, and never a second Stripe subscription", () => {
+    expect(checkoutRequest(DEFAULT_PLAN, null, "family_monthly", 0, { trialDays: 14 })).toMatchObject({ ok: true, trialDays: 14 });
+    expect(checkoutRequest(DEFAULT_PLAN, entitlement("tester"), "family_monthly", 0, { trialDays: 14 })).toMatchObject({ ok: true, trialDays: 0 });
+    expect(checkoutRequest(DEFAULT_PLAN, entitlement("trial"), "family_monthly", 0, { hasSubscription: true })).toMatchObject({ ok: false, code: "already_on_plan" });
+  });
+
+  it("gives the trial to new families once", () => {
+    const on = { ...DEFAULT_REWARDS, programPublic: true };
+    expect(trialDaysFor([], on)).toBe(14);
+    expect(trialDaysFor([entitlement("tester")], on)).toBe(14);
+    expect(trialDaysFor([{ ...entitlement("trial"), status: "canceled" }], on)).toBe(0);
+    expect(trialDaysFor([entitlement("gift")], on)).toBe(0);
+    expect(trialDaysFor([], DEFAULT_REWARDS)).toBe(0);
   });
 
   it("refuses unknown items and a bare extra slot", () => {

@@ -45,7 +45,7 @@ export async function applyBillingChange(db: SupabaseClient, change: BillingChan
 
   const row = {
     household_id: change.householdId,
-    source: "subscription",
+    source: change.trial ? "trial" : "subscription",
     status: change.status,
     extra_narrator_slots: change.extraNarratorSlots,
     provider_subscription_ref: change.subscriptionRef,
