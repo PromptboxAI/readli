@@ -66,6 +66,13 @@ test("admin home links the admin pages and explains real numbers need Supabase",
   await noOverflow(page);
 });
 
+test("admin finances page explains it needs Supabase in the preview", async ({ page }) => {
+  await page.goto("/admin/finance");
+  await expect(page.getByRole("heading", { name: "Finances" })).toBeVisible();
+  await expect(page.getByText("Financial reporting shows here once sign-in and Supabase are connected.")).toBeVisible();
+  await noOverflow(page);
+});
+
 test("admin plan settings list every configurable limit", async ({ page }, info) => {
   await page.goto("/admin/plans");
   const settings = page.getByTestId("plan-settings");
