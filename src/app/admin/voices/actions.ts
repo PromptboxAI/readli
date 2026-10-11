@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/access";
 import { accountDb } from "@/lib/family/account-store";
-import { rows } from "@/lib/lifecycle/db";
+import { rows, writeAudit } from "@/lib/lifecycle/db";
 import { CONFIRM_REMOVAL, removeInSupabase, RemovalError, type RemovalPlan, type RemovalRequest } from "@/lib/lifecycle/legal-removal";
 import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
@@ -64,4 +64,29 @@ export async function legalRemovalAction(form: FormData) {
     }
   }
   redirect(`/admin/voices?${outcome}#legal-removal`);
+}
+
+/** Resolves an item in the lifecycle exception queue, with what was done, in the audit log. */
+export async function resolveExceptionAction(form: FormData) {
+  const gate = await requireAdmin("/admin/voices");
+  const db = accountDb();
+  const id = typeof form.get("id") === "string" ? (form.get("id") as string) : "";
+  const resolution = typeof form.get("resolution") === "string" ? (form.get("resolution") as string).trim().slice(0, 500) : "";
+  let outcome: string;
+  if (gate.preview || !db) outcome = `err=${encodeURIComponent("The exception queue works once sign-in and Supabase are connected.")}`;
+  else if (!id || resolution.length < 5) outcome = `err=${encodeURIComponent("Say what was done before resolving it.")}`;
+  else {
+    const at = new Date().toISOString();
+    const [done] = await rows(
+      db.from("lifecycle_exceptions").update({ status: "resolved", resolved_at: at, resolved_by: gate.admin.id, resolution }).eq("id", id).eq("status", "open").select("id, kind, household_id, voice_id"),
+      "resolve exception",
+    );
+    if (done) {
+      await writeAudit(db, [
+        { actor: gate.admin.email, action: "exception_resolved", householdId: (done.household_id as string | null) ?? null, voiceId: (done.voice_id as string | null) ?? null, detail: { kind: done.kind, resolution } },
+      ]);
+      outcome = `ok=${encodeURIComponent("Resolved.")}`;
+    } else outcome = `err=${encodeURIComponent("That item was already resolved.")}`;
+  }
+  redirect(`/admin/voices?${outcome}#exceptions`);
 }

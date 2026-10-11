@@ -8,7 +8,8 @@ import { billingConfig } from "@/lib/billing/config";
 import { accountDb } from "@/lib/family/account-store";
 import { formatPrice, planConfig } from "@/lib/family/plan";
 import { CONFIRM_REMOVAL } from "@/lib/lifecycle/legal-removal";
-import { legalRemovalAction } from "./actions";
+import { all, rows } from "@/lib/lifecycle/db";
+import { legalRemovalAction, resolveExceptionAction } from "./actions";
 
 export const metadata: Metadata = { title: "Voice lifecycle | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -21,6 +22,8 @@ function show(m: VoiceMetric): string {
   if (m.unit === "usd") return `$${m.value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   if (m.unit === "ratio" && m.key.endsWith("conversion")) return `${Math.round(m.value * 1000) / 10}%`;
   if (m.unit === "hours") return `${m.value.toLocaleString("en-US")} h`;
+  if (m.unit === "bytes") return `${(m.value / 1_000_000).toLocaleString("en-US", { maximumFractionDigits: 1 })} MB`;
+  if (m.unit === "ratio" && (m.key.startsWith("clone_") || m.key.endsWith("_conversion"))) return `${Math.round(m.value * 1000) / 10}%`;
   return m.value.toLocaleString("en-US");
 }
 
@@ -33,6 +36,12 @@ export default async function VoiceLifecyclePage({ searchParams }: { searchParam
   const db = gate.preview ? null : accountDb();
   const report = db ? await loadVoiceMetrics(db, { live: billingConfig().mode === "live", cloneRetireAfterDays: planConfig().cloneRetireAfterDays }) : null;
   const groups = report ? [...new Set(report.metrics.map((m) => m.group))] : [];
+  const [exceptions, runs] = db
+    ? await Promise.all([
+        all(() => db.from("lifecycle_exceptions").select("id, kind, household_id, voice_id, reason, detail, created_at").eq("status", "open").order("created_at", { ascending: false }), "read exceptions"),
+        rows(db.from("lifecycle_runs").select("id, started_at, finished_at, status, deletion_enabled, clone_retirement_enabled, counts, errors").order("started_at", { ascending: false }).limit(10), "read runs"),
+      ])
+    : [[], []];
   const ok = param(params, "ok");
   const err = param(params, "err");
 
@@ -75,6 +84,50 @@ export default async function VoiceLifecyclePage({ searchParams }: { searchParam
             </dl>
           </section>
         ))
+      )}
+
+      {db && (
+        <section id="exceptions" className="flex flex-col gap-3" aria-labelledby="exceptions-h">
+          <h2 id="exceptions-h" className="font-display text-2xl font-semibold">Exception queue</h2>
+          <p>
+            Cases the daily run won&apos;t decide on its own: unspent purchased credits after a cleanup or account deletion (never
+            forfeited automatically), a reused trial card, and recording deletions that are blocked or overdue. Resolve each with what was
+            done; that goes in the lifecycle log.
+          </p>
+          {exceptions.length === 0 ? (
+            <p className="rounded-2xl bg-mint/40 px-4 py-3">Nothing waiting.</p>
+          ) : (
+            <ul className="flex flex-col gap-3" data-testid="exception-queue">
+              {exceptions.map((x) => (
+                <li key={x.id as string} className="flex flex-col gap-2 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
+                  <p className="font-semibold">{String(x.kind).replace(/_/g, " ")}</p>
+                  <p>{x.reason as string}</p>
+                  <p className="text-sm text-muted">
+                    {new Date(x.created_at as string).toLocaleString("en-US", { timeZone: "UTC" })} UTC
+                    {x.household_id ? ` · household ${x.household_id as string}` : ""}
+                    {x.voice_id ? ` · voice ${x.voice_id as string}` : ""} · {JSON.stringify(x.detail)}
+                  </p>
+                  <form action={resolveExceptionAction} className="flex flex-wrap gap-2">
+                    <input type="hidden" name="id" value={x.id as string} />
+                    <input name="resolution" required minLength={5} placeholder="What was done" className={`${input} flex-1`} />
+                    <button className={buttonSecondary}>Resolve</button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+          <h3 className="font-display text-xl font-semibold">Recent lifecycle runs</h3>
+          <ul className="flex flex-col gap-2 text-sm" data-testid="lifecycle-runs">
+            {runs.map((r) => (
+              <li key={r.id as string} className="rounded-2xl bg-surface px-4 py-2 ring-2 ring-ink/10">
+                {new Date(r.started_at as string).toLocaleString("en-US", { timeZone: "UTC" })} UTC: {r.status as string}
+                {r.deletion_enabled ? "" : " (cleanup dry run)"}
+                {r.clone_retirement_enabled ? "" : " (clone retirement dry run)"} · {JSON.stringify(r.counts)}
+                {Array.isArray(r.errors) && r.errors.length > 0 ? ` · ${r.errors.length} errors` : ""}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <section id="legal-removal" className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-surface p-5 ring-2 ring-ink/10" aria-labelledby="removal-h">

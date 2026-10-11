@@ -87,6 +87,47 @@ describe("voice lifecycle metrics", () => {
     expect(voices.find((x) => x.voiceId === "aunt")).toMatchObject({ status: "withdrawn", storedBooks: 1, archiveHouseholds: 1 });
   });
 
+  it("reports buyer-facing numbers: clone utilization, recording storage, referrals, deletions and MRR", () => {
+    const more = voiceMetrics(
+      input({
+        revenue: [
+          { household_id: "h2", kind: "subscription", amount_cents: 699, billing_interval: "month", period_start: ago(10), period_end: ago(-20) },
+          { household_id: "h1", kind: "subscription", amount_cents: 17999, billing_interval: "year", period_start: ago(10), period_end: ago(-355) },
+        ],
+        recordingFiles: [
+          { audio_bytes: 2_000_000, recording_deleted_at: null },
+          { audio_bytes: 5_000_000, recording_deleted_at: ago(1) },
+        ],
+        referrals: [
+          { referrer_user_id: "u1", paid_cycles: 2, qualified_at: ago(3), rejected_reason: null },
+          { referrer_user_id: "u2", paid_cycles: 0, qualified_at: null, rejected_reason: null },
+          { referrer_user_id: "u2", paid_cycles: 0, qualified_at: null, rejected_reason: "self_referral" },
+          { referrer_user_id: "nobody", paid_cycles: 3, qualified_at: null, rejected_reason: null },
+        ],
+        deletionRequests: [
+          { status: "pending", due_at: ago(-20), completed_at: null },
+          { status: "pending", due_at: ago(1), completed_at: null },
+          { status: "completed", due_at: ago(5), completed_at: ago(6) },
+        ],
+        exceptions: [{ status: "open" }],
+      }),
+    ).metrics;
+    const m = (key: string) => more.find((x) => x.key === key)?.value;
+    // Two active clones; only grandma's serves a Family household.
+    expect(m("clone_utilization")).toBe(0.5);
+    expect(m("clone_capacity_used")).toBe(0.067);
+    expect(m("source_recording_bytes")).toBe(2_000_000);
+    expect(m("contributor_referrals")).toBe(2);
+    expect(m("contributor_referral_paid")).toBe(1);
+    expect(m("contributor_referral_conversion")).toBe(0.5);
+    expect(m("recording_deletions_pending")).toBe(2);
+    expect(m("recording_deletions_overdue")).toBe(1);
+    expect(m("lifecycle_exceptions_open")).toBe(1);
+    expect(m("development_rights_contributors")).toBe(2);
+    expect(m("family_mrr_cents")).toBe(1500);
+    expect(m("archive_mrr_cents")).toBe(699);
+  });
+
   it("exports every metric with its definition", () => {
     const csv = metricsCsv(metrics, at).trim().split("\n");
     expect(csv[0]).toBe("generated_at,group,key,label,value,unit,definition");

@@ -15,10 +15,10 @@ const WINDOW_DAYS = 30;
  */
 export interface VoiceMetric {
   key: string;
-  group: "Contributors" | "Clones" | "Households" | "Archive" | "Recovery" | "Deletion" | "Training rights" | "Provider";
+  group: "Contributors" | "Clones" | "Households" | "Archive" | "Recovery" | "Deletion" | "Training rights" | "Referrals" | "Provider";
   label: string;
   value: number;
-  unit: "count" | "hours" | "cents" | "usd" | "ratio";
+  unit: "count" | "hours" | "cents" | "usd" | "ratio" | "bytes";
   definition: string;
 }
 
@@ -48,6 +48,11 @@ export interface VoiceMetricsInput {
   recoveries: Row[];
   revenue: Row[];
   usage: Row[];
+  /** Recording sessions with audio_bytes and recording_deleted_at. */
+  recordingFiles?: Row[];
+  referrals?: Row[];
+  deletionRequests?: Row[];
+  exceptions?: Row[];
   costs: ReturnType<typeof costConfig>;
   providerVoiceLimit: number;
   cloneRetireAfterDays: number;
@@ -120,6 +125,8 @@ export function voiceMetrics(input: VoiceMetricsInput): { metrics: VoiceMetric[]
   add("verified_contributors", "Contributors", "Verified voice contributors", verified.size, "count", "Distinct adults with a ready or processing voice whose agreement in force grants service rights and declares adult ownership.");
   add("source_recordings", "Contributors", "Original source recordings", input.recordings.length, "count", "Stored original recording files (voice_training_segments) of adult account voices, kept in private Supabase storage.");
   add("source_recording_hours", "Contributors", "Original recording hours", hours(input.recordings.reduce((s, r) => s + int(r.duration_ms), 0)), "hours", "Total duration of those original recordings.");
+  const files = input.recordingFiles ?? [];
+  add("source_recording_bytes", "Contributors", "Original recording storage", files.filter((f) => !f.recording_deleted_at).reduce((s, f) => s + int(f.audio_bytes), 0), "bytes", "Sum of audio_bytes for original recording sessions still in storage (recording_deleted_at is empty).");
 
   const retireSoon = live.filter(
     (v) => v.provider_voice_id_encrypted && v.unlinked_since && now - ts(v.unlinked_since) >= (input.cloneRetireAfterDays - 7) * DAY,
@@ -129,6 +136,9 @@ export function voiceMetrics(input: VoiceMetricsInput): { metrics: VoiceMetric[]
   add("active_clones", "Clones", "Active provider clones", activeClones, "count", "Ready voices with a live ElevenLabs clone.");
   add("retired_clones", "Clones", "Ready voices with a retired clone", live.filter((v) => v.status === "ready" && !v.provider_voice_id_encrypted).length, "count", "Ready voices whose clone was retired; remade from the original recording when a Family household needs them.");
   add("unlinked_nearing_retirement", "Clones", "Unlinked voices nearing clone retirement", retireSoon, "count", `Voices with a clone that no Readli Family household has shared for at least ${input.cloneRetireAfterDays - 7} days (retired at ${input.cloneRetireAfterDays}).`);
+  const familyClones = live.filter((v) => v.status === "ready" && v.provider_voice_id_encrypted && voices.find((r) => r.voiceId === v.id)!.familyHouseholds > 0).length;
+  add("clone_utilization", "Clones", "Clone utilization", activeClones ? Math.round((familyClones / activeClones) * 1000) / 1000 : 0, "ratio", "Active clones shared with at least one Readli Family household, over all active clones. Clones not serving a Family household are candidates for retirement.");
+  add("clone_capacity_used", "Clones", "Provider capacity used", input.providerVoiceLimit ? Math.round((activeClones / input.providerVoiceLimit) * 1000) / 1000 : 0, "ratio", "Active clones over the ElevenLabs custom voice limit.");
   add("clone_retired_30d", "Clones", "Clones retired, last 30 days", ev("clone_retired", since).length, "count", "clone_retired lifecycle events (not dry runs).");
   add("clone_reactivated_30d", "Clones", "Clones reactivated, last 30 days", ev("clone_reactivated", since).length, "count", "clone_reactivated lifecycle events: a retired clone remade from the original recording.");
   add("version_upgrades_30d", "Clones", "Voice version upgrades, last 30 days", ev("voice_version_upgraded", since).length, "count", "A contributor recorded again; earlier stories keep their original version.");
@@ -149,6 +159,9 @@ export function voiceMetrics(input: VoiceMetricsInput): { metrics: VoiceMetric[]
   for (const r of input.revenue) if (r.kind === "subscription" && archiveHouseholds.has(r.household_id as string)) archiveMrr += monthlyValueCents(r, now);
   add("archive_households", "Archive", "Households on the Archive", archiveHouseholds.size, "count", "Households whose plan in force now is Readli Family Archive.");
   add("archive_mrr_cents", "Archive", "Archive MRR", Math.round(archiveMrr), "cents", "Monthly value of current paid subscription periods for households on the Archive now.");
+  let familyMrr = 0;
+  for (const r of input.revenue) if (r.kind === "subscription" && tierOf.get(r.household_id as string) === "family") familyMrr += monthlyValueCents(r, now);
+  add("family_mrr_cents", "Archive", "Readli Family MRR", Math.round(familyMrr), "cents", "Monthly value of current paid subscription periods for households on Readli Family now (yearly plans counted at a twelfth).");
   add("family_to_archive_30d", "Archive", "Family to Archive, last 30 days", changes("family", "archive", since), "count", "plan_changed events from family to archive.");
   add("archive_to_family_30d", "Archive", "Archive to Family upgrades, last 30 days", changes("archive", "family", since), "count", "plan_changed events from archive to family.");
   add("family_to_archive_all", "Archive", "Family to Archive, all time", changes("family", "archive", null), "count", "plan_changed events from family to archive.");
@@ -172,7 +185,21 @@ export function voiceMetrics(input: VoiceMetricsInput): { metrics: VoiceMetric[]
 
   add("internal_training_hours", "Training rights", "Hours authorized for Readli development", hours(input.usable.filter((u) => u.readli_development_rights === true).reduce((s, u) => s + int(u.duration_ms), 0)), "hours", "Original recordings in voice_recordings_usable whose agreement in force grants Readli development rights.");
   add("third_party_hours", "Training rights", "Hours authorized for third-party licensing", hours(input.usable.filter((u) => u.third_party_licensing === true).reduce((s, u) => s + int(u.duration_ms), 0)), "hours", "Original recordings whose contributor opted in to third-party licensing. Children's voices never appear.");
+  add("development_rights_contributors", "Training rights", "Contributors granting Readli development rights", new Set(input.usable.filter((u) => u.readli_development_rights === true).map((u) => u.contributor_id as string)).size, "count", "Distinct contributors with usable original recordings whose agreement in force grants Readli development rights (eligible for Readli's own dataset).");
   add("third_party_contributors", "Training rights", "Contributors opted in to third-party licensing", new Set(input.usable.filter((u) => u.third_party_licensing === true).map((u) => u.contributor_id as string)).size, "count", "Distinct contributors in that set.");
+
+  const requests = input.deletionRequests ?? [];
+  add("recording_deletions_pending", "Deletion", "Recording deletion requests pending", requests.filter((r) => r.status === "pending").length, "count", "Requests to delete original recordings not yet carried out (target: within 30 days).");
+  add("recording_deletions_overdue", "Deletion", "Recording deletions past 30 days", requests.filter((r) => r.status !== "completed" && ts(r.due_at) < now).length, "count", "Pending or blocked requests past their due date: needs attention.");
+  add("recording_deletions_done_30d", "Deletion", "Recording deletions completed, last 30 days", requests.filter((r) => r.status === "completed" && ts(r.completed_at) >= since).length, "count", "Requests carried out in the last 30 days.");
+  add("lifecycle_exceptions_open", "Deletion", "Open lifecycle exceptions", (input.exceptions ?? []).filter((e) => e.status === "open").length, "count", "Items in the admin exception queue below: unreconciled purchased credits, reused trial cards, blocked or overdue recording deletions.");
+
+  const contributors = new Set(input.voices.map((v) => v.owner_id as string).filter(Boolean));
+  const byContributors = (input.referrals ?? []).filter((r) => contributors.has(r.referrer_user_id as string) && !r.rejected_reason);
+  const converted = byContributors.filter((r) => int(r.paid_cycles) > 0 || r.qualified_at);
+  add("contributor_referrals", "Referrals", "Families referred by voice contributors", byContributors.length, "count", "Referrals (not rejected) whose referrer has recorded a Readli voice.");
+  add("contributor_referral_paid", "Referrals", "Contributor referrals that paid", converted.length, "count", "Those referred families that paid at least one cycle themselves or qualified.");
+  add("contributor_referral_conversion", "Referrals", "Contributor referral conversion", byContributors.length ? Math.round((converted.length / byContributors.length) * 1000) / 1000 : 0, "ratio", "Paid over referred.");
 
   const usage30 = input.usage;
   const genUsd = usage30.reduce((s, u) => {
@@ -190,13 +217,13 @@ export function voiceMetrics(input: VoiceMetricsInput): { metrics: VoiceMetric[]
 /** Reads what the metrics need with the service key. */
 export async function loadVoiceMetrics(db: SupabaseClient, { live, at = new Date(), cloneRetireAfterDays }: { live: boolean; at?: Date; cloneRetireAfterDays: number }) {
   const since = new Date(at.getTime() - WINDOW_DAYS * DAY).toISOString();
-  const [voices, entitlements, shares, libraries, readySegments, sessions, usable, agreements, events, recoveries, revenue, usage, saved] = await Promise.all([
+  const [voices, entitlements, shares, libraries, readySegments, sessions, usable, agreements, events, recoveries, revenue, usage, saved, referrals, deletionRequests, exceptions] = await Promise.all([
     all(() => db.from("voice_profiles").select("*").order("id"), "read voices"),
     all(() => db.from("household_entitlements").select("household_id, status, tier, starts_at, ends_at").order("id"), "read plans"),
     all(() => db.from("voice_household_shares").select("voice_id, household_id").is("revoked_at", null).order("id"), "read sharing"),
     all(() => db.from("narration_libraries").select("key, voice_id, book_slug").order("key"), "read libraries"),
     all(() => db.from("narration_segments").select("library_key, duration_ms").eq("status", "ready").order("library_key").order("sentence_id"), "read narration"),
-    all(() => db.from("voice_training_sessions").select("id, voice_profile_id").not("owner_id", "is", null).not("voice_profile_id", "is", null).order("id"), "read recordings"),
+    all(() => db.from("voice_training_sessions").select("id, voice_profile_id, audio_bytes, recording_deleted_at").not("owner_id", "is", null).not("voice_profile_id", "is", null).order("id"), "read recordings"),
     all(() => db.from("voice_recordings_usable").select("contributor_id, duration_ms, readli_development_rights, third_party_licensing").order("session_id"), "read training rights"),
     all(() => db.from("voice_rights_current").select("contributor_id, event, service_rights, adult_owner_declared").order("contributor_id"), "read agreements"),
     all(() => db.from("lifecycle_audit_log").select("action, at, dry_run, detail").order("id"), "read lifecycle log"),
@@ -204,8 +231,11 @@ export async function loadVoiceMetrics(db: SupabaseClient, { live, at = new Date
     all(() => db.from("revenue_events").select("household_id, kind, amount_cents, billing_interval, period_start, period_end").eq("livemode", live).order("id"), "read revenue"),
     all(() => db.from("narration_provider_usage").select("*").gte("at", since).order("at"), "read provider usage"),
     savedCostSettings(db),
+    all(() => db.from("referrals").select("referrer_user_id, paid_cycles, qualified_at, rejected_reason").order("id"), "read referrals"),
+    all(() => db.from("voice_recording_deletions").select("status, due_at, completed_at").order("id"), "read deletion requests"),
+    all(() => db.from("lifecycle_exceptions").select("status").eq("status", "open").order("id"), "read exceptions"),
   ]);
-  const sessionVoice = new Map(sessions.map((s) => [s.id as string, s.voice_profile_id as string]));
+  const sessionVoice = new Map(sessions.filter((s) => !s.recording_deleted_at).map((s) => [s.id as string, s.voice_profile_id as string]));
   const segs = sessionVoice.size
     ? await all(() => db.from("voice_training_segments").select("session_id, duration_ms").order("id"), "read recording files")
     : [];
@@ -224,6 +254,10 @@ export async function loadVoiceMetrics(db: SupabaseClient, { live, at = new Date
     recoveries,
     revenue,
     usage,
+    recordingFiles: sessions,
+    referrals,
+    deletionRequests,
+    exceptions,
     costs: costConfig(process.env, saved),
     providerVoiceLimit: Number(process.env.ELEVENLABS_VOICE_LIMIT ?? 30) || 30,
     cloneRetireAfterDays,

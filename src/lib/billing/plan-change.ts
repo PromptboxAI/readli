@@ -1,4 +1,4 @@
-import type { StripeSubscription } from "./stripe-api";
+import type { Params, StripeSubscription } from "./stripe-api";
 
 /**
  * Readli's own plan-change flow for Stripe subscriptions (Kevin, 2026-10-11, decision 5): Readli Family
@@ -36,7 +36,7 @@ export function currentTarget(sub: StripeSubscription): PlanTarget | null {
 export type PlanChangeRefusal = "no_plan_item" | "same_plan" | "not_active" | "in_trial" | "has_slots";
 
 export type PlanChange =
-  | { ok: true; from: PlanTarget; to: PlanTarget; upgrade: boolean; params: Record<string, unknown> }
+  | { ok: true; from: PlanTarget; to: PlanTarget; upgrade: boolean; params: Params }
   | { ok: false; reason: PlanChangeRefusal };
 
 export function planChange(sub: StripeSubscription, to: PlanTarget, priceId: string, nowSeconds: number): PlanChange {
@@ -50,7 +50,7 @@ export function planChange(sub: StripeSubscription, to: PlanTarget, priceId: str
   const slots = sub.items.data.filter((i) => (i.price.lookup_key ?? "").startsWith(SLOT_PREFIX));
   const upgrade = RANK[to] > RANK[from];
   const yearlyChange = (from === "family_annual") !== (to === "family_annual");
-  const items: Record<string, unknown>[] = [{ id: planItem.id, price: priceId, quantity: 1 }];
+  const items: Params[] = [{ id: planItem.id, price: priceId, quantity: 1 }];
   if (to === "archive_monthly") for (const s of slots) items.push({ id: s.id, deleted: true });
   // Extra slots bill monthly; Stripe can't mix monthly and yearly items in one subscription.
   else if (to === "family_annual" && slots.length) return { ok: false, reason: "has_slots" };

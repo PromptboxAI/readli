@@ -16,7 +16,7 @@ import {
   type FamilyStore,
 } from "@/lib/family/service";
 import { estimateSeconds, modelCost } from "./costs";
-import { creditBalance, creditsFor, creditUnits, draw, spendableLots, type CreditBalance } from "./credits";
+import { creditBalance, creditsFor, creditUnits, draw, inTrial, spendableLots, type CreditBalance } from "./credits";
 import { CATALOG, findCatalogBook } from "@/lib/library/catalog";
 import { bookCharacters, bookText, type BookText } from "./text";
 
@@ -532,6 +532,27 @@ export async function quoteGeneration(store: FamilyStore, actor: Actor | null, h
  * reservation refunded, and the next request claims them. All of this happens in one store write,
  * so two simultaneous requests can't both claim (and pay for) the same segment.
  */
+/**
+ * How many new narration requests a household can make (Kevin, 2026-10-11, decision 6): a steady cap
+ * for every household, and a tighter one during the free trial, so repeated sign-ups can't run up
+ * unlimited voice-provider generation. Credits remain the real quota; this stops bursts.
+ */
+export const GENERATION_LIMITS = { perHour: 20, trialPerHour: 5, trialPerDay: 10 } as const;
+
+export function generationLimit(state: FamilyState, householdId: string, at: string): { code: string; message: string } | null {
+  const t = Date.parse(at);
+  const recent = (ms: number) => state.jobs.filter((j) => j.householdId === householdId && t - Date.parse(j.createdAt) < ms).length;
+  const e = activeEntitlement(state, householdId, at);
+  const trial = e ? inTrial(e, at) : false;
+  if (trial && recent(86_400_000) >= GENERATION_LIMITS.trialPerDay) {
+    return { code: "trial_rate_limited", message: "You've prepared a lot of stories today on your free trial. Try again tomorrow." };
+  }
+  if (recent(3_600_000) >= (trial ? GENERATION_LIMITS.trialPerHour : GENERATION_LIMITS.perHour)) {
+    return { code: "rate_limited", message: "You've asked for a lot of stories in the last hour. Please try again a little later." };
+  }
+  return null;
+}
+
 export async function requestGeneration(
   store: FamilyStore,
   actor: Actor | null,
@@ -551,6 +572,8 @@ export async function requestGeneration(
     const q = quote(s, store.plan, householdId, req);
     result = { job: null, quote: q };
     if (q.sentenceIds.length === 0) return;
+    const limited = generationLimit(s, householdId, at);
+    if (limited) throw new PermissionError(429, limited.code, limited.message);
     const lots = spendableLots(s, store.plan, householdId, at);
     const available = lots.reduce((n, l) => n + l.left, 0);
     if (q.credits > available) {
