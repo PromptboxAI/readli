@@ -90,8 +90,8 @@ export default async function PricingPage() {
                   Start your family
                 </Link>
                 <p className="text-center text-sm text-muted">
-                  Includes a {P.trialDays}-day free trial with {P.trialCredits} narration credits. Family accounts open soon, and
-                  nothing is charged yet.
+                  Try it free for {P.trialDays} days with {P.trialCredits} narration credits. Card required, cancel any time.
+                  Family accounts open soon, and nothing is charged yet.
                 </p>
               </div>
             </article>
