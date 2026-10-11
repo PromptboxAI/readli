@@ -138,3 +138,11 @@ test("try your voice shows the studio preview on desktop and a short pitch on ph
     await expect(page).toHaveURL(/\/try$/);
   }
 });
+
+test("the library section introduces the full library instead of repeating the demo books", async ({ page }) => {
+  await page.goto("/");
+  const section = page.locator("#stories");
+  await expect(section.getByRole("heading", { level: 2 })).toHaveText("A Whole World of Stories Awaits");
+  await expect(section.getByRole("img")).toHaveCount(0);
+  await expect(section.getByRole("link", { name: "Explore the Readli Library" })).toHaveAttribute("href", "/books");
+});
