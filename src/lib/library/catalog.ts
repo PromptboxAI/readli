@@ -46,3 +46,26 @@ export const CATALOG: readonly CatalogBook[] = [
 export function findCatalogBook(slug: string): CatalogBook | null {
   return CATALOG.find((b) => b.slug === slug) ?? null;
 }
+
+/**
+ * Books whose covers are in but whose public-domain text hasn't been imported yet. They show in the
+ * family library as "coming soon" and join CATALOG (with chapters) once their edition is confirmed.
+ */
+export interface UpcomingBook {
+  slug: string;
+  title: string;
+  author: string;
+  firstPublished: number;
+  coverUrl: string;
+  /** Rough listening time for the full story. */
+  approxMinutes: number;
+}
+
+export const UPCOMING_BOOKS: readonly UpcomingBook[] = [
+  { slug: "the-little-red-hen", title: "The Little Red Hen", author: "Traditional", firstPublished: 1874, approxMinutes: 3 },
+  { slug: "the-gingerbread-man", title: "The Gingerbread Man", author: "Traditional", firstPublished: 1875, approxMinutes: 6 },
+  { slug: "the-elves-and-the-shoemaker", title: "The Elves and the Shoemaker", author: "The Brothers Grimm", firstPublished: 1812, approxMinutes: 6 },
+  { slug: "goldilocks-and-the-three-bears", title: "Goldilocks and the Three Bears", author: "Traditional", firstPublished: 1837, approxMinutes: 7 },
+  { slug: "the-velveteen-rabbit", title: "The Velveteen Rabbit", author: "Margery Williams", firstPublished: 1922, approxMinutes: 28 },
+  { slug: "the-ugly-duckling", title: "The Ugly Duckling", author: "Hans Christian Andersen", firstPublished: 1843, approxMinutes: 30 },
+].map((b) => ({ ...b, coverUrl: `/covers/${b.slug}.webp` }));
