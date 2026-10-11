@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { accountDb } from "@/lib/family/account-store";
 import { currentSession } from "@/lib/family/session";
 import { fail } from "@/lib/server/http";
-import { ElevenLabsProvider } from "@/lib/voice/elevenlabs";
+import { DEFAULT_MODEL, ElevenLabsProvider } from "@/lib/voice/elevenlabs";
 import type { VoiceProvider } from "@/lib/voice/provider";
 import { StubVoiceProvider } from "@/lib/voice/stub";
 import { AccountError } from "./privacy";
@@ -21,7 +21,7 @@ export async function signedInAccount(): Promise<SignedInAccount | null> {
 }
 
 export function voiceProvider(env: NodeJS.ProcessEnv = process.env): VoiceProvider | null {
-  if (env.ELEVENLABS_API_KEY) return new ElevenLabsProvider(env.ELEVENLABS_API_KEY, env.ELEVENLABS_MODEL_ID ?? "eleven_multilingual_v2");
+  if (env.ELEVENLABS_API_KEY) return new ElevenLabsProvider(env.ELEVENLABS_API_KEY, env.ELEVENLABS_MODEL_ID || DEFAULT_MODEL);
   if (env.VOICE_PROVIDER === "stub") return new StubVoiceProvider();
   return null;
 }
