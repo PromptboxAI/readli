@@ -94,7 +94,10 @@ function sarasData(extra: Partial<Record<string, Row[]>> = {}): Record<string, R
 
 describe("deleting an account", () => {
   it("removes the voice from the provider, then the audio, the family and the sign-in", async () => {
-    const files = { "voice-recordings": [`${ME}/take.webm`, `${ME}/failed-clone.webm`, `${PARTNER}/theirs.webm`] };
+    const files = {
+      "voice-recordings": [`${ME}/take.webm`, `${ME}/failed-clone.webm`, `${PARTNER}/theirs.webm`],
+      "profile-photos": [`${ME}/me.jpg`, `${PARTNER}/them.jpg`],
+    };
     const { db, tables, removed, auth } = fakeDb(sarasData({ voice_training_segments: [{ session_id: "rec1", storage_key: `${ME}/take.webm` }] }), files);
     const { provider, deleted } = recordingProvider();
     const result = await deleteAccount({ db, provider, refs }, ME);
@@ -105,6 +108,7 @@ describe("deleting an account", () => {
       narrations: ["lib1/s1.mp3"],
       "generated-audio": ["old/a.mp3"],
       "voice-recordings": [`${ME}/take.webm`, `${ME}/failed-clone.webm`],
+      "profile-photos": [`${ME}/me.jpg`],
     });
     expect(tables.households).toEqual([]);
     expect(auth.deleted).toEqual([ME]);

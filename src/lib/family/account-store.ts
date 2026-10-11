@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { photoUrl } from "@/lib/account/photos";
 import { MemoryNarrationStorage, type NarrationStorage } from "@/lib/narration/storage";
 import type { AuditAction, ChildBookProgress, ChildVoiceApproval, FamilyState, HouseholdEntitlement, VoiceStatus } from "./model";
 import { planConfig, type PlanConfig } from "./plan";
@@ -40,6 +41,8 @@ function tintFor(id: string): string {
 
 type Row = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === "string" ? v : null);
+/** A profile photo is shown only when its owner consented to it (see src/lib/account/photos.ts). */
+const avatarFor = (p: Row | undefined) => (p && str(p.avatar_path) && str(p.photo_consent_at) ? photoUrl(p.user_id as string, str(p.photo_consent_at)) : null);
 
 /**
  * A signed-in grown-up's families, kept in Supabase. It loads the households this person belongs to
@@ -105,7 +108,7 @@ export class AccountFamilyStore implements FamilyStore {
         ),
         childIds.length ? this.q(this.db.from("child_voice_approvals").select("*").in("child_id", childIds), "read approvals") : Promise.resolve([] as Row[]),
       ]);
-      const profiles = await this.q(this.db.from("adult_profiles").select("user_id, display_name").in("user_id", people), "read people");
+      const profiles = await this.q(this.db.from("adult_profiles").select("user_id, display_name, avatar_path, photo_consent_at").in("user_id", people), "read people");
 
       state.households = homes.map((h) => ({ id: h.id as string, name: h.name as string }));
       state.members = members.map((m) => ({
@@ -119,7 +122,7 @@ export class AccountFamilyStore implements FamilyStore {
         id,
         displayName: (profiles.find((p) => p.user_id === id)?.display_name as string) ?? "Family member",
         relationship: str(members.find((m) => m.user_id === id && m.relationship_label)?.relationship_label) ?? "",
-        avatarUrl: null,
+        avatarUrl: avatarFor(profiles.find((p) => p.user_id === id)),
         tint: tintFor(id),
       }));
       state.children = children.map((c) => ({
