@@ -151,7 +151,24 @@ describe("financial report", () => {
   it("reads cost overrides from env and ignores bad values", () => {
     const c = costConfig({ FINANCE_COST_PER_1K_CHARS_USD: "0.2", FINANCE_PROVIDER_PLAN_MONTHLY_USD: "abc" } as unknown as NodeJS.ProcessEnv);
     expect(c.defaultPer1kUsd).toBe(0.2);
-    expect(c.providerPlanMonthlyUsd).toBe(99);
+    expect(c.providerPlanMonthlyUsd).toBe(22);
+    expect(c.providerPlanName).toBe("Creator");
     expect(c.per1kUsd.eleven_flash_v2_5).toBe(0.05);
+  });
+
+  it("prefers the admin's saved cost settings over env and defaults", () => {
+    const c = costConfig({ FINANCE_PROVIDER_PLAN_MONTHLY_USD: "5" } as unknown as NodeJS.ProcessEnv, {
+      provider_plan_name: "Pro",
+      provider_plan_monthly_usd: "99.00",
+      cost_per_1k_chars_usd: 0.12,
+      low_cost_per_1k_chars_usd: 0.06,
+      storage_usd_per_gb_month: null,
+    });
+    expect(c.providerPlanName).toBe("Pro");
+    expect(c.providerPlanMonthlyUsd).toBe(99);
+    expect(c.defaultPer1kUsd).toBe(0.12);
+    expect(c.per1kUsd.eleven_turbo_v2_5).toBe(0.06);
+    expect(c.storageUsdPerGbMonth).toBe(0.021);
+    expect(costConfig({ FINANCE_PROVIDER_PLAN_MONTHLY_USD: "5" } as unknown as NodeJS.ProcessEnv).providerPlanMonthlyUsd).toBe(5);
   });
 });

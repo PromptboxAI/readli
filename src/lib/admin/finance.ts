@@ -8,32 +8,50 @@ const WINDOW_DAYS = 30;
 
 /**
  * Cost assumptions for the financial report. They are planning numbers from the pricing pack, not
- * invoice prices, and each can be overridden with an env setting until real costs are recorded.
+ * invoice prices. Admins edit them on /admin/finance (finance_settings); FINANCE_* env settings and
+ * the defaults below apply until that row exists.
  */
 export interface CostConfig {
   /** Provider dollars per 1,000 characters, by model; models not listed use defaultPer1kUsd. */
   per1kUsd: Record<string, number>;
   defaultPer1kUsd: number;
-  /** The ElevenLabs plan's monthly fee. Usage up to this much is already paid for by its included credits. */
+  lowPer1kUsd: number;
+  /** The ElevenLabs plan Readli is on. Usage up to its monthly fee is already paid for by its included credits. */
+  providerPlanName: string;
   providerPlanMonthlyUsd: number;
   storageUsdPerGbMonth: number;
   deliveryUsdPerGb: number;
 }
 
-const num = (v: string | undefined, fallback: number) => {
+/** Readli's ElevenLabs account is on the Creator plan. */
+export const DEFAULT_PROVIDER_PLAN = { name: "Creator", monthlyUsd: 22 };
+const LOW_COST_MODELS = ["eleven_flash_v2_5", "eleven_flash_v2", "eleven_turbo_v2_5", "eleven_turbo_v2"];
+
+const num = (v: unknown, fallback: number) => {
+  if (v === undefined || v === null || v === "") return fallback;
   const n = Number(v);
-  return v !== undefined && v !== "" && Number.isFinite(n) && n >= 0 ? n : fallback;
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
 };
 
-export function costConfig(env: NodeJS.ProcessEnv = process.env): CostConfig {
-  const low = num(env.FINANCE_LOW_COST_PER_1K_CHARS_USD, 0.05);
+/** Cost settings from the admin's saved row, else env, else the defaults. */
+export function costConfig(env: NodeJS.ProcessEnv = process.env, saved: Row | null = null): CostConfig {
+  const low = num(saved?.low_cost_per_1k_chars_usd, num(env.FINANCE_LOW_COST_PER_1K_CHARS_USD, 0.05));
+  const name = typeof saved?.provider_plan_name === "string" && saved.provider_plan_name.trim() ? saved.provider_plan_name.trim() : DEFAULT_PROVIDER_PLAN.name;
   return {
-    per1kUsd: { eleven_flash_v2_5: low, eleven_flash_v2: low, eleven_turbo_v2_5: low, eleven_turbo_v2: low },
-    defaultPer1kUsd: num(env.FINANCE_COST_PER_1K_CHARS_USD, 0.1),
-    providerPlanMonthlyUsd: num(env.FINANCE_PROVIDER_PLAN_MONTHLY_USD, 99),
-    storageUsdPerGbMonth: num(env.FINANCE_STORAGE_USD_PER_GB_MONTH, 0.021),
-    deliveryUsdPerGb: num(env.FINANCE_DELIVERY_USD_PER_GB, 0.09),
+    per1kUsd: Object.fromEntries(LOW_COST_MODELS.map((m) => [m, low])),
+    defaultPer1kUsd: num(saved?.cost_per_1k_chars_usd, num(env.FINANCE_COST_PER_1K_CHARS_USD, 0.1)),
+    lowPer1kUsd: low,
+    providerPlanName: name,
+    providerPlanMonthlyUsd: num(saved?.provider_plan_monthly_usd, num(env.FINANCE_PROVIDER_PLAN_MONTHLY_USD, DEFAULT_PROVIDER_PLAN.monthlyUsd)),
+    storageUsdPerGbMonth: num(saved?.storage_usd_per_gb_month, num(env.FINANCE_STORAGE_USD_PER_GB_MONTH, 0.021)),
+    deliveryUsdPerGb: num(saved?.delivery_usd_per_gb, num(env.FINANCE_DELIVERY_USD_PER_GB, 0.09)),
   };
+}
+
+/** The admin's saved cost settings, or null before the finance_settings migration runs. */
+export async function savedCostSettings(db: SupabaseClient): Promise<Row | null> {
+  const { data, error } = await db.from("finance_settings").select("*").eq("id", true).maybeSingle();
+  return error ? null : ((data as Row | null) ?? null);
 }
 
 export interface FinanceInputs {
@@ -99,6 +117,7 @@ export interface FinanceReport {
   operatingContributionUsd: number;
   households: HouseholdMargin[];
   hasRevenueData: boolean;
+  costs: CostConfig;
 }
 
 const ts = (v: unknown) => (typeof v === "string" ? Date.parse(v) : NaN);
@@ -239,6 +258,7 @@ export function financeReport(input: FinanceInputs): FinanceReport {
     operatingContributionUsd: revenue30dCents / 100 - totalUsd,
     households,
     hasRevenueData: revenue.length > 0,
+    costs,
   };
 }
 
@@ -265,7 +285,7 @@ async function all(query: () => Page, what: string): Promise<Row[]> {
 export async function loadFinance(db: SupabaseClient, { live, at = new Date() }: { live: boolean; at?: Date }): Promise<FinanceReport> {
   const since = new Date(at.getTime() - WINDOW_DAYS * DAY).toISOString();
   const jobsSince = new Date(at.getTime() - 2 * WINDOW_DAYS * DAY).toISOString();
-  const [entitlements, revenue, members, adults, voices, usage, jobs, plays, stored] = await Promise.all([
+  const [entitlements, revenue, members, adults, voices, usage, jobs, plays, stored, saved] = await Promise.all([
     all(() => db.from("household_entitlements").select("id, household_id, source, status, extra_narrator_slots, starts_at, ends_at"), "read plans"),
     all(() => db.from("revenue_events").select("household_id, kind, amount_cents, billing_interval, period_start, period_end, occurred_at").eq("livemode", live), "read revenue"),
     all(() => db.from("household_members").select("household_id, user_id").is("removed_at", null), "read members"),
@@ -275,6 +295,7 @@ export async function loadFinance(db: SupabaseClient, { live, at = new Date() }:
     all(() => db.from("narration_jobs").select("library_key, household_id, sentence_ids").gte("created_at", jobsSince), "read jobs"),
     db.from("narration_plays").select("id", { count: "exact", head: true }).gte("at", since),
     all(() => db.from("narration_provider_usage").select("bytes"), "read stored audio"),
+    savedCostSettings(db),
   ]);
   if (plays.error) throw new Error(`count plays: ${plays.error.message}`);
   const report = financeReport({
@@ -288,7 +309,7 @@ export async function loadFinance(db: SupabaseClient, { live, at = new Date() }:
     jobs,
     plays: plays.count ?? 0,
     storedBytes: stored.reduce((s, r) => s + int(r.bytes), 0),
-    costs: costConfig(),
+    costs: costConfig(process.env, saved),
   });
   const shown = report.households.slice(0, 50);
   if (shown.length) {
