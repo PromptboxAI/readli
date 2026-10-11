@@ -17,7 +17,7 @@ export interface DemoBook {
   title: string;
   author: string;
   firstPublished: number;
-  /** Project Gutenberg eBook number for the candidate edition; null until chosen. */
+  /** Project Gutenberg eBook number for the candidate edition (internal provenance, never shown); null until chosen. */
   gutenbergId: number | null;
   /** True once a reviewer has confirmed the edition, not just the title. */
   editionConfirmed: boolean;
@@ -104,10 +104,6 @@ export const DEMO_BOOKS: readonly DemoBook[] = [
 /** Original Readli cover art (600x800 WebP in /public/covers). */
 export function coverSrc(book: DemoBook): string {
   return `/covers/${book.slug}.webp`;
-}
-
-export function gutenbergUrl(book: DemoBook): string | null {
-  return book.gutenbergId === null ? null : `https://www.gutenberg.org/ebooks/${book.gutenbergId}`;
 }
 
 /** A book offers a voice preview once it has a passage. */
