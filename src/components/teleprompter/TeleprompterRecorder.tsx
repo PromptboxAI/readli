@@ -39,8 +39,20 @@ const STATUS_LABEL = {
   review: "Take finished",
 } as const;
 
-export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion }) {
-  const [state, dispatch] = useReducer(recorderReducer, initialRecorderState);
+interface TeleprompterRecorderProps {
+  script: VoiceScriptVersion;
+  /**
+   * For signed-in voices: consent was already given on the page, so recording starts at Ready, and
+   * a finished take goes to this callback instead of the guest story previews.
+   */
+  onTake?: (take: TakeDetails) => void;
+  takeActionLabel?: string;
+}
+
+export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose a story" }: TeleprompterRecorderProps) {
+  const [state, dispatch] = useReducer(recorderReducer, initialRecorderState, (s) =>
+    onTake ? { ...s, status: "ready" as const, consent: { adultOwner: true, processing: true } } : s,
+  );
   const reducedMotion = usePrefersReducedMotion();
   const [autoScrollOn, setAutoScrollOn] = useState(true);
   const [wpm, setWpm] = useState(DEFAULT_WPM);
@@ -313,7 +325,11 @@ export function TeleprompterRecorder({ script }: { script: VoiceScriptVersion })
           )}
 
           {state.status === "review" && (
-            <ReviewPanel take={take} onContinue={() => setShowBooks(true)} />
+            <ReviewPanel
+              take={take}
+              actionLabel={takeActionLabel}
+              onContinue={() => (onTake && take ? onTake(take.details) : setShowBooks(true))}
+            />
           )}
 
           <details
@@ -516,8 +532,10 @@ function Stepper({
 
 function ReviewPanel({
   take,
+  actionLabel,
   onContinue,
 }: {
+  actionLabel: string;
   take: { url: string; recorded: RecordedTake } | null;
   onContinue: () => void;
 }) {
@@ -545,7 +563,7 @@ function ReviewPanel({
         These checks are a guide. You can start over or continue. Your recording stays in this browser for now.
       </p>
       <button type="button" className={buttonPrimary} onClick={onContinue}>
-        Choose a story
+        {actionLabel}
       </button>
     </div>
   );

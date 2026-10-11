@@ -1,11 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
 import { VoiceSetup } from "@/components/accounts/VoiceSetup";
+import { currentUser } from "@/lib/auth/supabase";
+import { serverConfig } from "@/lib/server/config";
+import { accountVoiceDeps } from "@/lib/voice/account-voices";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
 
 export const metadata: Metadata = { title: "Record your voice | Readli Voice", robots: { index: false } };
 
-export default function VoiceRecordPage() {
+export const dynamic = "force-dynamic";
+
+/** Signed in, with voices switched on: the real flow. Otherwise the in-browser preview. */
+export default async function VoiceRecordPage() {
+  const deps = accountVoiceDeps(serverConfig());
+  const user = deps ? await currentUser() : null;
+  const existing = deps && user ? await deps.store.findVoice(user.id).catch(() => null) : null;
   return (
     <AdultPage wide>
       <header className="flex flex-col gap-2">
@@ -15,8 +25,14 @@ export default function VoiceRecordPage() {
         <Eyebrow>Readli Voice</Eyebrow>
         <h1 className="font-display text-4xl font-semibold sm:text-5xl">Make your Readli voice</h1>
       </header>
-      <PreviewNote>Your recording stays in this browser. Nothing is saved yet.</PreviewNote>
-      <VoiceSetup />
+      {user ? (
+        <AccountVoiceSetup hasVoice={Boolean(existing)} />
+      ) : (
+        <>
+          <PreviewNote>Your recording stays in this browser. Nothing is saved yet.</PreviewNote>
+          <VoiceSetup />
+        </>
+      )}
     </AdultPage>
   );
 }
