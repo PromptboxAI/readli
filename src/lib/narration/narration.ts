@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { sameHash } from "@/lib/server/guest-token";
+import { VOICE_SETTINGS } from "@/lib/voice/elevenlabs";
 import type { VoiceProvider } from "@/lib/voice/provider";
 import type { Actor, CreditLot, FamilyState, NarrationJob, NarrationLibrary, NarrationSegment } from "@/lib/family/model";
 import { activeChild, activeEntitlement, activeShare, activeSlot, childVoiceAccess, readyVoice } from "@/lib/family/permissions";
@@ -34,7 +35,7 @@ const now: Clock = () => new Date();
 // ---------------------------------------------------------------------------
 
 export function generationConfig(plan: PlanConfig) {
-  return { modelId: plan.narrationModelId, outputFormat: "mp3_44100_128", voiceSettings: { stability: 0.5, similarity_boost: 0.75 } };
+  return { modelId: plan.narrationModelId, outputFormat: "mp3_44100_128", voiceSettings: VOICE_SETTINGS };
 }
 
 function configHash(plan: PlanConfig): string {
