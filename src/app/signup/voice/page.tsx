@@ -6,6 +6,7 @@ import { buttonPrimary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
 import { EnvelopeArt } from "@/components/invites/illustrations";
 import { ACCOUNT_TYPES } from "@/lib/accounts/accounts";
+import { familyAccountsEnabled } from "@/lib/family/session";
 
 export const metadata: Metadata = { title: "Share Your Voice | Readli", robots: { index: false } };
 
@@ -20,6 +21,8 @@ const STEPS = [
 export default async function VoiceSignupPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const p = await searchParams;
   const invited = typeof p.invite === "string" && p.invite.length > 0;
+  const accounts = familyAccountsEnabled();
+  const acceptHref = `/login?next=${encodeURIComponent(`/voice?invite=${String(p.invite)}`)}`;
   return (
     <AdultPage wide>
       <header className="flex flex-col gap-2">
@@ -35,11 +38,23 @@ export default async function VoiceSignupPage({ searchParams }: { searchParams: 
           <EnvelopeArt className="w-20 shrink-0" />
           <p>
             <span className="block font-display text-xl font-semibold">A family invited you to be a storyteller</span>
-            Sign up free to accept. Accepting doesn&apos;t share your voice: you&apos;ll choose that after you record. Already have Readli?{" "}
-            <Link href={`/login?next=${encodeURIComponent(`/voice?invite=${String(p.invite)}`)}`} className="font-semibold underline underline-offset-4">
-              Log in to accept
-            </Link>
-            .
+            {accounts ? (
+              <>
+                Accepting doesn&apos;t share your voice: you&apos;ll choose that after you record.{" "}
+                <Link href={acceptHref} className="font-semibold underline underline-offset-4">
+                  Sign in or create your free account to accept
+                </Link>
+                .
+              </>
+            ) : (
+              <>
+                Sign up free to accept. Accepting doesn&apos;t share your voice: you&apos;ll choose that after you record. Already have Readli?{" "}
+                <Link href={acceptHref} className="font-semibold underline underline-offset-4">
+                  Log in to accept
+                </Link>
+                .
+              </>
+            )}
           </p>
         </section>
       )}
