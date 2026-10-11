@@ -7,6 +7,7 @@ import { FamilyOfStorytellers, HearLovedOnes, MakeStorytimeYourOwn } from "@/com
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
+import { rewardsConfig } from "@/lib/rewards/rewards";
 import { NEW_BOOKS } from "@/lib/library/catalog";
 
 function Cloud({ className }: { className: string }) {
@@ -310,14 +311,26 @@ export function FamilyCircles() {
 }
 
 export function FinalCta() {
+  const { trialDays } = rewardsConfig();
   return (
     <section className="bg-sunshine">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-14 text-center sm:px-6">
         <ReadiMascot size={120} decorative />
         <h2 className="font-display text-3xl font-semibold sm:text-4xl">Start a family library</h2>
-        <Link href="/try" className={buttonPrimary}>
-          Hear a story in your voice, free
-        </Link>
+        <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
+          <Link href="/try" className={`${buttonPrimary} w-full sm:w-auto`}>
+            Hear a story in your voice, free
+          </Link>
+          <Link href="/signup/family" className={`${buttonSecondary} w-full sm:w-auto`}>
+            Start your free trial
+          </Link>
+        </div>
+        <p data-testid="family-trial-line">
+          Try Readli Family free for {trialDays} days. Card required, cancel any time.{" "}
+          <Link href="/pricing" className="font-semibold underline underline-offset-4">
+            See pricing
+          </Link>
+        </p>
       </div>
     </section>
   );
