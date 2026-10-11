@@ -35,7 +35,13 @@ export async function POST(req: Request) {
 
     const { data: customer } = await db.from("billing_customers").select("customer_ref").eq("household_id", householdId).maybeSingle();
     const origin = new URL(req.url).origin;
-    const metadata = { household_id: householdId, adult_id: actor.adultId, item: request.mode === "subscription" ? request.plan.id : request.pack.id };
+    const metadata = {
+      household_id: householdId,
+      adult_id: actor.adultId,
+      item: request.mode === "subscription" ? request.plan.id : request.pack.id,
+      // The credits paid for, so a later admin change to the packs can't change what this purchase grants.
+      ...(request.mode === "payment" ? { credits: String(request.pack.credits ?? 0) } : {}),
+    };
     const stripe = new StripeApi(config);
     try {
       const lineItems =

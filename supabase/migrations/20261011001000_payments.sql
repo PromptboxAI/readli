@@ -38,6 +38,10 @@ create index payment_events_unprocessed on public.payment_events (received_at) w
 create unique index household_entitlements_subscription_ref
   on public.household_entitlements (provider_subscription_ref) where provider_subscription_ref is not null;
 
+-- A paid credit pack is granted once per payment.
+create unique index narration_credit_lots_payment_ref
+  on public.narration_credit_lots (payment_ref) where payment_ref is not null;
+
 alter table public.billing_customers enable row level security;
 alter table public.payment_events enable row level security;
 -- No policies: only server route handlers (service role) read or write these.

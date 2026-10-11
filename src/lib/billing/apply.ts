@@ -1,9 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { planConfig, type PlanConfig } from "@/lib/family/plan";
+import { creditUnits } from "@/lib/narration/credits";
 import type { BillingChange } from "./events";
 import type { RevenueRow } from "./revenue";
 
 /** Writes a billing change with the service role. Safe to repeat: the same event gives the same rows. */
-export async function applyBillingChange(db: SupabaseClient, change: BillingChange, livemode: boolean): Promise<void> {
+export async function applyBillingChange(db: SupabaseClient, change: BillingChange, livemode: boolean, plan: PlanConfig = planConfig(), at = new Date()): Promise<void> {
   if (change.kind === "ignore") return;
   const check = ({ error }: { error: { message: string } | null }, what: string) => {
     if (error) throw new Error(`${what}: ${error.message}`);
@@ -16,6 +18,28 @@ export async function applyBillingChange(db: SupabaseClient, change: BillingChan
         .upsert({ household_id: change.householdId, provider: "stripe", customer_ref: change.customerRef, livemode }, { onConflict: "household_id" }),
       "link customer",
     );
+  }
+  if (change.kind === "credit_pack") {
+    // Purchased credits, granted once per payment (a unique index on payment_ref backs this up).
+    const { data: granted, error } = await db.from("narration_credit_lots").select("id").eq("payment_ref", change.paymentRef).maybeSingle();
+    check({ error }, "read credit pack");
+    if (granted) return;
+    const months = plan.purchasedCreditMonths;
+    const expires = months > 0 ? new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth() + months, at.getUTCDate())).toISOString() : null;
+    check(
+      await db.from("narration_credit_lots").insert({
+        household_id: change.householdId,
+        source: "purchased",
+        credits: creditUnits(change.credits, plan),
+        granted_at: at.toISOString(),
+        expires_at: expires,
+        note: `Credit pack (${change.credits})`,
+        payment_ref: change.paymentRef,
+        granted_by: change.adultId,
+      }),
+      "grant credit pack",
+    );
+    return;
   }
   if (change.kind !== "subscription") return;
 

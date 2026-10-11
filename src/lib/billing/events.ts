@@ -22,7 +22,18 @@ export interface CustomerLink {
   customerRef: string;
 }
 
-export type BillingChange = SubscriptionChange | CustomerLink | { kind: "ignore"; reason: string };
+/** A paid credit pack. Credits are the whole credits the parent paid for, recorded at checkout. */
+export interface CreditPackPurchase {
+  kind: "credit_pack";
+  householdId: string;
+  customerRef: string | null;
+  adultId: string | null;
+  packId: string;
+  credits: number;
+  paymentRef: string;
+}
+
+export type BillingChange = SubscriptionChange | CustomerLink | CreditPackPurchase | { kind: "ignore"; reason: string };
 
 interface StripeObject {
   [key: string]: unknown;
@@ -47,6 +58,15 @@ export function billingChange(event: { type: string; data?: { object?: StripeObj
   if (event.type === "checkout.session.completed") {
     const customerRef = ref(obj.customer);
     const household = householdId ?? str(obj.client_reference_id);
+    const meta = (obj.metadata as StripeObject | undefined) ?? {};
+    const item = str(meta.item) ?? "";
+    if (obj.mode === "payment" && item.startsWith("credit_pack:")) {
+      const credits = Number(meta.credits);
+      const paymentRef = ref(obj.payment_intent) ?? str(obj.id);
+      if (obj.payment_status !== "paid") return { kind: "ignore", reason: "credit pack not paid yet" };
+      if (!household || !paymentRef || !Number.isInteger(credits) || credits <= 0) return { kind: "ignore", reason: "credit pack without household or credits" };
+      return { kind: "credit_pack", householdId: household, customerRef, adultId: str(meta.adult_id), packId: item.slice("credit_pack:".length), credits, paymentRef };
+    }
     if (!household || !customerRef) return { kind: "ignore", reason: "checkout without household or customer" };
     return { kind: "customer", householdId: household, customerRef };
   }

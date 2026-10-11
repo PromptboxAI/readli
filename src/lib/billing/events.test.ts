@@ -62,6 +62,21 @@ describe("billingChange", () => {
     });
   });
 
+  it("grants a paid credit pack once, with the credits recorded at checkout", () => {
+    const paid = { mode: "payment", payment_status: "paid", payment_intent: "pi_1", customer: null, metadata: { household_id: "h1", adult_id: "u1", item: "credit_pack:pack-small", credits: "20" } };
+    expect(billingChange(event("checkout.session.completed", paid))).toEqual({
+      kind: "credit_pack",
+      householdId: "h1",
+      customerRef: null,
+      adultId: "u1",
+      packId: "pack-small",
+      credits: 20,
+      paymentRef: "pi_1",
+    });
+    expect(billingChange(event("checkout.session.completed", { ...paid, payment_status: "unpaid" })).kind).toBe("ignore");
+    expect(billingChange(event("checkout.session.completed", { ...paid, metadata: { ...paid.metadata, credits: "x" } })).kind).toBe("ignore");
+  });
+
   it("ignores events it can't tie to a household, and ones Readli doesn't use", () => {
     expect(billingChange(event("customer.subscription.created", sub({ metadata: {} }))).kind).toBe("ignore");
     expect(billingChange(event("invoice.created", { id: "in_1" })).kind).toBe("ignore");
