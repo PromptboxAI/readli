@@ -159,22 +159,22 @@ type Row = Record<string, any>;
 
 export class SupabaseGuestStore implements GuestStore {
   private scriptVersionId: string | null = null;
-  private readonly refs: ProviderRefCipher;
+  private readonly cipher: ProviderRefCipher;
 
   constructor(
     private readonly db: SupabaseClient,
     secret: string,
   ) {
     // Provider voice ids are stored encrypted (guest_assets.provider_ref_encrypted).
-    this.refs = new ProviderRefCipher(secret);
+    this.cipher = new ProviderRefCipher(secret);
   }
 
   private encrypt(plain: string): string {
-    return this.refs.encrypt(plain);
+    return this.cipher.encrypt(plain);
   }
 
   private decrypt(stored: string): string {
-    return this.refs.decrypt(stored);
+    return this.cipher.decrypt(stored);
   }
 
   /** Runs a query that must return data. Rows are untyped until we generate Supabase types. */

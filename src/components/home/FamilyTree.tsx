@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary } from "@/components/brand/buttons";
 import {
@@ -91,10 +91,17 @@ function ProfileCard({ member, onClose }: { member: ExampleMember; onClose: () =
   );
 }
 
+/** On phones the list stops at the grandparents (through Grandpa Joe) to stay short. */
+const MOBILE_LIST_LENGTH = EXAMPLE_FAMILY.findIndex((m) => m.id === "joe") + 1;
+
 /** Interactive example family (Design Revision 001 §2). Explorable without signing up; nothing is sent. */
 export function FamilyTree() {
   const [selectedId, setSelectedId] = useState<string>("lou");
   const [view, setView] = useState<"tree" | "list">("tree");
+  // Phones open on the shorter list; the tree needs sideways swiping there.
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 639px)").matches) setView("list");
+  }, []);
   const selected = EXAMPLE_FAMILY.find((m) => m.id === selectedId) ?? null;
 
   return (
@@ -155,8 +162,8 @@ export function FamilyTree() {
           </div>
         ) : (
           <ul aria-label="Example family members" className="flex flex-col gap-2">
-            {EXAMPLE_FAMILY.map((m) => (
-              <li key={m.id}>
+            {EXAMPLE_FAMILY.map((m, i) => (
+              <li key={m.id} className={i >= MOBILE_LIST_LENGTH ? "max-sm:hidden" : undefined}>
                 <button
                   type="button"
                   aria-pressed={selectedId === m.id}

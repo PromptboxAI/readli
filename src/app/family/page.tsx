@@ -129,11 +129,10 @@ export default async function FamilyHome() {
 
       {account && (
         <p className="rounded-2xl bg-mint/40 p-3 text-sm">
-          Your family is saved to your account. Recording, sharing and choosing family voices from your account come next.
+          Your family is saved to your account. Recording your voice from your account comes next.
         </p>
       )}
 
-      {!account && (
       <section className="flex flex-col gap-3" aria-labelledby="my-voice-h">
         <h2 id="my-voice-h" className="font-display text-2xl font-semibold">Your voice</h2>
         <p>Your voice is private until you share it. You decide which families can use it.</p>
@@ -141,7 +140,6 @@ export default async function FamilyHome() {
           Who can use my voice
         </Link>
       </section>
-      )}
 
       {isGuardian && notes.length > 0 && (
         <section className="flex flex-col gap-2 rounded-panel bg-mint/40 p-4" aria-label="Updates" data-testid="notifications">
@@ -170,7 +168,7 @@ export default async function FamilyHome() {
         </section>
       )}
 
-      {isGuardian && !account && (
+      {isGuardian && (
         <section className="flex flex-col gap-3" aria-labelledby="slots-h">
           <h2 id="slots-h" className="font-display text-2xl font-semibold">Your family&apos;s narrators</h2>
           <p>Choose which shared voices fill your narrator slots.</p>
@@ -178,9 +176,11 @@ export default async function FamilyHome() {
             <Link href="/family/narrators" className={buttonSecondary}>
               Narrator slots
             </Link>
-            <Link href="/billing/narrator-slots" className="self-center font-semibold underline underline-offset-4">
-              Add a narrator slot
-            </Link>
+            {!account && (
+              <Link href="/billing/narrator-slots" className="self-center font-semibold underline underline-offset-4">
+                Add a narrator slot
+              </Link>
+            )}
           </div>
         </section>
       )}
@@ -214,11 +214,9 @@ export default async function FamilyHome() {
                   <p className="font-display text-2xl font-semibold">{c.nickname}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {!account && (
-                    <Link href={`/family/kids/${c.id}/storytellers`} className={buttonPrimary}>
-                      Manage storytellers
-                    </Link>
-                  )}
+                  <Link href={`/family/kids/${c.id}/storytellers`} className={buttonPrimary}>
+                    Manage storytellers
+                  </Link>
                   <SessionButton as={`child:${c.id}`} next="/kids" className={buttonSecondary}>
                     Open {c.nickname}&apos;s Readli Kids
                   </SessionButton>

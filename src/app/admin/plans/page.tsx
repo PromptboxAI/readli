@@ -4,6 +4,7 @@ import { CONTRIBUTOR_HOUSEHOLD_MAX_ADULTS } from "@/lib/accounts/accounts";
 import { formatPrice, planConfig } from "@/lib/family/plan";
 import { ANNUAL_GIFT_PRICE_CENTS } from "@/lib/gifting/plans";
 import { rewardsConfig } from "@/lib/rewards/rewards";
+import { requireAdmin } from "@/lib/admin/access";
 
 export const metadata: Metadata = { title: "Plan settings | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -64,7 +65,8 @@ function rewardRows(): Row[] {
 }
 
 /** Admin portal: plan and entitlement settings. Editing turns on with admin sign-in. */
-export default function AdminPlansPage() {
+export default async function AdminPlansPage() {
+  await requireAdmin("/admin/plans");
   return (
     <AdultPage>
       <header className="flex flex-col gap-2">

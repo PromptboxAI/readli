@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
  * checkout will call addNarratorSlot only after the charge succeeds.
  */
 export async function POST() {
-  return withFamily(async ({ store, actor }) => {
+  return withFamily(async ({ store, actor, session }) => {
+    if (session.account) return fail(402, "payments_off", "Extra narrator slots arrive with checkout, which isn't switched on yet.");
     const householdId = await guardianHousehold(store, actor);
     if (!householdId) return fail(403, "not_guardian", "Only a parent or guardian can add narrator slots.");
     await addNarratorSlot(store, actor, householdId);

@@ -7,7 +7,7 @@ import { AccountError, deleteAccount, deletionBlockers, exportAccountData, updat
 type Row = Record<string, unknown>;
 
 /** Just enough of the Supabase client for the account's own reads, writes, storage and sign-in. */
-function fakeDb(tables: Record<string, Row[]>) {
+function fakeDb(tables: Record<string, Row[]>, files: Record<string, string[]> = {}) {
   const removed: Record<string, string[]> = {};
   const auth = { deleted: [] as string[], metadata: {} as Record<string, unknown> };
   const t = (name: string) => (tables[name] ??= []);
@@ -39,7 +39,15 @@ function fakeDb(tables: Record<string, Row[]>) {
   };
   const db = {
     from,
-    storage: { from: (bucket: string) => ({ remove: async (keys: string[]) => ((removed[bucket] ??= []).push(...keys), { data: [], error: null }) }) },
+    storage: {
+      from: (bucket: string) => ({
+        remove: async (keys: string[]) => ((removed[bucket] ??= []).push(...keys), { data: [], error: null }),
+        list: async (folder: string) => ({
+          data: (files[bucket] ?? []).filter((k) => k.startsWith(`${folder}/`)).map((k) => ({ id: k, name: k.slice(folder.length + 1) })),
+          error: null,
+        }),
+      }),
+    },
     auth: {
       admin: {
         deleteUser: async (id: string) => (auth.deleted.push(id), { data: {}, error: null }),
@@ -86,13 +94,18 @@ function sarasData(extra: Partial<Record<string, Row[]>> = {}): Record<string, R
 
 describe("deleting an account", () => {
   it("removes the voice from the provider, then the audio, the family and the sign-in", async () => {
-    const { db, tables, removed, auth } = fakeDb(sarasData());
+    const files = { "voice-recordings": [`${ME}/take.webm`, `${ME}/failed-clone.webm`, `${PARTNER}/theirs.webm`] };
+    const { db, tables, removed, auth } = fakeDb(sarasData({ voice_training_segments: [{ session_id: "rec1", storage_key: `${ME}/take.webm` }] }), files);
     const { provider, deleted } = recordingProvider();
     const result = await deleteAccount({ db, provider, refs }, ME);
 
-    expect(result).toEqual({ deleted: true, blockers: [], voicesRemoved: 1, audioFilesRemoved: 3 });
+    expect(result).toEqual({ deleted: true, blockers: [], voicesRemoved: 1, audioFilesRemoved: 4 });
     expect(deleted).toEqual(["eleven-123"]);
-    expect(removed).toEqual({ narrations: ["lib1/s1.mp3"], "generated-audio": ["old/a.mp3"], "voice-recordings": ["rec1/0.webm"] });
+    expect(removed).toEqual({
+      narrations: ["lib1/s1.mp3"],
+      "generated-audio": ["old/a.mp3"],
+      "voice-recordings": [`${ME}/take.webm`, `${ME}/failed-clone.webm`],
+    });
     expect(tables.households).toEqual([]);
     expect(auth.deleted).toEqual([ME]);
   });

@@ -1,9 +1,9 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
 /**
- * Provider voice ids (ElevenLabs) are stored encrypted, as Postgres bytea hex, and only ever
- * decrypted on the server. Guest voices and account voices share this format, so account deletion
- * can find and remove any voice it owns.
+ * Encrypts provider voice ids for storage (guest_assets.provider_ref_encrypted,
+ * voice_profiles.provider_voice_id_encrypted). They never leave the server in plain text.
+ * Values are Postgres bytea hex literals: iv (12) | auth tag (16) | ciphertext.
  */
 export class ProviderRefCipher {
   private readonly key: Buffer;
@@ -27,7 +27,7 @@ export class ProviderRefCipher {
   }
 }
 
-/** The secret account voices are encrypted with. Guest voices use GUEST_COOKIE_SECRET too. */
+/** The cipher account and guest voices are stored with: PROVIDER_REF_SECRET, else GUEST_COOKIE_SECRET. */
 export function providerRefCipher(env: NodeJS.ProcessEnv = process.env): ProviderRefCipher | null {
   const secret = env.PROVIDER_REF_SECRET ?? env.GUEST_COOKIE_SECRET ?? (env.VOICE_PROVIDER === "stub" ? "readli-dev-only-secret" : undefined);
   return secret ? new ProviderRefCipher(secret) : null;

@@ -20,8 +20,10 @@ test("a book page sends grown-ups to their family library to prepare it", async 
   await expect(page.getByRole("heading", { name: "Ask a grown-up" })).toBeVisible();
 });
 
-test("books without text yet show as coming soon", async ({ page }) => {
-  await page.goto("/books/the-velveteen-rabbit");
-  await expect(page.getByTestId("public-coming-soon")).toBeVisible();
-  await expect(page.getByTestId("public-prepare")).toHaveCount(0);
+test("full library editions list their real chapters", async ({ page }) => {
+  await page.goto("/books/winnie-the-pooh");
+  await expect(page.getByRole("heading", { name: "Chapters" })).toBeVisible();
+  await expect(page.getByText("In Which Pooh Goes Visiting and Gets Into a Tight Place")).toBeVisible();
+  await expect(page.getByTestId("public-coming-soon")).toHaveCount(0);
+  await expect(page.getByTestId("public-prepare")).toBeVisible();
 });

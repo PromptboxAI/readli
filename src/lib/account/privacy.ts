@@ -136,6 +136,17 @@ async function removeObjects(db: SupabaseClient, bucket: string, keys: string[])
   return keys.length;
 }
 
+/** Every file under `${folder}/` in a bucket, so uploads without a database row are found too. */
+async function folderKeys(db: SupabaseClient, bucket: string, folder: string): Promise<string[]> {
+  const keys: string[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await db.storage.from(bucket).list(folder, { limit: 1000, offset });
+    if (error) throw new Error(`list ${bucket} audio: ${error.message}`);
+    keys.push(...(data ?? []).filter((f) => f.id !== null).map((f) => `${folder}/${f.name}`));
+    if (!data || data.length < 1000) return keys;
+  }
+}
+
 export interface DeletionResult {
   deleted: boolean;
   blockers: DeletionBlocker[];
@@ -146,7 +157,8 @@ export interface DeletionResult {
 /**
  * Deletes a grown-up's account, in an order that can be safely retried if any step fails:
  * 1. their cloned voices at the voice provider (ElevenLabs), so nothing can speak in their voice again;
- * 2. every recording of them and every audio file made from their voice, from storage;
+ * 2. every recording of them (including takes whose clone failed) and every audio file made from
+ *    their voice, in any family, from storage;
  * 3. families only they belong to, with those families' kids profiles;
  * 4. the sign-in itself, which removes the rest of their rows (profile, voices, memberships,
  *    guardianships, consents, invitations, rewards) through the database's cascades.
@@ -179,10 +191,11 @@ export async function deleteAccount(
     audioFilesRemoved += await removeObjects(db, NARRATION_BUCKETS.assets, keysOf(assets));
   }
   const sessions = await rows(db.from("voice_training_sessions").select("id").eq("owner_id", userId), "read recording sessions");
-  if (sessions.length) {
-    const takes = await rows(db.from("voice_training_segments").select("storage_key").in("session_id", ids(sessions)), "read recordings");
-    audioFilesRemoved += await removeObjects(db, RECORDINGS_BUCKET, keysOf(takes));
-  }
+  const takes = sessions.length
+    ? await rows(db.from("voice_training_segments").select("storage_key").in("session_id", ids(sessions)), "read recordings")
+    : [];
+  const recordings = new Set([...keysOf(takes), ...(await folderKeys(db, RECORDINGS_BUCKET, userId))]);
+  audioFilesRemoved += await removeObjects(db, RECORDINGS_BUCKET, [...recordings]);
 
   await run(
     db
