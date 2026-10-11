@@ -4,6 +4,8 @@
  * & Subscription Architecture, 2026-10-11); the admin portal overrides them (plan_settings table, or
  * PLAN_* env vars until that exists). Prices are in cents.
  */
+import { DEFAULT_MODEL } from "@/lib/voice/elevenlabs";
+
 export interface PlanConfig {
   familyMonthlyPriceCents: number;
   /** Same entitlements as monthly; monthly credits still refresh each month rather than all up front. */
@@ -96,7 +98,7 @@ export const DEFAULT_PLAN: PlanConfig = {
   chapterGenerationEnabled: true,
   simulatedCheckout: false,
   crossHouseholdReuse: true,
-  narrationModelId: "eleven_multilingual_v2",
+  narrationModelId: DEFAULT_MODEL,
   playbackUrlTtlSeconds: 120,
   maxSegmentAttempts: 3,
 };
@@ -134,7 +136,7 @@ export function planConfig(env: NodeJS.ProcessEnv = process.env): PlanConfig {
     simulatedCheckout: env.NODE_ENV !== "production" || env.VOICE_PROVIDER === "stub" || env.FAMILY_DEMO === "1",
     // Off in production until the ElevenLabs reuse confirmations are in; on for the preview.
     crossHouseholdReuse: env.NARRATION_CROSS_HOUSEHOLD_REUSE ? env.NARRATION_CROSS_HOUSEHOLD_REUSE === "true" : env.NODE_ENV !== "production" || env.VOICE_PROVIDER === "stub",
-    narrationModelId: env.ELEVENLABS_MODEL_ID ?? DEFAULT_PLAN.narrationModelId,
+    narrationModelId: env.ELEVENLABS_MODEL_ID || DEFAULT_PLAN.narrationModelId,
   };
 }
 

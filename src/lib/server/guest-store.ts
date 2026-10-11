@@ -240,7 +240,7 @@ export class SupabaseGuestStore implements GuestStore {
   private async guestScriptVersionId(): Promise<string> {
     if (this.scriptVersionId) return this.scriptVersionId;
     const row = await this.must(
-      this.db.from("voice_script_versions").select("id, voice_scripts!inner(slug)").eq("voice_scripts.slug", "guest_short.en").eq("version", DEMO_SCRIPT.version).single(),
+      this.db.from("voice_script_versions").select("id, voice_scripts!inner(slug)").eq("voice_scripts.slug", "guest_short.en").lte("version", DEMO_SCRIPT.version).order("version", { ascending: false }).limit(1).single(),
       "find guest script version",
     );
     this.scriptVersionId = row.id as string;
