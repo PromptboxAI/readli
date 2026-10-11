@@ -31,7 +31,7 @@ test("a parent manages storytellers child by child", async ({ page }) => {
   await expect(page.getByTestId("slots-used")).toHaveText("4 of 4 slots in use");
   await expect(page.getByTestId("slot-voice-priya").getByRole("button", { name: "Add to a slot" })).toBeDisabled();
   await page.getByRole("button", { name: "Add a slot", exact: true }).click();
-  await expect(page.getByTestId("slot-checkout")).toContainText("$2.99/month");
+  await expect(page.getByTestId("slot-checkout")).toContainText("$5.99/month");
   await page.getByRole("button", { name: "Confirm slot" }).click();
   await expect(page.getByTestId("slots-used")).toHaveText("4 of 5 slots in use");
   await page.getByTestId("slot-voice-priya").getByRole("button", { name: "Add to a slot" }).click();

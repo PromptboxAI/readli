@@ -15,6 +15,7 @@ function rows(): Row[] {
   const plan = planConfig();
   return [
     { label: "Readli Family monthly price", value: formatPrice(plan.familyMonthlyPriceCents) },
+    { label: "Readli Family annual price", value: formatPrice(plan.familyAnnualPriceCents), note: "Monthly credits still refresh each month" },
     { label: "Included active narrator slots", value: String(plan.includedNarratorSlots) },
     {
       label: "Extra narrator slot price (monthly)",

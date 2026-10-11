@@ -32,7 +32,7 @@ test("inviting family adds a pending storyteller and shares no voice", async ({ 
 
 test("gift checkout stays closed until prices are final, and the recipient runs their own home", async ({ page }, info) => {
   await page.goto("/invite/gift");
-  await expect(page.getByText("$149.99")).toBeVisible();
+  await expect(page.getByText("$179.99")).toBeVisible();
   await page.getByText("Monthly sponsorship").click();
   await page.getByLabel("Their name").fill("Ben and family");
   await page.getByLabel("Their email").fill("ben@example.com");
@@ -45,7 +45,7 @@ test("gift checkout stays closed until prices are final, and the recipient runs 
   await expect(page).toHaveURL(/\/invite\/gift\/checkout\?/);
   await expect(page.getByTestId("payments-off")).toBeVisible();
   await expect(page.getByRole("button", { name: "Start sponsorship" })).toBeDisabled();
-  await expect(page.getByText("$14.99 a month").first()).toBeVisible();
+  await expect(page.getByText("$19.99 a month").first()).toBeVisible();
   await expect(page.getByText(/7 days before each charge/)).toBeVisible();
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/gift-checkout-${info.project.name}.png`, fullPage: true });
