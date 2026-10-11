@@ -76,4 +76,7 @@ export function findCatalogBook(slug: string): CatalogBook | null {
   return CATALOG.find((b) => b.slug === slug) ?? null;
 }
 
+/** The six newest books, shown on the homepage shelf whether or not their full text is in yet. */
+export const NEW_BOOKS: readonly UpcomingBook[] = UPCOMING;
+
 export const UPCOMING_BOOKS: readonly UpcomingBook[] = UPCOMING.filter((b) => !LIBRARY_TEXTS[b.slug]);

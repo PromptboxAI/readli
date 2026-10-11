@@ -7,7 +7,7 @@ import { FamilyOfStorytellers, HearLovedOnes, MakeStorytimeYourOwn } from "@/com
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
-import { UPCOMING_BOOKS } from "@/lib/library/catalog";
+import { NEW_BOOKS } from "@/lib/library/catalog";
 
 function Cloud({ className }: { className: string }) {
   return (
@@ -265,7 +265,7 @@ export function KidsShelf() {
         </div>
         <div>
           <ul className="flex snap-x gap-4 overflow-x-auto pb-2 sm:justify-center">
-            {UPCOMING_BOOKS.map((book) => (
+            {NEW_BOOKS.map((book) => (
               <li key={book.slug} className="w-28 shrink-0 snap-start sm:w-32">
                 <Link href={`/books/${book.slug}`} className="block rounded-xl transition-transform hover:-translate-y-1">
                   <Image

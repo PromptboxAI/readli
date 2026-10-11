@@ -100,7 +100,12 @@ export default async function FamilyHome() {
           <h1 className="font-display text-4xl font-semibold">{adult.displayName}</h1>
         </div>
         <CreateFamily suggestion={`The ${adult.displayName.split(" ").pop()} family`} />
-        <SignOutButton />
+        <div className="flex flex-wrap gap-2">
+          <Link href="/family/account" className={buttonSecondary}>
+            Account settings
+          </Link>
+          <SignOutButton />
+        </div>
       </FamilyShell>
     );
   }
@@ -224,7 +229,12 @@ export default async function FamilyHome() {
 
       <div className="flex flex-wrap gap-2">
         {account ? (
-          <SignOutButton />
+          <>
+            <Link href="/family/account" className={buttonSecondary}>
+              Account settings
+            </Link>
+            <SignOutButton />
+          </>
         ) : (
           <>
             <SessionButton as={null} next="/family" className={buttonSecondary}>

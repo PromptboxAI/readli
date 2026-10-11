@@ -97,3 +97,12 @@ test("contributors verify, consent, record and approve their voice", async ({ pa
   await expect(page.getByText("Nobody can use it until you share it")).toBeVisible();
   await noOverflow(page);
 });
+
+test("account settings and the account API need a real signed-in grown-up", async ({ page }) => {
+  await page.goto("/family/account");
+  await expect(page.getByRole("heading", { name: "Account settings" })).toBeVisible();
+  await expect(page.getByText("Log in to your own family to change your name")).toBeVisible();
+  await noOverflow(page);
+  expect((await page.request.get("/api/account/export")).status()).toBe(401);
+  expect((await page.request.delete("/api/account", { data: { confirm: "DELETE" } })).status()).toBe(401);
+});

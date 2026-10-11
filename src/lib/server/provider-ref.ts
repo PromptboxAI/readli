@@ -26,3 +26,9 @@ export class ProviderRefCipher {
     return Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString("utf8");
   }
 }
+
+/** The cipher account and guest voices are stored with: PROVIDER_REF_SECRET, else GUEST_COOKIE_SECRET. */
+export function providerRefCipher(env: NodeJS.ProcessEnv = process.env): ProviderRefCipher | null {
+  const secret = env.PROVIDER_REF_SECRET ?? env.GUEST_COOKIE_SECRET ?? (env.VOICE_PROVIDER === "stub" ? "readli-dev-only-secret" : undefined);
+  return secret ? new ProviderRefCipher(secret) : null;
+}
