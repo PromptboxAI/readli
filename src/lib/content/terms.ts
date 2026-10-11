@@ -157,11 +157,19 @@ export const TERMS_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Narration credits",
-        text: "New narration is paid for in Readli credits, which the checkout and the parent library show before anything is generated. Credits expire on a published schedule: a plan’s monthly allowance is available for its billing period and does not roll over unless stated; promotional credits, such as welcome credits, expire 30 days after they are granted unless the offer says otherwise; purchased credits expire 12 months after purchase. The soonest-expiring credits are used first. Expired credits have no cash value and are not refunded unless the law requires it.",
+        text: "New narration is paid for in Readli credits, which the checkout and the parent library show before anything is generated. A household’s first Readli Family subscription starts with a 14-day free trial that includes 10 credits, available until the trial ends; the plan’s monthly credits start when the first paid period does. A plan’s monthly credits are available for that billing period and do not roll over unless stated. Promotional credits, such as welcome credits, and purchased credits do not expire unless the offer said otherwise when they were granted or bought. Included, trial, promotional and purchased credits are tracked separately, and the soonest-expiring credits are used first. If narration stops before it is delivered (because you cancel it, the plan changes, or the storyteller deletes their voice), the credits for the parts not delivered are returned once. Credits used for narration already delivered are not refunded. Expired credits have no cash value and are not refunded unless the law requires it.",
       },
       {
-        lead: "The Archive",
-        text: "Narration a household has already generated and stored is its Archive. An active plan includes listening to the Archive for voices that are still shared with and approved for the household. Having audio in the Archive and permission to generate new narration are separate entitlements: the Archive does not include a right to create new audio, export voice models, or keep a voice available after its owner withdraws it. When a plan, gift or sponsorship ends, the household keeps listening access to its Archive for 30 days; after that, access expires and Readli may delete the stored narration. Renewing within the 30 days restores access.",
+        lead: "Stories already prepared",
+        text: "Narration Readli has finished and stored for your household stays playable for your children while your household has Readli Family or Readli Family Archive, the child is still approved for that storyteller, and the story hasn’t been removed because the law requires it. Keeping and playing prepared stories is separate from making new ones. If a storyteller deletes their voice, nothing new can be made in it, but stories already prepared in it keep playing. If a storyteller records again, new stories use the new recording and stories already prepared keep the voice version they were made with.",
+      },
+      {
+        lead: "Readli Family Archive",
+        text: "a lower-priced plan (shown at checkout, currently $6.99 a month) for households that have had Readli Family. It keeps the household’s stored stories, listening, kids profiles, family relationships and permissions, and the eligible recordings behind them. It does not include making new narration, monthly credits or narrator slots. Moving from Readli Family to the Archive deletes nothing; narration still being prepared stops and its undelivered credits are returned. Moving back to Readli Family restores new narration for storytellers whose authorization is still in force.",
+      },
+      {
+        lead: "When paid access ends",
+        text: "if your household’s plan, gift or sponsorship ends and you haven’t chosen the Archive, Readli keeps your stored stories, kids profiles and permissions for 30 days (the recovery window), but nobody can listen during it. Restart Readli Family or choose the Archive within the window and everything comes back. Readli emails the household’s grown-ups when the window starts, nine days and two days before it ends, and on the deletion date, each time with the dates. If your household still has no plan after the window, Readli deletes its stored narration, except narration another household with a plan still uses.",
       },
     ],
   },
@@ -248,7 +256,7 @@ export const TERMS_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Service and Readli development rights",
-        text: "these are a condition of using Readli Voice. You can withdraw them by deleting your voice (in Readli Family, under My voice) or your account. That removes your voice from every family at once, stops Readli from making new narration in it, deletes the narration already made in it and your original recordings as the Privacy Policy describes, and is recorded as a withdrawal. Models or systems already trained may not be able to remove what they learned from a recording. You can record a new voice later, which needs a new agreement.",
+        text: "these are a condition of using Readli Voice. You can withdraw them by deleting your voice (in Readli Family, under My voice). That stops Readli from making new narration in your voice or re-making it, ends it as a storyteller for new stories in every family, stops narration still being prepared (returning its undelivered credits), deletes the voice clone at Readli’s voice provider, takes your original recordings out of all future development and training, and is recorded as a withdrawal. Stories already prepared in your voice stay with the families you shared it with, as section 9 describes; to have them removed as well, contact admin@readli.ai and Readli will remove them where the law requires. Deleting your account also deletes your original recordings and the narration made in your voice, as the Privacy Policy describes. Models or systems already trained may not be able to remove what they learned from a recording. You can record a new voice later, which needs a new agreement.",
       },
       {
         lead: "Where the law requires",

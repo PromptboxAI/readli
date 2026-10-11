@@ -88,15 +88,15 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Raw audio",
-        text: "the original recording, kept privately in Readli’s storage with its recording details. Used to create, re-create, restore and improve the contributor’s voice, and to develop and test Readli’s own voice technology. Kept while the voice or account exists; deleted when the contributor deletes their voice or account, subject to [DELETED VOICES] and [BACKUPS] timelines.",
+        text: "the original recording, kept privately in Readli’s storage with its recording details. Used to create, re-create, restore and improve the contributor’s voice, and to develop and test Readli’s own voice technology. Kept while the voice or account exists. When the contributor deletes their voice, the recording is no longer used to re-create the voice or for any development or training, and is deleted on the [DELETED VOICES] timeline or sooner on request; deleting the account deletes it, subject to the [BACKUPS] timeline.",
       },
       {
         lead: "Voice characteristics and models",
-        text: "voice models, embeddings or identifiers derived from a recording by Readli or its speech provider. Used only to generate narration for families the owner has shared with, and kept until the voice is replaced or deleted. Provider identifiers are stored encrypted and never sent to browsers.",
+        text: "voice models, embeddings or identifiers derived from a recording by Readli or its speech provider. Used only to generate narration for families the owner has shared with. The voice clone is hosted by Readli’s speech provider; Readli deletes it there when the voice is replaced or deleted, and retires it when no Readli Family household has needed it for a while, re-creating it from the original recording only if a family needs it again and the owner’s authorization is still in force. Provider identifiers are stored encrypted and never sent to browsers.",
       },
       {
         lead: "Generated narration",
-        text: "synthetic audio Readli generates and stores so families can listen again (a household’s Archive). Kept while the voice stays shared and approved and the plan allows, and deleted when the owner deletes their voice.",
+        text: "synthetic audio Readli generates and stores privately so families can listen again. Each story keeps a record of the voice and voice version it was made with. Kept while a household that it was made for has Readli Family or Readli Family Archive, including after the owner deletes or re-records their voice; deleted 30 days after a household’s paid access ends if it hasn’t chosen a plan (unless another household with a plan still uses it), when the law requires its removal, or when the voice owner deletes their account.",
       },
       {
         lead: "Account relationships and child profile data",
@@ -112,7 +112,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Your choices",
-        text: "you can turn independent commercial licensing off at any time, stop sharing a voice, or delete your voice or account. Deleting your voice removes it from every family, deletes your original recordings and the narration made in it, and is recorded as a withdrawal that ends future development and licensing use; models already trained may not be able to remove what they learned. Use the controls in Readli or contact admin@readli.ai to exercise these or any other privacy rights described in section 12.",
+        text: "you can turn independent commercial licensing off at any time, stop sharing a voice, or delete your voice or account. Deleting your voice stops new narration in it in every family, deletes its clone at our speech provider, takes your original recordings out of all future development, training and licensing, and is recorded as a withdrawal; stories already prepared in it stay with the families you shared it with unless you ask us to remove them where the law requires. Models already trained may not be able to remove what they learned. Use the controls in Readli or contact admin@readli.ai to exercise these or any other privacy rights described in section 12.",
       },
     ],
   },
