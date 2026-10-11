@@ -130,7 +130,7 @@ async function assess(db: SupabaseClient, userId: string): Promise<Homes> {
   return homes;
 }
 
-async function removeObjects(db: SupabaseClient, bucket: string, keys: string[]): Promise<number> {
+export async function removeObjects(db: SupabaseClient, bucket: string, keys: string[]): Promise<number> {
   for (let i = 0; i < keys.length; i += 100) {
     const { error } = await db.storage.from(bucket).remove(keys.slice(i, i + 100));
     if (error) throw new Error(`remove ${bucket} audio: ${error.message}`);
@@ -139,7 +139,7 @@ async function removeObjects(db: SupabaseClient, bucket: string, keys: string[])
 }
 
 /** Every file under `${folder}/` in a bucket, so uploads without a database row are found too. */
-async function folderKeys(db: SupabaseClient, bucket: string, folder: string): Promise<string[]> {
+export async function folderKeys(db: SupabaseClient, bucket: string, folder: string): Promise<string[]> {
   const keys: string[] = [];
   for (let offset = 0; ; offset += 1000) {
     const { data, error } = await db.storage.from(bucket).list(folder, { limit: 1000, offset });
@@ -215,7 +215,7 @@ export async function deleteAccount(
   return { deleted: true, blockers: [], voicesRemoved: cloned.length, audioFilesRemoved };
 }
 
-function keysOf(list: Row[]): string[] {
+export function keysOf(list: Row[]): string[] {
   return [...new Set(list.map((r) => r.storage_key).filter((k): k is string => typeof k === "string" && k.length > 0))];
 }
 

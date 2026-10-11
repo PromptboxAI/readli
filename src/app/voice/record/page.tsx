@@ -19,7 +19,7 @@ export default async function VoiceRecordPage() {
   return (
     <AdultPage wide>
       <header className="flex flex-col gap-2">
-        <Link href="/voice" className="w-fit font-display font-semibold underline-offset-4 hover:underline">
+        <Link href={user ? "/family/my-voice" : "/voice"} className="w-fit font-display font-semibold underline-offset-4 hover:underline">
           ← My voice
         </Link>
         <Eyebrow>Readli Voice</Eyebrow>

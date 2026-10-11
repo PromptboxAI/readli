@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { folderKeys, keysOf, NARRATION_BUCKETS, RECORDINGS_BUCKET, removeObjects } from "@/lib/account/privacy";
 import { fileExtension } from "@/lib/audio/mime";
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
 import { VOICE_CONSENT_VERSION } from "@/lib/content/voice-consents";
@@ -14,7 +15,8 @@ import { StubVoiceProvider } from "./stub";
 /**
  * A signed-in grown-up's own Readli voice (parents backend, piece 2): record with the teleprompter,
  * consent, clone, save. One voice per person; recording again replaces the provider voice on the
- * same row, so families it is shared with keep it. Server-only: the provider voice id never leaves.
+ * same row, so families it is shared with keep it. Deleting it removes the voice everywhere, and the
+ * owner can record a new one whenever they like. Server-only: the provider voice id never leaves.
  */
 
 export interface AccountVoice {
@@ -57,6 +59,11 @@ export interface AccountVoiceStore {
   /** Creates or replaces the owner's voice row and records their consent against it. */
   saveVoice(owner: { id: string; name: string }, providerVoiceId: string, take: AgreedTake, saved: SavedTake): Promise<AccountVoice>;
   providerVoiceId(voiceId: string): Promise<string | null>;
+  /**
+   * Removes everything kept for the owner's voice except the record that it existed: their
+   * recordings, audio made from the voice, sharing and kids' approvals. Safe to retry.
+   */
+  removeVoice(ownerId: string, voiceId: string): Promise<void>;
 }
 
 export class AccountVoiceError extends Error {
@@ -132,6 +139,24 @@ export function consentPurposes(agreement: VoiceAgreement): string[] {
   ];
 }
 
+/**
+ * Deletes the owner's voice: first at the voice provider, so nothing can speak in it again, then
+ * everything Readli kept. Families it was shared with lose it at once. Recording again makes a new voice.
+ */
+export async function deleteAccountVoice(deps: AccountVoiceDeps, ownerId: string): Promise<void> {
+  const voice = await deps.store.findVoice(ownerId);
+  if (!voice) throw new AccountVoiceError(404, "no_voice", "You don't have a Readli voice to delete.");
+  if (voice.providerVoiceId) {
+    try {
+      await deps.provider.deleteVoice(voice.providerVoiceId);
+    } catch (err) {
+      console.error("account voice delete failed", err);
+      throw new AccountVoiceError(502, "delete_failed", "We couldn't delete your voice just now, so nothing has changed. Please try again.");
+    }
+  }
+  await deps.store.removeVoice(ownerId, voice.id);
+}
+
 /** A short line in the owner's voice, for "Does this sound like you?". Only the owner can hear it. */
 export async function accountVoiceSample(deps: AccountVoiceDeps, ownerId: string): Promise<SynthesizedAudio> {
   const voice = await deps.store.findVoice(ownerId);
@@ -189,9 +214,15 @@ export class MemoryAccountVoiceStore implements AccountVoiceStore {
   async providerVoiceId(voiceId: string) {
     return this.voices.get(voiceId)?.providerVoiceId ?? null;
   }
+
+  async removeVoice(ownerId: string, voiceId: string) {
+    const v = this.voices.get(voiceId);
+    if (v?.ownerId === ownerId) Object.assign(v, { status: "deleted", providerVoiceId: null, updatedAt: new Date().toISOString() });
+    for (let i = this.takes.length - 1; i >= 0; i--) if (this.takes[i]!.ownerId === ownerId) this.takes.splice(i, 1);
+  }
 }
 
-const BUCKET = "voice-recordings";
+const BUCKET = RECORDINGS_BUCKET;
 /** What the recorder asks the browser for (useMicrophone), kept with each recording. */
 const CAPTURE_CONSTRAINTS = { channel_count: 1, echo_cancellation: true, noise_suppression: false, auto_gain_control: false };
 type Row = Record<string, unknown>;
@@ -368,6 +399,43 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
     );
     const enc = row?.provider_voice_id_encrypted as string | null | undefined;
     return enc ? this.cipher.decrypt(enc) : null;
+  }
+
+  async removeVoice(ownerId: string, voiceId: string) {
+    const at = new Date().toISOString();
+    const db = this.db;
+    // Audio made from the voice, in every family, then every recording of the owner.
+    const libraries = await this.q<Row[]>(db.from("narration_libraries").select("key").eq("voice_id", voiceId), "read narration libraries");
+    const segments = libraries.length
+      ? await this.q<Row[]>(db.from("narration_segments").select("storage_key").in("library_key", libraries.map((l) => l.key as string)), "read narration audio")
+      : [];
+    const assets = await this.q<Row[]>(db.from("narration_assets").select("storage_key").eq("voice_id", voiceId), "read older narration audio");
+    await removeObjects(db, NARRATION_BUCKETS.segments, keysOf(segments));
+    await removeObjects(db, NARRATION_BUCKETS.assets, keysOf(assets));
+    const sessions = await this.q<Row[]>(db.from("voice_training_sessions").select("id").eq("owner_id", ownerId), "read recording sessions");
+    const takes = sessions.length
+      ? await this.q<Row[]>(db.from("voice_training_segments").select("storage_key").in("session_id", sessions.map((x) => x.id as string)), "read recordings")
+      : [];
+    await removeObjects(db, BUCKET, [...new Set([...keysOf(takes), ...(await folderKeys(db, BUCKET, ownerId))])]);
+
+    // Kids lose it first (so the reason reads "voice deleted"), then families, which frees their narrator slots.
+    await this.q(
+      db.from("child_voice_approvals").update({ revoked_at: at, revoked_by: ownerId, revoke_reason: "voice_deleted" }).eq("voice_id", voiceId).is("revoked_at", null),
+      "end kids approvals",
+    );
+    await this.q(db.from("voice_household_shares").update({ revoked_at: at, revoked_by: ownerId }).eq("voice_id", voiceId).is("revoked_at", null), "stop sharing");
+    await this.q(db.from("voice_consents").update({ revoked_at: at }).eq("voice_id", voiceId).is("revoked_at", null), "withdraw voice consent");
+    // Library rows stay for credit history; their audio is gone and a deleted voice is never offered.
+    if (libraries.length) {
+      await this.q(
+        db.from("narration_jobs").update({ status: "canceled", finished_at: at }).in("library_key", libraries.map((l) => l.key as string)).in("status", ["queued", "running"]),
+        "stop narration in progress",
+      );
+    }
+    await this.q(
+      db.from("voice_profiles").update({ status: "deleted", deleted_at: at, updated_at: at, provider_voice_id_encrypted: null }).eq("id", voiceId).eq("owner_id", ownerId),
+      "delete account voice",
+    );
   }
 }
 

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth/supabase";
 import { serverConfig } from "@/lib/server/config";
 import { fail } from "@/lib/server/http";
-import { AccountVoiceError, accountVoiceDeps, createAccountVoice } from "@/lib/voice/account-voices";
+import { AccountVoiceError, accountVoiceDeps, createAccountVoice, deleteAccountVoice } from "@/lib/voice/account-voices";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -64,6 +64,21 @@ export async function POST(req: Request) {
       userAgent: req.headers.get("user-agent")?.slice(0, 500) ?? null,
     });
     return NextResponse.json({ voice }, { status: 201 });
+  } catch (err) {
+    if (err instanceof AccountVoiceError) return fail(err.status, err.code, err.userMessage);
+    throw err;
+  }
+}
+
+/** Deletes the grown-up's voice everywhere. They can record a new one at any time. */
+export async function DELETE() {
+  const deps = accountVoiceDeps(serverConfig());
+  if (!deps) return fail(503, "voices_off", VOICES_OFF);
+  const user = await currentUser();
+  if (!user) return fail(401, "sign_in_required", "Please sign in to delete your voice.");
+  try {
+    await deleteAccountVoice(deps, user.id);
+    return NextResponse.json({ voice: null });
   } catch (err) {
     if (err instanceof AccountVoiceError) return fail(err.status, err.code, err.userMessage);
     throw err;

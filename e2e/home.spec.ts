@@ -167,3 +167,9 @@ test("phone menu closes after tapping a section link", async ({ page }, info) =>
   await expect(page).toHaveURL(/#how-it-works$/);
   await expect(menu).toBeHidden();
 });
+
+test("the closing section offers the 14-day Readli Family trial", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("family-trial-line")).toContainText("Try Readli Family free for 14 days. Card required, cancel any time.");
+  await expect(page.getByRole("link", { name: "Start your free trial" })).toHaveAttribute("href", "/signup/family");
+});

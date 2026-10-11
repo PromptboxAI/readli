@@ -132,7 +132,7 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
             Voice Recording &amp; AI Training Agreement
           </h2>
           <p className="font-semibold">Please read this before you record. Your microphone doesn&apos;t switch on until you agree.</p>
-          {hasVoice && <p>You already have a Readli voice. Recording again replaces it, and families you share it with keep hearing you.</p>}
+          {hasVoice && <p>You already have a Readli voice. Recording again replaces it, and families you share it with keep hearing you. You can also delete it from My voice in Readli Family.</p>}
           <ul className="flex list-disc flex-col gap-1 pl-6 text-sm">
             <li>Readli keeps your original recording to make, remake and improve your private story voice.</li>
             <li>Readli also uses it to build and improve Readli&apos;s own voice technology.</li>
@@ -253,7 +253,7 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
           <h2 className="font-display text-3xl font-semibold">Your voice is ready</h2>
           <p className="max-w-md">It&apos;s private. Nobody can use it until you share it with a family, and their parents approve it for each child.</p>
           <div className="flex flex-wrap justify-center gap-3">
-            <Link href="/voice" className={buttonPrimary}>
+            <Link href="/family/my-voice" className={buttonPrimary}>
               Choose who can use it
             </Link>
             <Link href="/family" className={buttonQuiet}>

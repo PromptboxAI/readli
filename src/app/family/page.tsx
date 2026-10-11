@@ -127,18 +127,19 @@ export default async function FamilyHome() {
       <PreviewNote />
       {account && home && <p className="font-display text-xl">{state.households.find((h) => h.id === home)?.name}</p>}
 
-      {account && (
-        <p className="rounded-2xl bg-mint/40 p-3 text-sm">
-          Your family is saved to your account. Recording your voice from your account comes next.
-        </p>
-      )}
-
       <section className="flex flex-col gap-3" aria-labelledby="my-voice-h">
         <h2 id="my-voice-h" className="font-display text-2xl font-semibold">Your voice</h2>
-        <p>Your voice is private until you share it. You decide which families can use it.</p>
-        <Link href="/family/my-voice" className={`${buttonSecondary} self-start`}>
-          Who can use my voice
-        </Link>
+        <p>Your voice is private until you share it. You decide which families can use it, and you can record it again or delete it at any time.</p>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/family/my-voice" className={buttonSecondary}>
+            My voice
+          </Link>
+          {account && (
+            <Link href="/voice/record" className="self-center font-semibold underline underline-offset-4">
+              Record or re-record my voice
+            </Link>
+          )}
+        </div>
       </section>
 
       {isGuardian && notes.length > 0 && (
