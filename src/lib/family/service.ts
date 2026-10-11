@@ -490,7 +490,7 @@ export async function grantEntitlement(
           id: randomUUID(),
           householdId,
           source: "promotional",
-          credits: store.plan.welcomePromoCredits,
+          credits: store.plan.welcomePromoCredits * store.plan.charactersPerCredit,
           grantedAt: start.toISOString(),
           expiresAt: store.plan.welcomePromoDays > 0 ? new Date(start.getTime() + store.plan.welcomePromoDays * DAY).toISOString() : null,
           note: "Welcome credits for your first stories",

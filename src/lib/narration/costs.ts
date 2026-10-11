@@ -25,17 +25,19 @@ export interface ModelCost {
   creditsPerCharacter: number;
   /** Characters of storybook text per minute of narration (provisional). */
   charactersPerMinute: number;
+  /** Planning cost per 1,000 characters (Kevin, 2026-10-11: ~$0.05 lower-cost, ~$0.10 higher-cost models). Verify against invoices. */
+  usdPer1kCharacters: number;
 }
 
 export const MODEL_COSTS: Record<string, ModelCost> = {
-  eleven_multilingual_v2: { modelId: "eleven_multilingual_v2", creditsPerCharacter: 1, charactersPerMinute: 900 },
-  eleven_v3: { modelId: "eleven_v3", creditsPerCharacter: 1, charactersPerMinute: 900 },
-  eleven_v4: { modelId: "eleven_v4", creditsPerCharacter: 1, charactersPerMinute: 1000 },
-  eleven_flash_v2_5: { modelId: "eleven_flash_v2_5", creditsPerCharacter: 0.5, charactersPerMinute: 900 },
+  eleven_multilingual_v2: { modelId: "eleven_multilingual_v2", creditsPerCharacter: 1, charactersPerMinute: 900, usdPer1kCharacters: 0.1 },
+  eleven_v3: { modelId: "eleven_v3", creditsPerCharacter: 1, charactersPerMinute: 900, usdPer1kCharacters: 0.1 },
+  eleven_v4: { modelId: "eleven_v4", creditsPerCharacter: 1, charactersPerMinute: 1000, usdPer1kCharacters: 0.1 },
+  eleven_flash_v2_5: { modelId: "eleven_flash_v2_5", creditsPerCharacter: 0.5, charactersPerMinute: 900, usdPer1kCharacters: 0.05 },
 };
 
 export function modelCost(modelId: string): ModelCost {
-  return MODEL_COSTS[modelId] ?? { modelId, creditsPerCharacter: 1, charactersPerMinute: 900 };
+  return MODEL_COSTS[modelId] ?? { modelId, creditsPerCharacter: 1, charactersPerMinute: 900, usdPer1kCharacters: 0.1 };
 }
 
 /** Provider dollars per narration minute on a plan, counting included credits at their plan price. */

@@ -6,7 +6,7 @@ import {
   applyRewardMonth,
   DEFAULT_REWARDS,
   grantReferralMonth,
-  narrationAllowanceSeconds,
+  narrationAllowanceCredits,
   referralStatus,
   rewardsConfig,
   rewardsVisible,
@@ -41,13 +41,13 @@ describe("Readli Rewards activities", () => {
 
 describe("settings", () => {
   it("default to Kevin's limits with the program off", () => {
-    expect(DEFAULT_REWARDS).toEqual({ programPublic: false, trialDays: 14, trialNarrationMinutes: 10, referralPaidCyclesRequired: 2, referralMonthsPerRolling12: 3 });
+    expect(DEFAULT_REWARDS).toEqual({ programPublic: false, trialDays: 14, trialCredits: 10, referralPaidCyclesRequired: 2, referralMonthsPerRolling12: 3 });
     expect(rewardsConfig({} as NodeJS.ProcessEnv)).toEqual(DEFAULT_REWARDS);
   });
 
   it("are adjustable by admin settings", () => {
-    const c = rewardsConfig({ REWARDS_PROGRAM_PUBLIC: "true", REWARDS_TRIAL_DAYS: "7", REWARDS_TRIAL_NARRATION_MINUTES: "5", REWARDS_REFERRAL_PAID_CYCLES: "3", REWARDS_REFERRAL_MONTHS_PER_12: "6" } as unknown as NodeJS.ProcessEnv);
-    expect(c).toEqual({ programPublic: true, trialDays: 7, trialNarrationMinutes: 5, referralPaidCyclesRequired: 3, referralMonthsPerRolling12: 6 });
+    const c = rewardsConfig({ REWARDS_PROGRAM_PUBLIC: "true", REWARDS_TRIAL_DAYS: "7", REWARDS_TRIAL_CREDITS: "5", REWARDS_REFERRAL_PAID_CYCLES: "3", REWARDS_REFERRAL_MONTHS_PER_12: "6" } as unknown as NodeJS.ProcessEnv);
+    expect(c).toEqual({ programPublic: true, trialDays: 7, trialCredits: 5, referralPaidCyclesRequired: 3, referralMonthsPerRolling12: 6 });
     expect(rewardsConfig({ REWARDS_TRIAL_DAYS: "-1", REWARDS_REFERRAL_PAID_CYCLES: "0" } as unknown as NodeJS.ProcessEnv)).toMatchObject({ trialDays: 14, referralPaidCyclesRequired: 1 });
   });
 
@@ -63,8 +63,8 @@ describe("free trial", () => {
     expect(trialEligibility({ adultsHadFamilyBefore: false, sharedSignalUsedForTrial: false }, ON)).toEqual({ eligible: true });
     const t = startTrial(AT, ON);
     expect(t.endsAt).toEqual(day(14));
-    expect(t.narrationSeconds).toBe(600);
-    expect(narrationAllowanceSeconds({ kind: "trial" }, 30, ON)).toBe(600);
+    expect(t.credits).toBe(10);
+    expect(narrationAllowanceCredits({ kind: "trial" }, 40, ON)).toBe(10);
   });
 
   it("is refused to returning customers, duplicate accounts and while the program is off", () => {
@@ -114,9 +114,9 @@ describe("free months", () => {
   });
 
   it("don't add a narration allowance on top of the normal monthly one", () => {
-    const paid = narrationAllowanceSeconds({ kind: "subscription", coveredByRewardMonth: false }, 30, ON);
-    expect(narrationAllowanceSeconds({ kind: "subscription", coveredByRewardMonth: true }, 30, ON)).toBe(paid);
-    expect(paid).toBe(1800);
+    const paid = narrationAllowanceCredits({ kind: "subscription", coveredByRewardMonth: false }, 40, ON);
+    expect(narrationAllowanceCredits({ kind: "subscription", coveredByRewardMonth: true }, 40, ON)).toBe(paid);
+    expect(paid).toBe(40);
   });
 });
 

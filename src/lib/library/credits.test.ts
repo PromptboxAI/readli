@@ -3,7 +3,7 @@ import { demoFamilyState, DEMO_HOUSEHOLD_ID } from "@/lib/family/demo-family";
 import type { Actor, FamilyState } from "@/lib/family/model";
 import { DEFAULT_PLAN, type PlanConfig } from "@/lib/family/plan";
 import { grantEntitlement, MemoryFamilyStore, PermissionError, startListening } from "@/lib/family/service";
-import { creditBalance, spendableLots } from "@/lib/narration/credits";
+import { creditBalance, includedLotId, spendableLots } from "@/lib/narration/credits";
 import { authorizePlayback, grantPromoCredits, kidsReadiness, prepareView, purchaseCredits, quote, requestGeneration, runJob } from "@/lib/narration/narration";
 import { bookText } from "@/lib/narration/text";
 import type { SynthesizedAudio, VoiceProvider } from "@/lib/voice/provider";
@@ -38,9 +38,9 @@ class Provider implements VoiceProvider {
 }
 
 /** The preview household on a small allowance: enough for short stories and single chapters, not the whole long book. */
-function family(minutes = 3, extra: Partial<PlanConfig> = {}) {
+function family(credits = 3, extra: Partial<PlanConfig> = {}) {
   const state: FamilyState = demoFamilyState();
-  const plan = { ...DEFAULT_PLAN, monthlyNarrationMinutes: minutes, simulatedCheckout: true, ...extra };
+  const plan = { ...DEFAULT_PLAN, monthlyCredits: credits, simulatedCheckout: true, ...extra };
   return { state, store: new MemoryFamilyStore(state, plan), plan };
 }
 
@@ -92,7 +92,7 @@ describe("generation credits (required tests)", () => {
     // Promotional and monthly credits are spent before purchased ones.
     const drawn = Object.values(job!.reservations).flat();
     const fromLot = (id: string) => drawn.filter((d) => d.lotId === id).reduce((n, d) => n + d.credits, 0);
-    expect(fromLot(`subscription:${iso().slice(0, 7)}`)).toBe(plan.monthlyNarrationMinutes * 60);
+    expect(fromLot(includedLotId(state, H, iso())!)).toBe(plan.monthlyCredits * plan.charactersPerCredit);
     expect(fromLot(lot.id)).toBe(need);
   });
 
@@ -180,31 +180,46 @@ describe("generation credits (required tests)", () => {
 });
 
 describe("credit lots", () => {
-  it("track monthly, promotional and purchased credits separately, honoring expiry and rollover", async () => {
+  it("track monthly, promotional and purchased credits separately in exact characters, honoring expiry and rollover", async () => {
     const { state, store, plan } = family(1, { subscriptionRolloverMonths: 0 });
-    await grantPromoCredits(store, H, 100, 7, "Promo", clock);
+    await grantPromoCredits(store, H, 2, 7, "Promo", clock);
     const b = creditBalance(state, plan, H, iso());
-    expect(b.bySource).toEqual({ subscription: 60, promotional: 100, purchased: 0 });
-    expect(b.renewsAt).toBe("2026-11-01T00:00:00.000Z");
-    // Promotional credits (expiring soonest) are spent first.
-    expect(spendableLots(state, plan, H, iso())[0]!.lot.source).toBe("promotional");
-    // After expiry, they're gone; next month brings a fresh allowance.
+    expect(b.bySource).toEqual({ subscription: 1000, trial: 0, promotional: 2000, purchased: 0 });
+    // The billing month runs from the plan's start (Oct 1, 12:00), annual or monthly alike.
+    expect(b.renewsAt).toBe("2026-11-01T12:00:00.000Z");
+    // Included credits are spent before promotional and purchased ones.
+    expect(spendableLots(state, plan, H, iso()).map((l) => l.lot.source)).toEqual(["subscription", "promotional"]);
+    // After expiry, promotional credits are gone; next month brings a fresh allowance, with no rollover.
     expect(creditBalance(state, plan, H, "2026-10-20T00:00:00.000Z").bySource.promotional).toBe(0);
-    state.ledger.push({ id: "used", householdId: H, lotId: "subscription:2026-10", kind: "reserve", credits: 50, jobId: null, sentenceId: null, at: iso() });
-    expect(creditBalance(state, plan, H, "2026-11-02T00:00:00.000Z").bySource.subscription).toBe(60);
+    state.ledger.push({ id: "used", householdId: H, lotId: includedLotId(state, H, iso())!, kind: "reserve", credits: 834, jobId: null, sentenceId: null, at: iso() });
+    expect(creditBalance(state, plan, H, iso()).bySource.subscription).toBe(166);
+    expect(creditBalance(state, plan, H, "2026-11-02T00:00:00.000Z").bySource.subscription).toBe(1000);
     const rolling = { ...plan, subscriptionRolloverMonths: 1 };
-    expect(creditBalance(state, rolling, H, "2026-11-02T00:00:00.000Z").bySource.subscription).toBe(60 + 10);
+    expect(creditBalance(state, rolling, H, "2026-11-02T00:00:00.000Z").bySource.subscription).toBe(1000 + 166);
   });
 
-  it("a new household gets welcome credits once; the allowance is per household, not per child", async () => {
-    const { state, store, plan } = family(30);
+  it("annual plans refresh 40 credits each month instead of all at once", async () => {
+    const { state, store, plan } = family(40, { welcomePromoCredits: 0 });
+    state.households.push({ id: "yr", name: "Annual family" });
+    tick = Date.parse("2027-01-31T09:00:00Z");
+    await grantEntitlement(store, "yr", { source: "subscription", months: 12 }, clock);
+    expect(creditBalance(state, plan, "yr", iso()).available).toBe(40_000);
+    // Jan 31 renews on the last day of February, then on the 31st again when there is one.
+    expect(creditBalance(state, plan, "yr", iso()).renewsAt?.slice(0, 10)).toBe("2027-02-28");
+    expect(creditBalance(state, plan, "yr", "2027-03-31T10:00:00.000Z").renewsAt?.slice(0, 10)).toBe("2027-04-30");
+    expect(creditBalance(state, plan, "yr", "2027-07-15T00:00:00.000Z").available).toBe(40_000);
+    tick = Date.parse("2026-10-10T00:00:00Z");
+  });
+
+  it("a new household gets welcome credits once when configured; the allowance is per household, not per child", async () => {
+    const { state, store, plan } = family(30, { welcomePromoCredits: 5 });
     state.households.push({ id: "h2", name: "New family" });
     await grantEntitlement(store, "h2", { source: "subscription", months: null }, clock);
     await grantEntitlement(store, "h2", { source: "gift", months: 1 }, clock);
     const lots = state.creditLots.filter((l) => l.householdId === "h2");
     expect(lots).toHaveLength(1);
-    expect(lots[0]).toMatchObject({ source: "promotional", credits: plan.welcomePromoCredits });
-    expect(creditBalance(state, plan, H, iso()).allowance).toBe(30 * 60);
+    expect(lots[0]).toMatchObject({ source: "promotional", credits: 5000 });
+    expect(creditBalance(state, plan, H, iso()).allowance).toBe(30_000);
   });
 
   it("the library keeps every book and leads with short stories", async () => {
@@ -221,13 +236,31 @@ describe("credit lots", () => {
   });
 });
 
+describe("provider cost", () => {
+  it("charges exact characters and records model, characters, provider credits, cost and retries per household", async () => {
+    const { state, store, plan } = family(40);
+    const failedOnce = new Set<string>();
+    const provider = new Provider((text) => (failedOnce.has(text) ? false : (failedOnce.add(text), true)));
+    const before = balance(state, plan);
+    const { job, quote: q } = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: SHORT, scope: "book" }, clock);
+    await runJob(store, provider, job!.id, clock);
+    const characters = q.sentenceIds.reduce((n, id) => n + bookText(SHORT)!.sentences.find((x) => x.id === id)!.text.length, 0);
+    expect(q.credits).toBe(characters);
+    expect(balance(state, plan)).toBe(before - characters);
+    const usage = state.usage.filter((u) => u.jobId === job!.id);
+    expect(usage.reduce((n, u) => n + u.characters, 0)).toBe(characters);
+    expect(usage.every((u) => u.householdId === H && u.modelId === plan.narrationModelId && u.attempts === 2)).toBe(true);
+    expect(usage.reduce((n, u) => n + u.usd, 0)).toBeCloseTo((characters / 1000) * 0.1, 6);
+  });
+});
+
 describe("free trial", () => {
   it("a trial household gets the trial allowance once for the whole trial, not the monthly one", async () => {
-    const { state, store, plan } = family(30, { trialNarrationMinutes: 10, welcomePromoCredits: 0 });
+    const { state, store, plan } = family(30, { trialCredits: 10, welcomePromoCredits: 0 });
     state.households.push({ id: "t1", name: "Trial family" });
     await grantEntitlement(store, "t1", { source: "trial", months: null, days: 14 }, clock);
     const b = creditBalance(state, plan, "t1", iso());
-    expect(b.bySource.subscription).toBe(600);
+    expect(b.bySource).toMatchObject({ trial: 10_000, subscription: 0 });
     expect(b.renewsAt).toBeNull();
     const later = new Date(tick + 20 * 86_400_000).toISOString();
     expect(creditBalance(state, plan, "t1", later).available).toBe(0);

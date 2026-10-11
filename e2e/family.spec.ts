@@ -259,7 +259,7 @@ test("short on credits: prepare a chapter, or buy credits and come straight back
   await june.getByTestId("get-credits").click();
   await expect(page.getByRole("heading", { name: "Readli credits" })).toBeVisible();
   await expect(page.getByTestId("need")).toContainText("more credits");
-  await page.getByRole("button", { name: "Buy 1,800" }).click();
+  await page.getByRole("button", { name: "Buy 20" }).click();
   await expect(page).toHaveURL(/\/family\/books\/aesops-fables-retold\?voice=voice-june&scope=book/);
   const confirm = page.getByTestId("prepare-voice-june").getByTestId("confirm-generation");
   await expect(confirm).toBeVisible();
@@ -269,7 +269,7 @@ test("short on credits: prepare a chapter, or buy credits and come straight back
 
   await page.goto("/family/credits");
   await expect(page.getByTestId("credit-history")).toContainText("Aesop's Fables read by Grandma June");
-  await expect(page.getByTestId("credit-history")).toContainText("Credit pack (1800)");
+  await expect(page.getByTestId("credit-history")).toContainText("Credit pack (20)");
 });
 
 test("kids can't buy credits or start narration", async ({ page }) => {
