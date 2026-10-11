@@ -1,13 +1,16 @@
 /**
- * Readli Family plan settings (Final Signup Architecture and Subscription Pricing amendment).
- * Defaults are Kevin's numbers; the admin portal overrides them (plan_settings table, or PLAN_*
- * env vars until that exists). Prices are in cents.
+ * Readli Family plan settings. The one source of Readli's prices: checkout, signup, the pricing page
+ * and the admin portal all read them from here. Defaults are Kevin's numbers (Updated Pricing, Credits
+ * & Subscription Architecture, 2026-10-11); the admin portal overrides them (plan_settings table, or
+ * PLAN_* env vars until that exists). Prices are in cents.
  */
 export interface PlanConfig {
   familyMonthlyPriceCents: number;
+  /** Same entitlements as monthly; monthly credits still refresh each month rather than all up front. */
+  familyAnnualPriceCents: number;
   includedNarratorSlots: number;
   extraSlotPriceCents: number;
-  /** The $2.99 extra slot is proposed, pending pricing approval and provider cost validation. */
+  /** Whether the extra slot price is approved for sale. Selling still needs payments switched on. */
   extraSlotPriceApproved: boolean;
   freeContributorVoices: number;
   maxChildProfiles: number;
@@ -63,10 +66,11 @@ export interface CreditPack {
 }
 
 export const DEFAULT_PLAN: PlanConfig = {
-  familyMonthlyPriceCents: 1499,
+  familyMonthlyPriceCents: 1999,
+  familyAnnualPriceCents: 17999,
   includedNarratorSlots: 2,
-  extraSlotPriceCents: 299,
-  extraSlotPriceApproved: false,
+  extraSlotPriceCents: 599,
+  extraSlotPriceApproved: true,
   freeContributorVoices: 1,
   maxChildProfiles: 6,
   includedConcurrentStreams: 3,
@@ -105,9 +109,10 @@ export function planConfig(env: NodeJS.ProcessEnv = process.env): PlanConfig {
   return {
     ...DEFAULT_PLAN,
     familyMonthlyPriceCents: num("PLAN_FAMILY_PRICE_CENTS", DEFAULT_PLAN.familyMonthlyPriceCents),
+    familyAnnualPriceCents: num("PLAN_FAMILY_ANNUAL_PRICE_CENTS", DEFAULT_PLAN.familyAnnualPriceCents),
     includedNarratorSlots: num("PLAN_INCLUDED_SLOTS", DEFAULT_PLAN.includedNarratorSlots),
     extraSlotPriceCents: num("PLAN_EXTRA_SLOT_PRICE_CENTS", DEFAULT_PLAN.extraSlotPriceCents),
-    extraSlotPriceApproved: env.PLAN_EXTRA_SLOT_PRICE_APPROVED === "true",
+    extraSlotPriceApproved: env.PLAN_EXTRA_SLOT_PRICE_APPROVED ? env.PLAN_EXTRA_SLOT_PRICE_APPROVED === "true" : DEFAULT_PLAN.extraSlotPriceApproved,
     freeContributorVoices: num("PLAN_FREE_CONTRIBUTOR_VOICES", DEFAULT_PLAN.freeContributorVoices),
     maxChildProfiles: num("PLAN_MAX_CHILD_PROFILES", DEFAULT_PLAN.maxChildProfiles),
     includedConcurrentStreams: num("PLAN_INCLUDED_STREAMS", DEFAULT_PLAN.includedConcurrentStreams),

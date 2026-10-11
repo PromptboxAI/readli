@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { buttonPrimary } from "@/components/brand/buttons";
+import { familyCheckoutOpen } from "@/lib/accounts/checkout";
 import { DEFAULT_PLAN, formatPrice } from "@/lib/family/plan";
 
 const IN_USE = [
@@ -10,12 +11,12 @@ const IN_USE = [
 ];
 
 /**
- * Buy extra active narrator slots. Not on sale while the slot price is only proposed.
+ * Buy extra active narrator slots. On sale only once the slot price is approved and payments are switched on.
  * Once billing is on, a successful charge calls addNarratorSlot (src/lib/family/service.ts) per slot.
  */
 export function NarratorSlotPurchase() {
   const [add, setAdd] = useState(1);
-  const forSale = DEFAULT_PLAN.extraSlotPriceApproved;
+  const forSale = DEFAULT_PLAN.extraSlotPriceApproved && familyCheckoutOpen();
   const included = DEFAULT_PLAN.includedNarratorSlots;
   // Never depends on how many children the family has.
   const total = DEFAULT_PLAN.familyMonthlyPriceCents + add * DEFAULT_PLAN.extraSlotPriceCents;
@@ -87,7 +88,7 @@ export function NarratorSlotPurchase() {
         </dl>
         {!forSale && (
           <p data-testid="slots-not-for-sale" className="rounded-2xl bg-surface/80 p-3 text-sm">
-            Extra slots go on sale once their price is approved. Nothing will be charged.
+            Extra slots go on sale once payments are switched on. Nothing will be charged.
           </p>
         )}
         <button type="button" className={`${buttonPrimary} w-full`} disabled={!forSale}>

@@ -34,8 +34,8 @@ describe("gift plans", () => {
     ]);
   });
 
-  it("prices gifts at $14.99, $44.97 and $149.99 for the year, and keeps payments off until switched on", () => {
-    expect(GIFT_PLANS.map((p) => priceLabel(p))).toEqual(["$14.99", "$44.97", "$149.99", "$14.99 a month"]);
+  it("prices gifts at $19.99, $59.97 and $179.99 for the year, and keeps payments off until switched on", () => {
+    expect(GIFT_PLANS.map((p) => priceLabel(p))).toEqual(["$19.99", "$59.97", "$179.99", "$19.99 a month"]);
     expect(giftPaymentsOpen(GIFT_PLANS, false)).toBe(false);
     expect(giftPaymentsOpen(GIFT_PLANS, true)).toBe(true);
     expect(giftPaymentsOpen(GIFT_PLANS.map((p) => ({ ...p, priceCents: null })), true)).toBe(false);

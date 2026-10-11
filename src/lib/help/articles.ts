@@ -297,10 +297,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
   A({
     slug: "family-plan-included",
     category: "billing-credits-and-gifts",
-    question: "What's included in the $14.99 Readli Family plan?",
+    question: "What's included in the $19.99 Readli Family plan?",
     status: "published",
     answer: [
-      "Readli Family will be $14.99 a month. It's planned to include two family storyteller slots, up to six child profiles, three children listening at the same time, the Readli Kids library, parent-managed storyteller approvals and unlimited family invitations.",
+      "Readli Family will be $19.99 a month, or $179.99 a year. It's planned to include two family storyteller slots, up to six child profiles, three children listening at the same time, the Readli Kids library, parent-managed storyteller approvals and unlimited family invitations.",
       "Each child keeps their own listening history, favorites and progress. Family plans aren't open for sign-up just yet.",
     ],
     keywords: ["price", "cost", "plan", "subscription", "monthly"],
