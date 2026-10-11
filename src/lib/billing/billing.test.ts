@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { billingConfig, paymentsOn } from "./config";
 import { signStripePayload, verifyStripeSignature } from "./stripe-signature";
