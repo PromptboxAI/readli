@@ -85,6 +85,10 @@ test("family voices section shows the parent controls illustration and links to 
   await expect(section.getByRole("img", { name: /Manage voices for Milly/ })).toBeVisible();
   for (const name of ["Mom", "Grandpa", "Aunt Pook", "Uncle Chris"]) await expect(section.getByText(name, { exact: true })).toBeVisible();
   await expect(section.getByText("Awaiting voice-owner permission")).toBeVisible();
+  // Phones skip the three points and use a text link instead of the button.
+  const points = section.getByText("Voices are private by default");
+  if (info.project.name === "phone") await expect(points).toBeHidden();
+  else await expect(points).toBeVisible();
   await section.scrollIntoViewIfNeeded();
   await section.screenshot({ path: `e2e/screenshots/family-voices-${info.project.name}.png` });
   await section.getByRole("link", { name: /Learn about family privacy & safety/ }).click();
