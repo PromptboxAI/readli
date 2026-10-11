@@ -47,6 +47,9 @@ export interface RemovalPlan {
 
 export class RemovalError extends Error {}
 
+/** The word an admin types to carry out a removal after its dry run. */
+export const CONFIRM_REMOVAL = "REMOVE";
+
 export interface RemovalRows {
   libraries: { key: string; voiceId: string; bookSlug: string; scope: string }[];
   segments: { libraryKey: string; storageKey: string | null }[];
@@ -193,7 +196,7 @@ async function loadRows(db: SupabaseClient, req: RemovalRequest): Promise<{ data
 export async function removeInSupabase(
   db: SupabaseClient,
   req: RemovalRequest,
-  opts: { dryRun: boolean; deleteClone?: (encryptedProviderId: string) => Promise<void> },
+  opts: { dryRun: boolean; deleteClone?: (voiceId: string) => Promise<void> },
 ): Promise<RemovalPlan> {
   validateRequest(req);
   const { data, voice, recordingSessions } = await loadRows(db, req);
@@ -213,7 +216,7 @@ export async function removeInSupabase(
   }
   if (plan.wholeVoice) {
     const encrypted = voice.provider_voice_id_encrypted as string | null;
-    if (encrypted && opts.deleteClone) await opts.deleteClone(encrypted);
+    if (encrypted && opts.deleteClone) await opts.deleteClone(req.voiceId);
     const assets = await all(() => db.from("narration_assets").select("storage_key").eq("voice_id", req.voiceId), "read older narration audio");
     await removeObjects(db, NARRATION_BUCKETS.assets, keysOf(assets));
     await run(db.from("narration_assets").delete().eq("voice_id", req.voiceId), "delete older narration");
