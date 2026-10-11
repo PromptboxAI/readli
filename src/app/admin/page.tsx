@@ -49,6 +49,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <Link href="/admin/finance" className={buttonSecondary}>Finances</Link>
           <Link href="/admin/plans" className={buttonSecondary}>Plan settings</Link>
           <Link href="/admin/narration" className={buttonSecondary}>Narration</Link>
+          <Link href="/admin/complimentary" className={buttonSecondary}>Complimentary memberships</Link>
         </nav>
       </header>
 
