@@ -5,7 +5,10 @@ import type { CatalogItem } from "./catalog";
  * The few Stripe API calls Readli makes, over fetch so we don't need the Stripe SDK. Server only.
  * Callers check payments are on first; this refuses to run while they're off.
  */
-type Params = Record<string, string | number | boolean | null | undefined | Params | Params[] | string[]>;
+type Scalar = string | number | boolean | null | undefined;
+interface Params {
+  [key: string]: Scalar | Params | Params[] | string[];
+}
 
 /** Stripe's form encoding: nested objects as a[b]=..., arrays as a[0]=... */
 export function encodeForm(params: Params, prefix = ""): string {
