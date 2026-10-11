@@ -4,6 +4,7 @@ import { familyPage } from "@/lib/family/page-data";
 import { formatPrice } from "@/lib/family/plan";
 import { familyStore } from "@/lib/family/session";
 import { narrationMetrics } from "@/lib/narration/admin";
+import { requireAdmin } from "@/lib/admin/access";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Narration admin | Readli", robots: { index: false } };
@@ -25,6 +26,7 @@ function Stat({ label, value }: { label: string; value: string }) {
  * reads the narration tables behind admin sign-in (with /admin/plans).
  */
 export default async function NarrationAdminPage() {
+  await requireAdmin("/admin/narration");
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   if (page.session?.actor.kind !== "adult") return <NeedsGrownUp text="Sign in as a grown-up to see the narration dashboard." />;
