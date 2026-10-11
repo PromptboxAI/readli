@@ -35,7 +35,7 @@ export function DemoBookCard({ book, onHear, activeSlug, disabledReason }: { boo
   const status = !playable
     ? "Preview coming soon."
     : !onHear
-      ? "Record your voice first, then hear this in it."
+      ? null // Homepage: the button already leads to recording, so no hint (Kevin, 2026-10-11).
       : active
         ? "Playing in your voice."
         : (disabledReason ?? "Plays in your recorded voice.");
@@ -65,13 +65,15 @@ export function DemoBookCard({ book, onHear, activeSlug, disabledReason }: { boo
           {active ? "Now playing" : "Hear this passage"}
         </button>
       ) : (
-        <Link href="/try" aria-describedby={`${headingId}-status`} className={hearButton}>
+        <Link href="/try" className={hearButton}>
           Hear this passage
         </Link>
       )}
-      <p id={`${headingId}-status`} className="text-xs text-muted">
-        {status}
-      </p>
+      {status && (
+        <p id={`${headingId}-status`} className="text-xs text-muted">
+          {status}
+        </p>
+      )}
     </article>
   );
 }
