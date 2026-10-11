@@ -2,6 +2,9 @@
  * Full public-domain library editions, imported from Project Gutenberg plain text with the Gutenberg
  * header, licence and transcriber notes removed. Edition ids are internal provenance, never shown.
  * Kevin, 2026-10-11: default to the newest public-domain edition of each book.
+ * Kevin, 2026-10-11: no book may end in violence. Goldilocks and The Three Little Pigs have gentler,
+ * hand-edited endings (and the first two pigs run away rather than being eaten); keep them if a text
+ * is ever re-imported.
  */
 import type { CatalogBook } from "../catalog";
 import AlicesAdventuresInWonderland from "./alices-adventures-in-wonderland.json";
