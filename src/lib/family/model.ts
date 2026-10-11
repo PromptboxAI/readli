@@ -245,11 +245,13 @@ export interface NarrationJob {
   finishedAt: string | null;
 }
 
-export type CreditSource = "subscription" | "promotional" | "purchased";
+/** "trial" lots are derived from a trial plan and never stored. */
+export type CreditSource = "subscription" | "trial" | "promotional" | "purchased";
 
 /**
- * A grant of Readli credits. Promotional and purchased lots are stored; each month's subscription
- * allowance is a derived lot (`subscription:YYYY-MM`) so changing the admin allowance applies at once.
+ * A grant of Readli credits, in units (characters; see narration/credits.ts). Promotional and
+ * purchased lots are stored; each billing month's included credits and a trial's credits are derived
+ * lots, so changing the admin allowance applies at once.
  */
 export interface CreditLot {
   id: string;
@@ -270,7 +272,7 @@ export interface CreditDraw {
 export type LedgerKind = "reserve" | "commit" | "refund";
 
 /**
- * Household credit ledger, in Readli credits. A reserve holds credits from one lot for one sentence
+ * Household credit ledger, in units (characters). A reserve holds credits from one lot for one sentence
  * of a job; commit records what generation actually used; refund returns the rest to the same lot.
  * Replays and reuse of authorized cached narration never write here.
  */
@@ -290,9 +292,17 @@ export interface ProviderUsage {
   id: string;
   libraryKey: string;
   sentenceId: string;
+  /** The household whose job generated it (new narration per household). */
+  householdId: string;
+  jobId: string;
   modelId: string;
+  /** Exact input characters sent to the provider. */
   characters: number;
   providerCredits: number;
+  /** Planning-rate provider cost in dollars (costs.ts); not an invoice price. */
+  usd: number;
+  /** Tries it took, counting failed ones. */
+  attempts: number;
   durationMs: number;
   bytes: number;
   at: string;

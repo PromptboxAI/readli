@@ -43,3 +43,24 @@ export async function endTesterPlanAction(form: FormData) {
     return `Ended the tester plan for ${field(form, "name") || "the family"}.`;
   }, field(form, "q"));
 }
+
+const COST_FIELDS = ["provider_plan_monthly_usd", "cost_per_1k_chars_usd", "low_cost_per_1k_chars_usd", "storage_usd_per_gb_month", "delivery_usd_per_gb"] as const;
+
+/** Saves the cost assumptions the financial report uses. */
+export async function updateCostSettingsAction(form: FormData) {
+  const gate = await requireAdmin("/admin/finance");
+  const db = accountDb();
+  let outcome: string;
+  const row: Record<string, unknown> = { id: true, provider_plan_name: field(form, "provider_plan_name").trim().slice(0, 40) || "Creator" };
+  for (const key of COST_FIELDS) {
+    const n = Number(field(form, key));
+    row[key] = field(form, key).trim() !== "" && Number.isFinite(n) && n >= 0 ? n : null;
+  }
+  if (gate.preview || !db) outcome = `err=${encodeURIComponent("Cost settings need Supabase connected.")}`;
+  else if (COST_FIELDS.some((k) => row[k] === null)) outcome = `err=${encodeURIComponent("Every cost needs a number of 0 or more.")}`;
+  else {
+    const { error } = await db.from("finance_settings").upsert({ ...row, updated_at: new Date().toISOString(), updated_by: gate.admin.id }, { onConflict: "id" });
+    outcome = error ? `err=${encodeURIComponent(`Couldn't save: ${error.message}`)}` : `ok=${encodeURIComponent("Saved the cost settings.")}`;
+  }
+  redirect(`/admin/finance?${outcome}`);
+}

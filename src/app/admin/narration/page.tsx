@@ -1,3 +1,4 @@
+import { displayCredits } from "@/lib/narration/credits";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { buttonSecondary } from "@/components/brand/buttons";
@@ -13,6 +14,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Narration admin | Readli", robots: { index: false } };
 
 const n = (x: number) => x.toLocaleString("en-US");
+const c = (units: number) => displayCredits(units).toLocaleString("en-US");
 const t2 = (x: number) => `${Math.round(x * 100)}%`;
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -66,7 +68,7 @@ export default async function NarrationAdminPage() {
         <Stat label="Libraries" value={n(t.libraries)} />
         <Stat label="Prepared sentences" value={`${n(t.readySegments)} (${t.readyMinutes} min)`} />
         <Stat label="Jobs queued or running" value={n(t.queuedJobs)} />
-        <Stat label="Failed jobs / sentences" value={`${t.failedJobs} / ${t.failedSegments}`} />
+        <Stat label="Failed jobs / sentences / retries" value={`${t.failedJobs} / ${t.failedSegments} / ${t.retries}`} />
         <Stat label="Characters generated" value={n(t.charactersGenerated)} />
         <Stat label="Provider credits" value={`${n(t.providerCredits)} (~$${t.providerUsd.toFixed(2)})`} />
         <Stat label="Audio stored" value={`${Math.round(t.bytesStored / 1024)} KB`} />
@@ -119,13 +121,15 @@ export default async function NarrationAdminPage() {
 
       <section className="flex flex-col gap-3" aria-labelledby="credits-h">
         <h2 id="credits-h" className="font-display text-2xl font-semibold">Credit allocation this month</h2>
-        <p className="text-sm">In Readli credits (1 credit = {store.plan.secondsPerCredit} second{store.plan.secondsPerCredit === 1 ? "" : "s"} of new narration).</p>
+        <p className="text-sm">In Readli credits (1 credit = {n(store.plan.charactersPerCredit)} characters of new narration).</p>
         <ul className="grid gap-2 text-sm sm:grid-cols-2">
           {m.households.map((h) => (
             <li key={h.name} className="rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
               <p className="font-semibold">{h.name}</p>
               <p>
-                Monthly {n(h.allowance)}, used {n(h.used)}, held {n(h.held)}, refunded {n(h.refunded)}. Left: {n(h.bySource.subscription)} monthly, {n(h.bySource.promotional)} promotional, {n(h.bySource.purchased)} purchased ({n(h.available)} in all)
+                Monthly {c(h.allowance)}, used {c(h.used)}, held {c(h.held)}, refunded {c(h.refunded)}. Left: {c(h.bySource.subscription)} monthly,{" "}
+                {c(h.bySource.trial)} trial, {c(h.bySource.promotional)} promotional, {c(h.bySource.purchased)} purchased ({c(h.available)} in all). New
+                narration made: {n(h.newCharacters)} characters, about ${h.providerUsd.toFixed(2)} at planning rates.
               </p>
             </li>
           ))}
@@ -134,16 +138,17 @@ export default async function NarrationAdminPage() {
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4" aria-label="Launch funnel" data-testid="admin-funnel">
         <Stat label="Short story first, then a longer book" value={`${t2(m.funnel.conversion)} (${m.funnel.wentLonger} of ${m.funnel.startedShort})`} />
-        <Stat label="Credit top-ups" value={`${m.funnel.topUps} (${n(m.funnel.topUpCredits)} credits)`} />
-        <Stat label="Promotional credits granted" value={n(m.funnel.promoCredits)} />
+        <Stat label="Credit top-ups" value={`${m.funnel.topUps} (${c(m.funnel.topUpCredits)} credits)`} />
+        <Stat label="Promotional credits granted" value={c(m.funnel.promoCredits)} />
         <Stat label="Narration reused" value={`${m.funnel.reusedLibraries} shared libraries, ${n(m.funnel.replays)} replays`} />
       </section>
 
       <section className="flex flex-col gap-3" aria-labelledby="plans-h">
         <h2 id="plans-h" className="font-display text-2xl font-semibold">ElevenLabs plans</h2>
         <p className="text-sm">
-          A full {store.plan.monthlyNarrationMinutes}-minute monthly allowance costs about ${m.allowanceCostUsd.toFixed(2)} of Pro credits per household
-          ({formatPrice(store.plan.familyMonthlyPriceCents)} plan). Overage is about $0.17 per minute.
+          A full {store.plan.monthlyCredits}-credit monthly allowance ({n(store.plan.monthlyCredits * store.plan.charactersPerCredit)} characters) costs
+          about ${m.allowanceCostUsd.toFixed(2)} per household at the planning rate for {m.modelId} ({formatPrice(store.plan.familyMonthlyPriceCents)}{" "}
+          plan). Planning rates are not invoice prices; check them against real usage.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">

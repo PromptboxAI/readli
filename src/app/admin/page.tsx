@@ -46,8 +46,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <h1 className="font-display text-4xl font-semibold">Readli admin</h1>
         {!gate.preview && <p className="text-lg">Signed in as {gate.admin.email}.</p>}
         <nav className="flex flex-wrap gap-3 pt-2" aria-label="Admin pages">
+          <Link href="/admin/finance" className={buttonSecondary}>Finances</Link>
           <Link href="/admin/plans" className={buttonSecondary}>Plan settings</Link>
           <Link href="/admin/narration" className={buttonSecondary}>Narration</Link>
+          <Link href="/admin/complimentary" className={buttonSecondary}>Complimentary memberships</Link>
         </nav>
       </header>
 

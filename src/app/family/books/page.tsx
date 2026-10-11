@@ -1,3 +1,4 @@
+import { displayCredits } from "@/lib/narration/credits";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -53,7 +54,7 @@ export default async function FamilyBooksPage() {
         <p className="text-lg">Every book is here. Choose one to see which storytellers are ready and prepare more.</p>
       </div>
       <Link href="/family/credits" className="flex flex-wrap items-baseline gap-2 self-start rounded-full bg-sky/30 px-4 py-2 font-semibold" data-testid="library-balance">
-        <span className="font-display text-xl">{lib.credits.available.toLocaleString("en-US")} Readli credits</span>
+        <span className="font-display text-xl">{displayCredits(lib.credits.available, lib.credits.unitsPerCredit).toLocaleString("en-US")} Readli credits</span>
         <span className="text-sm underline underline-offset-4">Credits and history</span>
       </Link>
       {lib.newFamily && lib.recommended.length > 0 && (

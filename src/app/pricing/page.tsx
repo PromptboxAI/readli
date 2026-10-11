@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/pricing" },
 };
 
+// Shows the prices an admin saved, so it renders per request.
+export const dynamic = "force-dynamic";
+
 const familyHighlights = (P: Pricing) => [
   `${P.includedNarratorSlots} family storytellers included`,
   `${P.maxChildProfiles} child profiles`,
@@ -43,8 +46,8 @@ const NARRATOR_EXAMPLES = [
   { who: "Mom + Dad + Grandma + Grandpa", count: 4 },
 ];
 
-export default function PricingPage() {
-  const P = pricing();
+export default async function PricingPage() {
+  const P = await pricing();
   return (
     <>
       <SiteHeader />

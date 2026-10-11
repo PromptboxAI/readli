@@ -12,8 +12,8 @@ export async function narrationMetrics(state: FamilyState, plan: PlanConfig, sto
   const charsOf = new Map(state.segments.map((s) => [`${s.libraryKey}|${s.sentenceId}`, s.characters]));
   const providerCredits = state.usage.reduce((n, u) => n + u.providerCredits, 0);
   const charactersGenerated = state.usage.reduce((n, u) => n + u.characters, 0);
-  const pro = ELEVENLABS_PLANS[0]!;
-  const usdPerCredit = pro.monthlyUsd / pro.credits;
+  const providerUsd = state.usage.reduce((n, u) => n + u.usd, 0);
+  const retries = state.usage.reduce((n, u) => n + Math.max(0, u.attempts - 1), 0);
 
   const libraries = state.libraries.map((l) => {
     const text = bookText(l.bookSlug);
@@ -47,7 +47,18 @@ export async function narrationMetrics(state: FamilyState, plan: PlanConfig, sto
   const households = state.households.map((h) => {
     const b = creditBalance(state, plan, h.id, at);
     const refunded = state.ledger.filter((e) => e.householdId === h.id && e.kind === "refund").reduce((n, e) => n + e.credits, 0);
-    return { name: h.name, allowance: b.allowance, used: b.usedThisPeriod, held: b.held, refunded, bySource: b.bySource, available: b.available };
+    const made = state.usage.filter((u) => u.householdId === h.id);
+    return {
+      name: h.name,
+      allowance: b.allowance,
+      used: b.usedThisPeriod,
+      held: b.held,
+      refunded,
+      bySource: b.bySource,
+      available: b.available,
+      newCharacters: made.reduce((n, u) => n + u.characters, 0),
+      providerUsd: made.reduce((n, u) => n + u.usd, 0),
+    };
   });
 
   // Launch funnel: did families who started with a quick story go on to prepare a longer book?
@@ -88,7 +99,8 @@ export async function narrationMetrics(state: FamilyState, plan: PlanConfig, sto
       failedSegments: state.segments.filter((s) => s.status === "failed").length,
       charactersGenerated,
       providerCredits,
-      providerUsd: Math.round(providerCredits * usdPerCredit * 100) / 100,
+      providerUsd: Math.round(providerUsd * 100) / 100,
+      retries,
       bytesStored: await storage.bytesStored(),
       listens: state.plays.length,
       providerCalls: state.usage.length,
@@ -103,6 +115,7 @@ export async function narrationMetrics(state: FamilyState, plan: PlanConfig, sto
     households,
     funnel,
     plans: ELEVENLABS_PLANS.map((p) => ({ ...p, usdPerMinute: usdPerMinute(p, model) })),
-    allowanceCostUsd: (plan.monthlyNarrationMinutes * usdPerMinute(pro, model)),
+    unitsPerCredit: plan.charactersPerCredit,
+    allowanceCostUsd: ((plan.monthlyCredits * plan.charactersPerCredit) / 1000) * model.usdPer1kCharacters,
   };
 }

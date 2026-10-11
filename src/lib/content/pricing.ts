@@ -1,25 +1,14 @@
-import { planConfig, type PlanConfig } from "@/lib/family/plan";
+import { effectivePlan } from "@/lib/billing/price-settings";
+import { accountDb } from "@/lib/family/account-store";
+import type { PlanConfig } from "@/lib/family/plan";
+import { rewardsConfig } from "@/lib/rewards/rewards";
 
 /**
- * What /pricing shows (Kevin's pricing pack, 2026-10-11). Plan prices and allowances come from the
- * plan config, the one source checkout and the admin portal also read. The credit unit, monthly
- * credits, trial and credit packs below are still constants because the plan config hasn't moved to
- * the 1,000-character credit yet; switch them to planConfig() when it does. Payments aren't live.
+ * What /pricing shows (Kevin's pricing pack, 2026-10-11): the same plan checkout uses, with any
+ * prices an admin saved on /admin/plans. The trial length comes from the rewards settings, where the
+ * trial is configured. Payments aren't live, so the page never links to a checkout.
  */
-export const CREDIT_PRICING = {
-  monthlyCredits: 40,
-  /** One Readli credit pays for this many characters of new narration. */
-  charactersPerCredit: 1000,
-  trialDays: 14,
-  trialCredits: 10,
-  creditPacks: [
-    { credits: 20, priceCents: 699 },
-    { credits: 50, priceCents: 1499 },
-    { credits: 100, priceCents: 2499 },
-  ],
-} as const;
-
-export function pricing(plan: PlanConfig = planConfig()) {
+export function toPricing(plan: PlanConfig, trialDays: number) {
   return {
     familyMonthlyCents: plan.familyMonthlyPriceCents,
     familyAnnualCents: plan.familyAnnualPriceCents,
@@ -27,11 +16,19 @@ export function pricing(plan: PlanConfig = planConfig()) {
     extraSlotMonthlyCents: plan.extraSlotPriceCents,
     maxChildProfiles: plan.maxChildProfiles,
     simultaneousListeners: plan.includedConcurrentStreams,
-    ...CREDIT_PRICING,
+    monthlyCredits: plan.monthlyCredits,
+    charactersPerCredit: plan.charactersPerCredit,
+    trialCredits: plan.trialCredits,
+    trialDays,
+    creditPacks: plan.creditPacks,
   };
 }
 
-export type Pricing = ReturnType<typeof pricing>;
+export type Pricing = ReturnType<typeof toPricing>;
+
+export async function pricing(): Promise<Pricing> {
+  return toPricing(await effectivePlan(accountDb()), rewardsConfig().trialDays);
+}
 
 /** Monthly total for a household with this many active narrators. */
 export function monthlyTotalCents(p: Pricing, narrators: number): number {
