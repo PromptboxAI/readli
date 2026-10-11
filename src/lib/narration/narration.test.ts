@@ -264,10 +264,10 @@ describe("narration libraries (required tests)", () => {
     expect(held.held).toBeGreaterThan(0);
     await cancelGeneration(store, mom, job!.id, clock);
     const back = creditBalance(state, DEFAULT_PLAN, H, new Date(tick).toISOString());
-    expect(back.available).toBe(DEFAULT_PLAN.monthlyNarrationMinutes * 60);
+    expect(back.available).toBe(DEFAULT_PLAN.monthlyCredits * DEFAULT_PLAN.charactersPerCredit);
     expect(libraryStatus(state, library(state), text).readiness).toBe("not_prepared");
     // With no allowance left, a request is refused before anything is claimed.
-    const tight = family({ ...DEFAULT_PLAN, monthlyNarrationMinutes: 0 });
+    const tight = family({ ...DEFAULT_PLAN, monthlyCredits: 0 });
     await rejects(requestGeneration(tight.store, mom, H, { voiceId: "voice-june", bookSlug: BOOK, scope: "book" }, clock), 402, "not_enough_credits");
     expect(tight.state.jobs).toHaveLength(0);
     // A child can't prepare narration.

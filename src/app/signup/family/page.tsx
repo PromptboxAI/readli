@@ -52,7 +52,7 @@ export default function FamilySignupPage() {
             <div className="flex flex-col gap-1 rounded-2xl bg-mint/60 p-4" data-testid="family-trial">
               <p className="font-display text-lg font-semibold">Try it free for {rewards.trialDays} days</p>
               <p className="text-sm">
-                For new families. Your trial includes {rewards.trialNarrationMinutes} minutes of new narration in your storytellers&apos; voices.
+                For new families. Your trial includes {rewards.trialCredits} narration credits for new stories in your storytellers&apos; voices.
               </p>
               {!rewards.programPublic && <p className="text-sm text-muted">Not switched on yet. This is how it will look.</p>}
             </div>
