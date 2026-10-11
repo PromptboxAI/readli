@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { coverSrc, DEMO_BOOKS, gutenbergUrl, isPassagePlayable, type DemoBook } from "@/lib/content/demo-books";
+import { coverSrc, DEMO_BOOKS, isPassagePlayable, type DemoBook } from "@/lib/content/demo-books";
 
 function Cover({ book }: { book: DemoBook }) {
   // Original Readli artwork; the title is printed on the cover, so the heading below carries the name.
@@ -70,12 +70,7 @@ export function DemoBookCard({ book, onHear, activeSlug, disabledReason }: { boo
         </Link>
       )}
       <p id={`${headingId}-status`} className="text-xs text-muted">
-        {status}{" "}
-        {gutenbergUrl(book) && (
-          <a href={gutenbergUrl(book) ?? undefined} className="underline" target="_blank" rel="noreferrer">
-            Source
-          </a>
-        )}
+        {status}
       </p>
     </article>
   );
