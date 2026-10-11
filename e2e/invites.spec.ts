@@ -104,6 +104,15 @@ test("rewards track activities, and following Readli is optional and unrewarded"
   await page.screenshot({ path: `e2e/screenshots/rewards-${info.project.name}.png`, fullPage: true });
 });
 
+test("a referral link remembers its code and goes to sign-up", async ({ page, context }) => {
+  await page.goto("/r/ABCdef12");
+  await expect(page).toHaveURL(/\/signup/);
+  const ref = (await context.cookies()).find((c) => c.name === "readli_ref");
+  expect(ref).toMatchObject({ value: "abcdef12", httpOnly: true });
+  await page.goto("/r/not-a-code!");
+  expect(new URL(page.url()).pathname).toBe("/");
+});
+
 test("onboarding lets adults skip Follow Readli's Story", async ({ page }, info) => {
   await page.goto("/welcome");
   await expect(page.getByRole("heading", { name: "Welcome to Readli Family!" })).toBeVisible();

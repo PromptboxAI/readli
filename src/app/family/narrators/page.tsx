@@ -18,7 +18,7 @@ export default async function NarratorSlotsPage() {
   return (
     <FamilyShell>
       <PreviewNote />
-      <NarratorSlots initial={await narratorSlots(store, page.session.actor, householdId)} />
+      <NarratorSlots initial={await narratorSlots(store, page.session.actor, householdId)} canBuy={!page.session.account} />
     </FamilyShell>
   );
 }

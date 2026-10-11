@@ -58,6 +58,14 @@ test("extra narrator slots add to the bill but aren't sold until approved", asyn
   await page.screenshot({ path: `e2e/screenshots/narrator-slots-${info.project.name}.png`, fullPage: true });
 });
 
+test("admin home links the admin pages and explains real numbers need Supabase", async ({ page }) => {
+  await page.goto("/admin");
+  await expect(page.getByRole("heading", { name: "Readli admin" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Plan settings" })).toHaveAttribute("href", "/admin/plans");
+  await expect(page.getByText("Real numbers and tester plans show here once sign-in and Supabase are connected.")).toBeVisible();
+  await noOverflow(page);
+});
+
 test("admin plan settings list every configurable limit", async ({ page }, info) => {
   await page.goto("/admin/plans");
   const settings = page.getByTestId("plan-settings");
@@ -88,4 +96,13 @@ test("contributors verify, consent, record and approve their voice", async ({ pa
   await page.getByRole("button", { name: "Approve my voice" }).click();
   await expect(page.getByText("Nobody can use it until you share it")).toBeVisible();
   await noOverflow(page);
+});
+
+test("account settings and the account API need a real signed-in grown-up", async ({ page }) => {
+  await page.goto("/family/account");
+  await expect(page.getByRole("heading", { name: "Account settings" })).toBeVisible();
+  await expect(page.getByText("Log in to your own family to change your name")).toBeVisible();
+  await noOverflow(page);
+  expect((await page.request.get("/api/account/export")).status()).toBe(401);
+  expect((await page.request.delete("/api/account", { data: { confirm: "DELETE" } })).status()).toBe(401);
 });

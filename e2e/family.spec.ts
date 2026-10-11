@@ -206,8 +206,8 @@ test("a parent prepares narration ahead of time and is told when it's ready", as
   await page.goto("/family");
   await page.getByRole("link", { name: "Family library", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Your family library" })).toBeVisible();
-  await page.getByTestId("collection-all").getByTestId("book-the-tale-of-peter-rabbit").click();
-  await expect(page.getByRole("heading", { name: "The Tale of Peter Rabbit" })).toBeVisible();
+  await page.getByTestId("collection-all").getByTestId("book-the-princess-and-the-pea").click();
+  await expect(page.getByRole("heading", { name: "The Princess and the Pea" })).toBeVisible();
 
   const june = page.getByTestId("prepare-voice-june");
   await expect(june.getByTestId("availability")).toHaveText("Partially ready");
@@ -225,7 +225,7 @@ test("a parent prepares narration ahead of time and is told when it's ready", as
   await expect(june.getByTestId("availability")).toHaveText("Ready", { timeout: 15_000 });
 
   await page.goto("/family");
-  await expect(page.getByTestId("notifications")).toContainText("Grandma June's reading of The Tale of Peter Rabbit is ready.");
+  await expect(page.getByTestId("notifications")).toContainText("Grandma June's reading of The Princess and the Pea is ready.");
 });
 
 test("the library leads with short stories and keeps longer books visible", async ({ page }) => {
@@ -236,7 +236,7 @@ test("the library leads with short stories and keeps longer books visible", asyn
   await expect(page.getByTestId("collection-fits").getByTestId("book-aesops-fables-retold")).toHaveCount(0);
   await expect(page.getByTestId("collection-all").getByTestId("book-aesops-fables-retold")).toContainText("More credits needed");
   await expect(page.getByTestId("collection-prepared").getByTestId("book-the-lion-and-the-mouse")).toBeVisible();
-  await expect(page.getByTestId("collection-coming-soon").getByTestId("soon-the-velveteen-rabbit")).toContainText("Coming soon");
+  await expect(page.getByTestId("collection-all").getByTestId("book-the-velveteen-rabbit")).toBeVisible();
 });
 
 test("short on credits: prepare a chapter, or buy credits and come straight back to confirm", async ({ page }) => {

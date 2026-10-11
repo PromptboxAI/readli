@@ -16,12 +16,15 @@ test("homepage follows the design brief order with six books under the demo", as
 
   // Family tree: explorable without signing up, nothing is sent.
   const tree = page.getByTestId("family-tree");
+  // Phones open on the list, cut off after Grandpa Joe.
+  const phone = (page.viewportSize()?.width ?? 1000) < 640;
+  await expect(tree.getByRole("button", { name: "List", exact: true })).toHaveAttribute("aria-pressed", String(phone));
   await tree.getByRole("button", { name: /Grandpa Joe/ }).click();
   const profile = page.getByRole("region", { name: "Grandpa Joe's profile" });
   await profile.getByRole("button", { name: "Invite to record" }).click();
   await expect(profile).toContainText("nothing was sent");
   await tree.getByRole("button", { name: "List", exact: true }).click();
-  await expect(tree.getByRole("list", { name: "Example family members" }).getByRole("button")).toHaveCount(11);
+  await expect(tree.getByRole("list", { name: "Example family members" }).getByRole("button")).toHaveCount(phone ? 4 : 11);
   await tree.getByRole("button", { name: "Tree", exact: true }).click();
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -137,4 +140,24 @@ test("try your voice shows the studio preview on desktop and a short pitch on ph
     await section.getByRole("link", { name: "Try Your Voice Free" }).click();
     await expect(page).toHaveURL(/\/try$/);
   }
+});
+
+test("the library section shows the six new books on a shelf and links to the library", async ({ page }) => {
+  await page.goto("/");
+  const section = page.locator("#stories");
+  await expect(section.getByRole("heading", { level: 2 })).toHaveText("A Whole World of Stories Awaits");
+  await expect(section.getByRole("img")).toHaveCount(6);
+  await expect(section.getByRole("link", { name: "Goldilocks and the Three Bears" })).toHaveAttribute("href", "/books/goldilocks-and-the-three-bears");
+  await expect(section.getByRole("link", { name: "Explore the Readli Library" })).toHaveAttribute("href", "/books");
+});
+
+test("phone menu closes after tapping a section link", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "phone menu only");
+  await page.goto("/");
+  await page.getByText("Menu", { exact: true }).click();
+  const menu = page.locator("header details nav");
+  await expect(menu).toBeVisible();
+  await menu.getByRole("link", { name: "How it Works" }).click();
+  await expect(page).toHaveURL(/#how-it-works$/);
+  await expect(menu).toBeHidden();
 });

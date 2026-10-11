@@ -10,19 +10,20 @@ import { DEMO_BOOKS } from "@/lib/content/demo-books";
 
 /**
  * Prepared narrations for the preview family, so the kids player has something to switch between:
- * Mom has every book, Dad has Peter Rabbit, Grandma June has The Lion and the Mouse and the start
- * of Peter Rabbit. Nana Rose and Aunt Priya have nothing prepared yet. Audio is the stand-in tone.
+ * Mom has every homepage book, Dad has Peter Rabbit, Grandma June has The Lion and the Mouse and
+ * the start of Peter Rabbit and The Princess and the Pea. Nana Rose and Aunt Priya have nothing prepared yet. Audio is the stand-in tone.
  */
 const SEED: [voiceId: string, slug: string, sentences: number | "all"][] = [
   ...DEMO_BOOKS.filter((b) => b.passageText).map((b) => ["voice-sara", b.slug, "all"] as [string, string, "all"]),
   ["voice-ben", "the-tale-of-peter-rabbit", "all"],
   ["voice-june", "the-lion-and-the-mouse", "all"],
   ["voice-june", "the-tale-of-peter-rabbit", 2],
+  ["voice-june", "the-princess-and-the-pea", 2],
 ];
 
 /**
  * The preview family has spent most of this month's credits and part of its welcome credits, so
- * every availability state shows: short books are Available to generate, the longer fables need
+ * every availability state shows: the shortest books are Available to generate, longer ones need
  * more credits (or a chapter at a time).
  */
 function seedDemoCredits(state: FamilyState, plan: PlanConfig, householdId: string, at: Date) {
