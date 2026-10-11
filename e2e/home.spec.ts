@@ -146,3 +146,14 @@ test("the library section introduces the full library instead of repeating the d
   await expect(section.getByRole("img")).toHaveCount(0);
   await expect(section.getByRole("link", { name: "Explore the Readli Library" })).toHaveAttribute("href", "/books");
 });
+
+test("phone menu closes after tapping a section link", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "phone menu only");
+  await page.goto("/");
+  await page.getByText("Menu", { exact: true }).click();
+  const menu = page.locator("header details nav");
+  await expect(menu).toBeVisible();
+  await menu.getByRole("link", { name: "How it Works" }).click();
+  await expect(page).toHaveURL(/#how-it-works$/);
+  await expect(menu).toBeHidden();
+});
