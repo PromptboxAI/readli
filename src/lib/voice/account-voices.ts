@@ -74,6 +74,8 @@ export interface AccountVoiceStore {
   recloneSource(voiceId: string): Promise<{ ownerId: string; audio: Blob; removeBackgroundNoise: boolean } | null>;
   /** Saves a re-made clone unless another worker already did; false means keep theirs. */
   restoreClone(voiceId: string, providerVoiceId: string): Promise<boolean>;
+  /** Forgets a ready voice's clone (it was retired at the provider), keeping its recordings. False if it had none. */
+  forgetClone(voiceId: string): Promise<boolean>;
   /** Appends to the lifecycle audit log. */
   logEvent(event: LifecycleEvent): Promise<void>;
 }
@@ -191,6 +193,18 @@ export async function deleteAccountVoice(deps: AccountVoiceDeps, ownerId: string
 }
 
 /**
+ * Retires the provider clone of a voice no Readli Family household has needed for a while (the lifecycle
+ * job decides). Playback of stored stories never needs it, and the original recording stays, so
+ * ensureClone can make it again if a Family household needs the voice and the authorization holds.
+ */
+export async function retireUnusedClone(deps: AccountVoiceDeps, voiceId: string): Promise<boolean> {
+  const id = await deps.store.providerVoiceId(voiceId);
+  if (!id) return false;
+  await deps.provider.deleteVoice(id);
+  return deps.store.forgetClone(voiceId);
+}
+
+/**
  * The provider voice for a ready Readli voice, re-cloning it from the stored original recording if its
  * clone was retired (no Readli Family household needed it for a while). Only while the owner's
  * authorization is still in force; a withdrawn or deleted voice is never re-made.
@@ -302,10 +316,16 @@ export class MemoryAccountVoiceStore implements AccountVoiceStore {
     return { stoppedJobs: await this.onWithdraw(voiceId) };
   }
 
-  /** Test and lifecycle hook: forgets a ready voice's clone, keeping its recordings. */
+  /** Test hook: retires a ready voice's clone without the provider call. */
   retireClone(voiceId: string) {
+    void this.forgetClone(voiceId);
+  }
+
+  async forgetClone(voiceId: string) {
     const v = this.voices.get(voiceId);
-    if (v?.status === "ready") Object.assign(v, { providerVoiceId: null, cloneRetiredAt: new Date().toISOString() });
+    if (v?.status !== "ready" || !v.providerVoiceId) return false;
+    Object.assign(v, { providerVoiceId: null, cloneRetiredAt: new Date().toISOString() });
+    return true;
   }
 
   async recloneSource(voiceId: string) {
@@ -542,6 +562,21 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
     if (error || !data) throw new Error(`download original recording: ${error?.message ?? "missing"}`);
     const audio = new Blob([await data.arrayBuffer()], { type: (take.mime_type as string | null) ?? data.type });
     return { ownerId: voice.owner_id as string, audio, removeBackgroundNoise: Boolean(session?.remove_background_noise) };
+  }
+
+  async forgetClone(voiceId: string) {
+    const at = new Date().toISOString();
+    const rows = await this.q<Row[]>(
+      this.db
+        .from("voice_profiles")
+        .update({ provider_voice_id_encrypted: null, clone_retired_at: at, updated_at: at })
+        .eq("id", voiceId)
+        .eq("status", "ready")
+        .not("provider_voice_id_encrypted", "is", null)
+        .select("id"),
+      "retire voice clone",
+    );
+    return rows.length > 0;
   }
 
   async restoreClone(voiceId: string, providerVoiceId: string) {

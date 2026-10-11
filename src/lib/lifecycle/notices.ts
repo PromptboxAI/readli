@@ -9,7 +9,16 @@ export type RecoveryNotice = "day0" | "day21" | "day28" | "day30";
 export const NOTICE_ORDER: RecoveryNotice[] = ["day0", "day21", "day28", "day30"];
 
 /** Days left before deletion when each notice goes out (day0 goes out as soon as the window starts). */
-export const NOTICE_DAYS_LEFT: Record<RecoveryNotice, number> = { day0: Infinity, day21: 9, day28: 2, day30: 0 };
+export const NOTICE_DAYS_LEFT = { day21: 9, day28: 2 } as const;
+
+const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+function days(n: number): string {
+  const w = WORDS[n] ?? String(n);
+  return `${w} ${n === 1 ? "day" : "days"}`;
+}
+function cap(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 export function longDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
@@ -22,6 +31,8 @@ export interface NoticeFacts {
   familyMonthlyPriceCents: number;
   archiveMonthlyPriceCents: number;
   billingUrl: string;
+  /** Whole days until deletion when the email is queued (normally nine for Day 21 and two for Day 28). */
+  daysLeft: number;
 }
 
 export function recoveryEmail(kind: RecoveryNotice, f: NoticeFacts): { subject: string; body: string } {
@@ -42,13 +53,13 @@ export function recoveryEmail(kind: RecoveryNotice, f: NoticeFacts): { subject: 
       };
     case "day21":
       return {
-        subject: `Nine days left to keep your Readli stories`,
-        body: `Hi ${f.familyName},\n\nYour Readli plan ended on ${ended}, and there are nine days remaining before your family's stories are deleted on ${deletes}. ${kept}\n\n${choices}\n\nThe Readli team`,
+        subject: `${cap(days(f.daysLeft))} left to keep your Readli stories`,
+        body: `Hi ${f.familyName},\n\nYour Readli plan ended on ${ended}, and there are ${days(f.daysLeft)} remaining before your family's stories are deleted on ${deletes}. ${kept}\n\n${choices}\n\nThe Readli team`,
       };
     case "day28":
       return {
-        subject: `Final reminder: two days left to keep your Readli stories`,
-        body: `Hi ${f.familyName},\n\nThis is your final reminder: two days remaining. Your family's stories will be deleted on ${deletes} unless you choose a plan.\n\n${choices}\n\nThe Readli team`,
+        subject: `Final reminder: ${days(f.daysLeft)} left to keep your Readli stories`,
+        body: `Hi ${f.familyName},\n\nThis is your final reminder: ${days(f.daysLeft)} remaining. Your family's stories will be deleted on ${deletes} unless you choose a plan.\n\n${choices}\n\nThe Readli team`,
       };
     case "day30":
       return {
