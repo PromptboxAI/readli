@@ -74,7 +74,7 @@ test("admin plan settings list every configurable limit", async ({ page }, info)
   }
   await expect(settings).toContainText("$149.99");
   const rewards = page.getByTestId("reward-settings");
-  for (const text of ["Off", "14 days", "10 minutes", "Paid months before a referral earns", "Referral free months per rolling 12 months", "Standard only"]) {
+  for (const text of ["Off", "14 days", "10 credits", "Paid months before a referral earns", "Referral free months per rolling 12 months", "Standard only"]) {
     await expect(rewards).toContainText(text);
   }
   await noOverflow(page);

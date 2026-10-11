@@ -2,7 +2,7 @@ import type { FamilyState } from "@/lib/family/model";
 import type { PlanConfig } from "@/lib/family/plan";
 import { toneWav } from "@/lib/voice/stub";
 import { modelCost } from "./costs";
-import { allowanceCredits, periodOf } from "./credits";
+import { allowanceUnits, creditUnits, includedLotId } from "./credits";
 import { libraryFor } from "./narration";
 import type { MemoryNarrationStorage } from "./storage";
 import { bookText } from "./text";
@@ -26,15 +26,18 @@ const SEED: [voiceId: string, slug: string, sentences: number | "all"][] = [
  * every availability state shows: the shortest books are Available to generate, longer ones need
  * more credits (or a chapter at a time).
  */
+const DEMO_WELCOME_CREDITS = 3;
+
 function seedDemoCredits(state: FamilyState, plan: PlanConfig, householdId: string, at: Date) {
   const iso = at.toISOString();
-  const month = `subscription:${periodOf(iso)}`;
+  const month = includedLotId(state, householdId, iso);
   const promo = "demo-welcome";
+  const welcome = creditUnits(DEMO_WELCOME_CREDITS, plan);
   state.creditLots.push({
     id: promo,
     householdId,
     source: "promotional",
-    credits: plan.welcomePromoCredits,
+    credits: welcome,
     grantedAt: new Date(at.getTime() - 7 * 86_400_000).toISOString(),
     expiresAt: new Date(at.getTime() + 23 * 86_400_000).toISOString(),
     note: "Welcome credits for your first stories",
@@ -43,8 +46,8 @@ function seedDemoCredits(state: FamilyState, plan: PlanConfig, householdId: stri
     if (credits <= 0) return;
     for (const kind of ["reserve", "commit"] as const) state.ledger.push({ id: `demo-${lotId}-${kind}`, householdId, lotId, kind, credits, jobId: null, sentenceId: null, at: iso });
   };
-  spend(month, allowanceCredits(plan) - 100);
-  spend(promo, plan.welcomePromoCredits - 120);
+  if (month) spend(month, allowanceUnits(plan) - 1_000);
+  spend(promo, welcome - 1_200);
 }
 
 export async function seedDemoNarrations(state: FamilyState, storage: MemoryNarrationStorage, plan: PlanConfig, householdId: string, now = new Date()) {
