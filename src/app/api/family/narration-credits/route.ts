@@ -26,10 +26,11 @@ export async function GET() {
 /** Buy a credit pack: { packId }. The preview adds credits without payment; real checkout is pending. */
 export async function POST(req: Request) {
   const { packId } = await jsonBody(req);
-  return withFamily(async ({ store, actor }) => {
+  return withFamily(async ({ store, actor, session }) => {
     const householdId = await guardianHousehold(store, actor);
     if (!householdId) return fail(403, "not_guardian", NOT_GUARDIAN);
-    if (!store.plan.simulatedCheckout) return fail(403, "purchases_off", "Buying Readli credits isn't switched on yet.");
+    // Saved families only get credits through real checkout, never the preview's free one.
+    if (!store.plan.simulatedCheckout || session.account) return fail(403, "purchases_off", "Buying Readli credits isn't switched on yet.");
     await purchaseCredits(store, actor, householdId, String(packId ?? ""), { paymentRef: null });
     return NextResponse.json({ balance: creditBalance(await store.read(), store.plan, householdId) });
   });
