@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
 import { requireAdmin } from "@/lib/admin/access";
-import { costConfig, loadFinance, type FinanceReport } from "@/lib/admin/finance";
+import { buttonPrimary } from "@/components/brand/buttons";
+import { loadFinance, type CostConfig, type FinanceReport } from "@/lib/admin/finance";
 import { accountDb } from "@/lib/family/account-store";
+import { updateCostSettingsAction } from "../actions";
 
 export const metadata: Metadata = { title: "Finances | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -38,7 +40,10 @@ type Params = Record<string, string | string[] | undefined>;
 /** Section 12 of the pricing pack: the money side of Readli, kept apart from the product numbers on /admin. */
 export default async function FinancePage({ searchParams }: { searchParams: Promise<Params> }) {
   const gate = await requireAdmin("/admin/finance");
-  const test = (await searchParams).mode === "test";
+  const params = await searchParams;
+  const test = params.mode === "test";
+  const ok = typeof params.ok === "string" ? params.ok : "";
+  const err = typeof params.err === "string" ? params.err : "";
   const db = gate.preview ? null : accountDb();
   const r = db ? await loadFinance(db, { live: !test }) : null;
 
@@ -57,6 +62,8 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
           </Link>
         </p>
       </header>
+      {ok && <p role="status" className="rounded-2xl bg-mint/40 px-4 py-3">{ok}</p>}
+      {err && <p role="alert" className="rounded-2xl bg-coral/30 px-4 py-3">{err}</p>}
       {!r ? <PreviewNote>Financial reporting shows here once sign-in and Supabase are connected.</PreviewNote> : <Report r={r} test={test} />}
     </AdultPage>
   );
@@ -64,7 +71,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
 
 function Report({ r, test }: { r: FinanceReport; test: boolean }) {
   const c = r.costs30d;
-  const costs = costConfig();
+  const costs = r.costs;
   return (
     <>
       {!r.hasRevenueData && (
@@ -105,10 +112,10 @@ function Report({ r, test }: { r: FinanceReport; test: boolean }) {
       <Section
         id="costs-h"
         title="Costs, last 30 days"
-        note={`Estimates from the pricing pack's planning numbers (${usd(costs.per1kUsd.eleven_flash_v2_5 ?? costs.defaultPer1kUsd)} or ${usd(costs.defaultPer1kUsd)} per 1,000 characters by model, a ${usd(costs.providerPlanMonthlyUsd)} ElevenLabs plan), not invoices.`}
+        note={`Estimates from the cost settings below (${usd(costs.lowPer1kUsd)} or ${usd(costs.defaultPer1kUsd)} per 1,000 characters by model, the ${costs.providerPlanName} plan at ${usd(costs.providerPlanMonthlyUsd)} a month), not invoices.`}
       >
         <Stat label="Generated narration cost" value={usd(c.generationUsd)} note={`${n(c.characters)} characters, ${n(c.providerCredits)} provider credits`} />
-        <Stat label="ElevenLabs expense" value={usd(c.providerExpenseUsd)} note="Plan fee, or usage when it's higher" />
+        <Stat label="ElevenLabs expense" value={usd(c.providerExpenseUsd)} note={`${costs.providerPlanName} plan fee, or usage when it's higher`} />
         <Stat label="Audio storage" value={usd(c.storageUsd)} />
         <Stat label="Audio delivery" value={usd(c.deliveryUsd)} />
       </Section>
@@ -149,6 +156,39 @@ function Report({ r, test }: { r: FinanceReport; test: boolean }) {
           </div>
         )}
       </section>
+
+      <CostSettings costs={costs} />
     </>
+  );
+}
+
+function CostField({ name, label, value, step }: { name: string; label: string; value: number; step: string }) {
+  return (
+    <label className="flex flex-col gap-1 text-sm">
+      <span className="font-semibold">{label}</span>
+      <input name={name} type="number" min="0" step={step} defaultValue={value} required className="rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/15" />
+    </label>
+  );
+}
+
+/** Admin-editable cost assumptions. Changing them only changes this report. */
+function CostSettings({ costs }: { costs: CostConfig }) {
+  return (
+    <section className="flex flex-col gap-3" aria-labelledby="cost-settings-h">
+      <h2 id="cost-settings-h" className="font-display text-2xl font-semibold">Cost settings</h2>
+      <p className="text-sm">Used only for the estimates on this page. Update them when the ElevenLabs plan or hosting prices change.</p>
+      <form action={updateCostSettingsAction} className="grid gap-3 sm:grid-cols-2" data-testid="cost-settings">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-semibold">ElevenLabs plan</span>
+          <input name="provider_plan_name" defaultValue={costs.providerPlanName} maxLength={40} className="rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/15" />
+        </label>
+        <CostField name="provider_plan_monthly_usd" label="Plan price per month (USD)" value={costs.providerPlanMonthlyUsd} step="0.01" />
+        <CostField name="cost_per_1k_chars_usd" label="Cost per 1,000 characters, standard models (USD)" value={costs.defaultPer1kUsd} step="0.0001" />
+        <CostField name="low_cost_per_1k_chars_usd" label="Cost per 1,000 characters, Flash and Turbo (USD)" value={costs.lowPer1kUsd} step="0.0001" />
+        <CostField name="storage_usd_per_gb_month" label="Audio storage per GB-month (USD)" value={costs.storageUsdPerGbMonth} step="0.0001" />
+        <CostField name="delivery_usd_per_gb" label="Audio delivery per GB (USD)" value={costs.deliveryUsdPerGb} step="0.0001" />
+        <button className={`${buttonPrimary} self-start`}>Save cost settings</button>
+      </form>
+    </section>
   );
 }
