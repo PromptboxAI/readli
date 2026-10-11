@@ -1,22 +1,32 @@
 import type { Metadata } from "next";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
+import { AccountVoiceControls } from "@/components/family/AccountVoiceControls";
 import { MyVoiceSharing } from "@/components/family/MyVoiceSharing";
+import { currentUser } from "@/lib/auth/supabase";
+import { serverConfig } from "@/lib/server/config";
+import { accountVoiceDeps } from "@/lib/voice/account-voices";
 import { familyPage } from "@/lib/family/page-data";
 import { myVoices } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Who can use my voice | Readli" };
+export const metadata: Metadata = { title: "My voice | Readli" };
 
 export default async function MyVoicePage() {
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   if (page.session?.actor.kind !== "adult") return <NeedsGrownUp text="Sign in to manage your voice." />;
   const voices = await myVoices((await familyStore(page.session))!, page.session.actor);
+  // A signed-in grown-up manages their real recording here; the preview family has none.
+  const deps = page.session.account ? accountVoiceDeps(serverConfig()) : null;
+  const user = deps ? await currentUser() : null;
+  const recording = deps && user ? await deps.store.findVoice(user.id).catch(() => null) : null;
   return (
     <FamilyShell>
       <PreviewNote />
-      <h1 className="font-display text-4xl font-semibold">Who can use my voice</h1>
+      <h1 className="font-display text-4xl font-semibold">My voice</h1>
+      {user && <AccountVoiceControls voice={recording && { status: recording.status, version: recording.version, updatedAt: recording.updatedAt }} />}
+      <h2 className="font-display text-2xl font-semibold">Who can use it</h2>
       <p className="max-w-2xl text-lg">
         Your voice is private by default. Sharing it with a family makes it available to that family&apos;s parents,
         who then choose, child by child, whether their kids can hear it. Being connected on a family tree never shares

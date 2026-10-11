@@ -173,7 +173,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     question: "Can I replace or delete my voice?",
     status: "draft",
     answer: [
-      "Yes. From your voice settings you can record again to replace your voice, or delete it entirely. Deleting your voice removes it from every family you shared it with.",
+      "Yes, at any time. In Readli Family, open My voice: choose Record again to replace your voice with a better take (a quiet room helps), or Delete my voice to remove it entirely. Deleting your voice removes it from every family you shared it with, along with the stories prepared in it, and you can record a new one whenever you like.",
     ],
     keywords: ["re-record", "remove", "delete voice", "redo"],
     related: ["revoke-sharing", "data-deletion", "record-my-voice"],

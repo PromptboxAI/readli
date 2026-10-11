@@ -3,7 +3,7 @@ import { VOICE_CONSENTS } from "@/lib/content/voice-consents";
 import { ProviderRefCipher } from "@/lib/server/provider-ref";
 import { VoiceProviderError } from "./provider";
 import { StubVoiceProvider } from "./stub";
-import { AccountVoiceError, accountVoiceSample, createAccountVoice, MemoryAccountVoiceStore, type TakeUpload } from "./account-voices";
+import { AccountVoiceError, accountVoiceSample, createAccountVoice, deleteAccountVoice, MemoryAccountVoiceStore, type TakeUpload } from "./account-voices";
 
 const limits = { minRecordingMs: 59_000, maxRecordingMs: 150_000, maxRecordingBytes: 25 * 1024 * 1024 };
 const owner = { id: "11111111-2222-3333-4444-555555555555", name: "Grandma June" };
@@ -83,6 +83,31 @@ describe("account voices", () => {
     expect(((await accountVoiceSample(deps, owner.id).catch((e: unknown) => e)) as AccountVoiceError).code).toBe("no_voice");
     await createAccountVoice(deps, owner, take());
     expect((await accountVoiceSample(deps, owner.id)).standIn).toBe(true);
+  });
+
+  it("deletes the voice at the provider and in Readli, and a new recording makes a fresh voice", async () => {
+    const { store, provider, deps } = setup();
+    const first = await createAccountVoice(deps, owner, take());
+    await deleteAccountVoice(deps, owner.id);
+    expect(provider.deleted).toEqual(["stub-voice-1"]);
+    expect(await store.findVoice(owner.id)).toBeNull();
+    expect(await store.providerVoiceId(first.id)).toBeNull();
+    expect(store.takes).toHaveLength(0);
+    expect(((await accountVoiceSample(deps, owner.id).catch((e: unknown) => e)) as AccountVoiceError).code).toBe("no_voice");
+
+    const again = await createAccountVoice(deps, owner, take());
+    expect(again.id).not.toBe(first.id);
+    expect(again.version).toBe(1);
+  });
+
+  it("keeps the voice when the provider can't delete it, and says when there is nothing to delete", async () => {
+    const { store, deps } = setup();
+    const first = await createAccountVoice(deps, owner, take());
+    const failing = { ...deps, provider: Object.assign(new StubVoiceProvider(), { deleteVoice: async () => { throw new Error("down"); } }) };
+    expect(((await deleteAccountVoice(failing, owner.id).catch((e: unknown) => e)) as AccountVoiceError).code).toBe("delete_failed");
+    expect(await store.providerVoiceId(first.id)).toBe("stub-voice-1");
+    await deleteAccountVoice(deps, owner.id);
+    expect(((await deleteAccountVoice(deps, owner.id).catch((e: unknown) => e)) as AccountVoiceError).code).toBe("no_voice");
   });
 
   it("stores provider ids encrypted", () => {
