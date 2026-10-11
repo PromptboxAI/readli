@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BillingChange } from "./events";
+import type { RevenueRow } from "./revenue";
 
 /** Writes a billing change with the service role. Safe to repeat: the same event gives the same rows. */
 export async function applyBillingChange(db: SupabaseClient, change: BillingChange, livemode: boolean): Promise<void> {
@@ -35,4 +36,11 @@ export async function applyBillingChange(db: SupabaseClient, change: BillingChan
   check({ error }, "read plan");
   if (existing) check(await db.from("household_entitlements").update(row).eq("id", existing.id), "update plan");
   else check(await db.from("household_entitlements").insert(row), "start plan");
+}
+
+/** Records revenue for the admin finance report. A row already recorded (a retried event) is skipped. */
+export async function recordRevenue(db: SupabaseClient, rows: RevenueRow[]): Promise<void> {
+  if (!rows.length) return;
+  const { error } = await db.from("revenue_events").upsert(rows, { onConflict: "provider,provider_ref", ignoreDuplicates: true });
+  if (error) throw new Error(`record revenue: ${error.message}`);
 }
