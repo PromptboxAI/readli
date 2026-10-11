@@ -41,6 +41,7 @@ tracked here and never assumed cleared in code.
 | 2026-10-10 | Background jobs: Inngest (proposed) | Durable retries on Vercel for cloning, generation, TTL cleanup |
 | 2026-10-10 | Amendment event names replace overlapping PRD names: `record_start`→`recorder_started`, `record_success`→`recording_completed`, `sample_book_select`→`preview_book_selected`, `preview_play`→`demo_audio_played` | Avoid double counting |
 | 2026-10-10 | Book cover tiles are original placeholder shapes; no edition artwork until rights review | Brief §6, PRD F-05 |
+| 2026-10-11 | **Voice Recording & AI Training Agreement (Kevin's voice-rights amendment).** Signed-in grown-ups accept the agreement (`/voice-agreement`, `src/lib/content/voice-agreement.ts`) before the microphone opens; `POST /api/voice/agreement` saves it first and the take must carry that agreement id. Three rights are separate columns on the append-only `voice_rights_agreements` history: service and Readli development (required), third-party licensing (opt-in, off by default, switchable in account settings). Each recording keeps language, expected transcript, quality, capture details and agreement version on `voice_training_sessions`; `voice_recordings_usable` lists original adult recordings with the rights in force. Guest demo recordings and children are never in it. Rights cover Readli's original recordings, not provider outputs. Counsel review required before launch | Kevin's amendment |
 
 ## Open questions for Kevin
 

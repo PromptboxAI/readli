@@ -329,6 +329,7 @@ export function SiteFooter() {
     { href: "/pricing", label: "Pricing" },
     { href: "/privacy", label: "Privacy" },
     { href: "/terms", label: "Terms" },
+    { href: "/voice-agreement", label: "Voice Agreement" },
     { href: "/help", label: "Help" },
     { href: "/accessibility", label: "Accessibility" },
     { href: "/parents/safety", label: "Parent Safety" },

@@ -228,7 +228,7 @@ const pick = (r: Row, keys: string[]) => Object.fromEntries(keys.map((k) => [k, 
  */
 export async function exportAccountData(db: SupabaseClient, user: { id: string; email: string | null; name: string }) {
   const me = user.id;
-  const [profile, memberships, voices, receipts, sessions, invites, giftsGiven, giftsReceived, rewards, referral, approvals] = await Promise.all([
+  const [profile, memberships, voices, receipts, sessions, invites, giftsGiven, giftsReceived, rewards, referral, approvals, agreements] = await Promise.all([
     rows(db.from("adult_profiles").select("*").eq("user_id", me), "read profile"),
     rows(db.from("household_members").select("*").eq("user_id", me), "read memberships"),
     rows(db.from("voice_profiles").select("*").eq("owner_id", me), "read voices"),
@@ -240,6 +240,7 @@ export async function exportAccountData(db: SupabaseClient, user: { id: string; 
     rows(db.from("reward_activities").select("*").eq("user_id", me), "read rewards"),
     rows(db.from("referral_codes").select("*").eq("user_id", me), "read referral code"),
     rows(db.from("child_voice_approvals").select("*").eq("approved_by", me), "read approvals"),
+    rows(db.from("voice_rights_agreements").select("*").eq("contributor_id", me), "read voice agreements"),
   ]);
   const homeIds = ids(memberships, "household_id");
   const voiceIds = ids(voices);
@@ -287,7 +288,10 @@ export async function exportAccountData(db: SupabaseClient, user: { id: string; 
       consents: consents.filter((c) => c.voice_id === v.id).map((c) => pick(c, ["policy_version", "purposes", "captured_at", "revoked_at"])),
     })),
     storytellersYouApproved: approvals.map((a) => ({ voiceId: a.voice_id, kid: kidName(a.child_id), ...pick(a, ["approved_at", "revoked_at", "revoke_reason"]) })),
-    recordings: sessions.map((s) => pick(s, ["recording_mode", "recorded_duration_ms", "usable_duration_ms", "recording_status", "created_at"])),
+    recordings: sessions.map((s) => pick(s, ["recording_mode", "recorded_duration_ms", "usable_duration_ms", "recording_status", "language", "agreement_version", "created_at"])),
+    voiceAgreements: [...agreements].sort((a, b) => String(a.agreed_at).localeCompare(String(b.agreed_at))).map((a) =>
+      pick(a, ["agreement_version", "event", "service_rights", "readli_development_rights", "third_party_licensing", "statements", "source", "agreed_at"]),
+    ),
     consentReceipts: receipts.map((r) => pick(r, ["policy_version", "purpose", "adult_owner_declared", "accepted_fields", "given_at", "revoked_at"])),
     invitationsSent: invites.map((i) => ({ family: homeName(i.household_id), ...pick(i, ["invitee_name", "relationship_label", "created_at", "expires_at", "accepted_at", "revoked_at"]) })),
     giftsGiven: giftsGiven.map((g) => pick(g, ["plan_id", "status", "recipient_name", "message", "deliver_on", "sent_at", "redeemed_at", "renewals_stopped", "created_at"])),

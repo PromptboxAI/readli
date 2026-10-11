@@ -2,10 +2,11 @@ import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { fileExtension } from "@/lib/audio/mime";
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
-import { VOICE_CONSENT_VERSION, VOICE_CONSENTS } from "@/lib/content/voice-consents";
+import { VOICE_CONSENT_VERSION } from "@/lib/content/voice-consents";
 import type { ServerConfig } from "@/lib/server/config";
 import { ProviderRefCipher } from "@/lib/server/provider-ref";
 import { baseMimeType, checkUpload, SERVER_QC_MESSAGES, type QcLimits } from "@/lib/server/recording-qc";
+import { agreementInForce, MemoryVoiceAgreementStore, SupabaseVoiceAgreementStore, VoiceAgreementError, type VoiceAgreement, type VoiceAgreementStore } from "./agreements";
 import { ElevenLabsProvider } from "./elevenlabs";
 import { VoiceProviderError, type SynthesizedAudio, type VoiceProvider } from "./provider";
 import { StubVoiceProvider } from "./stub";
@@ -31,9 +32,17 @@ export interface TakeUpload {
   pauseCount: number;
   deviceClass: "phone" | "tablet" | "desktop" | null;
   scriptOffsetEnd: number | null;
-  /** The consent statements the person ticked, verbatim. */
-  consents: readonly string[];
+  /** The Voice Recording & AI Training Agreement they accepted before the microphone started. */
+  agreementId: string | null;
   removeBackgroundNoise: boolean;
+  /** What the recorder measured, kept with the recording. */
+  qc: { speechMs: number | null; issues: readonly string[] } | null;
+  userAgent: string | null;
+}
+
+/** The take with its agreement checked, as the store saves it. */
+export interface AgreedTake extends TakeUpload {
+  agreement: VoiceAgreement;
 }
 
 export interface SavedTake {
@@ -44,9 +53,9 @@ export interface SavedTake {
 /** Persistence for account voices. Supabase in production, memory in tests and stub mode. */
 export interface AccountVoiceStore {
   findVoice(ownerId: string): Promise<(AccountVoice & { providerVoiceId: string | null }) | null>;
-  saveTake(owner: { id: string; name: string }, take: TakeUpload, policyVersion: string): Promise<SavedTake>;
+  saveTake(owner: { id: string; name: string }, take: AgreedTake, policyVersion: string): Promise<SavedTake>;
   /** Creates or replaces the owner's voice row and records their consent against it. */
-  saveVoice(owner: { id: string; name: string }, providerVoiceId: string, take: TakeUpload, saved: SavedTake): Promise<AccountVoice>;
+  saveVoice(owner: { id: string; name: string }, providerVoiceId: string, take: AgreedTake, saved: SavedTake): Promise<AccountVoice>;
   providerVoiceId(voiceId: string): Promise<string | null>;
 }
 
@@ -65,19 +74,25 @@ export const SAMPLE_TEXT =
 
 export interface AccountVoiceDeps {
   store: AccountVoiceStore;
+  agreements: VoiceAgreementStore;
   provider: VoiceProvider;
   limits: QcLimits;
 }
 
 /** Checks the take and consent, saves the recording, clones it and saves the voice. */
 export async function createAccountVoice(deps: AccountVoiceDeps, owner: { id: string; name: string }, take: TakeUpload): Promise<AccountVoice> {
-  if (!VOICE_CONSENTS.every((c) => take.consents.includes(c))) {
-    throw new AccountVoiceError(400, "consent_required", "Please agree to each point before we make your voice.");
+  let agreement: VoiceAgreement;
+  try {
+    agreement = await agreementInForce(deps.agreements, owner.id, take.agreementId);
+  } catch (err) {
+    if (err instanceof VoiceAgreementError) throw new AccountVoiceError(err.status, "consent_required", err.userMessage);
+    throw err;
   }
   const issues = checkUpload({ mimeType: take.audio.type, bytes: take.audio.size, durationMs: take.durationMs }, deps.limits);
   if (issues.length > 0) throw new AccountVoiceError(422, issues[0]!, SERVER_QC_MESSAGES[issues[0]!]);
 
-  const saved = await deps.store.saveTake(owner, take, VOICE_CONSENT_VERSION);
+  const agreed: AgreedTake = { ...take, agreement };
+  const saved = await deps.store.saveTake(owner, agreed, VOICE_CONSENT_VERSION);
   const previous = await deps.store.findVoice(owner.id);
   let providerVoiceId: string;
   try {
@@ -93,12 +108,28 @@ export async function createAccountVoice(deps: AccountVoiceDeps, owner: { id: st
     const message = err instanceof VoiceProviderError ? err.userMessage : "We couldn't make your voice just now. Please try again.";
     throw new AccountVoiceError(502, "clone_failed", message);
   }
-  const voice = await deps.store.saveVoice(owner, providerVoiceId, take, saved);
+  const voice = await deps.store.saveVoice(owner, providerVoiceId, agreed, saved);
   // A new recording replaces the old provider voice straight away.
   if (previous?.providerVoiceId && previous.providerVoiceId !== providerVoiceId) {
     await deps.provider.deleteVoice(previous.providerVoiceId).catch((err) => console.error("old account voice delete failed", err));
   }
   return voice;
+}
+
+/** The script text read up to where the speaker stopped: the recording's expected transcript. */
+export function expectedTranscript(scriptOffsetEnd: number | null): string {
+  const text = DEMO_SCRIPT.paragraphs.join(" ");
+  return scriptOffsetEnd === null ? text : text.slice(0, Math.max(0, scriptOffsetEnd));
+}
+
+/** What the owner's consent on a voice covers, from the rights they granted. */
+export function consentPurposes(agreement: VoiceAgreement): string[] {
+  return [
+    "create",
+    "narrate_for_shared_families",
+    ...(agreement.rights.readliDevelopment ? ["readli_development"] : []),
+    ...(agreement.rights.thirdPartyLicensing ? ["third_party_licensing"] : []),
+  ];
 }
 
 /** A short line in the owner's voice, for "Does this sound like you?". Only the owner can hear it. */
@@ -116,8 +147,8 @@ export async function accountVoiceSample(deps: AccountVoiceDeps, ownerId: string
 
 export class MemoryAccountVoiceStore implements AccountVoiceStore {
   readonly voices = new Map<string, AccountVoice & { ownerId: string; providerVoiceId: string | null }>();
-  readonly receipts: { id: string; ownerId: string; statements: readonly string[]; removeBackgroundNoise: boolean }[] = [];
-  readonly takes: { key: string; ownerId: string; bytes: number }[] = [];
+  readonly receipts: { id: string; ownerId: string; agreementId: string; removeBackgroundNoise: boolean }[] = [];
+  readonly takes: { key: string; ownerId: string; bytes: number; agreementId: string; language: string; transcript: string }[] = [];
 
   private entry(ownerId: string) {
     return [...this.voices.values()].find((v) => v.ownerId === ownerId && v.status !== "deleted") ?? null;
@@ -128,11 +159,18 @@ export class MemoryAccountVoiceStore implements AccountVoiceStore {
     return v ? { ...v } : null;
   }
 
-  async saveTake(owner: { id: string }, take: TakeUpload) {
+  async saveTake(owner: { id: string }, take: AgreedTake) {
     const key = `${owner.id}/${randomUUID()}.${fileExtension(take.audio.type)}`;
-    this.takes.push({ key, ownerId: owner.id, bytes: take.audio.size });
+    this.takes.push({
+      key,
+      ownerId: owner.id,
+      bytes: take.audio.size,
+      agreementId: take.agreement.id,
+      language: DEMO_SCRIPT.locale,
+      transcript: expectedTranscript(take.scriptOffsetEnd),
+    });
     const id = randomUUID();
-    this.receipts.push({ id, ownerId: owner.id, statements: take.consents, removeBackgroundNoise: take.removeBackgroundNoise });
+    this.receipts.push({ id, ownerId: owner.id, agreementId: take.agreement.id, removeBackgroundNoise: take.removeBackgroundNoise });
     return { storageKey: key, consentReceiptId: id };
   }
 
@@ -154,6 +192,8 @@ export class MemoryAccountVoiceStore implements AccountVoiceStore {
 }
 
 const BUCKET = "voice-recordings";
+/** What the recorder asks the browser for (useMicrophone), kept with each recording. */
+const CAPTURE_CONSTRAINTS = { channel_count: 1, echo_cancellation: true, noise_suppression: false, auto_gain_control: false };
 type Row = Record<string, unknown>;
 
 export class SupabaseAccountVoiceStore implements AccountVoiceStore {
@@ -207,7 +247,7 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
     return this.scriptVersionId;
   }
 
-  async saveTake(owner: { id: string }, take: TakeUpload, policyVersion: string) {
+  async saveTake(owner: { id: string }, take: AgreedTake, policyVersion: string) {
     const mimeType = baseMimeType(take.audio.type);
     const key = `${owner.id}/${randomUUID()}.${fileExtension(mimeType)}`;
     const { error } = await this.db.storage.from(BUCKET).upload(key, new Blob([take.audio], { type: mimeType }), { contentType: mimeType, upsert: false });
@@ -220,7 +260,11 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
           policy_version: policyVersion,
           purpose: "voice_persistence",
           adult_owner_declared: true,
-          accepted_fields: { statements: take.consents, remove_background_noise: take.removeBackgroundNoise },
+          accepted_fields: {
+            agreement_id: take.agreement.id,
+            rights: take.agreement.rights,
+            remove_background_noise: take.removeBackgroundNoise,
+          },
         })
         .select("id")
         .single(),
@@ -235,7 +279,7 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
     return (row?.display_name as string | undefined) ?? owner.name;
   }
 
-  async saveVoice(owner: { id: string; name: string }, providerVoiceId: string, take: TakeUpload, saved: SavedTake) {
+  async saveVoice(owner: { id: string; name: string }, providerVoiceId: string, take: AgreedTake, saved: SavedTake) {
     const at = new Date().toISOString();
     const encrypted = this.cipher.encrypt(providerVoiceId);
     const existing = await this.findVoice(owner.id);
@@ -263,7 +307,7 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
         voice_id: voiceId,
         owner_id: owner.id,
         policy_version: VOICE_CONSENT_VERSION,
-        purposes: ["create", "narrate_for_shared_families"],
+        purposes: consentPurposes(take.agreement),
         recording_proof_ref: saved.storageKey,
       }),
       "save voice consent",
@@ -285,6 +329,16 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
           audio_qc_status: "passed",
           recording_status: "accepted",
           consent_receipt_id: saved.consentReceiptId,
+          agreement_id: take.agreement.id,
+          agreement_version: take.agreement.version,
+          language: DEMO_SCRIPT.locale,
+          transcript: expectedTranscript(take.scriptOffsetEnd),
+          transcript_source: "script",
+          quality: { audio_qc_status: "passed", speech_ms: take.qc?.speechMs ?? null, issues: take.qc?.issues ?? [] },
+          capture: { device_class: take.deviceClass, words_per_minute: take.wpm, user_agent: take.userAgent, constraints: CAPTURE_CONSTRAINTS },
+          audio_mime_type: baseMimeType(take.audio.type),
+          audio_bytes: take.audio.size,
+          remove_background_noise: take.removeBackgroundNoise,
         })
         .select("id")
         .single(),
@@ -321,20 +375,23 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
 // Wiring
 // ---------------------------------------------------------------------------
 
-const g = globalThis as typeof globalThis & { __readliAccountVoices?: { store: MemoryAccountVoiceStore; provider: StubVoiceProvider } };
+const g = globalThis as typeof globalThis & {
+  __readliAccountVoices?: { store: MemoryAccountVoiceStore; agreements: MemoryVoiceAgreementStore; provider: StubVoiceProvider };
+};
 
 /** Store and provider for the current mode; null when account voices can't be made here. */
 export function accountVoiceDeps(config: ServerConfig): AccountVoiceDeps | null {
   // A real voice needs a real minute; the guest test override doesn't apply to accounts.
   const limits = { ...config, minRecordingMs: Math.max(config.minRecordingMs, 59_000) };
   if (config.mode === "stub") {
-    g.__readliAccountVoices ??= { store: new MemoryAccountVoiceStore(), provider: new StubVoiceProvider() };
+    g.__readliAccountVoices ??= { store: new MemoryAccountVoiceStore(), agreements: new MemoryVoiceAgreementStore(), provider: new StubVoiceProvider() };
     return { ...g.__readliAccountVoices, limits: config };
   }
   if (config.mode === "live" && config.supabaseUrl && config.supabaseServiceKey && config.cookieSecret) {
     const db = createClient(config.supabaseUrl, config.supabaseServiceKey, { auth: { persistSession: false, autoRefreshToken: false } });
     return {
       store: new SupabaseAccountVoiceStore(db, config.cookieSecret),
+      agreements: new SupabaseVoiceAgreementStore(db),
       provider: new ElevenLabsProvider(config.elevenLabsKey!, config.elevenLabsModel),
       limits,
     };
