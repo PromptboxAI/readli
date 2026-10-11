@@ -233,3 +233,18 @@ describe("free trial", () => {
     expect(creditBalance(state, plan, "t1", later).available).toBe(0);
   });
 });
+
+describe("public library", () => {
+  it("lists every book shortest first, then coming soon, and searches title and author", async () => {
+    const { publicLibrary } = await import("./public");
+    const { matchesSearch } = await import("./search");
+    const books = publicLibrary();
+    const ready = books.filter((b) => !b.comingSoon);
+    expect(ready.map((b) => b.minutes)).toEqual([...ready.map((b) => b.minutes)].sort((a, b) => a - b));
+    expect(books.at(-1)!.comingSoon).toBe(true);
+    expect(books.filter((b) => matchesSearch(b, "rabbit")).map((b) => b.slug)).toEqual(
+      expect.arrayContaining(["the-tale-of-peter-rabbit", "the-velveteen-rabbit"]),
+    );
+    expect(books.filter((b) => matchesSearch(b, "ANDERSEN duckling")).map((b) => b.slug)).toEqual(["the-ugly-duckling"]);
+  });
+});
