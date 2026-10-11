@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { buttonPrimary } from "@/components/brand/buttons";
+import { MobileMenu } from "@/components/home/MobileMenu";
 
 const NAV = [
   { href: "/#stories", label: "Stories" },
@@ -26,11 +27,7 @@ export function SiteHeader() {
             Try It Free
           </Link>
         </nav>
-        {/* Collapsible mobile navigation without client JS */}
-        <details className="relative md:hidden">
-          <summary className="flex min-h-12 cursor-pointer list-none items-center rounded-full border-[3px] border-ink px-4 font-display font-semibold [&::-webkit-details-marker]:hidden">
-            Menu
-          </summary>
+        <MobileMenu>
           <nav
             aria-label="Main"
             className="absolute right-0 mt-2 flex w-56 flex-col gap-1 rounded-3xl border-[3px] border-ink bg-surface p-3 shadow-lg"
@@ -44,7 +41,7 @@ export function SiteHeader() {
               Try It Free
             </Link>
           </nav>
-        </details>
+        </MobileMenu>
       </div>
     </header>
   );

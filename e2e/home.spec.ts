@@ -142,10 +142,22 @@ test("try your voice shows the studio preview on desktop and a short pitch on ph
   }
 });
 
-test("the library section introduces the full library instead of repeating the demo books", async ({ page }) => {
+test("the library section shows the six new books on a shelf and links to the library", async ({ page }) => {
   await page.goto("/");
   const section = page.locator("#stories");
   await expect(section.getByRole("heading", { level: 2 })).toHaveText("A Whole World of Stories Awaits");
-  await expect(section.getByRole("img")).toHaveCount(0);
+  await expect(section.getByRole("img")).toHaveCount(6);
+  await expect(section.getByRole("link", { name: "Goldilocks and the Three Bears" })).toHaveAttribute("href", "/books/goldilocks-and-the-three-bears");
   await expect(section.getByRole("link", { name: "Explore the Readli Library" })).toHaveAttribute("href", "/books");
+});
+
+test("phone menu closes after tapping a section link", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "phone menu only");
+  await page.goto("/");
+  await page.getByText("Menu", { exact: true }).click();
+  const menu = page.locator("header details nav");
+  await expect(menu).toBeVisible();
+  await menu.getByRole("link", { name: "How it Works" }).click();
+  await expect(page).toHaveURL(/#how-it-works$/);
+  await expect(menu).toBeHidden();
 });
