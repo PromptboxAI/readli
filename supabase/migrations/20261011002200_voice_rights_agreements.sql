@@ -1,6 +1,6 @@
 create table public.voice_rights_agreements (
   id uuid primary key default gen_random_uuid(),
-  contributor_id uuid not null references auth.users (id) on delete cascade,
+  contributor_id uuid references auth.users (id) on delete set null,
   agreement_version text not null,
   event text not null check (event in ('accepted', 'updated', 'withdrawn')),
   service_rights boolean not null,
@@ -24,6 +24,10 @@ create index voice_rights_agreements_contributor on public.voice_rights_agreemen
 create or replace function public.voice_rights_agreements_append_only() returns trigger
 language plpgsql as $$
 begin
+  if new.contributor_id is null and old.contributor_id is not null
+     and (to_jsonb(new) - 'contributor_id') = (to_jsonb(old) - 'contributor_id') then
+    return new;
+  end if;
   raise exception 'voice_rights_agreements is append-only; insert a new row instead';
 end;
 $$;
@@ -48,7 +52,7 @@ alter table public.voice_training_sessions
   add column if not exists audio_mime_type text,
   add column if not exists audio_bytes bigint,
   add column if not exists remove_background_noise boolean,
-  add column if not exists source_kind text not null default 'original_human' check (source_kind in ('original_human'));
+  add column if not exists source_kind text not null default 'original_human' check (source_kind in ('original_human', 'guest_demo_carryover'));
 
 comment on column public.voice_training_sessions.transcript is 'Expected transcript: the script text read up to script_offset_end.';
 comment on column public.voice_training_sessions.quality is 'Recorder and server checks: speech_ms, issues, audio_qc_status.';

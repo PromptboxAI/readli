@@ -12,7 +12,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * - neither this household nor any household the grown-up belongs to has had a plan (a tester plan aside);
  * - no earlier trial was claimed by this household, this account, or the same email (normalized, so
  *   "Jo.Smith+kids@gmail.com" and "josmith@gmail.com" count as one).
- * When a trial starts, the webhook records the claim with a hash of the card's Stripe fingerprint. A
+ * When a trial starts, the webhook records hashed signals in trial_signals (the account, the
+ * normalized email, and the card's Stripe fingerprint). A
  * card that already started a trial for another household still gets Readli Family, but without the
  * free trial credits, and the case goes to the admin exception queue. No device fingerprints, IP
  * addresses or postal addresses are used.
@@ -26,7 +27,7 @@ export interface TrialFacts {
   emailVerified: boolean;
   /** Plans, past or present, of this household and every household the grown-up belongs to. */
   plans: readonly { source: string }[];
-  /** Trial claims matching this household, this account or this email. */
+  /** Earlier trials matching this account or this email (trial_signals). */
   priorClaims: number;
 }
 
@@ -51,6 +52,7 @@ export function normalizeEmail(email: string): string {
 const sha = (v: string) => createHash("sha256").update(v).digest("hex");
 export const emailKey = (email: string) => sha(`email:${normalizeEmail(email)}`);
 export const cardKey = (fingerprint: string) => sha(`card:${fingerprint}`);
+export const accountKey = (userId: string) => sha(`account:${userId}`);
 
 async function rows(p: PromiseLike<{ data: unknown; error: { message: string } | null }>, what: string): Promise<Record<string, unknown>[]> {
   const { data, error } = await p;
@@ -74,9 +76,8 @@ export async function loadTrialFacts(
   const homes = await rows(db.from("household_members").select("household_id").eq("user_id", who.userId), "read households");
   const householdIds = [...new Set([who.householdId, ...homes.map((h) => h.household_id as string)])];
   const plans = await rows(db.from("household_entitlements").select("source").in("household_id", householdIds), "read plan history");
-  const keys = [`household_id.eq.${who.householdId}`, `user_id.eq.${who.userId}`];
-  if (who.email) keys.push(`email_key.eq.${emailKey(who.email)}`);
-  const claims = await rows(db.from("trial_claims").select("id").or(keys.join(",")).limit(1), "read trial claims");
+  const keys = [accountKey(who.userId), ...(who.email ? [emailKey(who.email)] : [])];
+  const claims = await rows(db.from("trial_signals").select("signal_hash").in("signal_hash", keys).limit(1), "read trial signals");
   return { trialDays, emailVerified: who.emailVerified, plans: plans.map((p) => ({ source: p.source as string })), priorClaims: claims.length };
 }
 
@@ -90,27 +91,22 @@ export interface TrialStart {
 }
 
 /**
- * Records a trial when its subscription first arrives (safe to repeat). Returns whether its trial
- * credits are withheld because the same card already started a trial for another household.
+ * Records a trial's signals when its subscription first arrives (safe to repeat). Returns whether its
+ * trial credits are withheld because the same card already started a trial for another household.
  */
 export async function recordTrialClaim(db: SupabaseClient, t: TrialStart): Promise<{ withheld: boolean }> {
-  const existing = await rows(db.from("trial_claims").select("credits_withheld").eq("subscription_ref", t.subscriptionRef), "read trial claim");
-  if (existing[0]) return { withheld: existing[0].credits_withheld === true };
   const card = t.cardFingerprint ? cardKey(t.cardFingerprint) : null;
   const reused = card
-    ? (await rows(db.from("trial_claims").select("id").eq("card_key", card).neq("household_id", t.householdId).limit(1), "read card claims")).length > 0
+    ? (await rows(db.from("trial_signals").select("household_id").eq("signal_hash", card).neq("household_id", t.householdId).limit(1), "read card signal")).length > 0
     : false;
-  const { error } = await db.from("trial_claims").upsert(
-    {
-      household_id: t.householdId,
-      user_id: t.userId,
-      email_key: t.email ? emailKey(t.email) : null,
-      card_key: card,
-      subscription_ref: t.subscriptionRef,
-      credits_withheld: reused,
-    },
-    { onConflict: "subscription_ref", ignoreDuplicates: true },
-  );
-  if (error) throw new Error(`record trial claim: ${error.message}`);
+  const signals = [
+    ...(t.userId ? [{ signal_hash: accountKey(t.userId), kind: "account" }] : []),
+    ...(t.email ? [{ signal_hash: emailKey(t.email), kind: "email" }] : []),
+    ...(card ? [{ signal_hash: card, kind: "payment_method" }] : []),
+  ].map((x) => ({ ...x, household_id: t.householdId }));
+  if (signals.length) {
+    const { error } = await db.from("trial_signals").upsert(signals, { onConflict: "signal_hash", ignoreDuplicates: true });
+    if (error) throw new Error(`record trial signals: ${error.message}`);
+  }
   return { withheld: reused };
 }

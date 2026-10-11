@@ -89,7 +89,8 @@ create table public.lifecycle_audit_log (
     'voice_withdrawn', 'voice_version_upgraded', 'clone_created', 'clone_retired', 'clone_reactivated',
     'voice_unlinked', 'voice_relinked', 'legal_removal', 'plan_changed', 'jobs_stopped',
     'recovery_started', 'recovery_notice', 'recovery_restored', 'recovery_held', 'recovery_deleted',
-    'safeguard_stopped'
+    'safeguard_stopped', 'household_cleaned', 'recording_deletion_requested', 'recordings_deleted',
+    'account_deleted', 'exception_opened', 'exception_resolved', 'run_started', 'run_finished', 'email_suppressed'
   )),
   household_id uuid,
   voice_id uuid,
