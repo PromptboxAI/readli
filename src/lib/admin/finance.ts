@@ -66,7 +66,7 @@ export interface FinanceInputs {
   adultIds: string[];
   /** Ready, undeleted voices: owner_id. */
   voices: Row[];
-  /** Provider usage in the last 30 days: library_key, sentence_id, model_id, characters, provider_credits, bytes. */
+  /** Provider usage in the last 30 days: library_key, sentence_id, model_id, characters, provider_credits, bytes, and usd and household_id where recorded. */
   usage: Row[];
   /** Narration jobs that could have produced that usage: library_key, household_id, sentence_ids. */
   jobs: Row[];
@@ -200,12 +200,14 @@ export function financeReport(input: FinanceInputs): FinanceReport {
   let bytes30d = 0;
   for (const u of input.usage) {
     const chars = int(u.characters);
-    const usd = (chars / 1000) * rateFor(costs, u.model_id);
+    // Recorded provider cost wins over the planning estimate once the worker saves it.
+    const recorded = u.usd === null || u.usd === undefined ? NaN : Number(u.usd);
+    const usd = Number.isFinite(recorded) ? recorded : (chars / 1000) * rateFor(costs, u.model_id);
     characters += chars;
     providerCredits += int(u.provider_credits);
     generationUsd += usd;
     bytes30d += int(u.bytes);
-    const h = madeBy.get(`${u.library_key}|${u.sentence_id}`);
+    const h = (u.household_id as string | null | undefined) ?? madeBy.get(`${u.library_key}|${u.sentence_id}`);
     if (h) costByHousehold.set(h, (costByHousehold.get(h) ?? 0) + usd);
   }
   // Usage up to the plan fee is already paid for by the plan's included credits, so it isn't counted twice.
@@ -291,7 +293,7 @@ export async function loadFinance(db: SupabaseClient, { live, at = new Date() }:
     all(() => db.from("household_members").select("household_id, user_id").is("removed_at", null), "read members"),
     all(() => db.from("adult_profiles").select("user_id"), "read grown-ups"),
     all(() => db.from("voice_profiles").select("owner_id").eq("status", "ready").is("deleted_at", null), "read voices"),
-    all(() => db.from("narration_provider_usage").select("library_key, sentence_id, model_id, characters, provider_credits, bytes").gte("at", since), "read provider usage"),
+    all(() => db.from("narration_provider_usage").select("*").gte("at", since), "read provider usage"),
     all(() => db.from("narration_jobs").select("library_key, household_id, sentence_ids").gte("created_at", jobsSince), "read jobs"),
     db.from("narration_plays").select("id", { count: "exact", head: true }).gte("at", since),
     all(() => db.from("narration_provider_usage").select("bytes"), "read stored audio"),
