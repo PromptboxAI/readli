@@ -23,7 +23,7 @@ export async function GET() {
   const user = await currentUser();
   if (!user) return fail(401, "sign_in_required", SIGN_IN);
   const voice = await deps.store.findVoice(user.id);
-  return NextResponse.json({ voice: voice ? { id: voice.id, status: voice.status, updatedAt: voice.updatedAt } : null }, { headers: { "cache-control": "no-store" } });
+  return NextResponse.json({ voice: voice ? { id: voice.id, status: voice.status, version: voice.version, updatedAt: voice.updatedAt } : null }, { headers: { "cache-control": "no-store" } });
 }
 
 /** Records consent, saves the take privately, clones it and saves (or replaces) the grown-up's voice. */

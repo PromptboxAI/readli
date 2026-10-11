@@ -63,7 +63,7 @@ describe("account voices", () => {
     const first = await createAccountVoice(deps, owner, take());
     const second = await createAccountVoice(deps, owner, take({ removeBackgroundNoise: true }));
     expect(second.id).toBe(first.id);
-    expect(store.voices.get(first.id)?.version).toBe(2);
+    expect(second.version).toBe(2);
     expect(await store.providerVoiceId(first.id)).toBe("stub-voice-2");
     expect(provider.deleted).toEqual(["stub-voice-1"]);
   });

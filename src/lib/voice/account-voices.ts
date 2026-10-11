@@ -19,6 +19,8 @@ import { StubVoiceProvider } from "./stub";
 export interface AccountVoice {
   id: string;
   status: "processing" | "ready" | "deleted";
+  /** Bumps on every re-recording; narration libraries are kept per version. */
+  version: number;
   updatedAt: string;
 }
 
@@ -113,7 +115,7 @@ export async function accountVoiceSample(deps: AccountVoiceDeps, ownerId: string
 // ---------------------------------------------------------------------------
 
 export class MemoryAccountVoiceStore implements AccountVoiceStore {
-  readonly voices = new Map<string, AccountVoice & { ownerId: string; providerVoiceId: string | null; version: number }>();
+  readonly voices = new Map<string, AccountVoice & { ownerId: string; providerVoiceId: string | null }>();
   readonly receipts: { id: string; ownerId: string; statements: readonly string[]; removeBackgroundNoise: boolean }[] = [];
   readonly takes: { key: string; ownerId: string; bytes: number }[] = [];
 
@@ -139,11 +141,11 @@ export class MemoryAccountVoiceStore implements AccountVoiceStore {
     const existing = this.entry(owner.id);
     if (existing) {
       Object.assign(existing, { providerVoiceId, status: "ready", updatedAt: at, version: existing.version + 1 });
-      return { id: existing.id, status: existing.status, updatedAt: at };
+      return { id: existing.id, status: existing.status, version: existing.version, updatedAt: at };
     }
     const id = randomUUID();
     this.voices.set(id, { id, ownerId: owner.id, providerVoiceId, status: "ready", updatedAt: at, version: 1 });
-    return { id, status: "ready" as const, updatedAt: at };
+    return { id, status: "ready" as const, version: 1, updatedAt: at };
   }
 
   async providerVoiceId(voiceId: string) {
@@ -175,7 +177,7 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
     const row = await this.q<Row | null>(
       this.db
         .from("voice_profiles")
-        .select("id, status, updated_at, provider_voice_id_encrypted")
+        .select("id, status, version, updated_at, provider_voice_id_encrypted")
         .eq("owner_id", ownerId)
         .neq("status", "deleted")
         .order("created_at", { ascending: false })
@@ -188,6 +190,7 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
     return {
       id: row.id as string,
       status: row.status as AccountVoice["status"],
+      version: Number(row.version ?? 1),
       updatedAt: row.updated_at as string,
       providerVoiceId: enc ? this.cipher.decrypt(enc) : null,
     };
@@ -226,6 +229,12 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
     return { storageKey: key, consentReceiptId: receipt.id as string };
   }
 
+  // The family-facing name lives on adult_profiles; the sign-in name is only a fallback.
+  private async displayName(owner: { id: string; name: string }): Promise<string> {
+    const row = await this.q<Row | null>(this.db.from("adult_profiles").select("display_name").eq("user_id", owner.id).maybeSingle(), "read display name");
+    return (row?.display_name as string | undefined) ?? owner.name;
+  }
+
   async saveVoice(owner: { id: string; name: string }, providerVoiceId: string, take: TakeUpload, saved: SavedTake) {
     const at = new Date().toISOString();
     const encrypted = this.cipher.encrypt(providerVoiceId);
@@ -234,17 +243,17 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
       ? await this.q(
           this.db
             .from("voice_profiles")
-            .update({ provider_voice_id_encrypted: encrypted, status: "ready", updated_at: at })
+            .update({ provider_voice_id_encrypted: encrypted, status: "ready", version: existing.version + 1, updated_at: at })
             .eq("id", existing.id)
-            .select("id, status, updated_at")
+            .select("id, status, version, updated_at")
             .single(),
           "replace account voice",
         )
       : await this.q(
           this.db
             .from("voice_profiles")
-            .insert({ owner_id: owner.id, display_name: owner.name, clone_type: "instant", provider: "elevenlabs", provider_voice_id_encrypted: encrypted, status: "ready" })
-            .select("id, status, updated_at")
+            .insert({ owner_id: owner.id, display_name: await this.displayName(owner), clone_type: "instant", provider: "elevenlabs", provider_voice_id_encrypted: encrypted, status: "ready" })
+            .select("id, status, version, updated_at")
             .single(),
           "save account voice",
         );
@@ -295,7 +304,7 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
       }),
       "save recording segment",
     );
-    return { id: voiceId, status: row.status as AccountVoice["status"], updatedAt: row.updated_at as string };
+    return { id: voiceId, status: row.status as AccountVoice["status"], version: Number(row.version ?? 1), updatedAt: row.updated_at as string };
   }
 
   async providerVoiceId(voiceId: string) {
