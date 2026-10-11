@@ -73,6 +73,18 @@ test("admin finances page explains it needs Supabase in the preview", async ({ p
   await noOverflow(page);
 });
 
+test("admins can issue complimentary annual memberships", async ({ page }) => {
+  await page.goto("/admin");
+  await page.getByRole("link", { name: "Complimentary memberships" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Complimentary memberships" })).toBeVisible();
+  const form = page.getByTestId("complimentary-form");
+  await expect(form.getByLabel("Kind")).toContainText("Promotional giveaway");
+  await form.getByLabel("Who they're for").fill("Oak Street Elementary");
+  await form.getByRole("button", { name: "Issue memberships" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Complimentary memberships need sign-in" })).toBeVisible();
+  await noOverflow(page);
+});
+
 test("admin plan settings list every configurable limit", async ({ page }, info) => {
   await page.goto("/admin/plans");
   const settings = page.getByTestId("plan-settings");
