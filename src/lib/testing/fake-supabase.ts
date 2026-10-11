@@ -34,8 +34,13 @@ export function fakeSupabase(tables: Record<string, Row[]> = {}, opts: FakeOptio
     let single = false;
     let order: { col: string; asc: boolean } | null = null;
 
+    // "col" is a unique column; "col=value" a partial unique index on rows where col = value.
     const violates = (row: Row, except?: Row) =>
-      (opts.unique?.[name] ?? []).some((col) => row[col] !== undefined && row[col] !== null && t(name).some((x) => x !== except && x[col] === row[col]));
+      (opts.unique?.[name] ?? []).some((spec) => {
+        const [col, only] = spec.split("=") as [string, string | undefined];
+        if (row[col] === undefined || row[col] === null || (only !== undefined && row[col] !== only)) return false;
+        return t(name).some((x) => x !== except && x[col] === row[col]);
+      });
 
     const result = (): { data: unknown; error: { message: string } | null } => {
       if (op.kind === "insert") {

@@ -62,7 +62,7 @@ export async function openException(
   q = e.voiceId ? q.eq("voice_id", e.voiceId) : q.is("voice_id", null);
   if ((await rows(q.limit(1), "read exceptions")).length) return;
   await run(
-    db.from("lifecycle_exceptions").insert({ kind: e.kind, reason: e.reason, household_id: e.householdId ?? null, voice_id: e.voiceId ?? null, detail: e.detail ?? {} }),
+    db.from("lifecycle_exceptions").insert({ kind: e.kind, status: "open", reason: e.reason, household_id: e.householdId ?? null, voice_id: e.voiceId ?? null, detail: e.detail ?? {} }),
     "open exception",
   );
 }

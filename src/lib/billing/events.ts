@@ -19,6 +19,8 @@ export interface SubscriptionChange {
    */
   trialEndsAt: string | null;
   extraNarratorSlots: number;
+  /** How often the plan item bills: monthly or yearly. */
+  billingInterval: "month" | "year" | null;
   startsAt: string;
   endsAt: string | null;
 }
@@ -57,6 +59,14 @@ function itemsOf(sub: StripeObject): StripeObject[] {
 /** A subscription whose plan item is the Archive price (lookup key readli_archive_monthly_<cents>). */
 function tierOf(sub: StripeObject): "family" | "archive" {
   return itemsOf(sub).some((i) => str((i.price as StripeObject | undefined)?.lookup_key)?.startsWith("readli_archive_monthly_")) ? "archive" : "family";
+}
+
+const PLAN_PREFIXES = ["readli_family_monthly_", "readli_family_annual_", "readli_archive_monthly_"];
+
+function billingInterval(sub: StripeObject): "month" | "year" | null {
+  const plan = itemsOf(sub).find((i) => PLAN_PREFIXES.some((p) => str((i.price as StripeObject | undefined)?.lookup_key)?.startsWith(p)));
+  const interval = str(((plan?.price as StripeObject | undefined)?.recurring as StripeObject | undefined)?.interval);
+  return interval === "month" || interval === "year" ? interval : null;
 }
 
 function extraSlots(sub: StripeObject): number {
@@ -105,6 +115,7 @@ export function billingChange(event: { type: string; data?: { object?: StripeObj
       trialEndsAt: iso(obj.trial_end),
       // The Archive has no extra narrator slots.
       extraNarratorSlots: tierOf(obj) === "archive" ? 0 : extraSlots(obj),
+      billingInterval: billingInterval(obj),
       startsAt: iso(obj.start_date) ?? new Date().toISOString(),
       endsAt,
     };

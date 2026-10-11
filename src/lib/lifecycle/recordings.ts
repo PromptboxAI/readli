@@ -28,7 +28,7 @@ export async function requestRecordingDeletion(
   const [saved] = await rows(
     db
       .from("voice_recording_deletions")
-      .insert({ owner_id: r.ownerId, voice_id: r.voiceId, reason: r.reason, requested_at: r.at.toISOString(), due_at: dueAt, detail: r.detail ?? {} })
+      .insert({ owner_id: r.ownerId, voice_id: r.voiceId, reason: r.reason, status: "pending", attempts: 0, requested_at: r.at.toISOString(), due_at: dueAt, detail: r.detail ?? {} })
       .select("id"),
     "request recording deletion",
   );

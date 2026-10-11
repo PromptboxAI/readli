@@ -104,13 +104,45 @@ export function StartPlan(props: {
   );
 }
 
-/** Opens Stripe's page for changing the card, slots or canceling. */
-export function ManagePlan({ paymentsOn }: { paymentsOn: boolean }) {
+/** Asks Stripe to change the subscription; the plan on this page updates once Stripe confirms it. */
+async function changePlan(to: "family_monthly" | "family_annual" | "archive_monthly"): Promise<string | null> {
+  const res = await fetch("/api/billing/change-plan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ to }) });
+  const json = (await res.json().catch(() => ({}))) as { pending?: boolean; error?: { message?: string } };
+  if (!res.ok) return json.error?.message ?? "Something went wrong. Please try again.";
+  return null;
+}
+
+/**
+ * Stripe's page for changing the card, slots or canceling, and Readli's own switch between monthly and
+ * yearly billing (with the unused part of the current period credited by Stripe).
+ */
+export function ManagePlan(props: { paymentsOn: boolean; interval?: "month" | "year" | null; monthlyCents?: number; annualCents?: number; hasExtraSlots?: boolean }) {
+  const { paymentsOn } = props;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [done, setDone] = useState("");
+  const switchInterval = async (to: "family_monthly" | "family_annual") => {
+    setBusy(true);
+    setError("");
+    const problem = await changePlan(to);
+    setBusy(false);
+    if (problem) return setError(problem);
+    setDone("Done. Your billing updates as soon as Stripe confirms the change; any unused time on your current period is credited to your next bills.");
+  };
   return (
     <div className="flex flex-col gap-2">
       {error && <p role="alert" className="rounded-2xl bg-coral/30 p-3 text-sm">{error}</p>}
+      {done && <p role="status" className="rounded-2xl bg-mint/40 p-3 text-sm">{done}</p>}
+      {props.interval === "month" && props.annualCents !== undefined && !props.hasExtraSlots && (
+        <button type="button" className={`${buttonSecondary} self-start`} disabled={!paymentsOn || busy} onClick={() => void switchInterval("family_annual")}>
+          Pay yearly instead ({formatPrice(props.annualCents)} a year, charged now less your unused month)
+        </button>
+      )}
+      {props.interval === "year" && props.monthlyCents !== undefined && (
+        <button type="button" className={`${buttonSecondary} self-start`} disabled={!paymentsOn || busy} onClick={() => void switchInterval("family_monthly")}>
+          Pay monthly instead ({formatPrice(props.monthlyCents)} a month; your unused year is credited to future bills)
+        </button>
+      )}
       <button
         type="button"
         className={`${buttonSecondary} self-start`}
@@ -129,12 +161,15 @@ export function ManagePlan({ paymentsOn }: { paymentsOn: boolean }) {
 
 /**
  * Readli Family ↔ Family Archive. On a tester plan or in the preview the switch happens here; a Stripe
- * subscription changes plan in the billing portal; a family whose plan ended can start the Archive.
+ * subscription changes through Readli's plan change (the webhook then moves the family); a family whose
+ * plan ended can start the Archive.
  */
 export function ArchiveChoice(props: {
   tier: "family" | "archive" | null;
-  tierChange: "direct" | "portal" | null;
+  tierChange: "direct" | "stripe" | null;
   priceCents: number;
+  monthlyCents?: number;
+  annualCents?: number;
   paymentsOn: boolean;
 }) {
   const [busy, setBusy] = useState(false);
@@ -154,13 +189,22 @@ export function ArchiveChoice(props: {
     setDone(tier === "archive" ? "You're on the Family Archive. Your stories, kids profiles and permissions are all here." : "Welcome back to Readli Family. You can prepare new stories again.");
     window.location.reload();
   };
-  const portal = () => {
+  const viaStripe = async (to: "family_monthly" | "family_annual" | "archive_monthly") => {
     setBusy(true);
     setError("");
-    void goTo("/api/billing/portal", {}, setError).finally(() => setBusy(false));
+    const problem = await changePlan(to);
+    setBusy(false);
+    setConfirming(false);
+    if (problem) return setError(problem);
+    setDone(
+      to === "archive_monthly"
+        ? "Done. You'll move to the Family Archive as soon as Stripe confirms it. Nothing in your library changes, and unused time on your current plan is credited to future bills."
+        : "Done. Readli Family comes back as soon as your payment goes through.",
+    );
   };
-  const act = (tier: "family" | "archive") => (props.tierChange === "direct" ? void switchTo(tier) : portal());
-  const canAct = props.tierChange === "direct" || (props.tierChange === "portal" && props.paymentsOn);
+  const act = (tier: "family" | "archive", yearly = false) =>
+    props.tierChange === "direct" ? void switchTo(tier) : void viaStripe(tier === "archive" ? "archive_monthly" : yearly ? "family_annual" : "family_monthly");
+  const canAct = props.tierChange === "direct" || (props.tierChange === "stripe" && props.paymentsOn);
 
   return (
     <div className="flex flex-col gap-3" data-testid="archive-choice">
@@ -178,7 +222,7 @@ export function ArchiveChoice(props: {
               </p>
               <div className="flex flex-wrap gap-3">
                 <button type="button" className={buttonPrimary} disabled={busy} onClick={() => act("archive")}>
-                  {props.tierChange === "portal" ? "Change plan in billing" : "Move to the Archive"}
+                  Move to the Archive
                 </button>
                 <button type="button" className={buttonSecondary} disabled={busy} onClick={() => setConfirming(false)}>
                   Stay on Readli Family
@@ -195,9 +239,16 @@ export function ArchiveChoice(props: {
       {props.tier === "archive" && (
         <>
           <p>Your stories, kids profiles and permissions are kept and your kids can keep listening. Return to Readli Family to prepare new stories again.</p>
-          <button type="button" className={`${buttonPrimary} self-start`} disabled={!canAct || busy} onClick={() => act("family")}>
-            {props.tierChange === "portal" ? "Change plan in billing" : "Return to Readli Family"}
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" className={buttonPrimary} disabled={!canAct || busy} onClick={() => act("family")}>
+              {props.tierChange === "stripe" && props.monthlyCents !== undefined ? `Return to Readli Family (${formatPrice(props.monthlyCents)} a month)` : "Return to Readli Family"}
+            </button>
+            {props.tierChange === "stripe" && props.annualCents !== undefined && (
+              <button type="button" className={buttonSecondary} disabled={!canAct || busy} onClick={() => act("family", true)}>
+                Return yearly ({formatPrice(props.annualCents)} a year)
+              </button>
+            )}
+          </div>
         </>
       )}
       {props.tier === null && (
@@ -217,7 +268,7 @@ export function ArchiveChoice(props: {
           </button>
         </>
       )}
-      {props.tierChange === "portal" && !props.paymentsOn && props.tier !== null && (
+      {props.tierChange === "stripe" && !props.paymentsOn && props.tier !== null && (
         <p className="rounded-2xl bg-surface/80 p-3 text-sm ring-2 ring-ink/10">Payments aren&apos;t switched on yet, so plan changes wait for that.</p>
       )}
       {error && <p role="alert" className="rounded-2xl bg-coral/30 p-3 text-sm">{error}</p>}

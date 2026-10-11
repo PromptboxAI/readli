@@ -169,6 +169,8 @@ export interface HouseholdEntitlement {
   trialEndsAt?: string | null;
   /** Trial credits for this plan when they differ from the plan default (0 when withheld for a reused trial card). */
   trialCredits?: number | null;
+  /** How often a Stripe subscription bills, when known. */
+  billingInterval?: "month" | "year" | null;
   /** Narrator slots bought on top of the plan's included slots. */
   extraNarratorSlots: number;
   /** Future paid upgrade; stays 0 until approved (plan.extraStreamsUpgradeEnabled). */

@@ -155,6 +155,7 @@ export class AccountFamilyStore implements FamilyStore {
         tier: e.tier === "archive" ? "archive" : "family",
         trialEndsAt: str(e.trial_ends_at),
         trialCredits: typeof e.trial_credits === "number" ? e.trial_credits : null,
+        billingInterval: e.billing_interval === "month" || e.billing_interval === "year" ? e.billing_interval : null,
       }));
       state.favorites = favorites.map((f) => ({ childId: f.child_id as string, bookSlug: f.book_slug as string }));
       state.progress = progress.map((p) => ({

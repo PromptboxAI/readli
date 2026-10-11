@@ -17,8 +17,10 @@ export interface BillingSummary {
   extraSlotsMonthlyCents: number;
   /** Whether this family can start a paid plan (no plan, or only a trial or tester plan). */
   canStartPlan: boolean;
-  /** How this family moves between Readli Family and the Archive: here, in the billing portal, or not yet. */
-  tierChange: "direct" | "portal" | null;
+  /** How this family moves between Readli Family and the Archive: here, through Readli's Stripe plan change, or not yet. */
+  tierChange: "direct" | "stripe" | null;
+  /** How often a Stripe subscription bills, when known. */
+  billingInterval: "month" | "year" | null;
   archiveMonthlyPriceCents: number;
   /** After paid access ends: when it ended and when the stories are scheduled to be deleted. Nothing streams meanwhile. */
   recovery: { endedAt: string; deletesAt: string } | null;
@@ -47,6 +49,7 @@ export function billingSummary(state: FamilyState, plan: PlanConfig, householdId
       extraSlotsMonthlyCents: 0,
       canStartPlan: true,
       tierChange: null,
+      billingInterval: null,
       archiveMonthlyPriceCents: plan.archiveMonthlyPriceCents,
       recovery: recovery && recovery.deletesAt > at ? recovery : null,
     };
@@ -62,7 +65,8 @@ export function billingSummary(state: FamilyState, plan: PlanConfig, householdId
     extraNarratorSlots: tier === "family" ? e.extraNarratorSlots : 0,
     extraSlotsMonthlyCents: e.source === "subscription" && tier === "family" ? e.extraNarratorSlots * plan.extraSlotPriceCents : 0,
     canStartPlan: e.source === "trial" || e.source === "tester",
-    tierChange: direct ? "direct" : e.source === "subscription" ? "portal" : null,
+    tierChange: direct ? "direct" : e.source === "subscription" ? "stripe" : null,
+    billingInterval: e.billingInterval ?? null,
     archiveMonthlyPriceCents: plan.archiveMonthlyPriceCents,
     recovery: null,
   };

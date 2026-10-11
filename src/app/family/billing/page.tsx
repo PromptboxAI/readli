@@ -94,7 +94,15 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           </p>
         )}
         {trialing && <p>Readli Family starts on the card you added when the trial ends, unless you cancel first.</p>}
-        {s.plan === "subscription" && <ManagePlan paymentsOn={paymentsOn} />}
+        {s.plan === "subscription" && (
+          <ManagePlan
+            paymentsOn={paymentsOn}
+            interval={s.tier === "family" && !trialing ? s.billingInterval : null}
+            monthlyCents={plan.familyMonthlyPriceCents}
+            annualCents={plan.familyAnnualPriceCents}
+            hasExtraSlots={s.extraNarratorSlots > 0}
+          />
+        )}
       </section>
 
       {(s.tier !== null || s.recovery) && (
@@ -102,7 +110,14 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           <h2 id="archive-h" className="font-display text-2xl font-semibold">
             {s.tier === "archive" ? "Back to Readli Family" : "Readli Family Archive"}
           </h2>
-          <ArchiveChoice tier={s.tier} tierChange={s.tierChange} priceCents={s.archiveMonthlyPriceCents} paymentsOn={paymentsOn} />
+          <ArchiveChoice
+            tier={s.tier}
+            tierChange={trialing ? null : s.tierChange}
+            priceCents={s.archiveMonthlyPriceCents}
+            monthlyCents={plan.familyMonthlyPriceCents}
+            annualCents={plan.familyAnnualPriceCents}
+            paymentsOn={paymentsOn}
+          />
         </section>
       )}
 

@@ -14,7 +14,7 @@ const sub = (over: Record<string, unknown> = {}) => ({
   metadata: { household_id: "h1" },
   items: {
     data: [
-      { price: { lookup_key: "readli_family_monthly_1999" }, quantity: 1 },
+      { price: { lookup_key: "readli_family_monthly_1999", recurring: { interval: "month" } }, quantity: 1 },
       { price: { lookup_key: "readli_extra_slot_599" }, quantity: 2 },
     ],
   },
@@ -33,9 +33,15 @@ describe("billingChange", () => {
       tier: "family",
       trialEndsAt: null,
       extraNarratorSlots: 2,
+      billingInterval: "month",
       startsAt: "2025-10-09T08:53:20.000Z",
       endsAt: null,
     });
+  });
+
+  it("records whether Readli Family bills monthly or yearly", () => {
+    const yearly = sub({ items: { data: [{ price: { lookup_key: "readli_family_annual_17999", recurring: { interval: "year" } }, quantity: 1 }] } });
+    expect(billingChange(event("customer.subscription.updated", yearly))).toMatchObject({ tier: "family", billingInterval: "year" });
   });
 
   it("reads the Family Archive price as the Archive tier, with no extra slots", () => {

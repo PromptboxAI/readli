@@ -1,7 +1,9 @@
 alter table public.household_entitlements
   add column billing_event_at timestamptz,
-  add column trial_credits integer check (trial_credits is null or trial_credits >= 0);
+  add column trial_credits integer check (trial_credits is null or trial_credits >= 0),
+  add column billing_interval text check (billing_interval in ('month', 'year'));
 comment on column public.household_entitlements.billing_event_at is 'Creation time of the last Stripe event applied to this plan. Older events arriving late are skipped.';
+comment on column public.household_entitlements.billing_interval is 'How often the Stripe subscription bills (monthly or yearly), from its plan item.';
 comment on column public.household_entitlements.trial_credits is 'Trial credits for this plan when they differ from plan_settings: 0 when withheld because the card already started a trial for another household.';
 
 alter table public.trial_signals drop constraint if exists trial_signals_kind_check;

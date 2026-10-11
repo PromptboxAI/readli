@@ -44,6 +44,8 @@ export interface StripeSubscription {
   customer: string;
   cancel_at_period_end?: boolean;
   current_period_end?: number;
+  trial_end?: number | null;
+  pending_update?: unknown;
   metadata?: Record<string, string>;
   items: { data: { id: string; quantity?: number; current_period_end?: number; price: { id: string; lookup_key?: string | null; recurring?: { interval?: string } | null } }[] };
 }

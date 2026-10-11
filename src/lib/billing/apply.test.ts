@@ -83,6 +83,7 @@ describe("applyBillingChange", () => {
       tier: "family" as const,
       trialEndsAt: null,
       extraNarratorSlots: 1,
+      billingInterval: "month" as const,
       startsAt: at.toISOString(),
       endsAt: null,
     };
@@ -104,6 +105,7 @@ describe("applyBillingChange", () => {
       tier: "family" as const,
       trialEndsAt: null,
       extraNarratorSlots: 0,
+      billingInterval: "month" as const,
       startsAt: at.toISOString(),
       endsAt: null,
     };
@@ -124,7 +126,7 @@ describe("applyBillingChange", () => {
     tables.household_recovery = [{ household_id: "h1", status: "recovering" }];
     await applyBillingChange(
       db,
-      { kind: "subscription", householdId: "h1", subscriptionRef: "sub_2", customerRef: null, status: "active", tier: "archive", trialEndsAt: null, extraNarratorSlots: 0, startsAt: at.toISOString(), endsAt: null },
+      { kind: "subscription", householdId: "h1", subscriptionRef: "sub_2", customerRef: null, status: "active", tier: "archive", trialEndsAt: null, extraNarratorSlots: 0, billingInterval: "month", startsAt: at.toISOString(), endsAt: null },
       false,
       DEFAULT_PLAN,
       at,

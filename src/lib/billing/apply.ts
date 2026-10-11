@@ -70,6 +70,7 @@ export async function applyBillingChange(
     tier: change.tier,
     trial_ends_at: change.trialEndsAt,
     extra_narrator_slots: change.extraNarratorSlots,
+    billing_interval: change.billingInterval,
     provider_subscription_ref: change.subscriptionRef,
     starts_at: change.startsAt,
     ends_at: change.endsAt,
