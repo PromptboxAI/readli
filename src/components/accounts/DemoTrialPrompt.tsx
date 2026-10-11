@@ -16,6 +16,9 @@ export function DemoTrialPrompt({ trialDays, trialCredits }: { trialDays: number
             Try Readli Family free for {trialDays} days, with {trialCredits} narration credits for new stories. We ask for a card when you sign up, and
             nothing is charged until the trial ends. Cancel before then and you won&apos;t pay anything.
           </p>
+          <p className="text-sm">
+            Sign up on this device within 24 hours to keep this recording as your Readli voice, or record a new one later for even better quality.
+          </p>
           <Link href="/signup/family?from=demo" className={`${buttonPrimary} self-start`}>
             Start your free trial
           </Link>

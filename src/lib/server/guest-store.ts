@@ -34,7 +34,8 @@ export interface GuestStore {
   createSession(input: { tokenHash: string; policyVersion: string }): Promise<GuestSession>;
   findSession(tokenHash: string): Promise<GuestSession | null>;
   saveRecording(sessionId: string, audio: Blob, meta: RecordingMeta): Promise<{ recordingId: string }>;
-  latestRecording(sessionId: string): Promise<{ audio: Blob; mimeType: string } | null>;
+  /** The guest's latest take, with its length when it was recorded (null if unknown). */
+  latestRecording(sessionId: string): Promise<{ audio: Blob; mimeType: string; durationMs: number | null } | null>;
   setVoice(sessionId: string, providerVoiceId: string): Promise<void>;
   getVoice(sessionId: string): Promise<string | null>;
   /** How many provider voices this guest has made (retakes each make one). */
@@ -61,7 +62,7 @@ function extensionFor(mimeType: string): string {
 interface MemoryGuest {
   session: GuestSession;
   tokenHash: string;
-  recordings: { key: string; audio: Blob; mimeType: string }[];
+  recordings: { key: string; audio: Blob; mimeType: string; durationMs: number }[];
   voiceId: string | null;
 }
 
@@ -95,13 +96,13 @@ export class MemoryGuestStore implements GuestStore {
 
   async saveRecording(sessionId: string, audio: Blob, meta: RecordingMeta) {
     const key = `${sessionId}/${randomUUID()}.${extensionFor(meta.mimeType)}`;
-    this.guest(sessionId).recordings.push({ key, audio, mimeType: baseMimeType(meta.mimeType) });
+    this.guest(sessionId).recordings.push({ key, audio, mimeType: baseMimeType(meta.mimeType), durationMs: meta.durationMs });
     return { recordingId: key };
   }
 
   async latestRecording(sessionId: string) {
     const r = this.guest(sessionId).recordings.at(-1);
-    return r ? { audio: r.audio, mimeType: r.mimeType } : null;
+    return r ? { audio: r.audio, mimeType: r.mimeType, durationMs: r.durationMs } : null;
   }
 
   async setVoice(sessionId: string, voiceId: string) {
@@ -296,7 +297,18 @@ export class SupabaseGuestStore implements GuestStore {
     if (!row?.storage_key) return null;
     const { data, error } = await this.db.storage.from(BUCKET).download(row.storage_key);
     if (error || !data) throw new Error(`download recording: ${error?.message ?? "empty"}`);
-    return { audio: data, mimeType: data.type || "audio/webm" };
+    const take = await this.maybe(
+      this.db
+        .from("voice_training_sessions")
+        .select("recorded_duration_ms")
+        .eq("guest_session_id", sessionId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      "find latest take",
+    );
+    const durationMs = typeof take?.recorded_duration_ms === "number" ? take.recorded_duration_ms : null;
+    return { audio: data, mimeType: data.type || "audio/webm", durationMs };
   }
 
   async setVoice(sessionId: string, voiceId: string) {
