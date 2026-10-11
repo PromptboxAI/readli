@@ -97,7 +97,8 @@ export class AccountFamilyStore implements FamilyStore {
       const people = [...new Set(members.map((m) => m.user_id as string))];
       const since = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
       const [voices, shares, slots, sessions, notices, releases, approvals] = await Promise.all([
-        this.q(this.db.from("voice_profiles").select("id, owner_id, version, status, created_at, deleted_at").in("owner_id", people).is("deleted_at", null), "read voices"),
+        // Withdrawn voices stay (their prepared stories still play); a removed one has deleted_at. "*" so this read never needs newer columns.
+        this.q(this.db.from("voice_profiles").select("*").in("owner_id", people).is("deleted_at", null), "read voices"),
         this.q(this.db.from("voice_household_shares").select("*").in("household_id", homeIds), "read sharing"),
         this.q(this.db.from("narrator_slot_assignments").select("*").in("household_id", homeIds), "read narrator slots"),
         this.q(this.db.from("listening_sessions").select("*").in("household_id", homeIds).is("ended_at", null), "read listening"),
@@ -143,6 +144,8 @@ export class AccountFamilyStore implements FamilyStore {
         extraStreams: Number(e.extra_streams ?? 0),
         startsAt: e.starts_at as string,
         endsAt: str(e.ends_at),
+        tier: e.tier === "archive" ? "archive" : "family",
+        trialEndsAt: str(e.trial_ends_at),
       }));
       state.favorites = favorites.map((f) => ({ childId: f.child_id as string, bookSlug: f.book_slug as string }));
       state.progress = progress.map((p) => ({
@@ -159,6 +162,8 @@ export class AccountFamilyStore implements FamilyStore {
         status: v.status as VoiceStatus,
         createdAt: v.created_at as string,
         deletedAt: str(v.deleted_at),
+        withdrawnAt: str(v.withdrawn_at),
+        cloneRetiredAt: str(v.clone_retired_at),
       }));
       state.shares = shares.map((x) => ({
         id: x.id as string,
@@ -332,10 +337,12 @@ export class AccountFamilyStore implements FamilyStore {
     for (const e of after.entitlements) {
       const old = before.entitlements.find((x) => x.id === e.id);
       const row = { status: e.status, extra_narrator_slots: e.extraNarratorSlots, extra_streams: e.extraStreams, ends_at: e.endsAt };
+      // The tier is written only when it is the Archive or changes, so Family rows save the same as before it existed.
+      const tier = (e.tier ?? "family") === "archive" || (old && (old.tier ?? "family") !== (e.tier ?? "family")) ? { tier: e.tier ?? "family" } : {};
       if (!old) {
-        await this.q(db.from("household_entitlements").insert({ id: e.id, household_id: e.householdId, source: e.source, starts_at: e.startsAt, ...row }), "add plan");
+        await this.q(db.from("household_entitlements").insert({ id: e.id, household_id: e.householdId, source: e.source, starts_at: e.startsAt, ...row, ...tier }), "add plan");
       } else if (JSON.stringify(old) !== JSON.stringify(e)) {
-        await this.q(db.from("household_entitlements").update(row).eq("id", e.id), "update plan");
+        await this.q(db.from("household_entitlements").update({ ...row, ...tier }).eq("id", e.id), "update plan");
       }
     }
     for (const c of after.children) {

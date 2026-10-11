@@ -10,6 +10,18 @@ export interface PlanConfig {
   familyMonthlyPriceCents: number;
   /** Same entitlements as monthly; monthly credits still refresh each month rather than all up front. */
   familyAnnualPriceCents: number;
+  /**
+   * Readli Family Archive (Kevin, 2026-10-11): keeps a family's stories, listening, kids profiles and
+   * permissions, with no new stories, monthly credits or extra narrator slots.
+   */
+  archiveMonthlyPriceCents: number;
+  /**
+   * Days after paid access ends that a family's stories are kept for them to reactivate or choose the
+   * Archive. Nothing streams in this window. Deletion afterwards is switched on separately (lifecycle).
+   */
+  recoveryDays: number;
+  /** A voice no Readli Family household uses for this many days has its provider clone retired (re-cloned when needed). */
+  cloneRetireAfterDays: number;
   includedNarratorSlots: number;
   extraSlotPriceCents: number;
   /** Whether the extra slot price is approved for sale. Selling still needs payments switched on. */
@@ -33,11 +45,14 @@ export interface PlanConfig {
   creditPacks: CreditPack[];
   /** Real checkout for credit packs. Off until payments and pack pricing are approved. */
   narrationPurchasesEnabled: boolean;
-  /** Purchased credits expire this many months after purchase (0 = never). */
+  /**
+   * Purchased credits expire this many months after purchase (0 = never). Kept at 0 until Readli has
+   * reviewed the prepaid-credit and gift-card laws where it sells; no expiry is decided yet.
+   */
   purchasedCreditMonths: number;
   /** Unused monthly credits stay spendable for this many extra months (0 = no rollover). */
   subscriptionRolloverMonths: number;
-  /** Promotional credits granted to a household when Readli Family starts, and how long they last. */
+  /** Promotional credits granted to a household when Readli Family starts, and how long they last (0 = never expire). */
   welcomePromoCredits: number;
   welcomePromoDays: number;
   /** Books whose full narration is at most this long count as Quick Stories. */
@@ -70,6 +85,9 @@ export interface CreditPack {
 export const DEFAULT_PLAN: PlanConfig = {
   familyMonthlyPriceCents: 1999,
   familyAnnualPriceCents: 17999,
+  archiveMonthlyPriceCents: 699,
+  recoveryDays: 30,
+  cloneRetireAfterDays: 30,
   includedNarratorSlots: 2,
   extraSlotPriceCents: 599,
   extraSlotPriceApproved: true,
@@ -88,10 +106,10 @@ export const DEFAULT_PLAN: PlanConfig = {
     { id: "pack-large", credits: 100, priceCents: 2499 },
   ],
   narrationPurchasesEnabled: false,
-  purchasedCreditMonths: 12,
+  purchasedCreditMonths: 0,
   subscriptionRolloverMonths: 0,
   welcomePromoCredits: 0,
-  welcomePromoDays: 30,
+  welcomePromoDays: 0,
   quickStoryMaxMinutes: 3,
   recommendedShortStories: ["the-tale-of-peter-rabbit", "the-lion-and-the-mouse", "the-three-little-pigs"],
   bedtimeFavorites: ["the-princess-and-the-pea", "winnie-the-pooh", "the-tale-of-peter-rabbit"],
@@ -112,6 +130,9 @@ export function planConfig(env: NodeJS.ProcessEnv = process.env): PlanConfig {
     ...DEFAULT_PLAN,
     familyMonthlyPriceCents: num("PLAN_FAMILY_PRICE_CENTS", DEFAULT_PLAN.familyMonthlyPriceCents),
     familyAnnualPriceCents: num("PLAN_FAMILY_ANNUAL_PRICE_CENTS", DEFAULT_PLAN.familyAnnualPriceCents),
+    archiveMonthlyPriceCents: num("PLAN_ARCHIVE_PRICE_CENTS", DEFAULT_PLAN.archiveMonthlyPriceCents),
+    recoveryDays: num("PLAN_RECOVERY_DAYS", DEFAULT_PLAN.recoveryDays),
+    cloneRetireAfterDays: num("PLAN_CLONE_RETIRE_AFTER_DAYS", DEFAULT_PLAN.cloneRetireAfterDays),
     includedNarratorSlots: num("PLAN_INCLUDED_SLOTS", DEFAULT_PLAN.includedNarratorSlots),
     extraSlotPriceCents: num("PLAN_EXTRA_SLOT_PRICE_CENTS", DEFAULT_PLAN.extraSlotPriceCents),
     extraSlotPriceApproved: env.PLAN_EXTRA_SLOT_PRICE_APPROVED ? env.PLAN_EXTRA_SLOT_PRICE_APPROVED === "true" : DEFAULT_PLAN.extraSlotPriceApproved,

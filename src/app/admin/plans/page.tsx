@@ -18,6 +18,12 @@ function rows(plan: PlanConfig): Row[] {
   return [
     { label: "Readli Family monthly price", value: formatPrice(plan.familyMonthlyPriceCents) },
     { label: "Readli Family annual price", value: formatPrice(plan.familyAnnualPriceCents), note: "Monthly credits still refresh each month" },
+    {
+      label: "Readli Family Archive",
+      value: `${formatPrice(plan.archiveMonthlyPriceCents)} a month`,
+      note: "Keeps stories, listening, kids profiles and permissions; no new stories, credits or extra slots",
+    },
+    { label: "Recovery window", value: `${plan.recoveryDays} days`, note: "After paid access ends; nothing streams meanwhile" },
     { label: "Included active narrator slots", value: String(plan.includedNarratorSlots) },
     {
       label: "Extra narrator slot price (monthly)",
@@ -44,7 +50,7 @@ function rows(plan: PlanConfig): Row[] {
       value: plan.creditPacks.map((p) => `${p.credits} for ${formatPrice(p.priceCents)}`).join(", "),
       note: plan.narrationPurchasesEnabled ? "On sale" : "Not on sale until payments are switched on",
     },
-    { label: "Purchased credits expire after", value: plan.purchasedCreditMonths ? `${plan.purchasedCreditMonths} months` : "Never" },
+    { label: "Purchased credits expire after", value: plan.purchasedCreditMonths ? `${plan.purchasedCreditMonths} months` : "Never", note: "No expiry until the prepaid-credit law review" },
     { label: "Monthly credit rollover", value: plan.subscriptionRolloverMonths ? `${plan.subscriptionRolloverMonths} months` : "None" },
     { label: "Welcome promotional credits", value: `${plan.welcomePromoCredits}`, note: plan.welcomePromoDays ? `Expire after ${plan.welcomePromoDays} days` : "Never expire" },
     { label: "Quick Stories length", value: `Up to ${plan.quickStoryMaxMinutes} min` },
@@ -136,6 +142,7 @@ function PriceSettings({ plan, editable }: { plan: PlanConfig; editable: boolean
         <PriceField name="family_monthly" label="Readli Family, monthly" cents={plan.familyMonthlyPriceCents} disabled={!editable} />
         <PriceField name="family_annual" label="Readli Family, annual" cents={plan.familyAnnualPriceCents} disabled={!editable} />
         <PriceField name="extra_slot" label="Extra storyteller slot, monthly" cents={plan.extraSlotPriceCents} disabled={!editable} />
+        <PriceField name="archive_monthly" label="Readli Family Archive, monthly" cents={plan.archiveMonthlyPriceCents} disabled={!editable} />
         <label className="flex items-center gap-3 self-end py-3 text-sm">
           <input type="checkbox" name="extra_slot_approved" defaultChecked={plan.extraSlotPriceApproved} disabled={!editable} className="size-5" />
           <span className="font-semibold">Extra slots approved for sale</span>

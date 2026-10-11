@@ -12,7 +12,14 @@
  */
 
 export type MemberRole = "guardian" | "member";
-export type VoiceStatus = "processing" | "ready" | "deleted";
+/**
+ * "withdrawn": the owner deleted their voice. Nothing new is made in it and its clone is retired, but
+ * stories already prepared keep playing for the families it was shared with. "deleted" is only for a
+ * legally required removal (or the owner's whole account going), which takes the stories too.
+ */
+export type VoiceStatus = "processing" | "ready" | "withdrawn" | "deleted";
+/** Readli Family makes new stories; the Family Archive keeps and plays the ones already made. */
+export type PlanTier = "family" | "archive";
 
 export interface Household {
   id: string;
@@ -56,6 +63,10 @@ export interface VoiceProfile {
   status: VoiceStatus;
   createdAt: string;
   deletedAt: string | null;
+  /** When the owner deleted (withdrew) the voice. */
+  withdrawnAt?: string | null;
+  /** The provider clone was retired to save capacity; stored stories don't need it, new ones re-clone. */
+  cloneRetiredAt?: string | null;
 }
 
 /** Key 1: the voice owner's consent to share with one household. */
@@ -97,7 +108,9 @@ export type AuditAction =
   | "child_profile_created"
   | "child_profile_removed"
   | "entitlement_granted"
-  | "credits_purchased";
+  | "credits_purchased"
+  | "voice_withdrawn"
+  | "plan_changed";
 
 export interface AuditEvent {
   id: string;
@@ -148,6 +161,10 @@ export interface HouseholdEntitlement {
    */
   source: "subscription" | "gift" | "donated" | "trial" | "tester";
   status: "active" | "canceled";
+  /** Missing means "family" (rows from before the Archive). */
+  tier?: PlanTier;
+  /** A paid subscription's free trial: until then it gets the trial credits, not the monthly ones. */
+  trialEndsAt?: string | null;
   /** Narrator slots bought on top of the plan's included slots. */
   extraNarratorSlots: number;
   /** Future paid upgrade; stays 0 until approved (plan.extraStreamsUpgradeEnabled). */

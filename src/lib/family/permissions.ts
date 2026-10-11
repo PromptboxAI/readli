@@ -1,9 +1,11 @@
-import type { ChildProfile, ChildVoiceApproval, FamilyState, HouseholdEntitlement, NarratorSlotAssignment, VoiceProfile, VoiceShare } from "./model";
+import type { ChildProfile, ChildVoiceApproval, FamilyState, HouseholdEntitlement, NarratorSlotAssignment, PlanTier, VoiceProfile, VoiceShare } from "./model";
 import { DEFAULT_PLAN, type PlanConfig } from "./plan";
 
 /**
- * Pure permission checks. Everything that generates, returns or plays a family voice for a child
- * goes through childVoiceAccess; the UI only ever renders what these functions allow.
+ * Pure permission checks. Everything that makes new narration for a child goes through
+ * childVoiceAccess; playing stories already prepared goes through storedNarrationAccess, which also
+ * works for Archive households and for voices their owners have since deleted. The UI only ever
+ * renders what these functions allow.
  */
 
 export type AccessReason =
@@ -52,17 +54,27 @@ export function activeShare(state: FamilyState, voiceId: string, householdId: st
   );
 }
 
-/** The household's live Readli Family entitlement (subscription, gift or donated membership). */
+export const tierOf = (e: HouseholdEntitlement): PlanTier => e.tier ?? "family";
+
+const liveAt = (e: HouseholdEntitlement, householdId: string, at: string) =>
+  e.householdId === householdId && e.status === "active" && e.startsAt <= at && (e.endsAt === null || e.endsAt > at);
+
+/**
+ * The household's live plan of either tier: Readli Family, or the Family Archive (subscription,
+ * gift, donated, trial or tester). Either one keeps the library, profiles and permissions playing.
+ */
 export function activeEntitlement(state: FamilyState, householdId: string, at = new Date().toISOString()): HouseholdEntitlement | null {
-  return (
-    state.entitlements.find(
-      (e) => e.householdId === householdId && e.status === "active" && e.startsAt <= at && (e.endsAt === null || e.endsAt > at),
-    ) ?? null
-  );
+  return familyEntitlement(state, householdId, at) ?? state.entitlements.find((e) => liveAt(e, householdId, at)) ?? null;
 }
 
+/** The household's live Readli Family plan (not the Archive): new stories, credits and narrator slots. */
+export function familyEntitlement(state: FamilyState, householdId: string, at = new Date().toISOString()): HouseholdEntitlement | null {
+  return state.entitlements.find((e) => liveAt(e, householdId, at) && tierOf(e) === "family") ?? null;
+}
+
+/** Narrator slots only matter for making new stories, so the Archive has none. */
 export function narratorSlotCount(state: FamilyState, householdId: string, plan: PlanConfig = DEFAULT_PLAN): number {
-  const e = activeEntitlement(state, householdId);
+  const e = familyEntitlement(state, householdId);
   return e ? plan.includedNarratorSlots + e.extraNarratorSlots : 0;
 }
 
@@ -111,26 +123,86 @@ export function childVoiceAccess(state: FamilyState, childId: string, voiceId: s
   if (!child) return { allowed: false, reason: "no_child" };
   if (!readyVoice(state, voiceId)) return { allowed: false, reason: "voice_unavailable" };
   if (!activeShare(state, voiceId, child.householdId)) return { allowed: false, reason: "not_shared_by_owner" };
-  if (!activeEntitlement(state, child.householdId)) return { allowed: false, reason: "no_family_plan" };
+  if (!familyEntitlement(state, child.householdId)) return { allowed: false, reason: "no_family_plan" };
   if (!activeSlot(state, voiceId, child.householdId, plan)) return { allowed: false, reason: "not_activated_by_household" };
   if (!activeApproval(state, voiceId, childId, plan)) return { allowed: false, reason: "not_approved_for_child" };
   return { allowed: true, reason: "ok" };
 }
 
-/** Voice ids this child may hear right now. */
+/** Voice ids this child may have new stories made in right now. */
 export function approvedVoiceIds(state: FamilyState, childId: string, plan: PlanConfig = DEFAULT_PLAN): string[] {
   return state.voices.filter((v) => childVoiceAccess(state, childId, v.id, plan).allowed).map((v) => v.id);
 }
 
-/** Parent portal states, in the amendment's suggested language. */
-export type StorytellerStatus = "approved" | "available" | "needs_slot" | "waiting_for_owner" | "processing";
+/** A voice whose stories may still be played: ready, being re-recorded, or deleted by its owner (withdrawn). */
+function keptVoice(state: FamilyState, voiceId: string): VoiceProfile | null {
+  return state.voices.find((v) => v.id === voiceId && v.status !== "deleted" && v.deletedAt === null) ?? null;
+}
+
+/**
+ * The owner's live share with a household, for playing stories already prepared. Deleting a voice
+ * doesn't end its shares (the owner turning sharing off does), so a withdrawn voice still counts.
+ */
+export function storedShare(state: FamilyState, voiceId: string, householdId: string): VoiceShare | null {
+  const voice = keptVoice(state, voiceId);
+  if (!voice || !isActiveMember(state, voice.ownerId, householdId)) return null;
+  return (
+    state.shares.find((s) => s.voiceId === voiceId && s.householdId === householdId && s.grantedBy === voice.ownerId && live(s)) ??
+    null
+  );
+}
+
+/**
+ * May this child play stories already prepared in this voice? Needs the owner's live share, a live
+ * Readli Family or Family Archive plan, and a current guardian's approval made after the share began.
+ * A ready voice on Readli Family also needs its narrator slot, as before. A withdrawn voice, or any
+ * voice on the Archive, doesn't: no new narration can be made there, and playback never needs the
+ * provider clone. Only a legally required removal (status "deleted") or the owner turning sharing off
+ * stops these stories.
+ */
+export function storedNarrationAccess(state: FamilyState, childId: string, voiceId: string, plan: PlanConfig = DEFAULT_PLAN): Access {
+  const child = activeChild(state, childId);
+  if (!child) return { allowed: false, reason: "no_child" };
+  const voice = keptVoice(state, voiceId);
+  if (!voice) return { allowed: false, reason: "voice_unavailable" };
+  const share = storedShare(state, voiceId, child.householdId);
+  if (!share) return { allowed: false, reason: "not_shared_by_owner" };
+  const membership = activeEntitlement(state, child.householdId);
+  if (!membership) return { allowed: false, reason: "no_family_plan" };
+  const needsSlot = voice.status === "ready" && tierOf(membership) === "family";
+  const slot = needsSlot ? activeSlot(state, voiceId, child.householdId, plan) : null;
+  if (needsSlot && !slot) return { allowed: false, reason: "not_activated_by_household" };
+  const approved = state.approvals.some(
+    (a) =>
+      a.voiceId === voiceId &&
+      a.childId === childId &&
+      live(a) &&
+      a.approvedAt >= share.grantedAt &&
+      (!slot || a.approvedAt >= slot.activatedAt) &&
+      isGuardianOf(state, a.approvedBy, childId),
+  );
+  return approved ? { allowed: true, reason: "ok" } : { allowed: false, reason: "not_approved_for_child" };
+}
+
+/** Voice ids whose prepared stories this child may play right now. */
+export function listenableVoiceIds(state: FamilyState, childId: string, plan: PlanConfig = DEFAULT_PLAN): string[] {
+  return state.voices.filter((v) => storedNarrationAccess(state, childId, v.id, plan).allowed).map((v) => v.id);
+}
+
+/**
+ * Parent portal states, in the amendment's suggested language. "stories_only": the owner deleted their
+ * voice, so this child keeps the stories already prepared in it but nothing new can be made.
+ */
+export type StorytellerStatus = "approved" | "available" | "stories_only" | "needs_slot" | "waiting_for_owner" | "processing";
 
 export function storytellerStatus(state: FamilyState, childId: string, voiceId: string, plan: PlanConfig = DEFAULT_PLAN): StorytellerStatus | null {
   const child = activeChild(state, childId);
-  const voice = state.voices.find((v) => v.id === voiceId && v.deletedAt === null);
+  const voice = state.voices.find((v) => v.id === voiceId && v.deletedAt === null && v.status !== "deleted");
   if (!child || !voice || !isActiveMember(state, voice.ownerId, child.householdId)) return null;
+  if (voice.status === "withdrawn") return storedNarrationAccess(state, childId, voiceId, plan).allowed ? "stories_only" : null;
   if (voice.status === "processing") return "processing";
   if (!activeShare(state, voiceId, child.householdId)) return "waiting_for_owner";
-  if (!activeSlot(state, voiceId, child.householdId, plan)) return "needs_slot";
-  return activeApproval(state, voiceId, childId, plan) ? "approved" : "available";
+  const archive = !familyEntitlement(state, child.householdId) && activeEntitlement(state, child.householdId) !== null;
+  if (!archive && !activeSlot(state, voiceId, child.householdId, plan)) return "needs_slot";
+  return storedNarrationAccess(state, childId, voiceId, plan).allowed ? "approved" : "available";
 }

@@ -18,7 +18,6 @@ import { ELEVENLABS_PLANS, modelCost, usdPerMinute } from "./costs";
 import {
   authorizePlayback,
   cancelGeneration,
-  deleteVoiceNarrations,
   kidsReadiness,
   libraryFor,
   libraryStatus,
@@ -27,6 +26,7 @@ import {
   runJob,
 } from "./narration";
 import { creditBalance } from "./credits";
+import { removeFromFamilyStore } from "@/lib/lifecycle/legal-removal";
 import { bookText } from "./text";
 
 /** Voice Narration Libraries, Pre-Generation & Instant Narrator Switching amendment: required tests. */
@@ -215,9 +215,10 @@ describe("narration libraries (required tests)", () => {
     expect(state.segments.some((s) => s.libraryKey === library(state).key && s.status === "ready")).toBe(true);
     // Expired URLs are refused regardless.
     await rejects(readPlayback(store, ivy, ivyToken, KEY, tick + DEFAULT_PLAN.playbackUrlTtlSeconds * 1000 + 1), 403);
-    // June deletes her voice's narration: gone for everyone.
+    // Only a legally required removal deletes June's stored narration: then it is gone for everyone.
     const storageKey = state.segments.find((s) => s.libraryKey === library(state).key)!.storageKey!;
-    await deleteVoiceNarrations(store, "voice-june", clock);
+    const req = { voiceId: "voice-june", reason: "Erasure request under applicable privacy law", reference: "REQ-1", requestedBy: "admin" };
+    await removeFromFamilyStore(store, req, { dryRun: false }, clock);
     await rejects(readPlayback(store, ivy, ivyToken, KEY, tick), 403);
     expect(await store.audio.get(storageKey)).toBeNull();
     expect(state.segments.some((s) => s.libraryKey === library(state).key)).toBe(false);

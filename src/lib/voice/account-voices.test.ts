@@ -4,7 +4,17 @@ import { ProviderRefCipher } from "@/lib/server/provider-ref";
 import { acceptVoiceAgreement, MemoryVoiceAgreementStore, setThirdPartyLicensing } from "./agreements";
 import { VoiceProviderError } from "./provider";
 import { StubVoiceProvider } from "./stub";
-import { AccountVoiceError, accountVoiceSample, consentPurposes, createAccountVoice, deleteAccountVoice, expectedTranscript, MemoryAccountVoiceStore, type TakeUpload } from "./account-voices";
+import {
+  AccountVoiceError,
+  accountVoiceSample,
+  consentPurposes,
+  createAccountVoice,
+  deleteAccountVoice,
+  ensureClone,
+  expectedTranscript,
+  MemoryAccountVoiceStore,
+  type TakeUpload,
+} from "./account-voices";
 
 const limits = { minRecordingMs: 59_000, maxRecordingMs: 150_000, maxRecordingBytes: 25 * 1024 * 1024 };
 const owner = { id: "11111111-2222-3333-4444-555555555555", name: "Grandma June" };
@@ -97,19 +107,55 @@ describe("account voices", () => {
     expect((await accountVoiceSample(deps, owner.id)).standIn).toBe(true);
   });
 
-  it("deletes the voice at the provider and in Readli, and a new recording makes a fresh voice", async () => {
+  it("deleting retires the clone and withdraws the voice, keeps its recordings out of training, and a new recording makes a fresh voice", async () => {
     const { store, provider, deps } = await setup();
     const first = await createAccountVoice(deps, owner, take());
-    await deleteAccountVoice(deps, owner.id);
+    let stopped: string | null = null;
+    store.onWithdraw = async (voiceId) => {
+      stopped = voiceId;
+      return 2;
+    };
+    expect(await deleteAccountVoice(deps, owner.id)).toEqual({ stoppedJobs: 2 });
+    expect(stopped).toBe(first.id);
     expect(provider.deleted).toEqual(["stub-voice-1"]);
     expect(await store.findVoice(owner.id)).toBeNull();
     expect(await store.providerVoiceId(first.id)).toBeNull();
-    expect(store.takes).toHaveLength(0);
+    expect(store.voices.get(first.id)).toMatchObject({ status: "withdrawn", providerVoiceId: null });
+    // The original recording stays (for the record of what was authorized), but never for training or re-cloning.
+    expect(store.takes).toHaveLength(1);
+    expect(store.takes[0]).toMatchObject({ voiceId: first.id, excludedFromTraining: true });
+    expect(await store.recloneSource(first.id)).toBeNull();
+    expect(store.events.map((e) => e.action)).toEqual(["clone_created", "voice_withdrawn"]);
     expect(((await accountVoiceSample(deps, owner.id).catch((e: unknown) => e)) as AccountVoiceError).code).toBe("no_voice");
 
     const again = await createAccountVoice(deps, owner, take());
     expect(again.id).not.toBe(first.id);
     expect(again.version).toBe(1);
+  });
+
+  it("re-recording keeps the same voice with a new version and logs the upgrade", async () => {
+    const { store, deps } = await setup();
+    const first = await createAccountVoice(deps, owner, take());
+    const second = await createAccountVoice(deps, owner, take());
+    expect(second).toMatchObject({ id: first.id, version: 2 });
+    expect(store.events.at(-1)).toMatchObject({ action: "voice_version_upgraded", detail: { from: 1, to: 2 } });
+  });
+
+  it("re-makes a retired clone from the original recording only while authorization is valid", async () => {
+    const { store, provider, deps } = await setup();
+    const voice = await createAccountVoice(deps, owner, take());
+    store.retireClone(voice.id);
+    expect(await store.providerVoiceId(voice.id)).toBeNull();
+    // A sample (or narration) re-clones it.
+    expect((await accountVoiceSample(deps, owner.id)).standIn).toBe(true);
+    expect(await store.providerVoiceId(voice.id)).toBe("stub-voice-2");
+    expect(provider.created).toHaveLength(2);
+    expect(store.events.at(-1)).toMatchObject({ action: "clone_reactivated", voiceId: voice.id });
+    // Without a valid authorization it is never re-made.
+    store.retireClone(voice.id);
+    store.authorized = () => false;
+    expect(((await ensureClone(deps, voice.id).catch((e: unknown) => e)) as AccountVoiceError).code).toBe("voice_unavailable");
+    expect(provider.created).toHaveLength(2);
   });
 
   it("keeps the voice when the provider can't delete it, and says when there is nothing to delete", async () => {

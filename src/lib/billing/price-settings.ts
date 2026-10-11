@@ -13,6 +13,8 @@ export interface PriceSettings {
   extraSlotPriceCents: number;
   extraSlotPriceApproved: boolean;
   creditPacks: CreditPack[];
+  /** The Family Archive's monthly price; left out when the form leaves it blank. */
+  archiveMonthlyPriceCents?: number;
 }
 
 export const PRICE_COLUMNS = "family_monthly_price_cents, family_annual_price_cents, extra_slot_price_cents, extra_slot_price_approved, credit_packs";
@@ -37,6 +39,7 @@ export function withPriceSettings(plan: PlanConfig, row: Row | null | undefined)
     extraSlotPriceCents: cents(row.extra_slot_price_cents) ?? plan.extraSlotPriceCents,
     extraSlotPriceApproved: typeof row.extra_slot_price_approved === "boolean" ? row.extra_slot_price_approved : plan.extraSlotPriceApproved,
     creditPacks: packsFrom(row.credit_packs) ?? plan.creditPacks,
+    archiveMonthlyPriceCents: cents(row.archive_monthly_price_cents) ?? plan.archiveMonthlyPriceCents,
   };
 }
 
@@ -44,7 +47,9 @@ export function withPriceSettings(plan: PlanConfig, row: Row | null | undefined)
 export async function effectivePlan(db: SupabaseClient | null, base: PlanConfig = planConfig()): Promise<PlanConfig> {
   if (!db) return base;
   const { data } = await db.from("plan_settings").select(PRICE_COLUMNS).maybeSingle();
-  return withPriceSettings(base, data as Row | null);
+  // Read on its own, so prices still load before the Archive migration has run.
+  const archive = await db.from("plan_settings").select("archive_monthly_price_cents").maybeSingle();
+  return withPriceSettings(base, data ? { ...(data as Row), ...((archive.data as Row | null) ?? {}) } : null);
 }
 
 /** "19.99" or "$19.99" to 1999. Null unless it's a positive amount with at most two decimals. */
@@ -87,6 +92,7 @@ export function parsePriceForm(get: (name: string) => string): { ok: true; setti
         extraSlotPriceCents: money("extra_slot", "The extra storyteller slot"),
         extraSlotPriceApproved: get("extra_slot_approved") === "on",
         creditPacks,
+        ...(get("archive_monthly").trim() ? { archiveMonthlyPriceCents: money("archive_monthly", "The Family Archive price") } : {}),
       },
     };
   } catch (err) {
@@ -101,5 +107,6 @@ export function priceSettingsRow(s: PriceSettings): Row {
     extra_slot_price_cents: s.extraSlotPriceCents,
     extra_slot_price_approved: s.extraSlotPriceApproved,
     credit_packs: s.creditPacks,
+    ...(s.archiveMonthlyPriceCents ? { archive_monthly_price_cents: s.archiveMonthlyPriceCents } : {}),
   };
 }

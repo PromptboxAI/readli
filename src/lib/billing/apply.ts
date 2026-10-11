@@ -47,6 +47,8 @@ export async function applyBillingChange(db: SupabaseClient, change: BillingChan
     household_id: change.householdId,
     source: "subscription",
     status: change.status,
+    tier: change.tier,
+    trial_ends_at: change.trialEndsAt,
     extra_narrator_slots: change.extraNarratorSlots,
     provider_subscription_ref: change.subscriptionRef,
     starts_at: change.startsAt,
@@ -54,12 +56,53 @@ export async function applyBillingChange(db: SupabaseClient, change: BillingChan
   };
   const { data: existing, error } = await db
     .from("household_entitlements")
-    .select("id")
+    .select("id, tier")
     .eq("provider_subscription_ref", change.subscriptionRef)
     .maybeSingle();
   check({ error }, "read plan");
+  const from = (existing?.tier as string | undefined) ?? null;
   if (existing) check(await db.from("household_entitlements").update(row).eq("id", existing.id), "update plan");
-  else check(await db.from("household_entitlements").insert(row), "start plan");
+  else {
+    const { data: earlier, error: historyError } = await db.from("household_entitlements").select("id").eq("household_id", change.householdId).limit(1);
+    check({ error: historyError }, "read plan history");
+    check(await db.from("household_entitlements").insert(row), "start plan");
+    // Welcome credits for a family's very first plan, if the admin turned them on (they never expire unless set to).
+    if (!earlier?.length && plan.welcomePromoCredits > 0) {
+      check(
+        await db.from("narration_credit_lots").insert({
+          household_id: change.householdId,
+          source: "promotional",
+          credits: creditUnits(plan.welcomePromoCredits, plan),
+          granted_at: at.toISOString(),
+          expires_at: plan.welcomePromoDays > 0 ? new Date(at.getTime() + plan.welcomePromoDays * 86_400_000).toISOString() : null,
+          note: "Welcome credits for your first stories",
+        }),
+        "grant welcome credits",
+      );
+    }
+  }
+
+  if (from && from !== change.tier) {
+    // Moving to the Archive stops narration still being prepared and refunds what it hadn't used.
+    const stopped = change.tier === "archive" ? Number((await db.rpc("stop_household_narration", { p_household: change.householdId })).data ?? 0) : 0;
+    await logLifecycle(db, { actor: "stripe", action: "plan_changed", household_id: change.householdId, detail: { from, to: change.tier, stopped_jobs: stopped, via: "stripe" } });
+  }
+  if (change.status === "active") {
+    // A family back on a plan inside its recovery window keeps everything.
+    const { data: restored } = await db
+      .from("household_recovery")
+      .update({ status: "restored", restored_at: at.toISOString(), restored_tier: change.tier })
+      .eq("household_id", change.householdId)
+      .in("status", ["recovering", "held"])
+      .select("household_id");
+    if (restored?.length) await logLifecycle(db, { actor: "stripe", action: "recovery_restored", household_id: change.householdId, detail: { tier: change.tier } });
+  }
+}
+
+/** Best effort: a missing lifecycle log (before its migration runs) never fails a billing event. */
+async function logLifecycle(db: SupabaseClient, entry: { actor: string; action: string; household_id: string; detail: Record<string, unknown> }) {
+  const { error } = await db.from("lifecycle_audit_log").insert(entry);
+  if (error) console.error("lifecycle log failed", error.message);
 }
 
 /** Records revenue for the admin finance report. A row already recorded (a retried event) is skipped. */

@@ -61,12 +61,24 @@ create view public.voice_rights_current with (security_invoker = true) as
   from public.voice_rights_agreements
   order by contributor_id, agreed_at desc, id desc;
 
+alter table public.voice_profiles drop constraint if exists voice_profiles_status_check;
+alter table public.voice_profiles add constraint voice_profiles_status_check
+  check (status in ('processing', 'ready', 'withdrawn', 'deleted'));
+alter table public.voice_profiles
+  add column withdrawn_at timestamptz,
+  add column clone_retired_at timestamptz,
+  add column unlinked_since timestamptz;
+
+comment on column public.voice_profiles.status is 'withdrawn: the owner deleted the voice. No new narration, clone retired, recordings out of all training; prepared stories keep playing for families it was shared with. deleted: legally required removal or account deletion, stories removed too.';
+comment on column public.voice_profiles.clone_retired_at is 'Provider clone retired (no Readli Family household needed it). Playback never needs it; it is re-cloned from the original recording when authorization is still valid.';
+comment on column public.voice_profiles.unlinked_since is 'Since when no Readli Family household has used this voice; the lifecycle job retires the clone after plan_settings.clone_retire_after_days.';
+
 create or replace function public.voice_rights_withdraw_on_voice_delete() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare
   current_version text;
 begin
-  if new.status = 'deleted' and old.status is distinct from 'deleted' then
+  if new.status in ('withdrawn', 'deleted') and old.status not in ('withdrawn', 'deleted') then
     select agreement_version into current_version
       from public.voice_rights_current where contributor_id = new.owner_id;
     if current_version is not null then
@@ -74,7 +86,7 @@ begin
         (contributor_id, agreement_version, event, service_rights, readli_development_rights,
          third_party_licensing, adult_owner_declared, statements, source, supersedes_id)
       select new.owner_id, current_version, 'withdrawn', false, false, false, true,
-             jsonb_build_array('Voice deleted by its owner'), 'settings', c.id
+             jsonb_build_array(case when new.status = 'withdrawn' then 'Voice deleted by its owner' else 'Voice removed' end), 'settings', c.id
         from public.voice_rights_current c
         where c.contributor_id = new.owner_id and c.event <> 'withdrawn';
     end if;
@@ -110,7 +122,7 @@ create view public.voice_recordings_usable with (security_invoker = true) as
   join public.voice_training_segments g on g.session_id = s.id
   join public.voice_rights_current c on c.contributor_id = s.owner_id
   join public.voice_profiles v on v.id = s.voice_profile_id
-  where v.status <> 'deleted'
+  where v.status in ('processing', 'ready')
     and s.owner_id is not null
     and s.guest_session_id is null
     and s.recording_mode in ('family_short', 'premium_private')
@@ -119,7 +131,7 @@ create view public.voice_recordings_usable with (security_invoker = true) as
     and c.service_rights;
 
 comment on view public.voice_recordings_usable is
-  'Original adult recordings with the rights currently in force. Filter readli_development_rights or third_party_licensing. Deleted voices, guest demo recordings and children never appear.';
+  'Original adult recordings with the rights currently in force. Filter readli_development_rights or third_party_licensing. Withdrawn or deleted voices, guest demo recordings and children never appear.';
 
 revoke all on public.voice_rights_current from anon, authenticated;
 revoke all on public.voice_recordings_usable from anon, authenticated;

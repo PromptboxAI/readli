@@ -80,6 +80,12 @@ export class StripeApi {
     return this.call("POST", "checkout/sessions", params);
   }
 
+  /** A customer's subscriptions in every state, for the lifecycle job's billing check before deleting anything. */
+  async subscriptionStatuses(customer: string): Promise<string[]> {
+    const list = await this.call<{ data: { status: string }[] }>("GET", "subscriptions", { customer, status: "all", limit: 20 });
+    return list.data.map((s) => s.status);
+  }
+
   /** Stripe's hosted page where a parent updates their card, changes slots or cancels. */
   async createPortalSession(customer: string, returnUrl: string): Promise<{ url: string }> {
     return this.call("POST", "billing_portal/sessions", { customer, return_url: returnUrl });

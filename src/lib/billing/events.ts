@@ -11,6 +11,10 @@ export interface SubscriptionChange {
   customerRef: string | null;
   /** active covers Stripe's active, trialing and past_due (Stripe is still retrying the card). */
   status: "active" | "canceled";
+  /** Readli Family, or the Family Archive when the subscription is for the Archive price. */
+  tier: "family" | "archive";
+  /** When the subscription's free trial ends, if it has one. */
+  trialEndsAt: string | null;
   extraNarratorSlots: number;
   startsAt: string;
   endsAt: string | null;
@@ -43,8 +47,17 @@ const iso = (seconds: unknown): string | null => (typeof seconds === "number" ? 
 const str = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
 const ref = (v: unknown): string | null => str(v) ?? str((v as StripeObject | null)?.id);
 
+function itemsOf(sub: StripeObject): StripeObject[] {
+  return ((sub.items as StripeObject | undefined)?.data as StripeObject[] | undefined) ?? [];
+}
+
+/** A subscription whose plan item is the Archive price (lookup key readli_archive_monthly_<cents>). */
+function tierOf(sub: StripeObject): "family" | "archive" {
+  return itemsOf(sub).some((i) => str((i.price as StripeObject | undefined)?.lookup_key)?.startsWith("readli_archive_monthly_")) ? "archive" : "family";
+}
+
 function extraSlots(sub: StripeObject): number {
-  const items = ((sub.items as StripeObject | undefined)?.data as StripeObject[] | undefined) ?? [];
+  const items = itemsOf(sub);
   return items
     .filter((i) => str((i.price as StripeObject | undefined)?.lookup_key)?.startsWith("readli_extra_slot_"))
     .reduce((n, i) => n + (typeof i.quantity === "number" ? i.quantity : 0), 0);
@@ -83,7 +96,10 @@ export function billingChange(event: { type: string; data?: { object?: StripeObj
       subscriptionRef,
       customerRef: ref(obj.customer),
       status: live ? "active" : "canceled",
-      extraNarratorSlots: extraSlots(obj),
+      tier: tierOf(obj),
+      trialEndsAt: iso(obj.trial_end),
+      // The Archive has no extra narrator slots.
+      extraNarratorSlots: tierOf(obj) === "archive" ? 0 : extraSlots(obj),
       startsAt: iso(obj.start_date) ?? new Date().toISOString(),
       endsAt,
     };

@@ -30,9 +30,24 @@ describe("billingChange", () => {
       subscriptionRef: "sub_1",
       customerRef: "cus_1",
       status: "active",
+      tier: "family",
+      trialEndsAt: null,
       extraNarratorSlots: 2,
       startsAt: "2025-10-09T08:53:20.000Z",
       endsAt: null,
+    });
+  });
+
+  it("reads the Family Archive price as the Archive tier, with no extra slots", () => {
+    const archive = sub({ items: { data: [{ price: { lookup_key: "readli_archive_monthly_699" }, quantity: 1 }] } });
+    expect(billingChange(event("customer.subscription.updated", archive))).toMatchObject({ tier: "archive", extraNarratorSlots: 0, status: "active" });
+  });
+
+  it("records when a subscription's free trial ends", () => {
+    expect(billingChange(event("customer.subscription.created", sub({ status: "trialing", trial_end: 1_761_000_000 })))).toMatchObject({
+      status: "active",
+      tier: "family",
+      trialEndsAt: new Date(1_761_000_000 * 1000).toISOString(),
     });
   });
 

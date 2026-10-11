@@ -5,12 +5,12 @@ import {
   activeEntitlement,
   activeShare,
   activeSlot,
-  approvedVoiceIds,
+  familyEntitlement,
   isActiveMember,
   isGuardianOf,
+  listenableVoiceIds,
   liveSlots,
   narratorSlotCount,
-  readyVoice,
   storytellerStatus,
   type StorytellerStatus,
 } from "./permissions";
@@ -219,7 +219,7 @@ export async function manageStorytellers(store: FamilyStore, actor: Actor | null
       status,
     });
   }
-  const order: StorytellerStatus[] = ["approved", "available", "needs_slot", "waiting_for_owner", "processing"];
+  const order: StorytellerStatus[] = ["approved", "stories_only", "available", "needs_slot", "waiting_for_owner", "processing"];
   storytellers.sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status) || a.ownerName.localeCompare(b.ownerName));
   return {
     child: { id: child.id, nickname: child.nickname, tint: child.tint },
@@ -230,7 +230,11 @@ export async function manageStorytellers(store: FamilyStore, actor: Actor | null
   };
 }
 
-/** Approves or removes voices for one child. Approval needs the owner's live share and an active narrator slot. */
+/**
+ * Approves or removes voices for one child. Approval needs the owner's live share and, on Readli
+ * Family, an active narrator slot. On the Family Archive nothing new is made, so a guardian can approve
+ * a shared voice for a child to hear the stories already prepared in it.
+ */
 export async function setChildApprovals(
   store: FamilyStore,
   actor: Actor | null,
@@ -246,7 +250,7 @@ export async function setChildApprovals(
     if (c.approved && !activeShare(state, c.voiceId, child.householdId)) {
       throw new PermissionError(409, "waiting_for_owner", "This storyteller hasn't shared their voice with your family yet.");
     }
-    if (c.approved && !activeSlot(state, c.voiceId, child.householdId, store.plan)) {
+    if (c.approved && familyEntitlement(state, child.householdId) && !activeSlot(state, c.voiceId, child.householdId, store.plan)) {
       throw new PermissionError(409, "needs_slot", "Add this storyteller to one of your family's narrator slots first.");
     }
   }
@@ -299,8 +303,9 @@ export function requireChildAccess(state: FamilyState, actor: Actor | null, chil
 export async function narratorsFor(store: FamilyStore, actor: Actor | null, childId: string): Promise<NarratorView[]> {
   const state = await store.read();
   requireChildAccess(state, actor, childId);
-  return approvedVoiceIds(state, childId, store.plan).map((voiceId) => {
-    const owner = state.adults.find((a) => a.id === readyVoice(state, voiceId)!.ownerId)!;
+  // Everyone whose prepared stories this child may play, including voices since deleted by their owner.
+  return listenableVoiceIds(state, childId, store.plan).map((voiceId) => {
+    const owner = state.adults.find((a) => a.id === state.voices.find((v) => v.id === voiceId)!.ownerId)!;
     return { voiceId, name: owner.displayName, avatarUrl: owner.avatarUrl, tint: owner.tint };
   });
 }
@@ -367,7 +372,10 @@ export interface NarratorCard {
 
 export interface NarratorSlotsView {
   householdId: string;
+  /** On Readli Family, where narrator slots apply. */
   hasPlan: boolean;
+  /** On the Family Archive: stories play, but no narrators are added. */
+  archive: boolean;
   total: number;
   included: number;
   extra: number;
@@ -390,13 +398,14 @@ export async function narratorSlots(store: FamilyStore, actor: Actor | null, hou
   const state = await store.read();
   requireHouseholdGuardian(state, actor, householdId);
   const plan = store.plan;
-  const entitlement = activeEntitlement(state, householdId);
+  const entitlement = familyEntitlement(state, householdId);
   const live = liveSlots(state, householdId, plan);
   const activeIds = new Set(live.map((a) => a.voiceId));
-  const memberVoices = state.voices.filter((v) => v.deletedAt === null && isActiveMember(state, v.ownerId, householdId));
+  const memberVoices = state.voices.filter((v) => v.deletedAt === null && (v.status === "ready" || v.status === "processing") && isActiveMember(state, v.ownerId, householdId));
   return {
     householdId,
     hasPlan: entitlement !== null,
+    archive: entitlement === null && activeEntitlement(state, householdId) !== null,
     total: narratorSlotCount(state, householdId, plan),
     included: entitlement ? plan.includedNarratorSlots : 0,
     extra: entitlement?.extraNarratorSlots ?? 0,
@@ -416,7 +425,7 @@ export async function narratorSlots(store: FamilyStore, actor: Actor | null, hou
 export async function activateNarrator(store: FamilyStore, actor: Actor | null, householdId: string, voiceId: string, clock: Clock = now): Promise<void> {
   const state = await store.read();
   const adultId = requireHouseholdGuardian(state, actor, householdId);
-  if (!activeEntitlement(state, householdId)) throw new PermissionError(402, "no_family_plan", "Narrators need an active Readli Family plan.");
+  if (!familyEntitlement(state, householdId)) throw new PermissionError(402, "no_family_plan", "Narrators need an active Readli Family plan.");
   if (!activeShare(state, voiceId, householdId)) throw new PermissionError(409, "waiting_for_owner", "This storyteller hasn't shared their voice with your family yet.");
   if (activeSlot(state, voiceId, householdId, store.plan)) return;
   if (liveSlots(state, householdId, store.plan).length >= narratorSlotCount(state, householdId, store.plan)) {
@@ -466,10 +475,10 @@ export async function releaseNarrator(store: FamilyStore, actor: Actor | null, h
 export async function addNarratorSlot(store: FamilyStore, actor: Actor | null, householdId: string, clock: Clock = now): Promise<void> {
   const state = await store.read();
   const adultId = requireHouseholdGuardian(state, actor, householdId);
-  if (!activeEntitlement(state, householdId)) throw new PermissionError(402, "no_family_plan", "Extra slots need an active Readli Family plan.");
+  if (!familyEntitlement(state, householdId)) throw new PermissionError(402, "no_family_plan", "Extra slots need an active Readli Family plan.");
   const at = clock().toISOString();
   await store.write((s) => {
-    const e = activeEntitlement(s, householdId)!;
+    const e = familyEntitlement(s, householdId)!;
     e.extraNarratorSlots += 1;
     audit(s, adultId, "narrator_slot_added", at, { householdId, detail: `extra=${e.extraNarratorSlots}` });
   });
@@ -482,7 +491,7 @@ export async function addNarratorSlot(store: FamilyStore, actor: Actor | null, h
 export async function grantEntitlement(
   store: FamilyStore,
   householdId: string,
-  input: { source: "subscription" | "gift" | "donated" | "trial"; months: number | null; days?: number },
+  input: { source: "subscription" | "gift" | "donated" | "trial"; months: number | null; days?: number; tier?: "family" | "archive" },
   clock: Clock = now,
 ): Promise<void> {
   const start = clock();
@@ -495,7 +504,17 @@ export async function grantEntitlement(
       if (current.endsAt !== null) current.endsAt = endsAt === null ? null : new Date(Date.parse(current.endsAt) + input.months! * 30 * DAY).toISOString();
     } else {
       const firstTime = !s.entitlements.some((e) => e.householdId === householdId);
-      s.entitlements.push({ id: randomUUID(), householdId, source: input.source, status: "active", extraNarratorSlots: 0, extraStreams: 0, startsAt: start.toISOString(), endsAt });
+      s.entitlements.push({
+        id: randomUUID(),
+        householdId,
+        source: input.source,
+        status: "active",
+        tier: input.tier ?? "family",
+        extraNarratorSlots: 0,
+        extraStreams: 0,
+        startsAt: start.toISOString(),
+        endsAt,
+      });
       // Welcome credits so a new family can hear a few short stories in their own voices right away.
       if (firstTime && store.plan.welcomePromoCredits > 0) {
         s.creditLots.push({

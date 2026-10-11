@@ -106,3 +106,102 @@ export function ManagePlan({ paymentsOn }: { paymentsOn: boolean }) {
     </div>
   );
 }
+
+/**
+ * Readli Family ↔ Family Archive. On a tester plan or in the preview the switch happens here; a Stripe
+ * subscription changes plan in the billing portal; a family whose plan ended can start the Archive.
+ */
+export function ArchiveChoice(props: {
+  tier: "family" | "archive" | null;
+  tierChange: "direct" | "portal" | null;
+  priceCents: number;
+  paymentsOn: boolean;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState("");
+  const price = `${formatPrice(props.priceCents)} a month`;
+
+  const switchTo = async (tier: "family" | "archive") => {
+    setBusy(true);
+    setError("");
+    const res = await fetch("/api/family/plan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tier }) });
+    const json = (await res.json().catch(() => ({}))) as { stoppedJobs?: number; error?: { message?: string } };
+    setBusy(false);
+    setConfirming(false);
+    if (!res.ok) return setError(json.error?.message ?? "Something went wrong. Please try again.");
+    setDone(tier === "archive" ? "You're on the Family Archive. Your stories, kids profiles and permissions are all here." : "Welcome back to Readli Family. You can prepare new stories again.");
+    window.location.reload();
+  };
+  const portal = () => {
+    setBusy(true);
+    setError("");
+    void goTo("/api/billing/portal", {}, setError).finally(() => setBusy(false));
+  };
+  const act = (tier: "family" | "archive") => (props.tierChange === "direct" ? void switchTo(tier) : portal());
+  const canAct = props.tierChange === "direct" || (props.tierChange === "portal" && props.paymentsOn);
+
+  return (
+    <div className="flex flex-col gap-3" data-testid="archive-choice">
+      {props.tier === "family" && (
+        <>
+          <p>
+            Not making new stories for a while? The Readli Family Archive keeps every story you&apos;ve prepared, your kids profiles,
+            storytellers and permissions, and your kids keep listening, for {price}. It doesn&apos;t include new stories, monthly credits
+            or extra narrator slots, and nothing is deleted when you move. Come back to Readli Family whenever you like.
+          </p>
+          {confirming ? (
+            <div className="flex flex-col gap-3 rounded-2xl bg-sunshine/40 p-4">
+              <p className="font-semibold">
+                Move to the Archive? Any story still being prepared stops, and the credits it hadn&apos;t used go back to your balance for when you return.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <button type="button" className={buttonPrimary} disabled={busy} onClick={() => act("archive")}>
+                  {props.tierChange === "portal" ? "Change plan in billing" : "Move to the Archive"}
+                </button>
+                <button type="button" className={buttonSecondary} disabled={busy} onClick={() => setConfirming(false)}>
+                  Stay on Readli Family
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" className={`${buttonSecondary} self-start`} disabled={!canAct || busy} onClick={() => setConfirming(true)}>
+              Move to the Family Archive
+            </button>
+          )}
+        </>
+      )}
+      {props.tier === "archive" && (
+        <>
+          <p>Your stories, kids profiles and permissions are kept and your kids can keep listening. Return to Readli Family to prepare new stories again.</p>
+          <button type="button" className={`${buttonPrimary} self-start`} disabled={!canAct || busy} onClick={() => act("family")}>
+            {props.tierChange === "portal" ? "Change plan in billing" : "Return to Readli Family"}
+          </button>
+        </>
+      )}
+      {props.tier === null && (
+        <>
+          <p>Keep your family&apos;s stories, kids profiles and permissions, and keep listening, with the Family Archive for {price}.</p>
+          <button
+            type="button"
+            className={`${buttonSecondary} self-start`}
+            disabled={!props.paymentsOn || busy}
+            onClick={() => {
+              setBusy(true);
+              setError("");
+              void goTo("/api/billing/checkout", { item: "archive_monthly" }, setError).finally(() => setBusy(false));
+            }}
+          >
+            Keep my stories with the Archive
+          </button>
+        </>
+      )}
+      {props.tierChange === "portal" && !props.paymentsOn && props.tier !== null && (
+        <p className="rounded-2xl bg-surface/80 p-3 text-sm ring-2 ring-ink/10">Payments aren&apos;t switched on yet, so plan changes wait for that.</p>
+      )}
+      {error && <p role="alert" className="rounded-2xl bg-coral/30 p-3 text-sm">{error}</p>}
+      {done && <p role="status" className="rounded-2xl bg-mint/40 p-3 text-sm">{done}</p>}
+    </div>
+  );
+}

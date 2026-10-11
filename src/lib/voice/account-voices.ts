@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { folderKeys, keysOf, NARRATION_BUCKETS, RECORDINGS_BUCKET, removeObjects } from "@/lib/account/privacy";
+import { RECORDINGS_BUCKET } from "@/lib/account/privacy";
 import { fileExtension } from "@/lib/audio/mime";
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
 import { VOICE_CONSENT_VERSION } from "@/lib/content/voice-consents";
@@ -15,13 +15,17 @@ import { StubVoiceProvider } from "./stub";
 /**
  * A signed-in grown-up's own Readli voice (parents backend, piece 2): record with the teleprompter,
  * consent, clone, save. One voice per person; recording again replaces the provider voice on the
- * same row, so families it is shared with keep it. Deleting it removes the voice everywhere, and the
- * owner can record a new one whenever they like. Server-only: the provider voice id never leaves.
+ * same row and bumps its version, so families it is shared with keep it and finished books keep the
+ * audio of the version they were made with. Deleting it withdraws the voice: nothing new is made in
+ * it, its provider clone is retired, unfinished narration stops (with credits returned) and its
+ * recordings leave all training, but stories already prepared keep playing for the families it was
+ * shared with. Only a legally required removal takes those (src/lib/lifecycle/legal-removal.ts).
+ * The owner can record a new voice whenever they like. Server-only: the provider voice id never leaves.
  */
 
 export interface AccountVoice {
   id: string;
-  status: "processing" | "ready" | "deleted";
+  status: "processing" | "ready" | "withdrawn" | "deleted";
   /** Bumps on every re-recording; narration libraries are kept per version. */
   version: number;
   updatedAt: string;
@@ -60,10 +64,25 @@ export interface AccountVoiceStore {
   saveVoice(owner: { id: string; name: string }, providerVoiceId: string, take: AgreedTake, saved: SavedTake): Promise<AccountVoice>;
   providerVoiceId(voiceId: string): Promise<string | null>;
   /**
-   * Removes everything kept for the owner's voice except the record that it existed: their
-   * recordings, audio made from the voice, sharing and kids' approvals. Safe to retry.
+   * The owner deleted their voice: marks it withdrawn (which records the withdrawal on their agreement
+   * history and takes their recordings out of training), forgets the provider clone and stops
+   * narration still being prepared in it, refunding unused credits. Keeps shares, kids' approvals
+   * and prepared stories. Safe to retry.
    */
-  removeVoice(ownerId: string, voiceId: string): Promise<void>;
+  withdrawVoice(ownerId: string, voiceId: string): Promise<{ stoppedJobs: number }>;
+  /** A ready voice whose clone was retired: the latest original recording, if its owner's authorization is still valid. */
+  recloneSource(voiceId: string): Promise<{ ownerId: string; audio: Blob; removeBackgroundNoise: boolean } | null>;
+  /** Saves a re-made clone unless another worker already did; false means keep theirs. */
+  restoreClone(voiceId: string, providerVoiceId: string): Promise<boolean>;
+  /** Appends to the lifecycle audit log. */
+  logEvent(event: LifecycleEvent): Promise<void>;
+}
+
+export interface LifecycleEvent {
+  actor: string;
+  action: "voice_withdrawn" | "voice_version_upgraded" | "clone_created" | "clone_retired" | "clone_reactivated";
+  voiceId: string;
+  detail?: Record<string, unknown>;
 }
 
 export class AccountVoiceError extends Error {
@@ -116,10 +135,17 @@ export async function createAccountVoice(deps: AccountVoiceDeps, owner: { id: st
     throw new AccountVoiceError(502, "clone_failed", message);
   }
   const voice = await deps.store.saveVoice(owner, providerVoiceId, agreed, saved);
-  // A new recording replaces the old provider voice straight away.
+  // A new recording replaces the old provider voice straight away; books already made keep their audio.
   if (previous?.providerVoiceId && previous.providerVoiceId !== providerVoiceId) {
     await deps.provider.deleteVoice(previous.providerVoiceId).catch((err) => console.error("old account voice delete failed", err));
   }
+  await deps.store
+    .logEvent(
+      previous
+        ? { actor: owner.id, action: "voice_version_upgraded", voiceId: voice.id, detail: { from: previous.version, to: voice.version } }
+        : { actor: owner.id, action: "clone_created", voiceId: voice.id, detail: { version: voice.version } },
+    )
+    .catch((err) => console.error("voice lifecycle log failed", err));
   return voice;
 }
 
@@ -140,10 +166,13 @@ export function consentPurposes(agreement: VoiceAgreement): string[] {
 }
 
 /**
- * Deletes the owner's voice: first at the voice provider, so nothing can speak in it again, then
- * everything Readli kept. Families it was shared with lose it at once. Recording again makes a new voice.
+ * Deletes (withdraws) the owner's voice: first the clone at the voice provider, so nothing new can be
+ * made in it, then it stops being offered as a narrator, unfinished narration stops with its credits
+ * returned, and the withdrawal is recorded, which takes the recordings out of all future training.
+ * Stories already prepared keep playing for the families it was shared with. Recording again makes a
+ * new voice under a new agreement.
  */
-export async function deleteAccountVoice(deps: AccountVoiceDeps, ownerId: string): Promise<void> {
+export async function deleteAccountVoice(deps: AccountVoiceDeps, ownerId: string): Promise<{ stoppedJobs: number }> {
   const voice = await deps.store.findVoice(ownerId);
   if (!voice) throw new AccountVoiceError(404, "no_voice", "You don't have a Readli voice to delete.");
   if (voice.providerVoiceId) {
@@ -154,16 +183,55 @@ export async function deleteAccountVoice(deps: AccountVoiceDeps, ownerId: string
       throw new AccountVoiceError(502, "delete_failed", "We couldn't delete your voice just now, so nothing has changed. Please try again.");
     }
   }
-  await deps.store.removeVoice(ownerId, voice.id);
+  const result = await deps.store.withdrawVoice(ownerId, voice.id);
+  await deps.store
+    .logEvent({ actor: ownerId, action: "voice_withdrawn", voiceId: voice.id, detail: { stopped_jobs: result.stoppedJobs, clone_retired: Boolean(voice.providerVoiceId) } })
+    .catch((err) => console.error("voice lifecycle log failed", err));
+  return result;
+}
+
+/**
+ * The provider voice for a ready Readli voice, re-cloning it from the stored original recording if its
+ * clone was retired (no Readli Family household needed it for a while). Only while the owner's
+ * authorization is still in force; a withdrawn or deleted voice is never re-made.
+ */
+export async function ensureClone(deps: AccountVoiceDeps, voiceId: string): Promise<string> {
+  const existing = await deps.store.providerVoiceId(voiceId);
+  if (existing) return existing;
+  const source = await deps.store.recloneSource(voiceId);
+  if (!source) throw new AccountVoiceError(409, "voice_unavailable", "This storyteller's voice can't be used for new stories right now.");
+  let made: string;
+  try {
+    ({ voiceId: made } = await deps.provider.createInstantVoice({
+      name: `Readli voice ${source.ownerId.slice(0, 8)}`,
+      audio: source.audio,
+      filename: `take.${fileExtension(source.audio.type)}`,
+      description: "Readli family voice, restored from its original recording.",
+      removeBackgroundNoise: source.removeBackgroundNoise,
+    }));
+  } catch (err) {
+    console.error("voice re-clone failed", err);
+    throw new AccountVoiceError(502, "clone_failed", "We couldn't get this storyteller's voice ready just now. Please try again.");
+  }
+  if (!(await deps.store.restoreClone(voiceId, made))) {
+    // Another request restored it first; keep theirs.
+    await deps.provider.deleteVoice(made).catch((err) => console.error("duplicate re-clone delete failed", err));
+    const theirs = await deps.store.providerVoiceId(voiceId);
+    if (!theirs) throw new AccountVoiceError(409, "voice_unavailable", "This storyteller's voice can't be used for new stories right now.");
+    return theirs;
+  }
+  await deps.store.logEvent({ actor: "system", action: "clone_reactivated", voiceId }).catch((err) => console.error("voice lifecycle log failed", err));
+  return made;
 }
 
 /** A short line in the owner's voice, for "Does this sound like you?". Only the owner can hear it. */
 export async function accountVoiceSample(deps: AccountVoiceDeps, ownerId: string): Promise<SynthesizedAudio> {
   const voice = await deps.store.findVoice(ownerId);
-  if (!voice?.providerVoiceId || voice.status !== "ready") {
+  if (!voice || voice.status !== "ready") {
     throw new AccountVoiceError(404, "no_voice", "Record your voice first, then you can hear a sample.");
   }
-  return deps.provider.synthesize({ voiceId: voice.providerVoiceId, text: SAMPLE_TEXT });
+  const providerId = voice.providerVoiceId ?? (await ensureClone(deps, voice.id));
+  return deps.provider.synthesize({ voiceId: providerId, text: SAMPLE_TEXT });
 }
 
 // ---------------------------------------------------------------------------
@@ -171,12 +239,17 @@ export async function accountVoiceSample(deps: AccountVoiceDeps, ownerId: string
 // ---------------------------------------------------------------------------
 
 export class MemoryAccountVoiceStore implements AccountVoiceStore {
-  readonly voices = new Map<string, AccountVoice & { ownerId: string; providerVoiceId: string | null }>();
+  readonly voices = new Map<string, AccountVoice & { ownerId: string; providerVoiceId: string | null; cloneRetiredAt?: string | null }>();
   readonly receipts: { id: string; ownerId: string; agreementId: string; removeBackgroundNoise: boolean }[] = [];
-  readonly takes: { key: string; ownerId: string; bytes: number; agreementId: string; language: string; transcript: string }[] = [];
+  readonly takes: { key: string; ownerId: string; voiceId?: string; bytes: number; agreementId: string; language: string; transcript: string; audio?: Blob; excludedFromTraining?: boolean }[] = [];
+  readonly events: LifecycleEvent[] = [];
+  /** Narration jobs to stop when a voice is withdrawn; tests wire this to a family store. */
+  onWithdraw: (voiceId: string) => Promise<number> = async () => 0;
+  /** Whether the owner's authorization is still in force, for re-cloning; tests can turn it off. */
+  authorized: (ownerId: string) => boolean = () => true;
 
   private entry(ownerId: string) {
-    return [...this.voices.values()].find((v) => v.ownerId === ownerId && v.status !== "deleted") ?? null;
+    return [...this.voices.values()].find((v) => v.ownerId === ownerId && (v.status === "ready" || v.status === "processing")) ?? null;
   }
 
   async findVoice(ownerId: string) {
@@ -189,6 +262,7 @@ export class MemoryAccountVoiceStore implements AccountVoiceStore {
     this.takes.push({
       key,
       ownerId: owner.id,
+      audio: take.audio,
       bytes: take.audio.size,
       agreementId: take.agreement.id,
       language: DEMO_SCRIPT.locale,
@@ -199,26 +273,57 @@ export class MemoryAccountVoiceStore implements AccountVoiceStore {
     return { storageKey: key, consentReceiptId: id };
   }
 
-  async saveVoice(owner: { id: string }, providerVoiceId: string) {
+  async saveVoice(owner: { id: string }, providerVoiceId: string, _take: AgreedTake, saved: SavedTake) {
     const at = new Date().toISOString();
     const existing = this.entry(owner.id);
+    const take = this.takes.find((t) => t.key === saved.storageKey);
     if (existing) {
-      Object.assign(existing, { providerVoiceId, status: "ready", updatedAt: at, version: existing.version + 1 });
+      Object.assign(existing, { providerVoiceId, status: "ready", updatedAt: at, version: existing.version + 1, cloneRetiredAt: null });
+      if (take) take.voiceId = existing.id;
       return { id: existing.id, status: existing.status, version: existing.version, updatedAt: at };
     }
     const id = randomUUID();
     this.voices.set(id, { id, ownerId: owner.id, providerVoiceId, status: "ready", updatedAt: at, version: 1 });
+    if (take) take.voiceId = id;
     return { id, status: "ready" as const, version: 1, updatedAt: at };
   }
 
   async providerVoiceId(voiceId: string) {
-    return this.voices.get(voiceId)?.providerVoiceId ?? null;
+    const v = this.voices.get(voiceId);
+    return v?.status === "ready" || v?.status === "processing" ? v.providerVoiceId : null;
   }
 
-  async removeVoice(ownerId: string, voiceId: string) {
+  async withdrawVoice(ownerId: string, voiceId: string) {
     const v = this.voices.get(voiceId);
-    if (v?.ownerId === ownerId) Object.assign(v, { status: "deleted", providerVoiceId: null, updatedAt: new Date().toISOString() });
-    for (let i = this.takes.length - 1; i >= 0; i--) if (this.takes[i]!.ownerId === ownerId) this.takes.splice(i, 1);
+    if (v?.ownerId !== ownerId) return { stoppedJobs: 0 };
+    const at = new Date().toISOString();
+    if (v.status !== "withdrawn") Object.assign(v, { status: "withdrawn", providerVoiceId: null, cloneRetiredAt: at, updatedAt: at });
+    for (const t of this.takes) if (t.voiceId === voiceId) t.excludedFromTraining = true;
+    return { stoppedJobs: await this.onWithdraw(voiceId) };
+  }
+
+  /** Test and lifecycle hook: forgets a ready voice's clone, keeping its recordings. */
+  retireClone(voiceId: string) {
+    const v = this.voices.get(voiceId);
+    if (v?.status === "ready") Object.assign(v, { providerVoiceId: null, cloneRetiredAt: new Date().toISOString() });
+  }
+
+  async recloneSource(voiceId: string) {
+    const v = this.voices.get(voiceId);
+    if (!v || v.status !== "ready" || !this.authorized(v.ownerId)) return null;
+    const take = [...this.takes].reverse().find((t) => t.voiceId === voiceId && t.audio && !t.excludedFromTraining);
+    return take ? { ownerId: v.ownerId, audio: take.audio!, removeBackgroundNoise: false } : null;
+  }
+
+  async restoreClone(voiceId: string, providerVoiceId: string) {
+    const v = this.voices.get(voiceId);
+    if (!v || v.status !== "ready" || v.providerVoiceId) return false;
+    Object.assign(v, { providerVoiceId, cloneRetiredAt: null });
+    return true;
+  }
+
+  async logEvent(event: LifecycleEvent) {
+    this.events.push(event);
   }
 }
 
@@ -250,7 +355,7 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
         .from("voice_profiles")
         .select("id, status, version, updated_at, provider_voice_id_encrypted")
         .eq("owner_id", ownerId)
-        .neq("status", "deleted")
+        .in("status", ["processing", "ready"])
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -318,7 +423,7 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
       ? await this.q(
           this.db
             .from("voice_profiles")
-            .update({ provider_voice_id_encrypted: encrypted, status: "ready", version: existing.version + 1, updated_at: at })
+            .update({ provider_voice_id_encrypted: encrypted, status: "ready", version: existing.version + 1, updated_at: at, clone_retired_at: null })
             .eq("id", existing.id)
             .select("id, status, version, updated_at")
             .single(),
@@ -394,47 +499,69 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
 
   async providerVoiceId(voiceId: string) {
     const row = await this.q<Row | null>(
-      this.db.from("voice_profiles").select("provider_voice_id_encrypted").eq("id", voiceId).neq("status", "deleted").maybeSingle(),
+      this.db.from("voice_profiles").select("provider_voice_id_encrypted").eq("id", voiceId).in("status", ["processing", "ready"]).maybeSingle(),
       "read provider voice",
     );
     const enc = row?.provider_voice_id_encrypted as string | null | undefined;
     return enc ? this.cipher.decrypt(enc) : null;
   }
 
-  async removeVoice(ownerId: string, voiceId: string) {
+  async withdrawVoice(ownerId: string, voiceId: string) {
     const at = new Date().toISOString();
     const db = this.db;
-    // Audio made from the voice, in every family, then every recording of the owner.
-    const libraries = await this.q<Row[]>(db.from("narration_libraries").select("key").eq("voice_id", voiceId), "read narration libraries");
-    const segments = libraries.length
-      ? await this.q<Row[]>(db.from("narration_segments").select("storage_key").in("library_key", libraries.map((l) => l.key as string)), "read narration audio")
-      : [];
-    const assets = await this.q<Row[]>(db.from("narration_assets").select("storage_key").eq("voice_id", voiceId), "read older narration audio");
-    await removeObjects(db, NARRATION_BUCKETS.segments, keysOf(segments));
-    await removeObjects(db, NARRATION_BUCKETS.assets, keysOf(assets));
-    const sessions = await this.q<Row[]>(db.from("voice_training_sessions").select("id").eq("owner_id", ownerId), "read recording sessions");
-    const takes = sessions.length
-      ? await this.q<Row[]>(db.from("voice_training_segments").select("storage_key").in("session_id", sessions.map((x) => x.id as string)), "read recordings")
-      : [];
-    await removeObjects(db, BUCKET, [...new Set([...keysOf(takes), ...(await folderKeys(db, BUCKET, ownerId))])]);
-
-    // Kids lose it first (so the reason reads "voice deleted"), then families, which frees their narrator slots.
+    // Marking it withdrawn records the withdrawal on the owner's agreement history (a database trigger),
+    // which takes every recording of it out of voice_recordings_usable and so out of training.
     await this.q(
-      db.from("child_voice_approvals").update({ revoked_at: at, revoked_by: ownerId, revoke_reason: "voice_deleted" }).eq("voice_id", voiceId).is("revoked_at", null),
-      "end kids approvals",
+      db
+        .from("voice_profiles")
+        .update({ status: "withdrawn", withdrawn_at: at, clone_retired_at: at, updated_at: at, provider_voice_id_encrypted: null })
+        .eq("id", voiceId)
+        .eq("owner_id", ownerId)
+        .in("status", ["processing", "ready"]),
+      "withdraw account voice",
     );
-    await this.q(db.from("voice_household_shares").update({ revoked_at: at, revoked_by: ownerId }).eq("voice_id", voiceId).is("revoked_at", null), "stop sharing");
     await this.q(db.from("voice_consents").update({ revoked_at: at }).eq("voice_id", voiceId).is("revoked_at", null), "withdraw voice consent");
-    // Library rows stay for credit history; their audio is gone and a deleted voice is never offered.
-    if (libraries.length) {
-      await this.q(
-        db.from("narration_jobs").update({ status: "canceled", finished_at: at }).in("library_key", libraries.map((l) => l.key as string)).in("status", ["queued", "running"]),
-        "stop narration in progress",
-      );
-    }
+    // Unfinished narration in it, in every family, stops; credits it hadn't used go back where they came from.
+    const stopped = await this.q<number | null>(db.rpc("stop_voice_narration", { p_voice: voiceId }), "stop narration in progress");
+    return { stoppedJobs: Number(stopped ?? 0) };
+  }
+
+  async recloneSource(voiceId: string) {
+    const db = this.db;
+    const voice = await this.q<Row | null>(db.from("voice_profiles").select("owner_id, status").eq("id", voiceId).maybeSingle(), "read voice");
+    if (!voice || voice.status !== "ready") return null;
+    // Only recordings whose owner's authorization is still in force appear in this view.
+    const usable = await this.q<Row[]>(
+      db.from("voice_recordings_usable").select("session_id, storage_key, mime_type, recorded_at").eq("voice_profile_id", voiceId).order("recorded_at", { ascending: false }).limit(1),
+      "find original recording",
+    );
+    const take = usable[0];
+    if (!take) return null;
+    const session = await this.q<Row | null>(db.from("voice_training_sessions").select("remove_background_noise").eq("id", take.session_id as string).maybeSingle(), "read recording");
+    const { data, error } = await db.storage.from(BUCKET).download(take.storage_key as string);
+    if (error || !data) throw new Error(`download original recording: ${error?.message ?? "missing"}`);
+    const audio = new Blob([await data.arrayBuffer()], { type: (take.mime_type as string | null) ?? data.type });
+    return { ownerId: voice.owner_id as string, audio, removeBackgroundNoise: Boolean(session?.remove_background_noise) };
+  }
+
+  async restoreClone(voiceId: string, providerVoiceId: string) {
+    const rows = await this.q<Row[]>(
+      this.db
+        .from("voice_profiles")
+        .update({ provider_voice_id_encrypted: this.cipher.encrypt(providerVoiceId), clone_retired_at: null, unlinked_since: null, updated_at: new Date().toISOString() })
+        .eq("id", voiceId)
+        .eq("status", "ready")
+        .is("provider_voice_id_encrypted", null)
+        .select("id"),
+      "restore voice clone",
+    );
+    return rows.length > 0;
+  }
+
+  async logEvent(event: LifecycleEvent) {
     await this.q(
-      db.from("voice_profiles").update({ status: "deleted", deleted_at: at, updated_at: at, provider_voice_id_encrypted: null }).eq("id", voiceId).eq("owner_id", ownerId),
-      "delete account voice",
+      this.db.from("lifecycle_audit_log").insert({ actor: event.actor, action: event.action, voice_id: event.voiceId, detail: event.detail ?? {} }),
+      "write lifecycle log",
     );
   }
 }
