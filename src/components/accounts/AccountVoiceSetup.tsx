@@ -98,7 +98,7 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
       {step === 0 && (
         <section className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-lavender/40 p-6 sm:p-8">
           <h2 className="font-display text-2xl font-semibold">Your voice, your rules</h2>
-          {hasVoice && <p>You already have a Readli voice. Recording again replaces it, and families you share it with keep hearing you.</p>}
+          {hasVoice && <p>You already have a Readli voice. Recording again replaces it, and families you share it with keep hearing you. You can also delete it from My voice in Readli Family.</p>}
           <fieldset className="flex flex-col gap-3">
             <legend className="sr-only">Your agreement</legend>
             {VOICE_CONSENTS.map((c, i) => (
@@ -190,7 +190,7 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
           <h2 className="font-display text-3xl font-semibold">Your voice is ready</h2>
           <p className="max-w-md">It&apos;s private. Nobody can use it until you share it with a family, and their parents approve it for each child.</p>
           <div className="flex flex-wrap justify-center gap-3">
-            <Link href="/voice" className={buttonPrimary}>
+            <Link href="/family/my-voice" className={buttonPrimary}>
               Choose who can use it
             </Link>
             <Link href="/family" className={buttonQuiet}>
