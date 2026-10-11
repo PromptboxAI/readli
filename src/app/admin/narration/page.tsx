@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { buttonSecondary } from "@/components/brand/buttons";
+import { AdultPage, Eyebrow } from "@/components/invites/AdultPage";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
 import { familyPage } from "@/lib/family/page-data";
 import { formatPrice } from "@/lib/family/plan";
@@ -21,12 +24,32 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** Real families' narration isn't saved to the database yet, so there is nothing true to chart here. */
+function NarrationNotLive() {
+  return (
+    <AdultPage>
+      <header className="flex flex-col gap-2">
+        <Eyebrow>Admin</Eyebrow>
+        <h1 className="font-display text-4xl font-semibold">Narration</h1>
+      </header>
+      <p className="text-lg">
+        This dashboard fills in once live narration is saved for real families. Until then, the admin overview counts narration
+        libraries and jobs straight from the database.
+      </p>
+      <Link href="/admin" className={`${buttonSecondary} self-start`}>
+        Back to the admin overview
+      </Link>
+    </AdultPage>
+  );
+}
+
 /**
  * Narration operations dashboard. In the preview it reads the visitor's own sandbox; production
  * reads the narration tables behind admin sign-in (with /admin/plans).
  */
 export default async function NarrationAdminPage() {
-  await requireAdmin("/admin/narration");
+  const gate = await requireAdmin("/admin/narration");
+  if (!gate.preview) return <NarrationNotLive />;
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   if (page.session?.actor.kind !== "adult") return <NeedsGrownUp text="Sign in as a grown-up to see the narration dashboard." />;
