@@ -14,7 +14,8 @@ export type InviteStatus =
   | "pending_verification"
   | "ready_shared"
   | "revoked"
-  | "expired";
+  | "expired"
+  | "withdrawn";
 
 export const INVITE_TTL_DAYS = 14;
 
@@ -53,6 +54,7 @@ export const INVITE_STATUS: Record<InviteStatus, { label: string; next: string }
   },
   revoked: { label: "Voice not shared", next: "They've chosen not to share their voice right now." },
   expired: { label: "Invitation expired", next: "Send a fresh link whenever you're ready." },
+  withdrawn: { label: "Invitation withdrawn", next: "That link no longer works." },
 };
 
 export function isExpired(invite: FamilyInvite, now: Date): boolean {
