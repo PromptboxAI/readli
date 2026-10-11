@@ -326,6 +326,7 @@ export function FinalCta() {
 export function SiteFooter() {
   const links = [
     { href: "/company", label: "Company" },
+    { href: "/pricing", label: "Pricing" },
     { href: "/privacy", label: "Privacy" },
     { href: "/terms", label: "Terms" },
     { href: "/help", label: "Help" },

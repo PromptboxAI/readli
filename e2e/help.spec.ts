@@ -34,7 +34,7 @@ test("help search says so when nothing matches", async ({ page }) => {
 test("draft articles about unreleased features stay hidden on the live site", async ({ page, request }) => {
   expect((await request.get("/help/billing-credits-and-gifts/gift-memberships")).status()).toBe(404);
   await page.goto("/help/billing-credits-and-gifts");
-  await expect(page.getByRole("link", { name: /What's included in the \$14\.99/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /What's included in the \$19\.99/ })).toBeVisible();
   await expect(page.getByText("How do gift memberships work?")).toHaveCount(0);
   await expect(page.getByText("Draft: hidden until launch")).toHaveCount(0);
 });
