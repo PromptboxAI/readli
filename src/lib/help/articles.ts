@@ -127,6 +127,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     status: "published",
     answer: [
       "Find a quiet room and use your phone or computer's microphone. Readli shows a short story script that scrolls at your pace, and you simply read it aloud in your usual storytime voice. It takes about a minute or two.",
+      "Read it the way you would to a child at bedtime: warm, lively and expressive, not a flat reading voice. Your Readli voice copies how you sound in the recording, so a flat read makes a flat, robotic voice.",
       "You can try this now on the [free voice demo](/try).",
     ],
     keywords: ["record", "microphone", "teleprompter", "script", "how long"],

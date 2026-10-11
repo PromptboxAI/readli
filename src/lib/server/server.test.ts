@@ -88,6 +88,12 @@ describe("ElevenLabs provider", () => {
     await provider.createInstantVoice({ name: "n", audio: new Blob(["x"]), filename: "take.webm", description: "d", removeBackgroundNoise: false });
     expect((calls[1]!.init.body as FormData).get("remove_background_noise")).toBe("false");
 
+    await provider.synthesize({ voiceId: "v123", text: "Once upon a time" });
+    const tts = JSON.parse(String(calls[2]!.init.body)) as { model_id: string; voice_settings: Record<string, unknown> };
+    expect(calls[2]!.url).toContain("/text-to-speech/v123");
+    expect(tts.model_id).toBe("eleven_multilingual_v2");
+    expect(tts.voice_settings).toEqual({ stability: 0.4, similarity_boost: 0.8, style: 0, use_speaker_boost: true });
+
     const failing = new ElevenLabsProvider("key", "m", (async () => new Response("quota", { status: 401 })) as typeof fetch);
     const err = await failing.synthesize({ voiceId: "v", text: "hi" }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(VoiceProviderError);

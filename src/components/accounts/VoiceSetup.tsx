@@ -84,7 +84,7 @@ export function VoiceSetup() {
       {step === 2 && (
         <section className="flex flex-col gap-4">
           <h2 className="font-display text-2xl font-semibold">Read the story out loud</h2>
-          <p>About a minute or two. Find a quiet spot and read the way you would at bedtime.</p>
+          <p>About a minute or two. Find a quiet spot and read it like a bedtime story, with lots of expression. Your voice copies how you read.</p>
           <TeleprompterRecorder script={DEMO_SCRIPT} />
           <button type="button" className={`${buttonSecondary} w-fit`} onClick={() => setStep(3)}>
             I&apos;ve finished recording
