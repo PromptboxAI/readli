@@ -71,7 +71,7 @@ alter table public.voice_profiles
 
 comment on column public.voice_profiles.status is 'withdrawn: the owner deleted the voice. No new narration, clone retired, recordings out of all training; prepared stories keep playing for families it was shared with. deleted: legally required removal or account deletion, stories removed too.';
 comment on column public.voice_profiles.clone_retired_at is 'Provider clone retired (no Readli Family household needed it). Playback never needs it; it is re-cloned from the original recording when authorization is still valid.';
-comment on column public.voice_profiles.unlinked_since is 'Since when no Readli Family household has used this voice; the lifecycle job retires the clone after plan_settings.clone_retire_after_days.';
+comment on column public.voice_profiles.unlinked_since is 'Since when no Readli Family household has used this voice; the daily lifecycle job retires the clone after PLAN_CLONE_RETIRE_AFTER_DAYS (30 by default).';
 
 create or replace function public.voice_rights_withdraw_on_voice_delete() returns trigger
 language plpgsql security definer set search_path = public as $$
