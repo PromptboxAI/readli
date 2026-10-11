@@ -6,7 +6,7 @@
 
 import type { PolicySection } from "@/lib/content/privacy-policy";
 
-export const VOICE_AGREEMENT_VERSION = "voice-agreement-2026-10-11.2";
+export const VOICE_AGREEMENT_VERSION = "voice-agreement-2026-10-11.3";
 export const VOICE_AGREEMENT_EFFECTIVE_DATE = "October 11, 2026";
 export const VOICE_AGREEMENT_PATH = "/voice-agreement";
 
@@ -151,7 +151,7 @@ export const VOICE_AGREEMENT_SECTIONS: PolicySection[] = [
     title: "8. Changing your mind",
     paragraphs: [
       {
-        text: "You can turn independent commercial licensing off at any time; that stops new licensing of your recordings, but cannot recall copies already licensed under your earlier authorization unless the license or law requires it. You can withdraw from Readli Voice by deleting your voice (in Readli Family, under My voice) or your account. Deleting your voice ends the service and development rights for future use and is recorded as a withdrawal: no new narration is made in your voice, it is never re-cloned, its clone at Readli’s voice provider is deleted, and your original recordings are taken out of all future development, training and licensing. Stories already prepared in it stay with the families you shared it with, as section 9 describes. Deleting your account also deletes your original recordings and the narration made in your voice, as the Privacy Policy describes. Recording again later needs a new agreement. Models or systems already trained may not be able to remove what they learned from a recording. Contact admin@readli.ai for help or to exercise any legally required withdrawal, deletion or privacy right.",
+        text: "You can turn independent commercial licensing off at any time; that stops new licensing of your recordings, but cannot recall copies already licensed under your earlier authorization unless the license or law requires it. You can withdraw from Readli Voice by deleting your voice (in Readli Family, under My voice) or your account. Deleting your voice ends the service and development rights for future use and is recorded as a withdrawal: no new narration is made in your voice, it is never re-cloned, its clone at Readli’s voice provider is deleted, and your original recordings are taken out of all future development, training and licensing. Stories already prepared in it stay with the families you shared it with, as section 9 describes. Short of deleting your voice, you can also turn off sharing with a family (your recordings aren’t deleted), withdraw permission for AI training (Readli development and licensing stop; your story voice keeps working), or ask Readli to delete your original recordings (they stop being used at once and are removed from active storage, normally within 30 days, subject to legal exceptions). Deleting your account withdraws your voice, deletes its clone and your original recordings, and keeps stories already delivered to other families only as far as this Agreement and the law allow. Recording again later needs a new agreement. Models or systems already trained may not be able to remove what they learned from a recording. Contact admin@readli.ai for help or to exercise any legally required withdrawal, deletion or privacy right.",
       },
     ],
   },

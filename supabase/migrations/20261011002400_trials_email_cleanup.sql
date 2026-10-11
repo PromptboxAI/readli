@@ -79,8 +79,7 @@ alter table public.email_outbox
   add column attempts integer not null default 0,
   add column next_attempt_at timestamptz not null default now(),
   add column last_event text,
-  add column last_event_at timestamptz,
-  add constraint email_outbox_has_recipient check (recipient_user_id is not null or to_email is not null);
+  add column last_event_at timestamptz;
 create index email_outbox_due on public.email_outbox (status, next_attempt_at) where status in ('queued', 'failed');
 create index email_outbox_provider_ref on public.email_outbox (provider_ref);
 comment on table public.email_outbox is 'Transactional emails, sent through Resend by the email worker with an idempotency key per row. Never used for marketing lists.';

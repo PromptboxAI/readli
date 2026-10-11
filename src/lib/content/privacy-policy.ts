@@ -88,7 +88,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Raw audio",
-        text: "the original recording, kept privately in Readli’s storage with its recording details. Used to create, re-create, restore and improve the contributor’s voice, and to develop and test Readli’s own voice technology. Kept while the voice or account exists. When the contributor deletes their voice, the recording is no longer used to re-create the voice or for any development or training, and is deleted on the [DELETED VOICES] timeline or sooner on request; deleting the account deletes it, subject to the [BACKUPS] timeline.",
+        text: "the original recording, kept privately in Readli’s storage with its recording details. Used to create, re-create, restore and improve the contributor’s voice, and to develop and test Readli’s own voice technology. Kept while the voice or account exists, and while it is needed by a household with a plan or kept under the contributor’s agreement. Three choices are separate: turning off sharing with a family stops that family’s new stories but doesn’t delete the recording; withdrawing AI-training permission stops its use for development, training and licensing at once; and a deletion request removes it from Readli’s active storage through a documented process, normally within 30 days, subject to legal exceptions and the [BACKUPS] timeline. When the contributor deletes their voice, the recording is no longer used to re-create the voice or for any development or training, and is deleted on the [DELETED VOICES] timeline or sooner on request; deleting the account deletes it.",
       },
       {
         lead: "Voice characteristics and models",
@@ -96,7 +96,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Generated narration",
-        text: "synthetic audio Readli generates and stores privately so families can listen again. Each story keeps a record of the voice and voice version it was made with. Kept while a household that it was made for has Readli Family or Readli Family Archive, including after the owner deletes or re-records their voice; deleted 30 days after a household’s paid access ends if it hasn’t chosen a plan (unless another household with a plan still uses it), when the law requires its removal, or when the voice owner deletes their account.",
+        text: "synthetic audio Readli generates and stores privately so families can listen again. Each story keeps a record of the voice and voice version it was made with. Kept while a household that it was made for has Readli Family or Readli Family Archive, including after the owner deletes or re-records their voice; deleted 30 days after a household’s paid access ends if it hasn’t chosen a plan (unless another household with a plan still uses it), or when the law requires its removal. If the voice owner deletes their account, stories already delivered to other households stay with them only as far as the Voice Recording & AI Training Agreement and the law allow; nothing new is made in that voice.",
       },
       {
         lead: "Account relationships and child profile data",
@@ -166,7 +166,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     title: "8. Vendors and disclosures",
     paragraphs: [
       {
-        text: "We disclose information to vetted providers when needed for the Services, including ElevenLabs for AI voice processing, hosting/storage, authentication, payments, delivery, analytics, customer support, and security providers as actually enabled. An accurate, current provider list and applicable processor agreements will be maintained [PROVIDER-LIST URL OR CONTACT METHOD].",
+        text: "We disclose information to vetted providers when needed for the Services, including ElevenLabs for AI voice processing, Stripe for payments, Resend for transactional email (invitations, gifts, billing and account notices; Readli doesn’t use it for marketing lists), hosting/storage, authentication, delivery, analytics, customer support, and security providers as actually enabled. An accurate, current provider list and applicable processor agreements will be maintained [PROVIDER-LIST URL OR CONTACT METHOD].",
       },
       {
         text: "ElevenLabs independently publishes a privacy policy describing its practices, including potential model-improvement uses and available data-use settings. We will determine the settings and contractual safeguards available for Readli’s API integration, and explain any material consequences to users before launching voice enrollment.",
@@ -190,7 +190,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     title: "10. Retention and deletion",
     paragraphs: [
       {
-        text: "We retain information only as long as reasonably necessary for the purposes described above, legal obligations, security, and dispute resolution. Retention periods vary by category and will be documented before launch: [DEMO RECORDINGS], [ACTIVE VOICES], [DELETED VOICES], [CHILD PROFILES], [ACCOUNT RECORDS], [BACKUPS], [SECURITY LOGS]. Original voice recordings are kept while the voice or account exists so the voice can be restored or re-created. Records of what a contributor agreed to are kept as long as needed to show which uses were authorized.",
+        text: "We retain information only as long as reasonably necessary for the purposes described above, legal obligations, security, and dispute resolution. Retention periods vary by category and will be documented before launch: [DEMO RECORDINGS], [ACTIVE VOICES], [DELETED VOICES], [CHILD PROFILES], [ACCOUNT RECORDS], [BACKUPS], [SECURITY LOGS]. Original voice recordings are kept while the voice or account exists so the voice can be restored or re-created, unless the contributor asks for them to be deleted. When a household’s plan ends and it doesn’t return within 30 days, its saved stories, kids profiles, listening progress and preferences are removed, but payment, credit and audit records are kept as the law requires. Readli doesn’t forfeit unused purchased credits automatically. Records of what a contributor agreed to are kept as long as needed to show which uses were authorized.",
       },
       {
         text: "Adults may request access, correction, consent withdrawal, family-permission changes, and account, child-profile, or enrolled-voice deletion through available controls or by contacting admin@readli.ai. We may verify identity or parental authority before acting. Deleting a Readli item may not immediately remove lawful backup copies or data retained by an independent processor; applicable timelines will be explained.",
