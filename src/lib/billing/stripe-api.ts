@@ -79,4 +79,9 @@ export class StripeApi {
   async createCheckoutSession(params: Params): Promise<{ id: string; url: string }> {
     return this.call("POST", "checkout/sessions", params);
   }
+
+  /** Stripe's hosted page where a parent updates their card, changes slots or cancels. */
+  async createPortalSession(customer: string, returnUrl: string): Promise<{ url: string }> {
+    return this.call("POST", "billing_portal/sessions", { customer, return_url: returnUrl });
+  }
 }

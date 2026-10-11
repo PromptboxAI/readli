@@ -53,8 +53,8 @@ export async function POST(req: Request) {
         customer_email: customer ? undefined : (session.account.email ?? undefined),
         metadata,
         ...(request.mode === "subscription" ? { subscription_data: { metadata } } : { payment_intent_data: { metadata } }),
-        success_url: `${origin}/family?checkout=success`,
-        cancel_url: `${origin}/family?checkout=canceled`,
+        success_url: `${origin}/family/billing?checkout=success`,
+        cancel_url: `${origin}/family/billing?checkout=canceled`,
       });
       return NextResponse.json({ url: checkout.url });
     } catch (err) {
