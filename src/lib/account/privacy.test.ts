@@ -155,8 +155,8 @@ describe("deleting an account", () => {
 
     expect(result.deleted).toBe(true);
     expect(tables.households).toHaveLength(1);
-    expect(tables.child_voice_approvals.find((a) => a.id === "a1")).toMatchObject({ revoke_reason: "guardian_removed" });
-    expect(tables.child_voice_approvals.find((a) => a.id === "a2")).toMatchObject({ revoked_at: null });
+    expect(tables.child_voice_approvals!.find((a) => a.id === "a1")).toMatchObject({ revoke_reason: "guardian_removed" });
+    expect(tables.child_voice_approvals!.find((a) => a.id === "a2")).toMatchObject({ revoked_at: null });
     expect(auth.deleted).toEqual([ME]);
   });
 
