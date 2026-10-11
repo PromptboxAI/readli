@@ -43,12 +43,13 @@ export function Hero() {
             </Link>
           </div>
         </div>
-        <div className="relative mx-auto flex aspect-square w-full max-w-sm items-center justify-center" aria-hidden="true">
+        {/* Phones: the art is 25% smaller (Kevin, 2026-10-11). */}
+        <div className="relative mx-auto flex aspect-square w-full max-w-[18rem] items-center justify-center md:max-w-sm" aria-hidden="true">
           <div className="absolute inset-6 rounded-[40%_60%_55%_45%] bg-mint" />
-          <div className="absolute bottom-10 left-4 size-20 rounded-3xl bg-sunshine" />
-          <div className="absolute right-6 top-8 size-16 rounded-full bg-lavender" />
+          <div className="absolute bottom-8 left-3 size-16 rounded-3xl bg-sunshine md:bottom-10 md:left-4 md:size-20" />
+          <div className="absolute right-5 top-6 size-12 rounded-full bg-lavender md:right-6 md:top-8 md:size-16" />
           <div className="animate-bob relative">
-            <ReadiMascot size={280} priority />
+            <ReadiMascot size={280} priority className="h-auto w-[210px] md:w-[280px]" />
           </div>
         </div>
       </div>
