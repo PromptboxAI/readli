@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { REQUIRED_AGREEMENT_STATEMENTS } from "@/lib/content/voice-agreement";
 import { MemoryGuestStore } from "@/lib/server/guest-store";
-import { AccountVoiceError, MemoryAccountVoiceStore } from "./account-voices";
+import { AccountVoiceError, keepVoiceCandidate, MemoryAccountVoiceStore } from "./account-voices";
 import { acceptVoiceAgreement, MemoryVoiceAgreementStore } from "./agreements";
 import { voiceFromDemo } from "./demo-voice";
 import { StubVoiceProvider } from "./stub";
@@ -13,7 +13,7 @@ const meta = (durationMs: number) => ({ durationMs, mimeType: "audio/webm", tele
 
 async function setup(durationMs: number | null, agree = true) {
   const guests = new MemoryGuestStore();
-  const guest = await guests.createSession({ tokenHash: `t${Math.random()}`, policyVersion: "v" });
+  const guest = await guests.createSession({ tokenHash: `t${Math.random()}`, policyVersion: "v", generationsAllowed: 4 });
   // ~24 KB/s, like a real take, so the server's silence check passes.
   if (durationMs !== null) await guests.saveRecording(guest.id, new Blob([new Uint8Array((durationMs / 1000) * 24_000)], { type: "audio/webm" }), meta(durationMs));
   const store = new MemoryAccountVoiceStore();
@@ -26,9 +26,11 @@ async function setup(durationMs: number | null, agree = true) {
 }
 
 describe("voice from the demo", () => {
-  it("turns the demo take into the grown-up's voice once they accept the agreement, never for training", async () => {
+  it("turns the demo take into the grown-up's voice once they accept the agreement and keep it, never for training", async () => {
     const { guests, guestId, store, deps, input } = await setup(70_000);
-    const voice = await voiceFromDemo(deps, guests, guestId, owner, input);
+    await voiceFromDemo(deps, guests, guestId, owner, input);
+    expect(await store.findVoice(owner.id)).toBeNull();
+    const voice = await keepVoiceCandidate(deps, owner);
     expect(voice.status).toBe("ready");
     expect(await store.findVoice(owner.id)).toMatchObject({ id: voice.id });
     // Recorded before the agreement, so it never counts as training data, even with licensing switched on.

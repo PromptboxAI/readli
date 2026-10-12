@@ -7,6 +7,9 @@ export interface SynthesizedAudio {
   contentType: string;
   /** True for stand-in audio that is not the guest's voice (stub mode only). */
   standIn: boolean;
+  /** The model that actually read it (after any fallback) and the characters billed. */
+  modelId?: string;
+  characters?: number;
 }
 
 export interface VoiceProvider {
@@ -18,7 +21,8 @@ export interface VoiceProvider {
     /** Provider-side noise clean-up. Defaults to on; it can change how a clean take sounds. */
     removeBackgroundNoise?: boolean;
   }): Promise<{ voiceId: string }>;
-  synthesize(input: { voiceId: string; text: string }): Promise<SynthesizedAudio>;
+  /** Reads text in a voice. `modelId` picks the reading model; without it, the provider's default. */
+  synthesize(input: { voiceId: string; text: string; modelId?: string }): Promise<SynthesizedAudio>;
   deleteVoice(voiceId: string): Promise<void>;
 }
 

@@ -171,6 +171,7 @@ export class AccountFamilyStore implements FamilyStore {
         ownerDeleted: Boolean(v.owner_deleted_at),
         version: Number(v.version ?? 1),
         status: v.status as VoiceStatus,
+        modelId: str(v.model_id),
         createdAt: v.created_at as string,
         deletedAt: str(v.deleted_at),
         withdrawnAt: str(v.withdrawn_at),

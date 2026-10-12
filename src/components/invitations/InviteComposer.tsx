@@ -5,7 +5,7 @@ import { useState } from "react";
 import { buttonPrimary, buttonQuiet, buttonSecondary } from "@/components/brand/buttons";
 import { MESSAGE_MAX, SEND_RESULT_MESSAGES, normalizeEmail, type SendResult } from "@/lib/invitations/invitations";
 
-const RELATIONSHIPS = ["Son or daughter", "Grandchild's parent", "Sibling", "Niece or nephew", "Friend of the family", "Other"];
+const RELATIONSHIPS = ["Son or daughter", "Grandchild's parent", "Husband or wife", "Significant other", "Partner", "Sibling", "Niece or nephew", "Friend of the family", "Other"];
 const field = "w-full rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/20 focus:outline-none focus:ring-ink";
 
 interface Row {

@@ -34,32 +34,53 @@ const now: Clock = () => new Date();
 // Library identity
 // ---------------------------------------------------------------------------
 
-export function generationConfig(plan: PlanConfig) {
-  return { modelId: plan.narrationModelId, outputFormat: "mp3_44100_128", voiceSettings: voiceSettings(plan.narrationModelId) };
+export function generationConfig(modelId: string) {
+  return { modelId, outputFormat: "mp3_44100_128", voiceSettings: voiceSettings(modelId) };
 }
 
-function configHash(plan: PlanConfig): string {
-  return createHash("sha256").update(JSON.stringify(generationConfig(plan))).digest("hex").slice(0, 12);
+function configHash(modelId: string): string {
+  return createHash("sha256").update(JSON.stringify(generationConfig(modelId))).digest("hex").slice(0, 12);
+}
+
+/** The reading model a voice narrates with: its own, so a new model never changes an existing voice. */
+export function voiceModel(state: FamilyState, plan: PlanConfig, voiceId: string): string {
+  return state.voices.find((v) => v.id === voiceId)?.modelId ?? plan.narrationModelId;
 }
 
 /**
  * Where a household finds a voice's narration of a book. With cross-household reuse licensed,
  * every authorized household shares one library; otherwise each household has its own.
+ *
+ * A book fully prepared under an earlier model or settings keeps playing that audio, so switching
+ * a voice to a new model never makes finished books look unprepared. New books use the voice's model.
  */
 export function libraryFor(state: FamilyState, plan: PlanConfig, voiceId: string, text: BookText, householdId: string): NarrationLibrary {
   const voice = state.voices.find((v) => v.id === voiceId)!;
   const scope = plan.crossHouseholdReuse ? "shared" : householdId;
-  const hash = configHash(plan);
-  const key = [voice.id, `v${voice.version}`, text.slug, text.edition, text.revision, plan.narrationModelId, hash, scope].join(":");
+  const modelId = voiceModel(state, plan, voiceId);
+  const hash = configHash(modelId);
+  const key = [voice.id, `v${voice.version}`, text.slug, text.edition, text.revision, modelId, hash, scope].join(":");
+  const current = state.libraries.find((l) => l.key === key);
+  if (current) return current;
+  const finished = state.libraries.find(
+    (l) =>
+      l.voiceId === voice.id &&
+      l.voiceVersion === voice.version &&
+      l.bookSlug === text.slug &&
+      l.edition === text.edition &&
+      l.textRevision === text.revision &&
+      l.scope === scope &&
+      libraryStatus(state, l, text).readiness === "ready",
+  );
   return (
-    state.libraries.find((l) => l.key === key) ?? {
+    finished ?? {
       key,
       voiceId,
       voiceVersion: voice.version,
       bookSlug: text.slug,
       edition: text.edition,
       textRevision: text.revision,
-      modelId: plan.narrationModelId,
+      modelId,
       configHash: hash,
       scope,
       createdAt: "",
@@ -384,7 +405,7 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
     stored: playingStatus && playingStatus.ready > 0 ? { version: playing.voiceVersion, ready: playingStatus.ready, total: playingStatus.total } : null,
     missingCredits,
     extraCreditsNeeded: Math.max(0, missingCredits - available),
-    estimateSeconds: status.missingCharacters ? estimateSeconds(status.missingCharacters, plan.narrationModelId) : 0,
+    estimateSeconds: status.missingCharacters ? estimateSeconds(status.missingCharacters, library.modelId) : 0,
     chapters,
     jobId: job?.id ?? null,
   };
@@ -513,7 +534,7 @@ export function quote(state: FamilyState, plan: PlanConfig, householdId: string,
     sentenceIds: missing,
     characters,
     credits,
-    estimateSeconds: characters ? estimateSeconds(characters, plan.narrationModelId) : 0,
+    estimateSeconds: characters ? estimateSeconds(characters, library.modelId) : 0,
     reusedReady,
     alreadyQueued,
     scope: req.scope,
@@ -722,7 +743,7 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
       });
       try {
         const sentence = byId.get(id)!;
-        const { audio, contentType } = await provider.synthesize({ voiceId: voice.id, text: sentence.text });
+        const { audio, contentType } = await provider.synthesize({ voiceId: voice.id, text: sentence.text, modelId: library.modelId });
         const storageKey = `${library.key.replaceAll(":", "/")}/${id}`;
         await store.audio.put(storageKey, audio, contentType);
         if (!(await store.audio.exists(storageKey))) throw new Error("stored audio not readable");

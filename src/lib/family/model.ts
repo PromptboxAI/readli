@@ -61,6 +61,11 @@ export interface VoiceProfile {
   /** Bumps when the owner replaces their voice; narrations are per version. */
   version: number;
   status: VoiceStatus;
+  /**
+   * The reading model this voice narrates with. Kept per voice so a new ElevenLabs model never
+   * changes how an existing voice sounds; null means the plan's model.
+   */
+  modelId?: string | null;
   createdAt: string;
   deletedAt: string | null;
   /** When the owner deleted (withdrew) the voice. */

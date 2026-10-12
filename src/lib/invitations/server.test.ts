@@ -7,6 +7,7 @@ import {
   approvePreview,
   emailHash,
   generatePreview,
+  PREVIEWS_PER_HOUR,
   giftPreview,
   playGiftPreview,
   hashInvitationToken,
@@ -87,7 +88,7 @@ const deps = (synth: string[] = []): PreviewDeps => ({
     deleteVoice: async () => {},
   },
 });
-const settings = (over: Row = {}) => ({ id: true, sending_enabled: true, max_recipients_per_send: 10, max_recipients_per_day: 30, max_resends: 3, link_days: 14, preview_generations_per_30_days: 2, ...over });
+const settings = (over: Row = {}) => ({ id: true, sending_enabled: true, max_recipients_per_send: 10, max_recipients_per_day: 30, max_resends: 3, link_days: 14, ...over });
 
 describe("family invitations on the server", () => {
   it("sign decline and unsubscribe links so they can't be guessed or edited", () => {
@@ -100,13 +101,13 @@ describe("family invitations on the server", () => {
   });
 
   it("validate the admin's limits", () => {
-    const ok = settingsUpdate({ sendingEnabled: "on", maxRecipientsPerSend: "10", maxRecipientsPerDay: "30", maxResends: "3", linkDays: "14", previewGenerationsPer30Days: "5" });
-    expect(ok).toEqual({ ok: true, row: { sending_enabled: true, max_recipients_per_send: 10, max_recipients_per_day: 30, max_resends: 3, link_days: 14, preview_generations_per_30_days: 5 } });
-    expect(settingsUpdate({ maxRecipientsPerSend: "60", maxRecipientsPerDay: "30", maxResends: "3", linkDays: "14", previewGenerationsPer30Days: "5" }).ok).toBe(false);
-    expect(settingsUpdate({ maxRecipientsPerSend: "40", maxRecipientsPerDay: "30", maxResends: "3", linkDays: "14", previewGenerationsPer30Days: "5" }).ok).toBe(false);
+    const ok = settingsUpdate({ sendingEnabled: "on", maxRecipientsPerSend: "10", maxRecipientsPerDay: "30", maxResends: "3", linkDays: "14" });
+    expect(ok).toEqual({ ok: true, row: { sending_enabled: true, max_recipients_per_send: 10, max_recipients_per_day: 30, max_resends: 3, link_days: 14 } });
+    expect(settingsUpdate({ maxRecipientsPerSend: "60", maxRecipientsPerDay: "30", maxResends: "3", linkDays: "14" }).ok).toBe(false);
+    expect(settingsUpdate({ maxRecipientsPerSend: "40", maxRecipientsPerDay: "30", maxResends: "3", linkDays: "14" }).ok).toBe(false);
   });
 
-  it("read a curated passage in the contributor's voice, within the free monthly limit", async () => {
+  it("read a curated passage in the contributor's voice, with no monthly limit", async () => {
     const said: string[] = [];
     const { db, tables, storage } = fakeDb({ voice_invitation_settings: [settings()] });
     const first = await generatePreview(db, deps(said), "u1", "winnie-the-pooh-1");
@@ -114,7 +115,11 @@ describe("family invitations on the server", () => {
     expect(storage[0]).toMatchObject({ bucket: "voice-previews", op: "upload" });
     await generatePreview(db, deps(said), "u1", "the-velveteen-rabbit-1");
     expect(tables.voice_previews!.find((p) => p.id === first.id)!.retired_at).toBeTruthy();
-    await expect(generatePreview(db, deps(said), "u1", "the-velveteen-rabbit-2")).rejects.toMatchObject({ code: "generation_limit" });
+    for (const id of ["the-velveteen-rabbit-2", "winnie-the-pooh-2", "winnie-the-pooh-1", "the-velveteen-rabbit-1"]) await generatePreview(db, deps(said), "u1", id);
+    expect(said).toHaveLength(6);
+    const recent = new Date().toISOString();
+    tables.voice_previews!.push(...Array.from({ length: PREVIEWS_PER_HOUR }, (_, i) => ({ id: `r${i}`, owner_id: "u2", created_at: recent, retired_at: recent })));
+    await expect(generatePreview(db, deps(said), "u2", "winnie-the-pooh-1")).rejects.toMatchObject({ code: "generation_limit" });
     await expect(generatePreview(db, deps(said), "u1", "made-up")).rejects.toMatchObject({ code: "bad_passage" });
   });
 

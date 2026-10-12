@@ -14,6 +14,7 @@ import { activeEntitlement } from "@/lib/family/permissions";
 import { familyPreviewEnabled } from "@/lib/family/session";
 import { authConfigured } from "@/lib/auth/supabase";
 import { carriedInvitationToken } from "@/lib/invitations/context";
+import { serverConfig } from "@/lib/server/config";
 
 function SignOutButton() {
   return (
@@ -100,7 +101,7 @@ export default async function FamilyHome() {
           <p className="text-muted">Signed in as</p>
           <h1 className="font-display text-4xl font-semibold">{adult.displayName}</h1>
         </div>
-        <CreateFamily suggestion={`The ${adult.displayName.split(" ").pop()} family`} />
+        <CreateFamily />
         <div className="flex flex-wrap gap-2">
           <Link href="/family/account" className={buttonSecondary}>
             Account settings
@@ -116,6 +117,9 @@ export default async function FamilyHome() {
   const home = [...homes][0];
   const hasPlan = home ? Boolean(activeEntitlement(state, home)) : false;
   const invited = account && isGuardian ? await carriedInvitationToken() : null;
+  // A voice made on an older reading model can be heard on the newest one and switched, by its owner.
+  const ownVoice = state.voices.find((v) => v.ownerId === adult.id && v.status === "ready" && v.deletedAt === null);
+  const newerModel = Boolean(account && ownVoice?.modelId && ownVoice.modelId !== serverConfig().elevenLabsModel);
   return (
     <FamilyShell>
       <div className="flex items-center gap-4">
@@ -124,12 +128,22 @@ export default async function FamilyHome() {
           <p className="text-muted">Signed in as</p>
           <h1 className="font-display text-4xl font-semibold">{adult.displayName}</h1>
           <p className="text-muted">{adult.relationship}</p>
+          {account && (
+            <Link href="/family/account#photo" className="text-sm font-semibold underline underline-offset-4">
+              {adult.avatarUrl ? "Change your photo" : "Add your photo"}
+            </Link>
+          )}
         </div>
       </div>
       <PreviewNote />
       {invited && (
         <Link href={`/v/${invited}/connect`} className="rounded-2xl bg-sky/50 px-4 py-3 font-semibold underline-offset-4 hover:underline" data-testid="invitation-waiting">
           A storyteller invited your family. Add them to your Family Circle →
+        </Link>
+      )}
+      {newerModel && (
+        <Link href="/family/my-voice" className="rounded-2xl bg-sunshine/50 px-4 py-3 font-semibold underline-offset-4 hover:underline" data-testid="voice-model-banner">
+          A new version of your Readli voice is ready to try. Hear it and choose →
         </Link>
       )}
       {account && home && <p className="font-display text-xl">{state.households.find((h) => h.id === home)?.name}</p>}

@@ -18,7 +18,7 @@ export async function GET() {
   return NextResponse.json({ available }, { headers: { "cache-control": "no-store" } });
 }
 
-/** Makes (or replaces) the signed-in grown-up's voice from their demo take, under the agreement they just accepted. */
+/** Makes a new voice candidate from the signed-in grown-up's demo take, under the agreement they just accepted. */
 export async function POST(req: Request) {
   const deps = accountVoiceDeps(serverConfig());
   if (!deps) return fail(503, "voices_off", "Readli voices aren't switched on here yet.");
@@ -31,12 +31,12 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => null)) as { agreementId?: unknown; removeBackgroundNoise?: unknown } | null;
   try {
-    const voice = await voiceFromDemo(deps, guests.store, guest.id, { id: user.id, name: user.name }, {
+    const candidate = await voiceFromDemo(deps, guests.store, guest.id, { id: user.id, name: user.name }, {
       agreementId: typeof body?.agreementId === "string" ? body.agreementId : null,
       removeBackgroundNoise: body?.removeBackgroundNoise === true,
       userAgent: req.headers.get("user-agent"),
     });
-    return NextResponse.json({ voice }, { status: 201 });
+    return NextResponse.json({ candidate: { id: candidate.id, createdAt: candidate.createdAt } }, { status: 201 });
   } catch (err) {
     if (err instanceof AccountVoiceError) return fail(err.status, err.code, err.userMessage);
     throw err;

@@ -21,6 +21,11 @@ export interface RecorderState {
   pauseCount: number;
   /** Increments on every Start over so the reader can reset its scroll. */
   take: number;
+  /** Furthest script sentence reached while recording, and how many sentences the script has. */
+  furthestSentence: number;
+  totalSentences: number;
+  /** The sentence that unlocks Finish: the first one of the script's last paragraph. */
+  finishFromSentence: number;
 }
 
 export type RecorderAction =
@@ -30,11 +35,17 @@ export type RecorderAction =
   | { type: "pause" }
   | { type: "resume" }
   | { type: "tick"; deltaMs: number }
+  | { type: "progress"; sentence: number; totalSentences: number; finishFromSentence?: number }
   | { type: "finish" }
   | { type: "start_over" };
 
 export const TARGET_MIN_MS = 60_000;
 export const TARGET_MAX_MS = 120_000;
+/**
+ * The take must reach the end of the script; this floor only stops a reader from dragging the
+ * script to the end. Fast readers finish the whole script in about 70 seconds at 200 words/min.
+ */
+export const MIN_FINISH_MS = 50_000;
 
 export const initialRecorderState: RecorderState = {
   status: "consent",
@@ -42,6 +53,9 @@ export const initialRecorderState: RecorderState = {
   elapsedMs: 0,
   pauseCount: 0,
   take: 0,
+  furthestSentence: 0,
+  totalSentences: 0,
+  finishFromSentence: 0,
 };
 
 export function hasConsent(consent: ConsentState): boolean {
@@ -62,21 +76,46 @@ export function recorderReducer(state: RecorderState, action: RecorderAction): R
       return state.status === "recording" ? { ...state, status: "paused", pauseCount: state.pauseCount + 1 } : state;
     case "resume":
       return state.status === "paused" ? { ...state, status: "recording" } : state;
-    case "tick":
-      return state.status === "recording" ? { ...state, elapsedMs: state.elapsedMs + Math.max(0, action.deltaMs) } : state;
+    case "tick": {
+      if (state.status !== "recording") return state;
+      return { ...state, elapsedMs: state.elapsedMs + Math.max(0, action.deltaMs) };
+    }
+    case "progress": {
+      const finishFromSentence = Math.min(action.finishFromSentence ?? action.totalSentences - 1, action.totalSentences - 1);
+      // Scrolling before Start, or after Finish, doesn't count as reading.
+      if (state.status !== "recording" && state.status !== "paused") return { ...state, totalSentences: action.totalSentences, finishFromSentence };
+      return {
+        ...state,
+        totalSentences: action.totalSentences,
+        finishFromSentence,
+        furthestSentence: Math.max(state.furthestSentence, Math.min(action.sentence, action.totalSentences - 1)),
+      };
+    }
     case "finish":
-      return (state.status === "recording" || state.status === "paused") && canFinish(state.elapsedMs)
-        ? { ...state, status: "review" }
-        : state;
+      return (state.status === "recording" || state.status === "paused") && canFinish(state) ? { ...state, status: "review" } : state;
     case "start_over":
       if (state.status === "consent") return state;
-      return { ...state, status: "ready", elapsedMs: 0, pauseCount: 0, take: state.take + 1 };
+      return { ...state, status: "ready", elapsedMs: 0, pauseCount: 0, take: state.take + 1, furthestSentence: 0 };
   }
 }
 
-/** A take can't be finished before the one-minute minimum; shorter samples make poor clones. */
-export function canFinish(elapsedMs: number): boolean {
-  return elapsedMs >= TARGET_MIN_MS;
+export type FinishBlocker = "script" | "time" | null;
+
+/**
+ * Why Finish is still locked: the reader hasn't reached the last paragraph yet, or the take is
+ * shorter than the floor. Finish turns on as the last paragraph starts, so a reader who gets there
+ * ahead of the scroll never waits in silence (Kevin, 2026-10-12).
+ */
+type FinishFacts = Pick<RecorderState, "elapsedMs" | "furthestSentence" | "totalSentences" | "finishFromSentence">;
+
+export function finishBlocker(state: FinishFacts): FinishBlocker {
+  if (state.totalSentences > 0 && state.furthestSentence < state.finishFromSentence) return "script";
+  if (state.elapsedMs < MIN_FINISH_MS) return "time";
+  return null;
+}
+
+export function canFinish(state: FinishFacts): boolean {
+  return finishBlocker(state) === null;
 }
 
 export type DurationGuidance = "too_short" | "in_range" | "long";

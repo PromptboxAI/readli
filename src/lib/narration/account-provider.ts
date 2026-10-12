@@ -14,9 +14,9 @@ export class AccountNarrationProvider implements VoiceProvider {
     throw new Error("voices are made by the recording flow");
   }
 
-  async synthesize(input: { voiceId: string; text: string }): Promise<SynthesizedAudio> {
+  async synthesize(input: { voiceId: string; text: string; modelId?: string }): Promise<SynthesizedAudio> {
     const id = (await providerVoiceId(this.deps, input.voiceId)) ?? (await ensureClone(this.deps, input.voiceId));
-    return this.deps.provider.synthesize({ voiceId: id, text: input.text });
+    return this.deps.provider.synthesize({ voiceId: id, text: input.text, modelId: input.modelId });
   }
 
   async deleteVoice(): Promise<void> {}

@@ -100,7 +100,6 @@ export function settingsFromRow(row: Row | null): InvitationSettings {
     maxRecipientsPerDay: n(row.max_recipients_per_day, d.maxRecipientsPerDay),
     maxResends: n(row.max_resends, d.maxResends),
     linkDays: n(row.link_days, d.linkDays),
-    previewGenerationsPer30Days: n(row.preview_generations_per_30_days, d.previewGenerationsPer30Days),
   };
 }
 
@@ -117,7 +116,6 @@ export function settingsUpdate(input: Record<string, unknown>): { ok: true; row:
     maxRecipientsPerDay: "max_recipients_per_day",
     maxResends: "max_resends",
     linkDays: "link_days",
-    previewGenerationsPer30Days: "preview_generations_per_30_days",
   };
   for (const [key, [min, max]] of Object.entries(SETTING_BOUNDS) as [keyof typeof SETTING_BOUNDS, [number, number]][]) {
     const v = Number(input[key]);
@@ -158,11 +156,8 @@ export interface ContributorState {
   displayName: string;
   approved: PreviewView | null;
   draft: PreviewView | null;
-  generationsLeft: number;
   settings: InvitationSettings;
 }
-
-const DAY = 86_400_000;
 
 function previewView(r: Row): PreviewView {
   return { id: r.id as string, book: r.book_slug as string, passageId: r.passage_id as string, approved: Boolean(r.approved_at), createdAt: r.created_at as string };
@@ -176,8 +171,11 @@ async function livePreviews(db: SupabaseClient, ownerId: string, voice: Contribu
   );
 }
 
-async function generationsUsed(db: SupabaseClient, ownerId: string, now: Date): Promise<number> {
-  const rows = await q(db.from("voice_previews").select("id").eq("owner_id", ownerId).gte("created_at", new Date(now.getTime() - 30 * DAY).toISOString()), "count previews");
+/** Contributors make as many previews as they like (Kevin, 2026-10-12); this only stops a runaway script. */
+export const PREVIEWS_PER_HOUR = 20;
+
+async function previewsLastHour(db: SupabaseClient, ownerId: string, now: Date): Promise<number> {
+  const rows = await q(db.from("voice_previews").select("id").eq("owner_id", ownerId).gte("created_at", new Date(now.getTime() - 3_600_000).toISOString()), "count previews");
   return rows.length;
 }
 
@@ -193,11 +191,10 @@ async function emailConfirmed(db: SupabaseClient, userId: string): Promise<boole
   return Boolean(data.user.email_confirmed_at ?? data.user.confirmed_at);
 }
 
-export async function contributorState(db: SupabaseClient, deps: PreviewDeps, user: { id: string; name: string }, now = new Date()): Promise<ContributorState> {
-  const [voice, settings, used, displayName, confirmed] = await Promise.all([
+export async function contributorState(db: SupabaseClient, deps: PreviewDeps, user: { id: string; name: string }): Promise<ContributorState> {
+  const [voice, settings, displayName, confirmed] = await Promise.all([
     deps.findVoice(user.id),
     invitationSettings(db),
-    generationsUsed(db, user.id, now),
     displayNameOf(db, user.id, user.name),
     emailConfirmed(db, user.id),
   ]);
@@ -209,7 +206,6 @@ export async function contributorState(db: SupabaseClient, deps: PreviewDeps, us
     displayName,
     approved: approved ? previewView(approved) : null,
     draft: draft ? previewView(draft) : null,
-    generationsLeft: Math.max(0, settings.previewGenerationsPer30Days - used),
     settings,
   };
 }
@@ -226,9 +222,8 @@ export async function generatePreview(db: SupabaseClient, deps: PreviewDeps, use
   if (!passage || !findCatalogBook(passage.book)) throw new InvitationError(400, "bad_passage", "Choose one of the passages.");
   const voice = await deps.findVoice(userId);
   if (!voice?.providerVoiceId || voice.status !== "ready") throw new InvitationError(409, "no_voice", "Record your Readli voice first.");
-  const settings = await invitationSettings(db);
-  if ((await generationsUsed(db, userId, now)) >= settings.previewGenerationsPer30Days) {
-    throw new InvitationError(429, "generation_limit", `You've made ${settings.previewGenerationsPer30Days} previews in the last 30 days. You can make another soon.`);
+  if ((await previewsLastHour(db, userId, now)) >= PREVIEWS_PER_HOUR) {
+    throw new InvitationError(429, "generation_limit", "You've made a lot of previews in the last hour. Try again a little later.");
   }
   const audio = await deps.provider.synthesize({ voiceId: voice.providerVoiceId, text: passage.text });
   const key = `${userId}/${randomUUID()}.mp3`;

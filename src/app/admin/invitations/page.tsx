@@ -19,7 +19,6 @@ const LABELS: Record<keyof typeof SETTING_BOUNDS, string> = {
   maxRecipientsPerDay: "People per contributor per day",
   maxResends: "Resends per person",
   linkDays: "Days a link works",
-  previewGenerationsPer30Days: "Previews a contributor can make in 30 days",
 };
 
 const money = (cents: number) => (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });

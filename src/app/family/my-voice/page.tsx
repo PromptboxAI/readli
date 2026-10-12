@@ -6,7 +6,8 @@ import { AccountVoiceControls } from "@/components/family/AccountVoiceControls";
 import { MyVoiceSharing } from "@/components/family/MyVoiceSharing";
 import { currentUser } from "@/lib/auth/supabase";
 import { serverConfig } from "@/lib/server/config";
-import { accountVoiceDeps } from "@/lib/voice/account-voices";
+import { VoiceModelUpgrade } from "@/components/family/VoiceModelUpgrade";
+import { accountVoiceDeps, voiceModelStatus } from "@/lib/voice/account-voices";
 import { familyPage } from "@/lib/family/page-data";
 import { myVoices } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
@@ -23,10 +24,12 @@ export default async function MyVoicePage() {
   const deps = page.session.account ? accountVoiceDeps(serverConfig()) : null;
   const user = deps ? await currentUser() : null;
   const recording = deps && user ? await deps.store.findVoice(user.id).catch(() => null) : null;
+  const model = deps && user ? await voiceModelStatus(deps, user.id).catch(() => null) : null;
   return (
     <FamilyShell>
       <PreviewNote />
       <h1 className="font-display text-4xl font-semibold">My voice</h1>
+      {model?.canUpgrade && <VoiceModelUpgrade />}
       {user && <AccountVoiceControls voice={recording && { status: recording.status, version: recording.version, updatedAt: recording.updatedAt }} />}
       {recording?.status === "ready" && (
         <section className="flex flex-col items-start gap-3 rounded-[var(--radius-panel)] bg-sky/40 p-6" data-testid="invite-family-card">

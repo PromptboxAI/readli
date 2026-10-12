@@ -24,6 +24,16 @@ export interface ServerConfig {
   maxRecordingMs: number;
   maxRecordingBytes: number;
   policyVersion: string;
+  /** Stories a guest can hear in their voice. Admins change it on /admin/voice-quality (demo_settings). */
+  guestPreviewsAllowed: number;
+}
+
+export const DEFAULT_GUEST_PREVIEWS = 4;
+export const MAX_GUEST_PREVIEWS = 12;
+
+export function previewsAllowed(value: unknown): number {
+  const n = Math.round(Number(value));
+  return value !== undefined && value !== null && value !== "" && Number.isFinite(n) && n >= 1 ? Math.min(n, MAX_GUEST_PREVIEWS) : DEFAULT_GUEST_PREVIEWS;
 }
 
 export function serverConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
@@ -40,10 +50,11 @@ export function serverConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig
     elevenLabsModel: env.ELEVENLABS_MODEL_ID || DEFAULT_MODEL,
     cookieSecret,
     cronSecret: env.CRON_SECRET,
-    // The recorder won't finish before 1:00; a second of slack covers timer drift between browser clocks.
-    minRecordingMs: Number(env.GUEST_MIN_RECORDING_MS ?? 59_000),
+    // The recorder won't finish before the end of the script and 0:50; a second of slack covers clock drift.
+    minRecordingMs: Number(env.GUEST_MIN_RECORDING_MS ?? 49_000),
     maxRecordingMs: 150_000,
     maxRecordingBytes: 25 * 1024 * 1024,
     policyVersion: env.GUEST_POLICY_VERSION ?? "guest-demo-2026-10",
+    guestPreviewsAllowed: previewsAllowed(env.GUEST_PREVIEWS_ALLOWED),
   };
 }
