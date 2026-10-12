@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { currentUser } from "@/lib/auth/supabase";
+import { currentAdult } from "@/lib/auth/adult";
 import { serverConfig } from "@/lib/server/config";
 import { fail } from "@/lib/server/http";
 import { recordVoiceEvent } from "@/lib/server/voice-analytics";
@@ -12,7 +12,7 @@ export async function DELETE() {
   const config = serverConfig();
   const deps = accountVoiceDeps(config);
   if (!deps) return fail(503, "voices_off", "Readli voices aren't switched on here yet.");
-  const user = await currentUser();
+  const user = await currentAdult();
   if (!user) return fail(401, "sign_in_required", "Please sign in first.");
   const had = await deps.store.findCandidate(user.id);
   await discardVoiceCandidate(deps, user.id);

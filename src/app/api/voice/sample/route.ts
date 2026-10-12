@@ -1,4 +1,4 @@
-import { currentUser } from "@/lib/auth/supabase";
+import { currentAdult } from "@/lib/auth/adult";
 import { serverConfig } from "@/lib/server/config";
 import { fail } from "@/lib/server/http";
 import { AccountVoiceError, accountVoiceDeps, accountVoiceSample } from "@/lib/voice/account-voices";
@@ -14,7 +14,7 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   const deps = accountVoiceDeps(serverConfig());
   if (!deps) return fail(503, "voices_off", "Readli voices aren't switched on here yet.");
-  const user = await currentUser();
+  const user = await currentAdult();
   if (!user) return fail(401, "sign_in_required", "Please sign in to hear your voice.");
   try {
     const params = new URL(req.url).searchParams;

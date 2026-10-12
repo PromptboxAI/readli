@@ -2,13 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { buttonPrimary, buttonQuiet, buttonSecondary } from "@/components/brand/buttons";
+import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 
-/** The signed-in grown-up's own recording: hear it, record it again for better quality, or delete it. */
+/** The signed-in grown-up's own recording: hear it, or record it again for better quality. Deleting is paused for now. */
 export function AccountVoiceControls({ voice }: { voice: { status: string; version: number; updatedAt: string } | null }) {
-  const router = useRouter();
-  const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [sample, setSample] = useState<string | null>(null);
@@ -24,17 +21,6 @@ export function AccountVoiceControls({ voice }: { voice: { status: string; versi
     setSample(URL.createObjectURL(await res.blob()));
   };
 
-  const remove = async () => {
-    setBusy(true);
-    const res = await fetch("/api/voice", { method: "DELETE" });
-    setBusy(false);
-    setConfirming(false);
-    if (!res.ok) return setMessage((await res.json().catch(() => null))?.error?.message ?? "We couldn't delete your voice. Please try again.");
-    setSample(null);
-    setMessage("Your voice is deleted. No family can use it, and the stories made with it are gone.");
-    router.refresh();
-  };
-
   return (
     <section aria-labelledby="recording-h" className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-surface p-5 ring-2 ring-ink/10" data-testid="account-voice">
       <h2 id="recording-h" className="font-display text-2xl font-semibold">
@@ -47,34 +33,18 @@ export function AccountVoiceControls({ voice }: { voice: { status: string; versi
             {voice.version > 1 ? ` (take ${voice.version})` : ""}. Recording again in a quiet room replaces it, and families you share it
             with keep hearing you, with the new recording.
           </p>
-          {confirming ? (
-            <div className="flex flex-col gap-3 rounded-2xl bg-coral/15 p-4">
-              <p className="font-semibold">
-                Delete your voice? Every family you share it with loses it straight away, and stories already prepared in it are removed.
-                You can record a new one whenever you like.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <button type="button" className={buttonPrimary} disabled={busy} onClick={remove}>
-                  Delete my voice
-                </button>
-                <button type="button" className={buttonSecondary} disabled={busy} onClick={() => setConfirming(false)}>
-                  Keep it
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-3">
-              <button type="button" className={buttonSecondary} disabled={busy || voice.status !== "ready"} onClick={playSample}>
-                Hear my voice
-              </button>
-              <Link href="/voice/record" className={buttonSecondary}>
-                Record again
-              </Link>
-              <button type="button" className={buttonQuiet} disabled={busy} onClick={() => setConfirming(true)}>
-                Delete my voice
-              </button>
-            </div>
-          )}
+          <div className="flex flex-wrap gap-3">
+            <button type="button" className={buttonSecondary} disabled={busy || voice.status !== "ready"} onClick={playSample}>
+              Hear my voice
+            </button>
+            <Link href="/voice/record" className={buttonSecondary}>
+              Record again
+            </Link>
+          </div>
+          <p className="text-sm text-muted">
+            Deleting your voice yourself is paused while we update how finished stories are kept. Email admin@readli.ai if you need it
+            deleted now.
+          </p>
           {sample && <audio key={sample} controls autoPlay src={sample} className="w-full" aria-label="A sample of your Readli voice" />}
         </>
       ) : (

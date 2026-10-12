@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { GiftOpen } from "@/components/gifting/GiftOpen";
 import { GiftVoicePreview } from "@/components/invitations/GiftVoicePreview";
 import { AdultPage, PreviewNote } from "@/components/invites/AdultPage";
-import { currentUser } from "@/lib/auth/supabase";
+import { currentAdult } from "@/lib/auth/adult";
 import { accountDb } from "@/lib/family/account-store";
 import { familyAccountsEnabled } from "@/lib/family/session";
 import { normalizeGiftCode } from "@/lib/gifting/codes";
@@ -21,7 +21,7 @@ export default async function GiftOpenPage({ searchParams }: { searchParams: Pro
   if (code && db && familyAccountsEnabled()) {
     const gift = await giftForCode(db, code);
     if (gift) {
-      const [signedIn, voice] = await Promise.all([currentUser().then(Boolean), giftPreview(db, code).catch(() => null)]);
+      const [signedIn, voice] = await Promise.all([currentAdult().then(Boolean), giftPreview(db, code).catch(() => null)]);
       return (
         <AdultPage>
           {voice && <GiftVoicePreview code={code} giverName={voice.giverName} book={voice.book} />}

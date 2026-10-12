@@ -1,4 +1,4 @@
-import { currentUser } from "@/lib/auth/supabase";
+import { currentAdult } from "@/lib/auth/adult";
 import { accountDb } from "@/lib/family/account-store";
 import { guardianHousehold } from "@/lib/family/service";
 import { currentSession, familyAccountsEnabled, familyPreviewEnabled, familyStore } from "@/lib/family/session";
@@ -31,6 +31,6 @@ export type InviteeLanding = { signedIn: boolean; invite: InviteLanding | null }
 export async function inviteeLanding(token: string): Promise<InviteeLanding> {
   const db = accountDb();
   if (!db || !familyAccountsEnabled()) return null;
-  const user = await currentUser();
+  const user = await currentAdult();
   return { signedIn: Boolean(user), invite: await inviteForToken(db, token, user?.id ?? null) };
 }

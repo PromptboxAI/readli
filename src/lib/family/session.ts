@@ -6,6 +6,7 @@ import { accountDb, AccountFamilyStore } from "./account-store";
 import { sameHash } from "@/lib/server/guest-token";
 import { StubVoiceProvider } from "@/lib/voice/stub";
 import { demoFamilyState } from "./demo-family";
+import { KIDS_COOKIE } from "./kids-mode";
 import type { Actor } from "./model";
 import { MemoryFamilyStore, type FamilyStore } from "./service";
 import { planConfig } from "./plan";
@@ -27,7 +28,7 @@ import type { VoiceProvider } from "@/lib/voice/provider";
  */
 export const FAMILY_COOKIE = "readli_family_demo";
 /** Which kids profile a signed-in grown-up opened on this device. Tied to that grown-up's account. */
-export const KIDS_COOKIE = "readli_kids_profile";
+export { KIDS_COOKIE };
 const ACCOUNT_SANDBOX = "account";
 
 export function familyPreviewEnabled(env: NodeJS.ProcessEnv = process.env): boolean {

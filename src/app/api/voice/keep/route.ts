@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { currentUser } from "@/lib/auth/supabase";
+import { currentAdult } from "@/lib/auth/adult";
 import { accountDb } from "@/lib/family/account-store";
 import { track } from "@/lib/invitations/server";
 import { serverConfig } from "@/lib/server/config";
@@ -14,7 +14,7 @@ export async function POST() {
   const config = serverConfig();
   const deps = accountVoiceDeps(config);
   if (!deps) return fail(503, "voices_off", "Readli voices aren't switched on here yet.");
-  const user = await currentUser();
+  const user = await currentAdult();
   if (!user) return fail(401, "sign_in_required", "Please sign in to keep your voice.");
   try {
     const voice = await keepVoiceCandidate(deps, { id: user.id, name: user.name });

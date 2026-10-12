@@ -6,7 +6,7 @@ import { InvitationList } from "@/components/invitations/InvitationList";
 import { InviteComposer } from "@/components/invitations/InviteComposer";
 import { PreviewPicker, type PickerBook } from "@/components/invitations/PreviewPicker";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
-import { currentUser } from "@/lib/auth/supabase";
+import { currentAdult } from "@/lib/auth/adult";
 import { invitationContext } from "@/lib/invitations/context";
 import { PREVIEW_PASSAGES } from "@/lib/invitations/passages";
 import { ADULTS_CONSENT, SHARE_CONSENT, contributorState, listInvitations } from "@/lib/invitations/server";
@@ -53,7 +53,7 @@ export default async function InviteFamilyPage() {
       </AdultPage>
     );
   }
-  const user = await currentUser();
+  const user = await currentAdult();
   if (!user) redirect(`/login?next=${encodeURIComponent("/voice/invite")}`);
   const state = await contributorState(ctx.db, ctx.deps, user);
   if (state.blocker) {

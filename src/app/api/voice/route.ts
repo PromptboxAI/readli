@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { currentUser } from "@/lib/auth/supabase";
+import { currentAdult } from "@/lib/auth/adult";
 import { serverConfig } from "@/lib/server/config";
 import { fail } from "@/lib/server/http";
 import { recordVoiceEvent } from "@/lib/server/voice-analytics";
-import { AccountVoiceError, accountVoiceDeps, createVoiceCandidate, deleteAccountVoice } from "@/lib/voice/account-voices";
+import { AccountVoiceError, accountVoiceDeps, createVoiceCandidate } from "@/lib/voice/account-voices";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -21,7 +21,7 @@ function intOrNull(v: FormDataEntryValue | null): number | null {
 export async function GET() {
   const deps = accountVoiceDeps(serverConfig());
   if (!deps) return fail(503, "voices_off", VOICES_OFF);
-  const user = await currentUser();
+  const user = await currentAdult();
   if (!user) return fail(401, "sign_in_required", SIGN_IN);
   const voice = await deps.store.findVoice(user.id);
   return NextResponse.json({ voice: voice ? { id: voice.id, status: voice.status, version: voice.version, updatedAt: voice.updatedAt } : null }, { headers: { "cache-control": "no-store" } });
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
   const config = serverConfig();
   const deps = accountVoiceDeps(config);
   if (!deps) return fail(503, "voices_off", VOICES_OFF);
-  const user = await currentUser();
+  const user = await currentAdult();
   if (!user) return fail(401, "sign_in_required", SIGN_IN);
 
   const form = await req.formData().catch(() => null);
@@ -75,17 +75,10 @@ export async function POST(req: Request) {
   }
 }
 
-/** Deletes the grown-up's voice everywhere. They can record a new one at any time. */
+/**
+ * Deleting a voice is paused: today it would also remove finished stories, and Kevin asked
+ * (2026-10-11) that finished stories be kept. The voice rights work brings it back with that rule.
+ */
 export async function DELETE() {
-  const deps = accountVoiceDeps(serverConfig());
-  if (!deps) return fail(503, "voices_off", VOICES_OFF);
-  const user = await currentUser();
-  if (!user) return fail(401, "sign_in_required", "Please sign in to delete your voice.");
-  try {
-    await deleteAccountVoice(deps, user.id);
-    return NextResponse.json({ voice: null });
-  } catch (err) {
-    if (err instanceof AccountVoiceError) return fail(err.status, err.code, err.userMessage);
-    throw err;
-  }
+  return fail(409, "deletion_paused", "Deleting a voice is paused while we update how finished stories are kept. Your voice hasn't changed. Email admin@readli.ai if you need it deleted now.");
 }
