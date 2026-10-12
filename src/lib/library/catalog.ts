@@ -52,6 +52,7 @@ const ADDED: readonly UpcomingBook[] = [
   { slug: "sleeping-beauty", title: "Sleeping Beauty", author: "The Brothers Grimm", firstPublished: 1812, approxMinutes: 9 },
   { slug: "the-tale-of-two-bad-mice", title: "The Tale of Two Bad Mice", author: "Beatrix Potter", firstPublished: 1904, approxMinutes: 6 },
   { slug: "the-tale-of-mr-jeremy-fisher", title: "The Tale of Mr. Jeremy Fisher", author: "Beatrix Potter", firstPublished: 1906, approxMinutes: 5 },
+  { slug: "raggedy-ann-stories", title: "Raggedy Ann Stories", author: "Johnny Gruelle", firstPublished: 1918, approxMinutes: 84 },
   { slug: "just-so-stories", title: "Just So Stories", author: "Rudyard Kipling", firstPublished: 1902, approxMinutes: 109 },
   { slug: "heidi", title: "Heidi", author: "Johanna Spyri", firstPublished: 1881, approxMinutes: 333 },
 ].map((b) => ({ ...b, coverUrl: `/covers/${b.slug}.webp` }));

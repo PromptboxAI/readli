@@ -6,6 +6,8 @@
  * hand-edited endings (and the first two pigs run away rather than being eaten); keep them if a text
  * is ever re-imported. Sleeping Beauty's cook scolds the scullery boy rather than pulling his hair
  * or boxing his ear. Just So Stories keeps only its seven gentlest tales.
+ * Kevin, 2026-10-12: Raggedy Ann Stories has light edits to dated passages (Dinah's description, and the
+ * "Indian doll" is a scout doll).
  */
 import type { CatalogBook } from "../catalog";
 import AlicesAdventuresInWonderland from "./alices-adventures-in-wonderland.json";
@@ -13,6 +15,7 @@ import Cinderella from "./cinderella.json";
 import GoldilocksAndTheThreeBears from "./goldilocks-and-the-three-bears.json";
 import Heidi from "./heidi.json";
 import JustSoStories from "./just-so-stories.json";
+import RaggedyAnnStories from "./raggedy-ann-stories.json";
 import SleepingBeauty from "./sleeping-beauty.json";
 import TheElvesAndTheShoemaker from "./the-elves-and-the-shoemaker.json";
 import TheEmperorsNewClothes from "./the-emperors-new-clothes.json";
@@ -37,6 +40,7 @@ export const LIBRARY_TEXTS: Record<string, Pick<CatalogBook, "edition" | "chapte
   "goldilocks-and-the-three-bears": GoldilocksAndTheThreeBears,
   "heidi": Heidi,
   "just-so-stories": JustSoStories,
+  "raggedy-ann-stories": RaggedyAnnStories,
   "sleeping-beauty": SleepingBeauty,
   "the-elves-and-the-shoemaker": TheElvesAndTheShoemaker,
   "the-emperors-new-clothes": TheEmperorsNewClothes,
