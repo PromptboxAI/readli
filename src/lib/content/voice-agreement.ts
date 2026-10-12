@@ -6,7 +6,7 @@
 
 import type { PolicySection } from "@/lib/content/privacy-policy";
 
-export const VOICE_AGREEMENT_VERSION = "voice-agreement-2026-10-12.1";
+export const VOICE_AGREEMENT_VERSION = "voice-agreement-2026-10-12.2";
 export const VOICE_AGREEMENT_EFFECTIVE_DATE = "October 12, 2026";
 export const VOICE_AGREEMENT_PATH = "/voice-agreement";
 
@@ -75,7 +75,7 @@ export const VOICE_CHOICES = {
   stopSharing: {
     title: "Stop sharing my voice",
     terms:
-      "This withdraws your authorization for new stories in your voice in every family at once. Stories still being prepared stop (unused credits go back to the family), and your voice model at Readli's voice provider is retired because no valid use remains. Stories already prepared keep playing for the families you shared with, as section 9 describes. Your original recordings and this Agreement are kept, so you can allow new stories again later, when your voice model is re-made from your recording. Separately, you can turn sharing off for one family at a time; that family then stops hearing your voice, including stories already prepared for it.",
+      "This withdraws your authorization for new stories in your voice in every family at once. Stories still being prepared stop (unused credits go back to the family), and your voice model at Readli's voice provider is retired. Stories already prepared keep playing for the families you shared with, as section 9 describes. Your original recordings and this Agreement are kept, so you can allow new stories again later, when your voice model is re-made from your recording. Separately, you can turn sharing off for one family at a time; that family then stops hearing your voice, including stories already prepared for it.",
     notice:
       "No family can have new stories made in your voice. Stories being prepared stop and unused credits go back to each family. Your voice model is retired. Stories already made keep playing, and your recordings are kept, so you can allow new stories again later.",
   },
@@ -131,14 +131,14 @@ export const VOICE_AGREEMENT_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Readli technology development rights",
-        text: "use your original recordings to develop, train, evaluate and improve Readli-owned voice-generation systems, including through third-party processors working on Readli’s behalf under contract. Required to use Readli Voice, subject to applicable law.",
+        text: "use your original recordings to develop, train, evaluate and improve Readli-owned voice-generation systems, including through third-party processors working on Readli’s behalf under contract. Required when you set up Readli Voice, subject to applicable law. You can withdraw it later without losing your story voice, as section 8 describes.",
       },
       {
         lead: "Independent commercial licensing rights",
         text: "license your original recordings to other companies for their own AI model development and training. This is optional, off unless you specifically turn it on, and is never a condition of using Readli. Any licensing of identifiable voice recordings to third parties for their independent model training or commercial development will be subject to a separate, clearly disclosed authorization where required.",
       },
       {
-        text: "Readli records which of these rights you granted, for each recording, so that Readli and any successor know exactly what each recording may be used for.",
+        text: "Readli records which of these rights you granted, for each recording, so that Readli and any successor know exactly what each recording may be used for. Each right lasts until you withdraw it as section 8 describes.",
       },
     ],
   },
@@ -198,7 +198,7 @@ export const VOICE_AGREEMENT_SECTIONS: PolicySection[] = [
         text: "Separately, you can withdraw permission for AI training: Readli development and licensing of your recordings stop, and your story voice keeps working. You can also turn independent commercial licensing off on its own; that stops new licensing of your recordings, but cannot recall copies already licensed under your earlier authorization unless the license or law requires it. Models or systems already trained may not be able to remove what they learned from a recording.",
       },
       {
-        text: "Deleting your account includes action C, and keeps stories already delivered to other families only as far as this Agreement and the law allow. Recording again later needs a new agreement. In every case, stories already prepared are handled as section 9 describes, and legally required removals stay available. Contact admin@readli.ai for help or to exercise any legally required withdrawal, deletion or privacy right.",
+        text: "Deleting your account includes action C. Stories already delivered to other families keep playing there as section 9 describes, unless the law requires their removal. Recording again later needs a new agreement. In every case, stories already prepared are handled as section 9 describes, and legally required removals stay available. Contact admin@readli.ai for help or to exercise any legally required withdrawal, deletion or privacy right.",
       },
     ],
   },
@@ -207,7 +207,7 @@ export const VOICE_AGREEMENT_SECTIONS: PolicySection[] = [
     title: "9. Stories already prepared",
     paragraphs: [
       {
-        text: "This Agreement separates two things. Future narration rights let Readli make new narration in your voice and re-create your voice clone; they end when you delete your voice. Retention and playback of narration already finished let the families you shared your voice with keep playing stories Readli completed for them before then, in the voice version each story was made with, for as long as their household has a Readli plan that includes those stories. Recording again replaces your voice for new stories only.",
+        text: "This Agreement separates two things. Future narration rights let Readli make new narration in your voice and re-create your voice clone; they are paused while you stop sharing your voice (action B) and end when you delete your voice (action C). Retention and playback of narration already finished let the families you shared your voice with keep playing stories Readli completed for them before then, in the voice version each story was made with, for as long as their household has a Readli plan that includes those stories, unless you turn sharing off for that one family. Recording again replaces your voice for new stories only.",
       },
       {
         text: "If the law requires stories already prepared in your voice to be removed, Readli removes them for that voice or that book through a separate, recorded process. Contact admin@readli.ai to ask.",
