@@ -124,6 +124,11 @@ export default async function FamilyHome() {
           <p className="text-muted">Signed in as</p>
           <h1 className="font-display text-4xl font-semibold">{adult.displayName}</h1>
           <p className="text-muted">{adult.relationship}</p>
+          {account && (
+            <Link href="/family/account#photo" className="text-sm font-semibold underline underline-offset-4">
+              {adult.avatarUrl ? "Change your photo" : "Add your photo"}
+            </Link>
+          )}
         </div>
       </div>
       <PreviewNote />
