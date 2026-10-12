@@ -76,7 +76,7 @@ export default async function InviteFamilyPage() {
   return (
     <AdultPage wide>
       {header}
-      <PreviewPicker books={pickerBooks()} approved={state.approved} draft={state.draft} generationsLeft={state.generationsLeft} />
+      <PreviewPicker books={pickerBooks()} approved={state.approved} draft={state.draft} />
       <InviteComposer
         maxPerSend={state.settings.maxRecipientsPerSend}
         linkDays={state.settings.linkDays}

@@ -40,7 +40,6 @@ export interface InvitationSettings {
   maxRecipientsPerDay: number;
   maxResends: number;
   linkDays: number;
-  previewGenerationsPer30Days: number;
 }
 
 export const DEFAULT_INVITATION_SETTINGS: InvitationSettings = {
@@ -49,7 +48,6 @@ export const DEFAULT_INVITATION_SETTINGS: InvitationSettings = {
   maxRecipientsPerDay: 30,
   maxResends: 3,
   linkDays: 14,
-  previewGenerationsPer30Days: 5,
 };
 
 export const SETTING_BOUNDS: Record<Exclude<keyof InvitationSettings, "sendingEnabled">, [number, number]> = {
@@ -57,7 +55,6 @@ export const SETTING_BOUNDS: Record<Exclude<keyof InvitationSettings, "sendingEn
   maxRecipientsPerDay: [1, 500],
   maxResends: [0, 10],
   linkDays: [1, 60],
-  previewGenerationsPer30Days: [1, 50],
 };
 
 export const NAME_MAX = 80;
