@@ -15,6 +15,14 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Voice quality | Readli admin", robots: { index: false } };
 
 const DAYS = 30;
+const ISSUE_LABEL: Record<string, string> = {
+  silent: "Silent",
+  too_short: "Too little speech",
+  too_quiet: "Too quiet",
+  clipping: "Clipping (too loud)",
+  noisy: "Background noise",
+  long_pause: "Long pauses",
+};
 const pct = (x: number | null) => (x === null ? "No decisions yet" : `${Math.round(x * 100)}%`);
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
@@ -35,7 +43,7 @@ function Table({ rows }: { rows: { label: string; value: string; note?: string }
           <tr key={r.label} className="border-b border-ink/10 align-top">
             <th scope="row" className="py-2 pr-4 font-semibold">{r.label}</th>
             <td className="py-2 pr-4 tabular-nums">{r.value}</td>
-            <td className="py-2 text-sm text-muted">{r.note ?? ""}</td>
+            <td className="py-2 text-sm text-muted [overflow-wrap:anywhere]">{r.note ?? ""}</td>
           </tr>
         ))}
       </tbody>
@@ -116,7 +124,7 @@ export default async function VoiceQualityPage({ searchParams }: { searchParams:
             <Table
               rows={Object.entries(m.warnings)
                 .sort((a, b) => b[1] - a[1])
-                .map(([issue, count]) => ({ label: issue, value: String(count), note: QC_MESSAGES[issue as QcIssue] }))}
+                .map(([issue, count]) => ({ label: ISSUE_LABEL[issue] ?? issue, value: String(count), note: QC_MESSAGES[issue as QcIssue] }))}
             />
           </>
         )}
