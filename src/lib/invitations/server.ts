@@ -288,8 +288,8 @@ export async function ownPreviewAudioUrl(db: SupabaseClient, userId: string, pre
   return row ? previewAudioUrl(db, row.storage_key as string) : null;
 }
 
-/** The contributor's current approved preview, if it still matches their voice. */
-async function approvedPreviewFor(db: SupabaseClient, contributorId: string): Promise<Row | null> {
+/** The contributor's current approved preview, if it still matches their voice. Gift emails reuse it too. */
+export async function approvedPreviewFor(db: SupabaseClient, contributorId: string): Promise<Row | null> {
   const [voice] = await q(db.from("voice_profiles").select("id, version, status").eq("owner_id", contributorId).neq("status", "deleted").order("created_at", { ascending: false }).limit(1), "read voice");
   if (!voice || voice.status !== "ready") return null;
   const [row] = await q(
