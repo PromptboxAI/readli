@@ -302,11 +302,10 @@ export function ThreeWaysToListen() {
           Every family has a story. Every voice makes it special.
         </h2>
         <ul className="grid gap-6 md:grid-cols-3">
-          {WAYS.map(({ title, body, bg, Art }) => (
+          {WAYS.map(({ title, body, bg, Art }, i) => (
             <li key={title} className="group flex flex-col gap-3">
-              {/* Shorter, untilted cards keep the portraits from dominating (Kevin, 2026-10-12). */}
               <div
-                className={`aspect-[16/10] overflow-hidden rounded-[var(--radius-panel)] transition-transform group-hover:-translate-y-1 motion-reduce:transform-none ${bg}`}
+                className={`aspect-[4/3] overflow-hidden rounded-[var(--radius-panel)] transition-transform group-hover:-translate-y-1 motion-reduce:transform-none ${bg} ${["md:-rotate-1", "md:rotate-1", "md:-rotate-1"][i]}`}
               >
                 <Art />
               </div>
