@@ -11,7 +11,7 @@ const STORYTELLERS: Storyteller[] = [
   { name: "Mom", avatar: "mom", approval: "approved", status: "Voice shared with family", row: "bg-sunshine/30" },
   { name: "Grandpa", avatar: "grandpa", approval: "approved", status: "Voice shared with family", row: "bg-mint/35" },
   { name: "Aunt Pook", avatar: "pook", approval: "not_approved", status: "Not approved for Milly", row: "bg-sky/25" },
-  { name: "Uncle Chris", avatar: "chris", approval: "awaiting", status: "Awaiting voice-owner permission", row: "bg-lavender/30" },
+  { name: "Uncle Kevin", avatar: "chris", approval: "awaiting", status: "Awaiting voice-owner permission", row: "bg-lavender/30" },
 ];
 
 function Toggle({ approval }: { approval: Approval }) {
@@ -53,7 +53,7 @@ function Heart({ className }: { className: string }) {
 }
 
 const ILLUSTRATION_LABEL =
-  "Illustration of Readli Family parent controls: Manage voices for Milly. Mom and Grandpa are switched on, Aunt Pook is not approved for Milly, and Uncle Chris is awaiting the voice owner's permission.";
+  "Illustration of Readli Family parent controls: Manage voices for Milly. Mom and Grandpa are switched on, Aunt Pook is not approved for Milly, and Uncle Kevin is awaiting the voice owner's permission.";
 
 /** Marketing illustration of the parental voice controls. The real approval portal lives in Readli Family. */
 function VoicePermissionsIllustration() {
