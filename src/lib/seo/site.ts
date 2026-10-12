@@ -54,7 +54,7 @@ export function publicPageMetadata({
     title,
     description,
     alternates: { canonical: path },
-    openGraph: { ...baseOpenGraph, ...(type ? { type } : {}), title, description, url: path, ...(images ? { images } : {}) },
+    openGraph: { ...baseOpenGraph, type: type ?? baseOpenGraph.type, title, description, url: path, ...(images ? { images } : {}) } as Metadata["openGraph"],
     twitter: { card: "summary_large_image", title, description, ...(images ? { images: images.map((i) => i.url) } : {}) },
   };
 }
