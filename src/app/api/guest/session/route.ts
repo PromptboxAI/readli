@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { cleanupExpiredGuests, currentGuest, effectiveMode, guestDemoDeps, previewsLeft, startGuest } from "@/lib/server/guest-demo";
+import { cleanupExpiredGuests, currentGuest, effectiveMode, guestDemoDeps, previewCounts, startGuest } from "@/lib/server/guest-demo";
 import { fail, PREVIEWS_OFF } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
@@ -18,5 +18,5 @@ export async function POST(req: Request) {
   await cleanupExpiredGuests(deps, 5).catch(() => undefined);
 
   const session = (await currentGuest(deps)) ?? (await startGuest(deps));
-  return NextResponse.json({ previewsLeft: previewsLeft(session), expiresAt: session.expiresAt }, { headers: { "cache-control": "no-store" } });
+  return NextResponse.json({ ...previewCounts(session), expiresAt: session.expiresAt }, { headers: { "cache-control": "no-store" } });
 }

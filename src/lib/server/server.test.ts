@@ -48,7 +48,7 @@ describe("guest tokens", () => {
 describe("memory guest store", () => {
   it("caps previews, refunds failures and finds sessions only by token hash", async () => {
     const store = new MemoryGuestStore();
-    const s = await store.createSession({ tokenHash: "h1", policyVersion: "v" });
+    const s = await store.createSession({ tokenHash: "h1", policyVersion: "v", generationsAllowed: 2 });
     expect(await store.findSession("h1")).toMatchObject({ id: s.id, hasVoice: false });
     expect(await store.findSession("nope")).toBeNull();
     expect(await store.useGeneration(s.id)).toBe(true);
@@ -61,7 +61,7 @@ describe("memory guest store", () => {
   it("cleanup deletes the provider voice and the session once expired", async () => {
     const store = new MemoryGuestStore();
     const provider = new StubVoiceProvider();
-    const s = await store.createSession({ tokenHash: "h2", policyVersion: "v" });
+    const s = await store.createSession({ tokenHash: "h2", policyVersion: "v", generationsAllowed: 2 });
     await store.setVoice(s.id, "voice-1");
     store.guests.get(s.id)!.session.expiresAt = new Date(Date.now() - 1000).toISOString();
     const result = await cleanupExpiredGuests({ config: serverConfig({ VOICE_PROVIDER: "stub" } as unknown as NodeJS.ProcessEnv), store, provider });

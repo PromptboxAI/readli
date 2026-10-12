@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { currentGuest, effectiveMode, guestDemoDeps } from "@/lib/server/guest-demo";
 import { fail, NO_SESSION, PREVIEWS_OFF } from "@/lib/server/http";
 import { checkUpload, SERVER_QC_MESSAGES } from "@/lib/server/recording-qc";
+import { recordVoiceEvent } from "@/lib/server/voice-analytics";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,19 @@ export async function POST(req: Request) {
     pauseCount: intOrNull(form.get("pauseCount")) ?? 0,
     deviceClass: DEVICE_CLASSES.find((d) => d === device) ?? null,
     scriptOffsetEnd: intOrNull(form.get("scriptOffsetEnd")),
+  });
+  await recordVoiceEvent(deps.config, {
+    name: "recording_submitted",
+    guestSessionId: guest.id,
+    properties: {
+      surface: "guest",
+      durationMs: Math.round(durationMs),
+      wpm: intOrNull(form.get("wpm")),
+      takeNumber: intOrNull(form.get("takeNumber")),
+      afterFeedback: form.get("afterFeedback") === "true",
+      qcIssues: form.getAll("qcIssue").filter((i): i is string => typeof i === "string").slice(0, 6),
+      deviceClass: DEVICE_CLASSES.find((d) => d === device) ?? null,
+    },
   });
   return NextResponse.json({ recordingId }, { status: 201 });
 }

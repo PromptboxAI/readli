@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   durationGuidance,
+  finishBlocker,
   formatClock,
   initialRecorderState,
   recorderReducer,
@@ -56,8 +57,8 @@ describe("continuous take", () => {
     ).toBe("review");
   });
 
-  it("won't finish before the one-minute minimum", () => {
-    const s = run([...consented, { type: "start" }, { type: "tick", deltaMs: 59_000 }, { type: "finish" }]);
+  it("won't finish before the 50-second floor", () => {
+    const s = run([...consented, { type: "start" }, { type: "tick", deltaMs: 49_000 }, { type: "finish" }]);
     expect(s.status).toBe("recording");
   });
 
@@ -70,6 +71,36 @@ describe("continuous take", () => {
   it("ignores negative ticks and ticks while paused", () => {
     const s = run([...consented, { type: "start" }, { type: "tick", deltaMs: -50 }, { type: "pause" }, { type: "tick", deltaMs: 999 }]);
     expect(s.elapsedMs).toBe(0);
+  });
+});
+
+describe("finishing the script", () => {
+  const script: RecorderAction = { type: "progress", sentence: 0, totalSentences: 12 };
+
+  it("stays locked until the last sentence is reached and read, however long the take", () => {
+    const halfway = run([...consented, script, { type: "start" }, { type: "progress", sentence: 6, totalSentences: 12 }, { type: "tick", deltaMs: 90_000 }]);
+    expect(finishBlocker(halfway)).toBe("script");
+    expect(recorderReducer(halfway, { type: "finish" }).status).toBe("recording");
+
+    const reached = recorderReducer(halfway, { type: "progress", sentence: 11, totalSentences: 12 });
+    expect(finishBlocker(reached)).toBe("script"); // just arrived at the last line
+    const read = recorderReducer(reached, { type: "tick", deltaMs: 4_000 });
+    expect(finishBlocker(read)).toBeNull();
+    expect(recorderReducer(read, { type: "finish" }).status).toBe("review");
+  });
+
+  it("a fast reader who reaches the end early still waits for the floor", () => {
+    const s = run([...consented, script, { type: "start" }, { type: "progress", sentence: 11, totalSentences: 12 }, { type: "tick", deltaMs: 30_000 }]);
+    expect(finishBlocker(s)).toBe("time");
+    expect(finishBlocker(recorderReducer(s, { type: "tick", deltaMs: 20_000 }))).toBeNull();
+  });
+
+  it("scrolling before Start doesn't count, scrolling back doesn't lose progress, and Start over resets it", () => {
+    const early = run([...consented, { type: "progress", sentence: 11, totalSentences: 12 }, { type: "start" }]);
+    expect(early.furthestSentence).toBe(0);
+    const back = run([{ type: "progress", sentence: 9, totalSentences: 12 }, { type: "progress", sentence: 2, totalSentences: 12 }], early);
+    expect(back.furthestSentence).toBe(9);
+    expect(recorderReducer(back, { type: "start_over" })).toMatchObject({ furthestSentence: 0, lastSentenceMs: 0 });
   });
 });
 

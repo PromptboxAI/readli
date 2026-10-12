@@ -3,7 +3,18 @@ import { VOICE_CONSENTS } from "@/lib/content/voice-consents";
 import { ProviderRefCipher } from "@/lib/server/provider-ref";
 import { VoiceProviderError } from "./provider";
 import { StubVoiceProvider } from "./stub";
-import { AccountVoiceError, accountVoiceSample, createAccountVoice, deleteAccountVoice, MemoryAccountVoiceStore, type TakeUpload } from "./account-voices";
+import {
+  AccountVoiceError,
+  accountVoiceSample,
+  cleanupStaleCandidates,
+  createAccountVoice,
+  createVoiceCandidate,
+  deleteAccountVoice,
+  discardVoiceCandidate,
+  keepVoiceCandidate,
+  MemoryAccountVoiceStore,
+  type TakeUpload,
+} from "./account-voices";
 
 const limits = { minRecordingMs: 59_000, maxRecordingMs: 150_000, maxRecordingBytes: 25 * 1024 * 1024 };
 const owner = { id: "11111111-2222-3333-4444-555555555555", name: "Grandma June" };
@@ -108,6 +119,45 @@ describe("account voices", () => {
     expect(await store.providerVoiceId(first.id)).toBe("stub-voice-1");
     await deleteAccountVoice(deps, owner.id);
     expect(((await deleteAccountVoice(deps, owner.id).catch((e: unknown) => e)) as AccountVoiceError).code).toBe("no_voice");
+  });
+
+  it("keeps the working voice in use until the new recording is kept", async () => {
+    const { store, provider, deps } = setup();
+    const first = await createAccountVoice(deps, owner, take());
+    await createVoiceCandidate(deps, owner, take({ removeBackgroundNoise: true }));
+    expect(await store.providerVoiceId(first.id)).toBe("stub-voice-1");
+    expect(provider.deleted).toEqual([]);
+    expect((await accountVoiceSample(deps, owner.id, { candidate: true })).standIn).toBe(true);
+
+    const kept = await keepVoiceCandidate(deps, owner);
+    expect(kept.id).toBe(first.id);
+    expect(kept.version).toBe(2);
+    expect(await store.providerVoiceId(first.id)).toBe("stub-voice-2");
+    expect(provider.deleted).toEqual(["stub-voice-1"]);
+    expect(await store.findCandidate(owner.id)).toBeNull();
+  });
+
+  it("discarding a new recording leaves the working voice and removes the trial clone and take", async () => {
+    const { store, provider, deps } = setup();
+    const first = await createAccountVoice(deps, owner, take());
+    const takesBefore = store.takes.length;
+    await createVoiceCandidate(deps, owner, take());
+    await discardVoiceCandidate(deps, owner.id);
+    expect(await store.providerVoiceId(first.id)).toBe("stub-voice-1");
+    expect(provider.deleted).toEqual(["stub-voice-2"]);
+    expect(store.takes).toHaveLength(takesBefore);
+    expect(((await keepVoiceCandidate(deps, owner).catch((e: unknown) => e)) as AccountVoiceError).code).toBe("no_candidate");
+  });
+
+  it("a second trial replaces the first, and day-old trials are cleared", async () => {
+    const { store, provider, deps } = setup();
+    await createVoiceCandidate(deps, owner, take());
+    await createVoiceCandidate(deps, owner, take());
+    expect(provider.deleted).toEqual(["stub-voice-1"]);
+    expect(store.candidates.size).toBe(1);
+    expect(await cleanupStaleCandidates(deps, -1000)).toEqual({ deleted: 1, failed: 0 });
+    expect(provider.deleted).toEqual(["stub-voice-1", "stub-voice-2"]);
+    expect(await store.findCandidate(owner.id)).toBeNull();
   });
 
   it("stores provider ids encrypted", () => {

@@ -1,21 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { splitSentences, type VoiceScriptVersion } from "@/lib/content/voice-scripts";
 import {
   canFinish,
-  durationGuidance,
+  finishBlocker,
   formatClock,
   initialRecorderState,
+  MIN_FINISH_MS,
   recorderReducer,
-  TARGET_MAX_MS,
-  TARGET_MIN_MS,
 } from "@/lib/teleprompter/recorder-machine";
 import { clampWpm, DEFAULT_FONT_INDEX, DEFAULT_WPM, FONT_SIZES, WPM_STEP } from "@/lib/teleprompter/scroll";
-import { QC_MESSAGES } from "@/lib/audio/qc";
+import { blockingIssues, QC_MESSAGES } from "@/lib/audio/qc";
+import { trackVoiceEvent } from "@/lib/voice/track";
+import { RecordingTipsDialog, TipsLink } from "./RecordingTips";
 import { Teleprompter, type TeleprompterProgress } from "./Teleprompter";
+import { micBlockedSteps, micPlatform } from "@/lib/audio/mic-help";
 import { MIC_ERROR_MESSAGES, useMicrophone, type RecordedTake } from "./useMicrophone";
 import { VoicePreview, type TakeDetails } from "./VoicePreview";
 
@@ -64,6 +66,11 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
   const [settingsOpen, setSettingsOpen] = useState(false);
   const booksRef = useRef<HTMLDivElement>(null);
   const [take, setTake] = useState<{ url: string; recorded: RecordedTake; details: TakeDetails } | null>(null);
+  const [tipsOpen, setTipsOpen] = useState(false);
+  // Set when the reader asked how to improve and records again, so the dashboard can count re-records.
+  const [afterFeedback, setAfterFeedback] = useState(false);
+  const sentences = useMemo(() => script.paragraphs.flatMap(splitSentences), [script]);
+  const sentenceWords = useMemo(() => sentences.map((t) => t.split(/\s+/).filter(Boolean).length), [sentences]);
   const [starting, setStarting] = useState(false);
   const [interruptions, setInterruptions] = useState(0);
   const mic = useMicrophone({ onInterrupted: () => setInterruptions((n) => n + 1) });
@@ -108,6 +115,22 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
     dispatch({ type: "resume" });
   };
 
+  // Show the fix before the first tap when the browser already has the microphone blocked.
+  const [micBlocked, setMicBlocked] = useState(false);
+  useEffect(() => {
+    let status: PermissionStatus | null = null;
+    const update = () => setMicBlocked(status?.state === "denied");
+    navigator.permissions
+      ?.query({ name: "microphone" as PermissionName })
+      .then((s) => {
+        status = s;
+        update();
+        s.addEventListener("change", update);
+      })
+      .catch(() => undefined);
+    return () => status?.removeEventListener("change", update);
+  }, []);
+
   const startRecording = async () => {
     setNotice(null);
     setStarting(true);
@@ -117,18 +140,18 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
   };
 
   const finishRecording = async () => {
-    if (!canFinish(state.elapsedMs)) return;
+    if (!canFinish(state)) return;
     const recorded = await mic.stop();
     mic.close(); // release the microphone as soon as the take is done
     if (recorded) {
       // Script position reached, as a character offset into the script (Amendment 001 §D).
-      const sentences = script.paragraphs.flatMap(splitSentences);
-      const scriptOffsetEnd = sentences.slice(0, progress.activeSentence + 1).join(" ").length;
+      const scriptOffsetEnd = sentences.slice(0, state.furthestSentence + 1).join(" ").length;
       setTake({
         url: URL.createObjectURL(recorded.blob),
         recorded,
-        details: { takeNumber: state.take, recorded, wpm, pauseCount: state.pauseCount, scriptOffsetEnd },
+        details: { takeNumber: state.take, recorded, wpm, pauseCount: state.pauseCount, scriptOffsetEnd, afterFeedback },
       });
+      if (recorded.qc.issues.length > 0) trackVoiceEvent("quality_warning_shown", { issues: recorded.qc.issues, surface: onTake ? "account" : "guest" });
     }
     setNotice(null);
     dispatch({ type: "finish" });
@@ -183,9 +206,19 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
     if (showBooks) booksRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth" });
   }, [showBooks, reducedMotion]);
 
-  const onProgress = useCallback((p: TeleprompterProgress) => setProgress(p), []);
+  const onProgress = useCallback(
+    (p: TeleprompterProgress) => {
+      setProgress(p);
+      dispatch({ type: "progress", sentence: p.activeSentence, totalSentences: sentences.length });
+    },
+    [sentences.length],
+  );
 
-  const startOver = () => {
+  const startOver = (reason: "start_over" | "feedback" = "start_over") => {
+    if (state.status === "review" || reason === "feedback") {
+      trackVoiceEvent("recording_restarted", { surface: onTake ? "account" : "guest", reason, issues: take?.recorded.qc.issues ?? [] });
+    }
+    if (reason === "feedback") setAfterFeedback(true);
     mic.discard();
     setTake(null);
     setNotice(null);
@@ -197,7 +230,10 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
     return <ConsentStep state={state} dispatch={dispatch} />;
   }
 
-  const guidance = durationGuidance(state.elapsedMs);
+  const blocker = finishBlocker(state);
+  const wordsTotal = sentenceWords.reduce((a, b) => a + b, 0) || 1;
+  const wordsRead = isLive || state.status === "review" ? sentenceWords.slice(0, state.furthestSentence + 1).reduce((a, b) => a + b, 0) : 0;
+  const readPct = state.status === "review" ? 100 : Math.min(blocker === "script" ? 99 : 100, Math.round((wordsRead / wordsTotal) * 100));
   const fontSizePx = FONT_SIZES[fontIndex] ?? FONT_SIZES[DEFAULT_FONT_INDEX];
 
   return (
@@ -236,28 +272,32 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
             </p>
           </div>
 
-          <DurationBar elapsedMs={state.elapsedMs} />
+          <ScriptProgress percent={readPct} />
 
           {state.status !== "review" && (
-          <p className="text-xs text-muted sm:text-sm" data-testid="duration-guidance">
+          <p id="duration-guidance-text" className="text-xs text-muted sm:text-sm" data-testid="duration-guidance">
             {state.status === "ready"
-              ? "Read for at least 1 minute, ideally 1 to 2. Finish unlocks at 1:00."
-              : guidance === "too_short"
+              ? "Read the whole story aloud, about 1 to 2 minutes. Finish unlocks when you reach the end."
+              : blocker === "script"
                 ? progress.remainingSeconds > 0
-                  ? `Keep going: Finish unlocks at 1:00. About ${progress.remainingSeconds}s of script left at this speed.`
-                  : "Almost there. Keep reading until 1:00, from the top again if you need to."
-                : guidance === "in_range"
-                  ? "Great length. Finish whenever you reach a natural stopping point."
-                  : "That's plenty. Finish when you're ready."}
+                  ? `Keep reading: Finish unlocks at the end of the story. About ${progress.remainingSeconds}s left at this speed.`
+                  : "Read the last line, then Finish unlocks."
+                : blocker === "time"
+                  ? `You read quickly! Keep going until ${formatClock(MIN_FINISH_MS)} so we have enough of your voice. Read a line again if you need to.`
+                  : "You've reached the end. Tap Finish."}
           </p>
           )}
 
           {state.status !== "review" && <InputMeter levelRef={mic.levelRef} active={mic.isOpen} />}
 
-          {mic.error && (
-            <p role="alert" className="rounded-2xl bg-coral/25 p-3 text-sm">
-              {MIC_ERROR_MESSAGES[mic.error]}
-            </p>
+          {mic.error === "denied" || (micBlocked && !mic.isOpen) ? (
+            <MicBlockedHelp />
+          ) : (
+            mic.error && (
+              <p role="alert" className="rounded-2xl bg-coral/25 p-3 text-sm">
+                {MIC_ERROR_MESSAGES[mic.error]}
+              </p>
+            )
           )}
 
           {notice && (
@@ -300,7 +340,8 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
               <button
                 type="button"
                 className={buttonPrimary}
-                disabled={!canFinish(state.elapsedMs)}
+                disabled={!canFinish(state)}
+                aria-describedby="duration-guidance-text"
                 onClick={() => void finishRecording()}
               >
                 Finish
@@ -310,7 +351,7 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
               <button
                 type="button"
                 className={`${buttonSecondary} whitespace-nowrap !px-4 !text-base ${state.status === "review" ? "col-span-3" : ""} lg:col-span-2`}
-                onClick={startOver}
+                onClick={() => startOver()}
               >
                 Start over
               </button>
@@ -319,23 +360,31 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
 
           {state.status === "ready" && (
             <p className="rounded-2xl bg-sunshine/40 p-3 text-sm" data-testid="expressive-tip">
-              <span className="font-semibold">Read it like a bedtime story.</span> Be warm, lively and expressive, not a flat
-              reading voice. Your Readli voice copies how you sound here.
+              <span className="font-semibold">Read it like a bedtime story.</span> Use your natural, warm storytime voice with
+              gentle expression, and keep the same voice all the way through. Your Readli voice copies how you sound here.
             </p>
           )}
 
           {state.status === "ready" && (
             <p className="text-xs text-muted">
-              Find a quiet room, use earphones with a mic if you have them, and make sure you&apos;re the only one
-              speaking.
+              Find a quiet room, keep the mic about a hand&apos;s width away, and make sure you&apos;re the only one speaking.
             </p>
           )}
+
+          {(state.status === "ready" || state.status === "review") && <TipsLink onOpen={() => setTipsOpen(true)} />}
 
           {state.status === "review" && (
             <ReviewPanel
               take={take}
               actionLabel={takeActionLabel}
-              onContinue={() => (onTake && take ? onTake(take.details) : setShowBooks(true))}
+              onRecordAgain={() => startOver()}
+              onContinue={() => {
+                if (take && take.recorded.qc.issues.length > 0) {
+                  trackVoiceEvent("recording_used_with_warnings", { issues: take.recorded.qc.issues, surface: onTake ? "account" : "guest" });
+                }
+                if (onTake && take) onTake(take.details);
+                else setShowBooks(true);
+              }}
             />
           )}
 
@@ -375,9 +424,18 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
 
       {showBooks && take && (
         <div ref={booksRef} className="scroll-mt-6">
-          <VoicePreview key={take.details.takeNumber} take={take.details} heading="Your take is in. Pick a story to hear it." />
+          <VoicePreview
+            key={take.details.takeNumber}
+            take={take.details}
+            heading="Your take is in. Pick a story to hear it."
+            onRecordAgain={() => {
+              startOver("feedback");
+              window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
+            }}
+          />
         </div>
       )}
+      <RecordingTipsDialog open={tipsOpen} onClose={() => setTipsOpen(false)} where={state.status === "review" ? "review" : "before_recording"} />
     </div>
   );
 }
@@ -435,29 +493,39 @@ function ConsentStep({
   );
 }
 
-function DurationBar({ elapsedMs }: { elapsedMs: number }) {
-  const pct = Math.min(100, (elapsedMs / TARGET_MAX_MS) * 100);
-  const minPct = (TARGET_MIN_MS / TARGET_MAX_MS) * 100;
+/** A blocked microphone, with steps for the reader's own browser and a reload to pick up the change. */
+function MicBlockedHelp() {
+  const [help] = useState(() => micBlockedSteps(micPlatform(navigator.userAgent)));
+  return (
+    <div role="alert" className="flex flex-col gap-2 rounded-2xl bg-coral/25 p-3 text-sm" data-testid="mic-blocked">
+      <p className="font-semibold">Microphone access was blocked. {help.lead}</p>
+      <ol className="flex list-decimal flex-col gap-1 pl-5">
+        {help.steps.map((s) => (
+          <li key={s}>{s}</li>
+        ))}
+      </ol>
+      <button type="button" className="w-fit font-semibold underline underline-offset-4" onClick={() => window.location.reload()}>
+        Reload the page
+      </button>
+    </div>
+  );
+}
+
+function ScriptProgress({ percent }: { percent: number }) {
   return (
     <div className="flex flex-col gap-1">
       <div
         className="relative h-3 overflow-hidden rounded-full bg-ivory"
         role="progressbar"
-        aria-label="Recording length toward the 1 to 2 minute target"
+        aria-label="How much of the story you've read"
         aria-valuemin={0}
-        aria-valuemax={TARGET_MAX_MS / 1000}
-        aria-valuenow={Math.round(elapsedMs / 1000)}
+        aria-valuemax={100}
+        aria-valuenow={percent}
+        data-testid="script-progress"
       >
-        <div className="h-full rounded-full bg-mint transition-[width]" style={{ width: `${pct}%` }} />
-        <div className="absolute inset-y-0 w-0.5 bg-ink/40" style={{ left: `${minPct}%` }} aria-hidden="true" />
+        <div className="h-full rounded-full bg-mint transition-[width]" style={{ width: `${percent}%` }} />
       </div>
-      <div className="relative hidden h-4 text-xs text-muted sm:block" aria-hidden="true">
-        <span className="absolute left-0">0:00</span>
-        <span className="absolute -translate-x-1/2" style={{ left: `${minPct}%` }}>
-          1:00
-        </span>
-        <span className="absolute right-0">2:00</span>
-      </div>
+      <p className="text-xs text-muted">{percent}% of the story read</p>
     </div>
   );
 }
@@ -541,37 +609,65 @@ function ReviewPanel({
   take,
   actionLabel,
   onContinue,
+  onRecordAgain,
 }: {
   actionLabel: string;
   take: { url: string; recorded: RecordedTake } | null;
   onContinue: () => void;
+  onRecordAgain: () => void;
 }) {
   if (!take) {
     return (
       <div role="alert" className="flex flex-col gap-3 rounded-2xl bg-coral/25 p-4">
         <p className="font-display text-lg font-semibold">We didn&apos;t get any audio from that take.</p>
-        <p className="text-sm">Tap Start over to try again.</p>
+        <p className="text-sm">Check your microphone, then record again.</p>
+        <button type="button" className={buttonPrimary} onClick={onRecordAgain}>
+          Record again
+        </button>
       </div>
     );
   }
   const { recorded } = take;
-  return (
-    <div className="flex flex-col gap-3 rounded-2xl bg-mint/40 p-4" data-testid="review-panel">
-      <p className="font-display text-lg font-semibold">Nice reading! {formatClock(recorded.durationMs)} recorded.</p>
-      <audio controls src={take.url} className="w-full" aria-label="Play back your recording" />
-      {recorded.qc.issues.length > 0 && (
-        <ul className="flex list-disc flex-col gap-1 pl-5 text-sm" data-testid="qc-issues">
+  const blocking = blockingIssues(recorded.qc);
+  const warnings = recorded.qc.issues.filter((i) => !blocking.includes(i));
+  if (blocking.length > 0) {
+    return (
+      <div role="alert" className="flex flex-col gap-3 rounded-2xl bg-coral/25 p-4" data-testid="review-panel">
+        <p className="font-display text-lg font-semibold">Let&apos;s try that again</p>
+        <ul className="flex list-disc flex-col gap-1 pl-5 text-sm" data-testid="qc-blocking">
           {recorded.qc.issues.map((issue) => (
             <li key={issue}>{QC_MESSAGES[issue]}</li>
           ))}
         </ul>
+        <audio controls src={take.url} className="w-full" aria-label="Play back your recording" />
+        <button type="button" className={buttonPrimary} onClick={onRecordAgain}>
+          Record again
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl bg-mint/40 p-4" data-testid="review-panel">
+      <p className="font-display text-lg font-semibold">Nice reading! {formatClock(recorded.durationMs)} recorded.</p>
+      <audio controls src={take.url} className="w-full" aria-label="Play back your recording" />
+      {warnings.length > 0 && (
+        <>
+          <ul className="flex list-disc flex-col gap-1 pl-5 text-sm" data-testid="qc-issues">
+            {warnings.map((issue) => (
+              <li key={issue}>{QC_MESSAGES[issue]}</li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted">Recording again usually gives a closer voice, but you can use this take if you&apos;re happy with it.</p>
+        </>
       )}
-      <p className="text-xs text-muted">
-        These checks are a guide. You can start over or continue. Your recording stays in this browser for now.
-      </p>
       <button type="button" className={buttonPrimary} onClick={onContinue}>
         {actionLabel}
       </button>
+      {warnings.length > 0 && (
+        <button type="button" className={buttonSecondary} onClick={onRecordAgain}>
+          Record again
+        </button>
+      )}
     </div>
   );
 }

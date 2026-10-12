@@ -7,6 +7,9 @@ export interface SynthesizedAudio {
   contentType: string;
   /** True for stand-in audio that is not the guest's voice (stub mode only). */
   standIn: boolean;
+  /** The model that actually read it (after any fallback) and the characters billed. */
+  modelId?: string;
+  characters?: number;
 }
 
 export interface VoiceProvider {
