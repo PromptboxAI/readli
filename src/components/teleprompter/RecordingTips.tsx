@@ -4,8 +4,11 @@ import { useEffect, useRef } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { trackVoiceEvent } from "@/lib/voice/track";
 
-/** The Loom walkthrough, set once the video is ready. A share link is turned into its embed link. */
-export function tutorialEmbedUrl(url = process.env.NEXT_PUBLIC_RECORDING_TUTORIAL_URL): string | null {
+/** Kevin's Loom walkthrough of a recording. NEXT_PUBLIC_RECORDING_TUTORIAL_URL can swap in a newer one. */
+export const RECORDING_TUTORIAL_URL = "https://www.loom.com/share/d30efdbf2c734859b9f7f11208e3d46d";
+
+/** A Loom share link is turned into its embed link. */
+export function tutorialEmbedUrl(url: string | undefined = process.env.NEXT_PUBLIC_RECORDING_TUTORIAL_URL || RECORDING_TUTORIAL_URL): string | null {
   if (!url) return null;
   const loom = url.match(/^https:\/\/(?:www\.)?loom\.com\/(?:share|embed)\/([a-zA-Z0-9]+)/);
   return loom ? `https://www.loom.com/embed/${loom[1]}` : null;
@@ -16,7 +19,7 @@ const TIPS: { heading: string; points: string[] }[] = [
     heading: "Read the whole story, about 1 to 2 minutes",
     points: [
       "That's the amount of audio Readli needs to copy a voice well. Reading for longer doesn't make it better.",
-      "Keep reading until the end of the script. Finish unlocks when you get there.",
+      "Keep reading until the end of the script. Finish turns on when you reach the last paragraph.",
     ],
   },
   {
