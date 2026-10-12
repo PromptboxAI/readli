@@ -7,9 +7,10 @@
  * is ever re-imported. Sleeping Beauty's cook scolds the scullery boy rather than pulling his hair
  * or boxing his ear. Just So Stories keeps only its seven gentlest tales.
  * Kevin, 2026-10-12: Raggedy Ann Stories has light edits to dated passages (Dinah's description, and the
- * "Indian doll" is a scout doll).
+ * "Indian doll" is a scout doll). A Child's Garden of Verses leaves out six poems with dated lines.
  */
 import type { CatalogBook } from "../catalog";
+import AChildsGardenOfVerses from "./a-childs-garden-of-verses.json";
 import AlicesAdventuresInWonderland from "./alices-adventures-in-wonderland.json";
 import Cinderella from "./cinderella.json";
 import GoldilocksAndTheThreeBears from "./goldilocks-and-the-three-bears.json";
@@ -35,6 +36,7 @@ import Thumbelina from "./thumbelina.json";
 import WinnieThePooh from "./winnie-the-pooh.json";
 
 export const LIBRARY_TEXTS: Record<string, Pick<CatalogBook, "edition" | "chapters"> | undefined> = {
+  "a-childs-garden-of-verses": AChildsGardenOfVerses,
   "alices-adventures-in-wonderland": AlicesAdventuresInWonderland,
   "cinderella": Cinderella,
   "goldilocks-and-the-three-bears": GoldilocksAndTheThreeBears,
