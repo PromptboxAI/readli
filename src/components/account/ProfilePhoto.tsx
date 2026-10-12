@@ -42,7 +42,7 @@ export function ProfilePhoto({ name, tint, avatarUrl }: { name: string; tint: st
   };
 
   return (
-    <form onSubmit={upload} className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10" aria-labelledby={`${id}-h`}>
+    <form id="photo" onSubmit={upload} className="flex scroll-mt-6 flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10" aria-labelledby={`${id}-h`}>
       <h2 id={`${id}-h`} className="font-display text-2xl font-semibold">
         Your photo
       </h2>

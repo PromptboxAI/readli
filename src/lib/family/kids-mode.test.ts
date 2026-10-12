@@ -32,6 +32,12 @@ const GROWN_UP_API = [
   "/api/invites/accept",
   "/api/people/user-1/photo",
   "/api/admin/anything",
+  "/api/invitations",
+  "/api/invitations/inv-1",
+  "/api/invitations/accept",
+  "/api/invitations/preview/approve",
+  "/api/invitations/respond",
+  "/api/gifts/preview",
 ];
 
 describe("Kids Mode routes", () => {
@@ -60,7 +66,7 @@ describe("Kids Mode routes", () => {
   });
 
   it("sends grown-up pages back to the bookshelf and leaves public pages open", () => {
-    for (const path of ["/admin", "/admin/plans", "/family/billing", "/family/my-voice", "/family/kids", "/voice", "/voice/record", "/billing/narrator-slots", "/gift/open", "/rewards", "/invite/family", "/signup", "/signup/family", "/welcome", "/try", "/r/abc"]) {
+    for (const path of ["/admin", "/admin/plans", "/family/billing", "/family/my-voice", "/family/kids", "/voice", "/voice/record", "/billing/narrator-slots", "/gift/open", "/rewards", "/invite/family", "/signup", "/signup/family", "/welcome", "/try", "/r/abc", "/v/tok", "/v/tok/connect", "/v/respond/tok", "/voice/invite"]) {
       expect(kidsModeRoute(path), path).toBe("to_kids");
     }
     for (const path of ["/", "/kids", "/kids/listen/the-tale-of-peter-rabbit", "/family", "/login", "/auth/callback", "/books", "/help", "/pricing", "/privacy", "/voices", "/tryout"]) {

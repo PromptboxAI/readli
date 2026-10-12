@@ -226,9 +226,9 @@ describe("credit lots", () => {
     const { store, plan } = family(1);
     const lib = await familyLibrary(store, mom, H);
     expect(lib.all.map((b) => b.slug)).toContain(LONG);
-    expect(lib.all[lib.all.length - 1]!.slug).toBe("alices-adventures-in-wonderland");
+    expect(lib.all[lib.all.length - 1]!.slug).toBe("heidi");
     const shelf = (id: string) => lib.collections.find((c) => c.id === id)!.books.map((b) => b.slug);
-    expect(shelf("longer")).toEqual(expect.arrayContaining([LONG, "winnie-the-pooh", "alices-adventures-in-wonderland"]));
+    expect(shelf("longer")).toEqual(expect.arrayContaining([LONG, "winnie-the-pooh", "alices-adventures-in-wonderland", "heidi"]));
     expect(shelf("quick")).not.toContain(LONG);
     expect(shelf("fits")).not.toContain(LONG);
     expect(shelf("bedtime")).toEqual(plan.bedtimeFavorites);

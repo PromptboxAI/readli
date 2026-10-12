@@ -117,6 +117,9 @@ test("onboarding lets adults skip Follow Readli's Story", async ({ page }, info)
   await page.goto("/welcome");
   await expect(page.getByRole("heading", { name: "Welcome to Readli Family!" })).toBeVisible();
   await page.screenshot({ path: `e2e/screenshots/welcome-rewards-${info.project.name}.png`, fullPage: true });
+  // The grown-up's name is asked for here, after payment, not at signup.
+  await expect(page.getByRole("button", { name: "Next" })).toBeDisabled();
+  await page.getByLabel("What should your family call you?").fill("Sara");
   await page.getByRole("button", { name: "Next" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Follow Readli's Story" })).toBeVisible();
   await noOverflow(page);

@@ -12,7 +12,7 @@ const KIDS_API = ["/api/kids/", "/api/narration/audio/"];
 const KIDS_API_EXACT = ["/api/family/session"];
 
 /** Grown-up pages a kids device is sent away from. Public pages (home, books, help) stay open. */
-const GROWN_UP_PAGES = ["/admin", "/billing", "/voice", "/gift", "/rewards", "/invite", "/signup", "/welcome", "/try", "/r/"];
+const GROWN_UP_PAGES = ["/admin", "/billing", "/voice", "/gift", "/rewards", "/invite", "/signup", "/welcome", "/try", "/r/", "/v/"];
 
 export type KidsModeVerdict = "allow" | "deny" | "to_kids";
 

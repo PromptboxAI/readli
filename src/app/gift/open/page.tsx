@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { GiftOpen } from "@/components/gifting/GiftOpen";
+import { GiftVoicePreview } from "@/components/invitations/GiftVoicePreview";
 import { AdultPage, PreviewNote } from "@/components/invites/AdultPage";
 import { currentAdult } from "@/lib/auth/adult";
 import { accountDb } from "@/lib/family/account-store";
@@ -7,6 +8,7 @@ import { familyAccountsEnabled } from "@/lib/family/session";
 import { normalizeGiftCode } from "@/lib/gifting/codes";
 import { draftFromParams } from "@/lib/gifting/params";
 import { giftForCode } from "@/lib/gifting/server";
+import { giftPreview } from "@/lib/invitations/server";
 
 export const metadata: Metadata = { title: "You've been sent a gift | Readli", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -19,9 +21,10 @@ export default async function GiftOpenPage({ searchParams }: { searchParams: Pro
   if (code && db && familyAccountsEnabled()) {
     const gift = await giftForCode(db, code);
     if (gift) {
-      const signedIn = Boolean(await currentAdult());
+      const [signedIn, voice] = await Promise.all([currentAdult().then(Boolean), giftPreview(db, code).catch(() => null)]);
       return (
         <AdultPage>
+          {voice && <GiftVoicePreview code={code} giverName={voice.giverName} book={voice.book} />}
           <GiftOpen plan={gift.plan} to={gift.to} from={gift.from} message={gift.message} live={{ code, signedIn, status: gift.status }} />
         </AdultPage>
       );
