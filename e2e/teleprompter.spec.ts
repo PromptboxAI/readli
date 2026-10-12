@@ -36,7 +36,15 @@ test("continuous take: no Next button, scrolls, pauses, resumes, finishes into s
   await expect(page.getByRole("status")).toHaveText(/Recording/);
   const finish = page.getByRole("button", { name: "Finish" });
   await expect(finish).toBeDisabled();
+  await expect(page.getByTestId("script-progress")).toBeVisible();
+  // Time alone isn't enough: Finish waits for the end of the story too.
   await page.clock.fastForward(61_000);
+  await expect(finish).toBeDisabled();
+  await expect(page.locator("#duration-guidance-text")).toContainText(/end of the story/i);
+  await prompter.hover();
+  await page.mouse.wheel(0, 20_000);
+  await page.clock.fastForward(4_000);
+  await expect(finish).toBeEnabled();
   await finish.click();
 
   await expect(page.getByTestId("review-panel")).toBeVisible();
@@ -45,6 +53,28 @@ test("continuous take: no Next button, scrolls, pauses, resumes, finishes into s
   await page.screenshot({ path: `e2e/screenshots/try-review-${info.project.name}.png` });
   await page.getByRole("button", { name: "Choose a story" }).click();
   await expect(page.getByTestId("demo-books").getByRole("article")).toHaveCount(6);
+});
+
+test("start over clears the take and its progress", async ({ page }) => {
+  await consent(page);
+  await page.getByRole("button", { name: "Start recording" }).click();
+  await page.getByTestId("teleprompter").hover();
+  await page.mouse.wheel(0, 20_000);
+  await page.getByRole("button", { name: "Pause" }).click();
+  await page.getByRole("button", { name: "Start over" }).click();
+  await expect(page.getByRole("status")).toHaveText(/Ready to record/);
+  await expect(page.getByTestId("script-progress")).toHaveAttribute("aria-valuenow", "0");
+});
+
+test("recording tips open over the recorder and close back to it", async ({ page }) => {
+  await consent(page);
+  await page.getByRole("button", { name: "Tips for a better voice recording" }).click();
+  const tips = page.getByTestId("recording-tips");
+  await expect(tips).toBeVisible();
+  await expect(tips.getByText("Use your natural storytime voice")).toBeVisible();
+  await tips.getByRole("button", { name: "Back to recording" }).click();
+  await expect(tips).toBeHidden();
+  await expect(page.getByRole("button", { name: "Start recording" })).toBeVisible();
 });
 
 test("speed and text size change without interrupting the take", async ({ page }) => {

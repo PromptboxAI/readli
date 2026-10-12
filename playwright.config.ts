@@ -25,7 +25,7 @@ export default defineConfig({
     url: "http://localhost:3100",
     reuseExistingServer: !process.env.CI,
     timeout: 240_000,
-    // Stand-in voice provider and in-memory storage; short takes are fine for the fake microphone.
-    env: { VOICE_PROVIDER: "stub", GUEST_MIN_RECORDING_MS: "1000" },
+    // Stand-in voice provider and in-memory storage; short takes and its beeps are fine for the fake microphone.
+    env: { VOICE_PROVIDER: "stub", GUEST_MIN_RECORDING_MS: "1000", NEXT_PUBLIC_MIN_SPEECH_MS: "1000" },
   },
 });
