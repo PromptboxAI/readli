@@ -1,9 +1,26 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isAdmin, isAdminPath } from "@/lib/admin/emails";
+import { KIDS_COOKIE, kidsModeRoute } from "@/lib/family/kids-mode";
 
-/** Keeps the Supabase sign-in fresh on the pages that use it, and keeps /admin to named admins. */
+/** Pages and routes that use the Supabase sign-in, so it's kept fresh there. */
+const SIGN_IN_PATHS = ["/family", "/kids", "/login", "/auth", "/api/family", "/api/kids", "/billing", "/admin", "/api/admin", "/api/account", "/api/people"];
+
+/**
+ * Keeps a device in Kids Mode on the child's side (the server checks again on every grown-up route),
+ * keeps the Supabase sign-in fresh on the pages that use it, and keeps /admin to named admins.
+ */
 export async function middleware(request: NextRequest) {
+  const path = request.nextUrl.pathname;
+  if (request.cookies.get(KIDS_COOKIE)?.value) {
+    const verdict = kidsModeRoute(path);
+    if (verdict === "deny") {
+      return NextResponse.json({ error: { code: "kids_mode", message: "This isn't available in Readli Kids. Ask a grown-up." } }, { status: 403 });
+    }
+    if (verdict === "to_kids") return NextResponse.redirect(new URL("/kids", request.url));
+  }
+  if (!SIGN_IN_PATHS.some((p) => path === p || path.startsWith(`${p}/`))) return NextResponse.next();
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   let response = NextResponse.next({ request });
@@ -19,7 +36,6 @@ export async function middleware(request: NextRequest) {
     },
   });
   const { data } = await supabase.auth.getUser();
-  const path = request.nextUrl.pathname;
   if (isAdminPath(path) && !isAdmin(data.user)) {
     const api = path.startsWith("/api/");
     let denied: NextResponse;
@@ -34,18 +50,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/family/:path*",
-    "/kids/:path*",
-    "/login",
-    "/auth/:path*",
-    "/api/family/:path*",
-    "/api/kids/:path*",
-    "/billing/:path*",
-    "/admin",
-    "/admin/:path*",
-    "/api/admin/:path*",
-    "/api/account/:path*",
-    "/api/people/:path*",
-  ],
+  // Every page and route except build assets and static files, so Kids Mode is enforced everywhere.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|webp|svg|ico|woff2|mp3|webm)$).*)"],
 };

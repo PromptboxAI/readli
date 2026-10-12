@@ -201,8 +201,7 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
           {hasVoice && (
             <p>
               You already have a Readli voice. If you record again, your current voice keeps working until you listen to the new one
-              and choose to keep it. Families you share with keep hearing you either way. You can also delete it from My voice in
-              Readli Family.
+              and choose to keep it. Families you share with keep hearing you either way.
             </p>
           )}
           <ul className="flex list-disc flex-col gap-1 pl-6 text-sm">

@@ -4,7 +4,7 @@ import { buttonSecondary } from "@/components/brand/buttons";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
 import { AccountVoiceControls } from "@/components/family/AccountVoiceControls";
 import { MyVoiceSharing } from "@/components/family/MyVoiceSharing";
-import { currentUser } from "@/lib/auth/supabase";
+import { currentAdult } from "@/lib/auth/adult";
 import { serverConfig } from "@/lib/server/config";
 import { VoiceModelUpgrade } from "@/components/family/VoiceModelUpgrade";
 import { accountVoiceDeps, voiceModelStatus } from "@/lib/voice/account-voices";
@@ -22,7 +22,7 @@ export default async function MyVoicePage() {
   const voices = await myVoices((await familyStore(page.session))!, page.session.actor);
   // A signed-in grown-up manages their real recording here; the preview family has none.
   const deps = page.session.account ? accountVoiceDeps(serverConfig()) : null;
-  const user = deps ? await currentUser() : null;
+  const user = deps ? await currentAdult() : null;
   const recording = deps && user ? await deps.store.findVoice(user.id).catch(() => null) : null;
   const model = deps && user ? await voiceModelStatus(deps, user.id).catch(() => null) : null;
   return (

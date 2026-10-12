@@ -7,7 +7,7 @@ import { PlanList } from "@/components/accounts/PlanList";
 import { AdultPage } from "@/components/invites/AdultPage";
 import { ACCOUNT_TYPES, signupPath, signupStart } from "@/lib/accounts/accounts";
 import { DEFAULT_PLAN, formatPrice } from "@/lib/family/plan";
-import { currentUser } from "@/lib/auth/supabase";
+import { currentAdult } from "@/lib/auth/adult";
 
 export const metadata: Metadata = { title: "Join Readli" };
 
@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Join Readli" };
 export default async function SignupPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const p = await searchParams;
   const invite = typeof p.invite === "string" ? p.invite : null;
-  if (invite) redirect(signupPath(signupStart({ invitation: invite, signedIn: Boolean(await currentUser()) })));
+  if (invite) redirect(signupPath(signupStart({ invitation: invite, signedIn: Boolean(await currentAdult()) })));
   const { family, voice } = ACCOUNT_TYPES;
   return (
     <AdultPage wide>

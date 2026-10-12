@@ -1,5 +1,7 @@
+import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { authConfigured, displayName, supabaseServer } from "@/lib/auth/supabase";
+import { KIDS_COOKIE } from "@/lib/family/kids-mode";
 import { familyPreviewEnabled } from "@/lib/family/session";
 import { isAdmin } from "./emails";
 
@@ -17,9 +19,10 @@ export interface AdminUser {
   name: string;
 }
 
-/** The signed-in admin, or null for anyone else (including the open preview). */
+/** The signed-in admin, or null for anyone else (including the open preview, and a device in Kids Mode). */
 export async function currentAdmin(): Promise<AdminUser | null> {
   if (!authConfigured()) return null;
+  if ((await cookies()).get(KIDS_COOKIE)?.value) return null;
   const { data, error } = await (await supabaseServer()).auth.getUser();
   if (error || !isAdmin(data.user)) return null;
   return { id: data.user!.id, email: data.user!.email!, name: displayName(data.user!) };
