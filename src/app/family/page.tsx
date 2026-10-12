@@ -220,10 +220,19 @@ export default async function FamilyHome() {
         <section className="flex flex-col gap-3" aria-labelledby="kids-h">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 id="kids-h" className="font-display text-2xl font-semibold">Kids profiles</h2>
-            <Link href="/family/kids" className="font-semibold underline underline-offset-4">
-              Add or remove kids
-            </Link>
+            <div className="flex flex-wrap gap-4">
+              <Link href="/family/kids" className="font-semibold underline underline-offset-4">
+                Add or remove kids
+              </Link>
+              <Link href="/family/devices" className="font-semibold underline underline-offset-4">
+                Kids devices and PIN
+              </Link>
+            </div>
           </div>
+          <p className="text-sm text-muted">
+            Opening Readli Kids sets up this device for your kids and signs you out on it. A grown-up PIN or signing in again gets you
+            back.
+          </p>
           {account && !hasPlan && (
             <p className="rounded-2xl bg-sunshine/50 p-3 text-sm">
               Kids profiles come with Readli Family. Checkout isn&apos;t switched on yet, so this unlocks when it is.
