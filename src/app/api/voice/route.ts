@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth/supabase";
 import { serverConfig } from "@/lib/server/config";
+import { accountDb } from "@/lib/family/account-store";
+import { track } from "@/lib/invitations/server";
 import { fail } from "@/lib/server/http";
 import { AccountVoiceError, accountVoiceDeps, createAccountVoice, deleteAccountVoice } from "@/lib/voice/account-voices";
 
@@ -48,6 +50,8 @@ export async function POST(req: Request) {
       consents: form.getAll("consent").filter((c): c is string => typeof c === "string"),
       removeBackgroundNoise: form.get("removeBackgroundNoise") === "true",
     });
+    const db = accountDb();
+    if (db && voice.version === 1) await track(db, "contributor_voice_created", {}, user.id);
     return NextResponse.json({ voice }, { status: 201 });
   } catch (err) {
     if (err instanceof AccountVoiceError) return fail(err.status, err.code, err.userMessage);
