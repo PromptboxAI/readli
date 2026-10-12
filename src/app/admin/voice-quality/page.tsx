@@ -8,6 +8,7 @@ import { MAX_GUEST_PREVIEWS, serverConfig } from "@/lib/server/config";
 import { guestPreviewsAllowed } from "@/lib/server/demo-settings";
 import { summarizeVoiceEvents, voiceEventSink, type VoiceQualityMetrics } from "@/lib/server/voice-analytics";
 import { activePreset, FALLBACK_MODEL, VOICE_PRESETS, voiceSettings } from "@/lib/voice/elevenlabs";
+import { fetchProviderModels } from "@/lib/voice/model-watch";
 import { updateDemoPreviewsAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -65,6 +66,8 @@ export default async function VoiceQualityPage({ searchParams }: { searchParams:
   const model = config.elevenLabsModel;
   const settings = voiceSettings(model) as Record<string, number | boolean>;
   const preset = activePreset();
+  const models = await fetchProviderModels(config.elevenLabsKey, model);
+  const newModels = models?.filter((x) => x.isNew) ?? [];
 
   return (
     <AdultPage wide>
@@ -75,6 +78,21 @@ export default async function VoiceQualityPage({ searchParams }: { searchParams:
       </header>
       {ok && <p role="status" className="rounded-2xl bg-mint/40 px-4 py-3">{ok}</p>}
       {err && <p role="alert" className="rounded-2xl bg-coral/25 px-4 py-3">{err}</p>}
+
+      {newModels.length > 0 && (
+        <section role="status" className="flex flex-col gap-2 rounded-3xl bg-sunshine/40 p-4" data-testid="new-models">
+          <h2 className="font-display text-xl font-semibold">New from ElevenLabs</h2>
+          {newModels.map((x) => (
+            <p key={x.id}>
+              <strong>{x.name}</strong> (<code>{x.id}</code>){x.description ? `: ${x.description}` : ""}
+            </p>
+          ))}
+          <p className="text-sm">
+            Readli uses <code>{model}</code>. Switching changes every voice and means stories are prepared again, so ask
+            Claude to test the new model on a preview first.
+          </p>
+        </section>
+      )}
 
       <section className="flex flex-col gap-3">
         <h2 className="font-display text-2xl font-semibold">Recording and cloning</h2>
@@ -149,6 +167,11 @@ export default async function VoiceQualityPage({ searchParams }: { searchParams:
             { label: "Cloning", value: "Instant Voice Clone", note: "Noise clean-up on when the browser hears a noisy room; the reader can switch it" },
           ]}
         />
+        {models && (
+          <p className="text-sm text-muted">
+            Reading models ElevenLabs offers this account: {models.map((x) => x.id).join(", ")}. Checked once a day.
+          </p>
+        )}
         <p className="text-sm text-muted">
           Presets: {Object.entries(VOICE_PRESETS).map(([k, v]) => `${k} ${v.stability}/${v.similarity_boost}`).join(" · ")} (stability/similarity).
         </p>
