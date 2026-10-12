@@ -24,7 +24,7 @@ interface Preview {
  * The contributor picks a book and a passage, hears it read in their own Readli voice, and approves
  * it. The approved clip is what every invitation plays; a new approval replaces it.
  */
-export function PreviewPicker({ books, approved, draft, generationsLeft }: { books: PickerBook[]; approved: Preview | null; draft: Preview | null; generationsLeft: number }) {
+export function PreviewPicker({ books, approved, draft }: { books: PickerBook[]; approved: Preview | null; draft: Preview | null }) {
   const router = useRouter();
   const [choosing, setChoosing] = useState(!approved);
   const [book, setBook] = useState<string | null>(draft?.book ?? null);
@@ -99,7 +99,7 @@ export function PreviewPicker({ books, approved, draft, generationsLeft }: { boo
         </fieldset>
       )}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <button type="button" className={buttonPrimary} disabled={!passage || busy || generationsLeft < 1} onClick={() => post("/api/invitations/preview", { passageId: passage })} data-testid="make-preview">
+        <button type="button" className={buttonPrimary} disabled={!passage || busy} onClick={() => post("/api/invitations/preview", { passageId: passage })} data-testid="make-preview">
           {busy ? "Reading it in your voice…" : draft ? "Read this one instead" : "Read it in my voice"}
         </button>
         {approved && (
@@ -108,9 +108,6 @@ export function PreviewPicker({ books, approved, draft, generationsLeft }: { boo
           </button>
         )}
       </div>
-      <p className="text-sm text-muted">
-        {generationsLeft > 0 ? `You can make ${generationsLeft} more ${generationsLeft === 1 ? "preview" : "previews"} this month.` : "You've made all your previews for this month."}
-      </p>
       {draft && (
         <div className="flex flex-col gap-3 rounded-3xl bg-mint/50 p-4" data-testid="draft-preview">
           <p className="font-display text-lg font-semibold">Listen before you approve</p>
