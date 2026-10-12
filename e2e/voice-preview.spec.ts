@@ -15,6 +15,7 @@ test("a finished take becomes a voice and reads four stories, with free replays"
   await page.getByRole("button", { name: "Finish" }).click();
   await page.getByRole("button", { name: "Choose a story" }).click();
 
+  await expect(page.getByTestId("demo-books").getByRole("article")).toHaveCount(6);
   const preview = page.getByTestId("voice-preview");
   const peter = preview.getByRole("article", { name: "The Tale of Peter Rabbit" });
   await expect(peter.getByRole("button", { name: "Hear this passage" })).toBeEnabled();
@@ -35,19 +36,21 @@ test("a finished take becomes a voice and reads four stories, with free replays"
   await expect(preview.getByText(`Noise clean-up ${wasOn ? "off" : "on"}`)).toBeVisible();
   await expect(preview.getByTestId("preview-counter")).toContainText("2 of 4 stories explored");
 
+  const unheard = preview.getByRole("article").filter({ has: page.getByRole("button", { name: "Hear this passage" }) });
+  await unheard.first().getByRole("button", { name: "Hear this passage" }).click();
+  await expect(preview.getByTestId("preview-counter")).toContainText("3 of 4 stories explored", { timeout: 15_000 });
+
   // Replaying a story already heard in this voice doesn't count.
   await preview.getByRole("article", { name: "Winnie-the-Pooh" }).getByRole("button", { name: "Play again" }).click();
   await expect(preview.getByText("Winnie-the-Pooh · read by you")).toBeVisible();
-  await expect(preview.getByTestId("preview-counter")).toContainText("2 of 4 stories explored");
+  await expect(preview.getByTestId("preview-counter")).toContainText("3 of 4 stories explored");
 
-  const unheard = preview.getByRole("article").filter({ has: page.getByRole("button", { name: "Hear this passage" }) });
-  for (const n of [3, 4]) {
-    await unheard.first().getByRole("button", { name: "Hear this passage" }).click();
-    await expect(preview.getByTestId("preview-counter")).toContainText(`${n} of 4 stories explored`, { timeout: 15_000 });
-  }
+  await unheard.first().getByRole("button", { name: "Hear this passage" }).click();
+  await expect(preview.getByTestId("preview-counter")).toContainText("4 of 4 stories explored", { timeout: 15_000 });
   await expect(preview.getByText("You've explored all your free stories.").first()).toBeVisible();
   await expect(unheard.first().getByRole("button", { name: "Hear this passage" })).toBeDisabled();
-  await expect(preview.getByRole("article", { name: "Winnie-the-Pooh" }).getByRole("button", { name: "Play again" })).toBeEnabled();
+  await preview.getByRole("article", { name: "Winnie-the-Pooh" }).getByRole("button", { name: "Play again" }).click();
+  await expect(preview.getByText("Winnie-the-Pooh · read by you")).toBeVisible();
 });
 
 test("the server refuses previews without a session and a voice", async ({ request }) => {

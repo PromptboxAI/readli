@@ -12,7 +12,7 @@ async function consent(page: Page) {
   await cont.click();
 }
 
-test("continuous take: no Next button, scrolls, pauses, resumes, finishes into six books", async ({ page }, info) => {
+test("continuous take: no Next button, scrolls, pauses, resumes, finishes at the end of the story", async ({ page }, info) => {
   await consent(page);
   const prompter = page.getByTestId("teleprompter");
   await expect(page.getByRole("button", { name: /next/i })).toHaveCount(0);
@@ -42,17 +42,24 @@ test("continuous take: no Next button, scrolls, pauses, resumes, finishes into s
   await expect(finish).toBeDisabled();
   await expect(page.locator("#duration-guidance-text")).toContainText(/end of the story/i);
   await prompter.hover();
-  await page.mouse.wheel(0, 20_000);
-  await page.clock.fastForward(4_000);
-  await expect(finish).toBeEnabled();
+  // Scroll to the end, stepping the timers so each scroll registers, then dwell on the last line.
+  await expect
+    .poll(async () => {
+      await page.mouse.wheel(0, 5_000);
+      await page.clock.runFor(1_000);
+      return finish.isEnabled();
+    }, { timeout: 20_000 })
+    .toBe(true);
   await finish.click();
 
   await expect(page.getByTestId("review-panel")).toBeVisible();
   // A real take from the (fake) microphone is ready to play back.
   await expect(page.getByLabel("Play back your recording")).toHaveAttribute("src", /^blob:/);
   await page.screenshot({ path: `e2e/screenshots/try-review-${info.project.name}.png` });
-  await page.getByRole("button", { name: "Choose a story" }).click();
-  await expect(page.getByTestId("demo-books").getByRole("article")).toHaveCount(6);
+  // The fake clock leaves only seconds of real audio, so the take is held back for another try; the
+  // voice preview test covers a real-length take going on to the six books.
+  await expect(page.getByTestId("qc-blocking")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Choose a story" })).toHaveCount(0);
 });
 
 test("start over clears the take and its progress", async ({ page }) => {
