@@ -140,15 +140,16 @@ export async function registerDevice(
 ): Promise<{ device: KidsDevice; token: string }> {
   const adultId = guardianAdult(actor);
   const childIds = [...new Set(input.childIds)];
-  if (childIds.length === 0) throw new PermissionError(400, "choose_kids", "Choose which kids use this device.");
+  const first = childIds[0];
+  if (!first) throw new PermissionError(400, "choose_kids", "Choose which kids use this device.");
   for (const id of childIds) {
     if (!isGuardianOf(state, adultId, id)) throw new PermissionError(403, "not_guardian", "You can only add your own kids to a device.");
   }
-  const householdId = activeChild(state, childIds[0])!.householdId;
+  const householdId = activeChild(state, first)!.householdId;
   if (childIds.some((id) => activeChild(state, id)!.householdId !== householdId)) {
     throw new PermissionError(400, "one_family", "A device is for kids in one family.");
   }
-  const active = input.activeChildId ?? (childIds.length === 1 ? childIds[0] : null);
+  const active = input.activeChildId ?? (childIds.length === 1 ? first : null);
   if (active && !childIds.includes(active)) throw new PermissionError(400, "choose_kids", "That child isn't on this device.");
   const token = randomBytes(32).toString("base64url");
   const at = now.toISOString();

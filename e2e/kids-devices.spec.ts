@@ -44,12 +44,13 @@ test("a set-up device holds no grown-up sign-in and kids pick who's listening", 
 
 test("a kids device can't reach the grown-up side or leave without the PIN", async ({ page, context }) => {
   await parentSetsUpDevice(page, context);
-  for (const [method, path] of [
+  const grownUp: [string, string][] = [
     ["GET", "/api/family/devices"],
     ["PUT", "/api/family/kids-pin"],
     ["DELETE", "/api/family/devices/anything"],
     ["GET", "/api/family/children"],
-  ]) {
+  ];
+  for (const [method, path] of grownUp) {
     const res = await page.request.fetch(path, { method, data: { pin: "0000" } });
     expect(res.status(), `${method} ${path}`).toBe(403);
   }
