@@ -1,6 +1,8 @@
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { PREVIEWS_BUCKET } from "@/lib/account/privacy";
+import { normalizeGiftCode } from "@/lib/gifting/codes";
+import { hashGiftCode } from "@/lib/gifting/codes.server";
 import { findCatalogBook } from "@/lib/library/catalog";
 import { ProviderRefCipher } from "@/lib/server/provider-ref";
 import type { VoiceProvider } from "@/lib/voice/provider";
@@ -619,4 +621,39 @@ export async function recordInvitationBilling(db: SupabaseClient, input: { invit
   for (const r of rows) {
     await track(db, input.kind === "trial" ? "invite_trial_started" : "invite_converted", { invitation_id: r.id, contributor_id: r.contributor_id, household_id: input.householdId });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Gift pages reuse the giver's approved preview
+// ---------------------------------------------------------------------------
+
+async function giftGiver(db: SupabaseClient, code: string): Promise<{ id: string; giverId: string } | null> {
+  const normalized = normalizeGiftCode(code);
+  if (!normalized) return null;
+  const [gift] = await q(db.from("gifts").select("id, giver_id, status").eq("code_hash", hashGiftCode(normalized)).limit(1), "read gift");
+  if (!gift || gift.status === "cancelled") return null;
+  return { id: gift.id as string, giverId: gift.giver_id as string };
+}
+
+export interface GiftPreview {
+  giverName: string;
+  book: { title: string; coverUrl: string | null };
+}
+
+/** What a gift page shows when the giver has an approved Readli voice preview; null otherwise. */
+export async function giftPreview(db: SupabaseClient, code: string): Promise<GiftPreview | null> {
+  const gift = await giftGiver(db, code);
+  const preview = gift ? await approvedPreviewFor(db, gift.giverId) : null;
+  const book = preview ? findCatalogBook(preview.book_slug as string) : null;
+  if (!gift || !book) return null;
+  return { giverName: await displayNameOf(db, gift.giverId), book: { title: book.title, coverUrl: book.coverUrl } };
+}
+
+/** The gift's recipient pressed play: a short-lived link to the giver's approved preview. */
+export async function playGiftPreview(db: SupabaseClient, code: string): Promise<string | null> {
+  const gift = await giftGiver(db, code);
+  const preview = gift ? await approvedPreviewFor(db, gift.giverId) : null;
+  if (!gift || !preview) return null;
+  await track(db, "gift_preview_played", { gift_id: gift.id, contributor_id: gift.giverId, book: preview.book_slug });
+  return previewAudioUrl(db, preview.storage_key as string);
 }
