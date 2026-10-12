@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth/supabase";
+import { accountDb } from "@/lib/family/account-store";
+import { track } from "@/lib/invitations/server";
 import { serverConfig } from "@/lib/server/config";
 import { fail } from "@/lib/server/http";
 import { recordVoiceEvent } from "@/lib/server/voice-analytics";
@@ -16,6 +18,8 @@ export async function POST() {
   if (!user) return fail(401, "sign_in_required", "Please sign in to keep your voice.");
   try {
     const voice = await keepVoiceCandidate(deps, { id: user.id, name: user.name });
+    const db = accountDb();
+    if (db && voice.version === 1) await track(db, "contributor_voice_created", {}, user.id);
     await recordVoiceEvent(config, { name: "voice_kept", userId: user.id, properties: { surface: "account", version: voice.version } });
     return NextResponse.json({ voice });
   } catch (err) {

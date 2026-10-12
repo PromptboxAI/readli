@@ -36,8 +36,8 @@ export default async function FamilySignupPage({ searchParams }: { searchParams:
           <h2 id="acct" className="font-display text-2xl font-semibold">
             1. Your account
           </h2>
-          <AccountFields />
-          <p className="text-sm text-muted">You&apos;ll add your children&apos;s profiles after checkout. There&apos;s no charge per child.</p>
+          <AccountFields askName={false} />
+          <p className="text-sm text-muted">After checkout you&apos;ll add your name and your children&apos;s profiles. There&apos;s no charge per child.</p>
         </section>
 
         <section aria-labelledby="checkout" className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-sunshine/50 p-6 sm:p-8">

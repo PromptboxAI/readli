@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { folderKeys, keysOf, NARRATION_BUCKETS, RECORDINGS_BUCKET, removeObjects } from "@/lib/account/privacy";
+import { folderKeys, keysOf, NARRATION_BUCKETS, PREVIEWS_BUCKET, RECORDINGS_BUCKET, removeObjects } from "@/lib/account/privacy";
 import { fileExtension } from "@/lib/audio/mime";
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
 import { VOICE_CONSENT_VERSION, VOICE_CONSENTS } from "@/lib/content/voice-consents";
@@ -552,6 +552,9 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
       ? await this.q<Row[]>(db.from("voice_training_segments").select("storage_key").in("session_id", sessions.map((x) => x.id as string)), "read recordings")
       : [];
     await removeObjects(db, BUCKET, [...new Set([...keysOf(takes), ...(await folderKeys(db, BUCKET, ownerId))])]);
+    // Family-invitation previews were read in this voice.
+    await removeObjects(db, PREVIEWS_BUCKET, await folderKeys(db, PREVIEWS_BUCKET, ownerId));
+    await this.q(db.from("voice_previews").update({ retired_at: at }).eq("owner_id", ownerId).is("retired_at", null), "retire invitation previews");
 
     // Kids lose it first (so the reason reads "voice deleted"), then families, which frees their narrator slots.
     await this.q(

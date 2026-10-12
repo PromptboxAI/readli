@@ -4,8 +4,11 @@ import { useId } from "react";
 
 const field = "min-h-12 w-full rounded-2xl border-[3px] border-ink/20 bg-surface px-4 text-lg focus:border-ink";
 
-/** Adult account basics. Email or Google, per the Phase 4 sign-in decision. */
-export function AccountFields({ namePlaceholder = "Sara" }: { namePlaceholder?: string }) {
+/**
+ * Adult account basics. Email or Google, per the Phase 4 sign-in decision. Family signup leaves the
+ * name out so step 1 stays short; it's asked for after payment, when the family is set up (Kevin, 2026-10-12).
+ */
+export function AccountFields({ namePlaceholder = "Sara", askName = true }: { namePlaceholder?: string; askName?: boolean }) {
   const id = useId();
   return (
     <div className="flex flex-col gap-4">
@@ -23,12 +26,14 @@ export function AccountFields({ namePlaceholder = "Sara" }: { namePlaceholder?: 
         or with email
         <span className="h-px flex-1 bg-ink/15" />
       </div>
-      <div className="flex flex-col gap-2">
-        <label htmlFor={`${id}-name`} className="font-semibold">
-          Your name
-        </label>
-        <input id={`${id}-name`} className={field} placeholder={namePlaceholder} autoComplete="name" required />
-      </div>
+      {askName && (
+        <div className="flex flex-col gap-2">
+          <label htmlFor={`${id}-name`} className="font-semibold">
+            Your name
+          </label>
+          <input id={`${id}-name`} className={field} placeholder={namePlaceholder} autoComplete="name" required />
+        </div>
+      )}
       <div className="flex flex-col gap-2">
         <label htmlFor={`${id}-email`} className="font-semibold">
           Email
