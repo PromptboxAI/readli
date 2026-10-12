@@ -1,6 +1,7 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { authConfigured, safeNext, supabaseServer } from "@/lib/auth/supabase";
+import { KIDS_COOKIE } from "@/lib/family/kids-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -22,5 +23,8 @@ export async function GET(req: Request) {
     console.error("sign-in callback failed", error.message);
     return NextResponse.redirect(new URL(`/login?error=link&next=${encodeURIComponent(next)}`, url.origin));
   }
-  return NextResponse.redirect(new URL(next, url.origin));
+  // Signing in again is how a grown-up leaves Kids Mode on a device, so this sign-in ends it.
+  const res = NextResponse.redirect(new URL(next, url.origin));
+  res.cookies.delete(KIDS_COOKIE);
+  return res;
 }

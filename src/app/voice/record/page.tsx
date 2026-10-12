@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
 import { VoiceSetup } from "@/components/accounts/VoiceSetup";
-import { currentUser } from "@/lib/auth/supabase";
+import { currentAdult } from "@/lib/auth/adult";
 import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 /** Signed in, with voices switched on: the real flow. Otherwise the in-browser preview. */
 export default async function VoiceRecordPage() {
   const deps = accountVoiceDeps(serverConfig());
-  const user = deps ? await currentUser() : null;
+  const user = deps ? await currentAdult() : null;
   const existing = deps && user ? await deps.store.findVoice(user.id).catch(() => null) : null;
   return (
     <AdultPage wide>

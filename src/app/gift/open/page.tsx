@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { GiftOpen } from "@/components/gifting/GiftOpen";
 import { AdultPage, PreviewNote } from "@/components/invites/AdultPage";
-import { currentUser } from "@/lib/auth/supabase";
+import { currentAdult } from "@/lib/auth/adult";
 import { accountDb } from "@/lib/family/account-store";
 import { familyAccountsEnabled } from "@/lib/family/session";
 import { normalizeGiftCode } from "@/lib/gifting/codes";
@@ -19,7 +19,7 @@ export default async function GiftOpenPage({ searchParams }: { searchParams: Pro
   if (code && db && familyAccountsEnabled()) {
     const gift = await giftForCode(db, code);
     if (gift) {
-      const signedIn = Boolean(await currentUser());
+      const signedIn = Boolean(await currentAdult());
       return (
         <AdultPage>
           <GiftOpen plan={gift.plan} to={gift.to} from={gift.from} message={gift.message} live={{ code, signedIn, status: gift.status }} />

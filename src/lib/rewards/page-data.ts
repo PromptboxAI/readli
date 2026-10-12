@@ -1,5 +1,5 @@
 import { cookies, headers } from "next/headers";
-import { currentUser } from "@/lib/auth/supabase";
+import { currentAdult } from "@/lib/auth/adult";
 import { accountDb } from "@/lib/family/account-store";
 import { familyAccountsEnabled, familyPreviewEnabled } from "@/lib/family/session";
 import type { RewardsState } from "./rewards";
@@ -20,7 +20,7 @@ async function origin(): Promise<string> {
 export async function rewardsPage(): Promise<RewardsPage> {
   const db = accountDb();
   if (!db || !familyAccountsEnabled()) return { mode: "preview" };
-  const user = await currentUser();
+  const user = await currentAdult();
   if (!user) return familyPreviewEnabled() ? { mode: "preview" } : { mode: "sign_in" };
   const code = (await cookies()).get(REFERRAL_COOKIE)?.value;
   if (code) {

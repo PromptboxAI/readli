@@ -129,7 +129,7 @@ export default async function FamilyHome() {
 
       <section className="flex flex-col gap-3" aria-labelledby="my-voice-h">
         <h2 id="my-voice-h" className="font-display text-2xl font-semibold">Your voice</h2>
-        <p>Your voice is private until you share it. You decide which families can use it, and you can record it again or delete it at any time.</p>
+        <p>Your voice is private until you share it. You decide which families can use it, and you can record it again at any time.</p>
         <div className="flex flex-wrap gap-2">
           <Link href="/family/my-voice" className={buttonSecondary}>
             My voice

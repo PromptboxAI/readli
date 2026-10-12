@@ -98,7 +98,7 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
       {step === 0 && (
         <section className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-lavender/40 p-6 sm:p-8">
           <h2 className="font-display text-2xl font-semibold">Your voice, your rules</h2>
-          {hasVoice && <p>You already have a Readli voice. Recording again replaces it, and families you share it with keep hearing you. You can also delete it from My voice in Readli Family.</p>}
+          {hasVoice && <p>You already have a Readli voice. Recording again replaces it, and families you share it with keep hearing you.</p>}
           <fieldset className="flex flex-col gap-3">
             <legend className="sr-only">Your agreement</legend>
             {VOICE_CONSENTS.map((c, i) => (
