@@ -7,10 +7,10 @@ import { buttonPrimary, buttonQuiet, buttonSecondary } from "@/components/brand/
 import { ImproveLink, RecordingTipsDialog } from "@/components/teleprompter/RecordingTips";
 import { TeleprompterRecorder } from "@/components/teleprompter/TeleprompterRecorder";
 import type { TakeDetails } from "@/components/teleprompter/VoicePreview";
-import { VOICE_CONSENTS } from "@/lib/content/voice-consents";
+import { PERMISSION_STATEMENTS, REQUIRED_AGREEMENT_STATEMENTS, THIRD_PARTY_LICENSING_STATEMENT, VOICE_AGREEMENT_PATH } from "@/lib/content/voice-agreement";
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
 
-const STEPS = ["Your voice, your rules", "Record", "Check it's you", "Done"] as const;
+const STEPS = ["Agreement", "Record", "Check it's you", "Done"] as const;
 
 type Phase = "idle" | "making" | "sampling" | "ready" | "keeping" | "error";
 
@@ -25,18 +25,40 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
 }
 
 /**
- * Readli Voice for a signed-in grown-up: consent, record with the teleprompter, make the voice,
- * listen to a sample and keep it. The voice is saved privately; sharing happens per family. A new
- * recording stays a candidate until "Keep my voice", so a working voice is never lost to a worse one.
+ * Readli Voice for a signed-in grown-up: accept the Voice Recording & AI Training Agreement (saved
+ * before the microphone starts), record with the teleprompter, make the voice, listen to a sample and
+ * keep it. The voice is saved privately; sharing happens per family.
+ * A new recording stays a candidate until "Keep my voice", so a working voice is never lost to a worse one.
  */
 export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
   const [step, setStep] = useState(0);
-  const [agreed, setAgreed] = useState<boolean[]>(VOICE_CONSENTS.map(() => false));
+  const [agreed, setAgreed] = useState<boolean[]>(REQUIRED_AGREEMENT_STATEMENTS.map(() => false));
+  // Licensing to other companies is a separate choice and always starts off.
+  const [licensing, setLicensing] = useState(false);
+  const [agreementId, setAgreementId] = useState<string | null>(null);
+  const [accepting, setAccepting] = useState(false);
+  const [agreementError, setAgreementError] = useState<string | null>(null);
   const [take, setTake] = useState<TakeDetails | null>(null);
   const [cleanUp, setCleanUp] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [sample, setSample] = useState<{ url: string; cleanUp: boolean; standIn: boolean } | null>(null);
+  /** This browser still has the take from the guest demo, which can become this grown-up's voice. */
+  const [demoAvailable, setDemoAvailable] = useState(false);
+  const [fromDemo, setFromDemo] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/voice/from-demo", { cache: "no-store" })
+      .then((r) => (r.ok ? (r.json() as Promise<{ available?: boolean }>) : null))
+      .then((s) => {
+        if (!cancelled) setDemoAvailable(s?.available === true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [tipsOpen, setTipsOpen] = useState(false);
   const [afterFeedback, setAfterFeedback] = useState(false);
 
@@ -46,7 +68,18 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
     };
   }, [sample]);
 
+  const chooseDemo = () => {
+    setFromDemo(true);
+    setTake(null);
+    setCleanUp(false);
+    setSample(null);
+    setPhase("idle");
+    setError(null);
+    setStep(2);
+  };
+
   const takeChosen = (t: TakeDetails) => {
+    setFromDemo(false);
     setTake(t);
     // Clean-up starts on only when the recorder heard a noisy room; quiet takes keep their natural sound.
     setCleanUp(t.recorded.qc.issues.includes("noisy"));
@@ -57,22 +90,17 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
   };
 
   const makeVoice = async () => {
-    if (!take) return;
+    if (!take && !fromDemo) return;
     setError(null);
     setPhase("making");
     try {
-      const form = new FormData();
-      form.append("audio", take.recorded.blob, "take");
-      form.append("durationMs", String(Math.round(take.recorded.durationMs)));
-      form.append("wpm", String(take.wpm));
-      form.append("pauseCount", String(take.pauseCount));
-      form.append("deviceClass", deviceClass());
-      if (take.scriptOffsetEnd !== null) form.append("scriptOffsetEnd", String(take.scriptOffsetEnd));
-      for (const c of VOICE_CONSENTS) form.append("consent", c);
-      form.append("removeBackgroundNoise", String(cleanUp));
-      form.append("afterFeedback", String(afterFeedback));
-      for (const issue of take.recorded.qc.issues) form.append("qcIssue", issue);
-      const made = await fetch("/api/voice", { method: "POST", body: form });
+      const made = take
+        ? await uploadTake(take)
+        : await fetch("/api/voice/from-demo", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ agreementId, removeBackgroundNoise: cleanUp }),
+          });
       if (!made.ok) throw new Error(await errorMessage(made, "We couldn't make your voice just now. Please try again."));
 
       setPhase("sampling");
@@ -84,6 +112,22 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setPhase("error");
     }
+  };
+
+  const uploadTake = (t: TakeDetails) => {
+    const form = new FormData();
+    form.append("audio", t.recorded.blob, "take");
+    form.append("durationMs", String(Math.round(t.recorded.durationMs)));
+    form.append("wpm", String(t.wpm));
+    form.append("pauseCount", String(t.pauseCount));
+    form.append("deviceClass", deviceClass());
+    if (t.scriptOffsetEnd !== null) form.append("scriptOffsetEnd", String(t.scriptOffsetEnd));
+    if (agreementId) form.append("agreementId", agreementId);
+    form.append("qc", JSON.stringify({ speechMs: t.recorded.qc.speechMs, issues: t.recorded.qc.issues }));
+    form.append("removeBackgroundNoise", String(cleanUp));
+    form.append("afterFeedback", String(afterFeedback));
+    for (const issue of t.recorded.qc.issues) form.append("qcIssue", issue);
+    return fetch("/api/voice", { method: "POST", body: form });
   };
 
   const keepVoice = async () => {
@@ -111,6 +155,30 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
 
   const busy = phase === "making" || phase === "sampling" || phase === "keeping";
 
+  /** Saves the agreement first, so the record exists before the microphone is ever opened. */
+  const acceptAgreement = async () => {
+    setAgreementError(null);
+    setAccepting(true);
+    try {
+      const statements = [...REQUIRED_AGREEMENT_STATEMENTS, ...(licensing ? [THIRD_PARTY_LICENSING_STATEMENT] : [])];
+      const res = await fetch("/api/voice/agreement", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ statements, thirdPartyLicensing: licensing }),
+      });
+      if (!res.ok) throw new Error(await errorMessage(res, "We couldn't save your agreement just now. Please try again."));
+      const body = (await res.json()) as { agreement: { id: string } };
+      setAgreementId(body.agreement.id);
+      setStep(1);
+    } catch (err) {
+      setAgreementError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setAccepting(false);
+    }
+  };
+
+  const licensingStatement = PERMISSION_STATEMENTS.find((p) => p.permission === "third_party_licensing")!;
+
   return (
     <div className="flex flex-col gap-6">
       <ol className="grid grid-cols-4 gap-2" aria-label="Steps">
@@ -125,17 +193,32 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
       </ol>
 
       {step === 0 && (
-        <section className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-lavender/40 p-6 sm:p-8">
-          <h2 className="font-display text-2xl font-semibold">Your voice, your rules</h2>
+        <section aria-labelledby="agreement-heading" className="flex flex-col gap-4 rounded-[var(--radius-panel)] border-[3px] border-ink bg-lavender/40 p-6 sm:p-8" data-testid="voice-agreement">
+          <h2 id="agreement-heading" className="font-display text-2xl font-semibold">
+            Voice Recording &amp; AI Training Agreement
+          </h2>
+          <p className="font-semibold">Please read this before you record. Your microphone doesn&apos;t switch on until you agree.</p>
           {hasVoice && (
             <p>
               You already have a Readli voice. If you record again, your current voice keeps working until you listen to the new one
               and choose to keep it. Families you share with keep hearing you either way.
             </p>
           )}
+          <ul className="flex list-disc flex-col gap-1 pl-6 text-sm">
+            <li>Readli keeps your original recording to make, remake and improve your private story voice.</li>
+            <li>Readli also uses it to build and improve Readli&apos;s own voice technology.</li>
+            <li>Licensing it to other companies is a separate choice. It stays off unless you turn it on.</li>
+            <li>Children&apos;s voices and information are never shared for anyone else&apos;s AI training.</li>
+          </ul>
+          <p className="text-sm">
+            <a href={VOICE_AGREEMENT_PATH} target="_blank" rel="noopener" className="font-semibold underline underline-offset-4">
+              Read the full agreement
+            </a>{" "}
+            and our <a href="/privacy" target="_blank" rel="noopener" className="font-semibold underline underline-offset-4">Privacy Policy</a>.
+          </p>
           <fieldset className="flex flex-col gap-3">
-            <legend className="sr-only">Your agreement</legend>
-            {VOICE_CONSENTS.map((c, i) => (
+            <legend className="mb-2 font-semibold">Required to record</legend>
+            {REQUIRED_AGREEMENT_STATEMENTS.map((c, i) => (
               <label key={c} className="flex items-start gap-3 rounded-2xl bg-surface p-4">
                 <input
                   type="checkbox"
@@ -147,8 +230,25 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
               </label>
             ))}
           </fieldset>
-          <button type="button" className={`${buttonPrimary} w-fit`} disabled={!agreed.every(Boolean)} onClick={() => setStep(1)}>
-            I agree
+          <fieldset className="flex flex-col gap-3">
+            <legend className="mb-2 font-semibold">{licensingStatement.title}</legend>
+            <label className="flex items-start gap-3 rounded-2xl bg-surface p-4">
+              <input
+                type="checkbox"
+                checked={licensing}
+                onChange={(e) => setLicensing(e.target.checked)}
+                className="mt-1 size-5 shrink-0 accent-coral-deep"
+              />
+              <span>{licensingStatement.statement}</span>
+            </label>
+          </fieldset>
+          {agreementError && (
+            <p role="alert" className="rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold">
+              {agreementError}
+            </p>
+          )}
+          <button type="button" className={`${buttonPrimary} w-fit`} disabled={!agreed.every(Boolean) || accepting} onClick={() => void acceptAgreement()}>
+            {accepting ? "Saving…" : "I agree"}
           </button>
         </section>
       )}
@@ -157,11 +257,20 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
         <section className="flex flex-col gap-4">
           <h2 className="font-display text-2xl font-semibold">Read the story out loud</h2>
           <p>Read the whole story, about one to two minutes. Find a quiet spot and read it in your natural, warm storytime voice. Your Readli voice copies how you read.</p>
+          {demoAvailable && (
+            <div className="flex flex-col gap-2 rounded-2xl bg-mint/50 p-4" data-testid="use-demo-take">
+              <p className="font-semibold">You recorded a story in the demo on this device.</p>
+              <p className="text-sm">Use that recording for your voice, or record a new one below for better quality. A demo recording is used only to make your voice, never for training, and the demo copy is deleted within 48 hours.</p>
+              <button type="button" className={`${buttonSecondary} w-fit`} onClick={chooseDemo}>
+                Use my demo recording
+              </button>
+            </div>
+          )}
           <TeleprompterRecorder script={DEMO_SCRIPT} onTake={takeChosen} takeActionLabel="Use this recording" />
         </section>
       )}
 
-      {step === 2 && take && (
+      {step === 2 && (take || fromDemo) && (
         <section className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-sky/40 p-6 sm:p-8" data-testid="account-voice-check">
           <h2 className="font-display text-2xl font-semibold">Does this sound like you?</h2>
           <label className="flex items-start gap-3 rounded-2xl bg-surface p-4">

@@ -23,6 +23,7 @@ test("a parent sees their plan and slots, and billing stays switched off", async
   // While payments are off the endpoints don't exist.
   expect((await page.request.post("/api/billing/checkout", { data: { item: "family_monthly" } })).status()).toBe(404);
   expect((await page.request.post("/api/billing/portal", { data: {} })).status()).toBe(404);
+  expect((await page.request.post("/api/billing/change-plan", { data: { to: "archive_monthly" } })).status()).toBe(404);
   expect((await page.request.post("/api/billing/webhook", { data: "{}" })).status()).toBe(404);
 });
 

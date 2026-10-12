@@ -3,7 +3,7 @@ import { StubVoiceProvider } from "@/lib/voice/stub";
 import { ElevenLabsProvider } from "@/lib/voice/elevenlabs";
 import { VoiceProviderError } from "@/lib/voice/provider";
 import { serverConfig } from "./config";
-import { cleanupExpiredGuests } from "./guest-demo";
+import { cleanupAlert, cleanupExpiredGuests } from "./guest-demo";
 import { MemoryGuestStore } from "./guest-store";
 import { hashGuestToken, sameHash } from "./guest-token";
 import { checkUpload } from "./recording-qc";
@@ -65,9 +65,36 @@ describe("memory guest store", () => {
     await store.setVoice(s.id, "voice-1");
     store.guests.get(s.id)!.session.expiresAt = new Date(Date.now() - 1000).toISOString();
     const result = await cleanupExpiredGuests({ config: serverConfig({ VOICE_PROVIDER: "stub" } as unknown as NodeJS.ProcessEnv), store, provider });
-    expect(result).toEqual({ deleted: 1, failed: 0 });
+    expect(result).toEqual({ deleted: 1, failed: 0, backlog: false, overdue: 0 });
     expect(provider.deleted).toEqual(["voice-1"]);
     expect(store.guests.size).toBe(0);
+  });
+
+  it("cleanup removes the take and preview audio, retries a failure, and reports demos past 48 hours", async () => {
+    const store = new MemoryGuestStore();
+    const deletedKeys: string[] = [];
+    store.deleteStorage = async (keys: string[]) => void deletedKeys.push(...keys);
+    let providerDown = true;
+    const provider = Object.assign(new StubVoiceProvider(), {
+      deleteVoice: async () => {
+        if (providerDown) throw new Error("provider down");
+      },
+    });
+    const config = serverConfig({ VOICE_PROVIDER: "stub" } as unknown as NodeJS.ProcessEnv);
+    const s = await store.createSession({ tokenHash: "h3", policyVersion: "v", generationsAllowed: 2 });
+    await store.saveRecording(s.id, new Blob(["take"], { type: "audio/webm" }), { durationMs: 60_000, mimeType: "audio/webm", teleprompterWpm: 140, pauseCount: 0, deviceClass: "phone", scriptOffsetEnd: 900 });
+    await store.savePreview(s.id, "voice-2_peter", new ArrayBuffer(4), "audio/mpeg");
+    await store.setVoice(s.id, "voice-2");
+    // Expired more than a day ago, so more than 48 hours after it was made.
+    store.guests.get(s.id)!.session.expiresAt = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+    const failed = await cleanupExpiredGuests({ config, store, provider });
+    expect(failed).toEqual({ deleted: 0, failed: 1, backlog: false, overdue: 1 });
+    expect(cleanupAlert(failed, null, false)).toContain("past the 48-hour deletion promise");
+    providerDown = false;
+    expect(await cleanupExpiredGuests({ config, store, provider })).toEqual({ deleted: 1, failed: 0, backlog: false, overdue: 0 });
+    expect(deletedKeys.some((k) => k.endsWith(".webm"))).toBe(true);
+    expect(deletedKeys).toContain(`${s.id}/previews/voice-2_peter.mp3`);
+    expect(cleanupAlert({ deleted: 1, failed: 0, backlog: false, overdue: 0 }, { failed: 0 }, false)).toBeNull();
   });
 });
 

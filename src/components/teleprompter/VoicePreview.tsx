@@ -50,7 +50,7 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
  * Turns the finished take into a voice and reads demo passages in it (PRD F-01, brief §6). Each
  * story read in a voice is kept, so replays are instant and never use up a preview.
  */
-export function VoicePreview({ take, heading, onRecordAgain }: { take: TakeDetails; heading: string; onRecordAgain?: () => void }) {
+export function VoicePreview({ take, heading, onRecordAgain, afterListen }: { take: TakeDetails; heading: string; onRecordAgain?: () => void; afterListen?: React.ReactNode }) {
   const [mode, setMode] = useState<Mode>("loading");
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -226,6 +226,8 @@ export function VoicePreview({ take, heading, onRecordAgain }: { take: TakeDetai
         </div>
       )}
 
+      {playing && !busy && afterListen}
+
       {error && (
         <p role="alert" className="rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold">
           {error}
@@ -281,7 +283,7 @@ export function VoicePreview({ take, heading, onRecordAgain }: { take: TakeDetai
       <p className="text-sm text-muted">
         {mode === "off"
           ? "We never play a stock voice as if it were yours."
-          : "Your recording and voice are deleted within 24 hours. We never play a stock voice as if it were yours."}
+          : "Your recording and voice are deleted within 48 hours. We never play a stock voice as if it were yours."}
       </p>
       <RecordingTipsDialog open={tipsOpen} onClose={() => setTipsOpen(false)} onRecordAgain={onRecordAgain} where="guest_preview" />
     </div>

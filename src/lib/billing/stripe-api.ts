@@ -6,7 +6,7 @@ import type { CatalogItem } from "./catalog";
  * Callers check payments are on first; this refuses to run while they're off.
  */
 type Scalar = string | number | boolean | null | undefined;
-interface Params {
+export interface Params {
   [key: string]: Scalar | Params | Params[] | string[];
 }
 
@@ -38,6 +38,42 @@ export class StripeError extends Error {
   }
 }
 
+export interface StripeSubscription {
+  id: string;
+  status: string;
+  customer: string;
+  cancel_at_period_end?: boolean;
+  current_period_end?: number;
+  trial_end?: number | null;
+  pending_update?: unknown;
+  /** The subscription schedule driving a scheduled plan change, if any. */
+  schedule?: string | null;
+  metadata?: Record<string, string>;
+  items: { data: { id: string; quantity?: number; current_period_end?: number; price: { id: string; lookup_key?: string | null; recurring?: { interval?: string } | null } }[] };
+}
+
+export interface StripeSchedule {
+  id: string;
+  status: string;
+  subscription?: string | null;
+  current_phase?: { start_date: number; end_date: number } | null;
+  phases: { start_date: number; end_date: number; items: { price: string | { id: string }; quantity?: number }[]; metadata?: Record<string, string> }[];
+}
+
+/** The parts of Stripe's invoice preview Readli shows before a plan change. */
+export interface StripeInvoicePreview {
+  amount_due: number;
+  total: number;
+  lines: {
+    data: {
+      amount: number;
+      proration?: boolean;
+      parent?: { subscription_item_details?: { proration?: boolean } | null } | null;
+      period?: { start: number; end: number };
+    }[];
+  };
+}
+
 export class StripeApi {
   private readonly config: BillingConfig;
   private readonly fetchImpl: typeof fetch;
@@ -47,13 +83,17 @@ export class StripeApi {
     this.fetchImpl = fetchImpl;
   }
 
-  private async call<T>(method: "GET" | "POST", path: string, params: Params = {}): Promise<T> {
+  private async call<T>(method: "GET" | "POST" | "DELETE", path: string, params: Params = {}, idempotencyKey?: string): Promise<T> {
     if (this.config.mode === "off" || !this.config.secretKey) throw new StripeError(503, "Payments are switched off.");
     const body = encodeForm(params);
-    const url = `https://api.stripe.com/v1/${path}${method === "GET" && body ? `?${body}` : ""}`;
+    const url = `https://api.stripe.com/v1/${path}${method !== "POST" && body ? `?${body}` : ""}`;
     const res = await this.fetchImpl(url, {
       method,
-      headers: { authorization: `Bearer ${this.config.secretKey}`, "content-type": "application/x-www-form-urlencoded" },
+      headers: {
+        authorization: `Bearer ${this.config.secretKey}`,
+        "content-type": "application/x-www-form-urlencoded",
+        ...(idempotencyKey ? { "idempotency-key": idempotencyKey } : {}),
+      },
       body: method === "POST" ? body : undefined,
     });
     const json = (await res.json().catch(() => ({}))) as T & { error?: { message?: string } };
@@ -78,6 +118,72 @@ export class StripeApi {
 
   async createCheckoutSession(params: Params): Promise<{ id: string; url: string }> {
     return this.call("POST", "checkout/sessions", params);
+  }
+
+  /** A customer's subscriptions in every state, for the lifecycle job's billing check before deleting anything. */
+  async subscriptionStatuses(customer: string): Promise<string[]> {
+    const list = await this.call<{ data: { status: string }[] }>("GET", "subscriptions", { customer, status: "all", limit: 20 });
+    return list.data.map((s) => s.status);
+  }
+
+  /** The Stripe card fingerprint of a payment method, if it is a card. Used only to spot a reused trial card. */
+  async cardFingerprint(paymentMethod: string): Promise<string | null> {
+    const pm = await this.call<{ card?: { fingerprint?: string } }>("GET", `payment_methods/${encodeURIComponent(paymentMethod)}`);
+    return pm.card?.fingerprint ?? null;
+  }
+
+  async subscription(id: string): Promise<StripeSubscription> {
+    return this.call<StripeSubscription>("GET", `subscriptions/${encodeURIComponent(id)}`);
+  }
+
+  /** Changes a subscription's items (Readli's plan change flow). The idempotency key makes a retried click safe. */
+  async updateSubscription(id: string, params: Params, idempotencyKey: string): Promise<StripeSubscription> {
+    return this.call<StripeSubscription>("POST", `subscriptions/${encodeURIComponent(id)}`, params, idempotencyKey);
+  }
+
+  /** What a subscription change would bill, without changing anything. */
+  async previewInvoice(params: Params): Promise<StripeInvoicePreview> {
+    return this.call<StripeInvoicePreview>("POST", "invoices/create_preview", params);
+  }
+
+  async schedule(id: string): Promise<StripeSchedule> {
+    return this.call<StripeSchedule>("GET", `subscription_schedules/${encodeURIComponent(id)}`);
+  }
+
+  /** Puts a subscription under a schedule (its current phase copied), or returns the one it already has. */
+  async scheduleFor(sub: StripeSubscription, idempotencyKey: string): Promise<StripeSchedule> {
+    if (sub.schedule) return this.schedule(sub.schedule);
+    return this.call<StripeSchedule>("POST", "subscription_schedules", { from_subscription: sub.id }, idempotencyKey);
+  }
+
+  async updateSchedule(id: string, params: Params, idempotencyKey: string): Promise<StripeSchedule> {
+    return this.call<StripeSchedule>("POST", `subscription_schedules/${encodeURIComponent(id)}`, params, idempotencyKey);
+  }
+
+  /** Drops a scheduled change: the subscription carries on as it is. */
+  async releaseSchedule(id: string): Promise<StripeSchedule> {
+    return this.call<StripeSchedule>("POST", `subscription_schedules/${encodeURIComponent(id)}/release`, {});
+  }
+
+  /** Ends a subscription now (account deletion). Readli cancels without proration: no refund for unused time. */
+  async cancelSubscription(id: string, opts: { prorate: boolean }): Promise<StripeSubscription> {
+    return this.call<StripeSubscription>("DELETE", `subscriptions/${encodeURIComponent(id)}`, opts.prorate ? { prorate: true, invoice_now: true } : {});
+  }
+
+  /** Account credit on a customer (Stripe keeps credit as a negative balance), in cents. */
+  async customerCredit(customer: string): Promise<number> {
+    const c = await this.call<{ balance?: number }>("GET", `customers/${encodeURIComponent(customer)}`);
+    return Math.max(0, -(c.balance ?? 0));
+  }
+
+  /** Removes account credit at final closure with a recorded balance transaction, once per idempotency key. */
+  async removeCustomerCredit(customer: string, cents: number, idempotencyKey: string): Promise<void> {
+    await this.call("POST", `customers/${encodeURIComponent(customer)}/balance_transactions`, { amount: cents, currency: "usd", description: "Account credit removed at final account closure" }, idempotencyKey);
+  }
+
+  /** Refunds part or all of a one-time payment, once per idempotency key. */
+  async refund(paymentIntent: string, amountCents: number, idempotencyKey: string, metadata: Record<string, string>): Promise<{ id: string; status: string }> {
+    return this.call("POST", "refunds", { payment_intent: paymentIntent, amount: amountCents, reason: "requested_by_customer", metadata }, idempotencyKey);
   }
 
   /** Stripe's hosted page where a parent updates their card, changes slots or cancels. */

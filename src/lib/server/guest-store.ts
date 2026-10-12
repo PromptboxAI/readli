@@ -34,7 +34,8 @@ export interface GuestStore {
   createSession(input: { tokenHash: string; policyVersion: string; generationsAllowed: number }): Promise<GuestSession>;
   findSession(tokenHash: string): Promise<GuestSession | null>;
   saveRecording(sessionId: string, audio: Blob, meta: RecordingMeta): Promise<{ recordingId: string }>;
-  latestRecording(sessionId: string): Promise<{ audio: Blob; mimeType: string } | null>;
+  /** The guest's latest take, with its length when it was recorded (null if unknown). */
+  latestRecording(sessionId: string): Promise<{ audio: Blob; mimeType: string; durationMs: number | null } | null>;
   setVoice(sessionId: string, providerVoiceId: string): Promise<void>;
   getVoice(sessionId: string): Promise<string | null>;
   /** How many provider voices this guest has made (retakes each make one). */
@@ -47,7 +48,15 @@ export interface GuestStore {
   savePreview(sessionId: string, key: string, audio: ArrayBuffer, contentType: string): Promise<void>;
   /** Database kill switch (feature_flags.demo_audio). */
   demoAudioEnabled(): Promise<boolean>;
-  listExpired(limit: number): Promise<ExpiredGuest[]>;
+  /** Guests whose session had expired at `asOfIso` (default now), with everything left to delete. */
+  listExpired(limit: number, asOfIso?: string): Promise<ExpiredGuest[]>;
+  /** Guests whose session expired before this time and still aren't deleted. */
+  overdueCount(expiredBeforeIso: string): Promise<number>;
+  /**
+   * Records how far a guest's deletion got: provider voices marked deleted are not deleted again, and
+   * failed ones show which step to retry. The encrypted reference stays until the session row goes.
+   */
+  markDeletion(sessionId: string, kind: "provider_voice", state: "deleted" | "failed"): Promise<void>;
   deleteStorage(keys: string[]): Promise<void>;
   deleteSession(sessionId: string): Promise<void>;
 }
@@ -67,7 +76,7 @@ function extensionFor(mimeType: string): string {
 interface MemoryGuest {
   session: GuestSession;
   tokenHash: string;
-  recordings: { key: string; audio: Blob; mimeType: string }[];
+  recordings: { key: string; audio: Blob; mimeType: string; durationMs: number }[];
   previews: Map<string, { audio: Blob; contentType: string }>;
   voiceId: string | null;
 }
@@ -102,13 +111,13 @@ export class MemoryGuestStore implements GuestStore {
 
   async saveRecording(sessionId: string, audio: Blob, meta: RecordingMeta) {
     const key = `${sessionId}/${randomUUID()}.${extensionFor(meta.mimeType)}`;
-    this.guest(sessionId).recordings.push({ key, audio, mimeType: baseMimeType(meta.mimeType) });
+    this.guest(sessionId).recordings.push({ key, audio, mimeType: baseMimeType(meta.mimeType), durationMs: meta.durationMs });
     return { recordingId: key };
   }
 
   async latestRecording(sessionId: string) {
     const r = this.guest(sessionId).recordings.at(-1);
-    return r ? { audio: r.audio, mimeType: r.mimeType } : null;
+    return r ? { audio: r.audio, mimeType: r.mimeType, durationMs: r.durationMs } : null;
   }
 
   async setVoice(sessionId: string, voiceId: string) {
@@ -150,9 +159,9 @@ export class MemoryGuestStore implements GuestStore {
     return true;
   }
 
-  async listExpired(limit: number) {
+  async listExpired(limit: number, asOfIso = new Date().toISOString()) {
     return [...this.guests.values()]
-      .filter((g) => Date.parse(g.session.expiresAt) <= Date.now())
+      .filter((g) => Date.parse(g.session.expiresAt) <= Date.parse(asOfIso))
       .slice(0, limit)
       .map((g) => ({
         sessionId: g.session.id,
@@ -161,7 +170,16 @@ export class MemoryGuestStore implements GuestStore {
       }));
   }
 
-  async deleteStorage() {}
+  async overdueCount(expiredBeforeIso: string) {
+    return [...this.guests.values()].filter((g) => g.session.expiresAt < expiredBeforeIso).length;
+  }
+
+  async markDeletion(sessionId: string, _kind: "provider_voice", state: "deleted" | "failed") {
+    const g = this.guests.get(sessionId);
+    if (g && state === "deleted") g.voiceId = null;
+  }
+
+  async deleteStorage(_keys: string[]) {}
 
   async deleteSession(sessionId: string) {
     this.guests.delete(sessionId);
@@ -315,20 +333,30 @@ export class SupabaseGuestStore implements GuestStore {
     if (!row?.storage_key) return null;
     const { data, error } = await this.db.storage.from(BUCKET).download(row.storage_key);
     if (error || !data) throw new Error(`download recording: ${error?.message ?? "empty"}`);
-    return { audio: data, mimeType: data.type || "audio/webm" };
+    const take = await this.maybe(
+      this.db
+        .from("voice_training_sessions")
+        .select("recorded_duration_ms")
+        .eq("guest_session_id", sessionId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      "find latest take",
+    );
+    const durationMs = typeof take?.recorded_duration_ms === "number" ? take.recorded_duration_ms : null;
+    return { audio: data, mimeType: data.type || "audio/webm", durationMs };
   }
 
   async setVoice(sessionId: string, voiceId: string) {
     const session = await this.must(this.db.from("guest_sessions").select("expires_at").eq("id", sessionId).single(), "read guest session");
-    await this.maybe(
-      this.db.from("guest_assets").insert({
-        guest_session_id: sessionId,
-        kind: "provider_voice",
-        provider_ref_encrypted: this.encrypt(voiceId),
-        expires_at: session.expires_at,
-      }),
-      "record provider voice",
-    );
+    // Must be recorded, or the cleanup job would never find this provider voice to delete it.
+    const { error } = await this.db.from("guest_assets").insert({
+      guest_session_id: sessionId,
+      kind: "provider_voice",
+      provider_ref_encrypted: this.encrypt(voiceId),
+      expires_at: session.expires_at,
+    });
+    if (error) throw new Error(`record provider voice: ${error.message}`);
   }
 
   async getVoice(sessionId: string) {
@@ -402,9 +430,9 @@ export class SupabaseGuestStore implements GuestStore {
     return row?.enabled === true;
   }
 
-  async listExpired(limit: number) {
+  async listExpired(limit: number, asOfIso = new Date().toISOString()) {
     const sessions = await this.must<Row[]>(
-      this.db.from("guest_sessions").select("id").lte("expires_at", new Date().toISOString()).limit(limit),
+      this.db.from("guest_sessions").select("id").lte("expires_at", asOfIso).order("expires_at").limit(limit),
       "list expired guests",
     );
     const out: ExpiredGuest[] = [];
@@ -416,10 +444,41 @@ export class SupabaseGuestStore implements GuestStore {
       out.push({
         sessionId: id,
         providerVoiceIds: assets.filter((a) => a.kind === "provider_voice" && a.provider_ref_encrypted).map((a) => this.decrypt(a.provider_ref_encrypted as string)),
-        storageKeys: assets.filter((a) => (a.kind === "recording" || a.kind === "generated_audio") && a.storage_key).map((a) => a.storage_key as string),
+        // Everything under the guest's folders goes too, even a file whose asset row was never written.
+        storageKeys: [
+          ...new Set([
+            ...assets.filter((a) => (a.kind === "recording" || a.kind === "generated_audio") && a.storage_key).map((a) => a.storage_key as string),
+            ...(await this.folderFiles(id)),
+            ...(await this.folderFiles(`${id}/previews`)),
+          ]),
+        ],
       });
     }
     return out;
+  }
+
+  /** Files directly inside one folder of the guest bucket. */
+  private async folderFiles(folder: string): Promise<string[]> {
+    const keys: string[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await this.db.storage.from(BUCKET).list(folder, { limit: 1000, offset });
+      if (error) throw new Error(`list guest files: ${error.message}`);
+      keys.push(...(data ?? []).filter((f) => f.id !== null).map((f) => `${folder}/${f.name}`));
+      if (!data || data.length < 1000) return keys;
+    }
+  }
+
+  async overdueCount(expiredBeforeIso: string) {
+    const { count, error } = await this.db.from("guest_sessions").select("id", { count: "exact", head: true }).lt("expires_at", expiredBeforeIso);
+    if (error) throw new Error(`count overdue guests: ${error.message}`);
+    return count ?? 0;
+  }
+
+  async markDeletion(sessionId: string, kind: "provider_voice", state: "deleted" | "failed") {
+    await this.maybe(
+      this.db.from("guest_assets").update({ deletion_state: state, updated_at: new Date().toISOString() }).eq("guest_session_id", sessionId).eq("kind", kind).neq("deletion_state", "deleted"),
+      "record guest deletion step",
+    );
   }
 
   async deleteStorage(keys: string[]) {

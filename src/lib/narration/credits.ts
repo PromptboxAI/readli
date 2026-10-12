@@ -1,5 +1,5 @@
-import type { CreditDraw, CreditLot, CreditSource, FamilyState } from "@/lib/family/model";
-import { activeEntitlement } from "@/lib/family/permissions";
+import type { CreditDraw, CreditLot, CreditSource, FamilyState, HouseholdEntitlement } from "@/lib/family/model";
+import { familyEntitlement } from "@/lib/family/permissions";
 import type { PlanConfig } from "@/lib/family/plan";
 
 /**
@@ -9,7 +9,8 @@ import type { PlanConfig } from "@/lib/family/plan";
  * from lots: this billing month's included credits (derived from the plan, so an admin change applies
  * at once; annual plans refresh monthly too), trial credits, promotional grants and purchased packs.
  * Included and trial credits go first, then promotional, then purchased; within a source, the lot
- * that expires soonest.
+ * that expires soonest. Each source stays separate on every lot and ledger row. Only Readli Family
+ * makes new stories, so the Family Archive has no included credits (its stored lots wait for a return).
  */
 
 /** Characters in one Readli credit. */
@@ -55,37 +56,49 @@ export function creditsFor(characters: number): number {
   return Math.max(1, characters);
 }
 
-/** The included lot for this billing month, or the trial lot, for a household with a plan. */
+/** A trial plan, or a paid subscription still in its free trial: trial credits, not monthly ones. */
+export function inTrial(e: HouseholdEntitlement, at: string): boolean {
+  return e.source === "trial" || Boolean(e.trialEndsAt && at < e.trialEndsAt);
+}
+
+/** The plan's trial credits, unless this plan has its own number (0 when withheld for a reused trial card). */
+export const trialCreditsOf = (e: HouseholdEntitlement, plan: PlanConfig) => (typeof e.trialCredits === "number" ? e.trialCredits : plan.trialCredits);
+
+/** When paid billing months start counting: after a subscription's free trial, if it had one. */
+const billingAnchor = (e: HouseholdEntitlement) => (e.trialEndsAt && e.trialEndsAt > e.startsAt ? e.trialEndsAt : e.startsAt);
+
+/** The included lot for this billing month, or the trial lot, for a household on Readli Family. */
 export function includedLotId(state: FamilyState, householdId: string, at: string): string | null {
-  const e = activeEntitlement(state, householdId, at);
+  const e = familyEntitlement(state, householdId, at);
   if (!e) return null;
-  return e.source === "trial" ? `trial:${e.id}` : `subscription:${e.id}:${cycleStart(e.startsAt, at).slice(0, 10)}`;
+  return inTrial(e, at) ? `trial:${e.id}` : `subscription:${e.id}:${cycleStart(billingAnchor(e), at).slice(0, 10)}`;
 }
 
 /** Included lots that can still be spent at `at` (this billing month, plus rollover months). */
 function subscriptionLots(state: FamilyState, plan: PlanConfig, householdId: string, at: string): CreditLot[] {
-  const entitlement = activeEntitlement(state, householdId, at);
+  const entitlement = familyEntitlement(state, householdId, at);
   if (!entitlement) return [];
-  if (entitlement.source === "trial") {
-    // One allowance for the whole trial, kept apart from paid credits.
+  if (inTrial(entitlement, at)) {
+    // One allowance for the whole trial (14 days, 10 credits by default), kept apart from paid credits.
     return [
       {
         id: `trial:${entitlement.id}`,
         householdId,
         source: "trial",
-        credits: creditUnits(plan.trialCredits, plan),
+        credits: creditUnits(trialCreditsOf(entitlement, plan), plan),
         grantedAt: entitlement.startsAt,
-        expiresAt: entitlement.endsAt,
+        expiresAt: entitlement.source === "trial" ? entitlement.endsAt : entitlement.trialEndsAt!,
         note: "Free trial credits",
       },
     ];
   }
   const units = allowanceUnits(plan);
-  const current = cycleStart(entitlement.startsAt, at);
+  const anchor = billingAnchor(entitlement);
+  const current = cycleStart(anchor, at);
   const lots: CreditLot[] = [];
   for (let back = plan.subscriptionRolloverMonths; back >= 0; back -= 1) {
     const start = addMonths(current, -back);
-    if (start < entitlement.startsAt) continue;
+    if (start < anchor) continue;
     lots.push({
       id: `subscription:${entitlement.id}:${start.slice(0, 10)}`,
       householdId,
@@ -160,8 +173,9 @@ export function creditBalance(state: FamilyState, plan: PlanConfig, householdId:
   const lots = spendableLots(state, plan, householdId, at);
   const bySource: Record<CreditSource, number> = { subscription: 0, trial: 0, promotional: 0, purchased: 0 };
   for (const l of lots) bySource[l.lot.source] += l.left;
-  const entitlement = activeEntitlement(state, householdId, at);
-  const since = entitlement && entitlement.source !== "trial" ? cycleStart(entitlement.startsAt, at) : (entitlement?.startsAt ?? at);
+  const entitlement = familyEntitlement(state, householdId, at);
+  const trial = entitlement ? inTrial(entitlement, at) : false;
+  const since = entitlement && !trial ? cycleStart(billingAnchor(entitlement), at) : (entitlement?.startsAt ?? at);
   const mine = state.ledger.filter((e) => e.householdId === householdId);
   const sum = (kind: string, f: (e: (typeof mine)[number]) => boolean = () => true) => mine.filter((e) => e.kind === kind && f(e)).reduce((n, e) => n + e.credits, 0);
   const held = sum("reserve") - sum("refund") - sum("commit");
@@ -170,8 +184,8 @@ export function creditBalance(state: FamilyState, plan: PlanConfig, householdId:
     bySource,
     held: Math.max(0, held),
     usedThisPeriod: sum("commit", (e) => e.at >= since),
-    allowance: !entitlement ? 0 : entitlement.source === "trial" ? creditUnits(plan.trialCredits, plan) : allowanceUnits(plan),
-    renewsAt: !entitlement || entitlement.source === "trial" ? null : addMonths(cycleStart(entitlement.startsAt, at), 1),
+    allowance: !entitlement ? 0 : trial ? creditUnits(trialCreditsOf(entitlement, plan), plan) : allowanceUnits(plan),
+    renewsAt: !entitlement || trial ? null : addMonths(cycleStart(billingAnchor(entitlement), at), 1),
     unitsPerCredit: unitsPerCredit(plan),
     lots: lots.map((l) => ({ id: l.lot.id, source: l.lot.source, left: l.left, credits: l.lot.credits, expiresAt: l.lot.expiresAt, note: l.lot.note })),
   };

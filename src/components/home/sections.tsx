@@ -97,7 +97,7 @@ export function TryYourVoice() {
               <p className="text-sm font-semibold text-muted lg:hidden">No signup required</p>
             </div>
             <p className="hidden text-sm text-muted lg:block">
-              Your recording stays private and is deleted within 24 hours unless you choose to save it.
+              Your recording stays private and is deleted within 48 hours unless you choose to save it.
             </p>
           </div>
           <VoiceStudioPreview />
@@ -342,6 +342,7 @@ export function SiteFooter() {
     { href: "/pricing", label: "Pricing" },
     { href: "/privacy", label: "Privacy" },
     { href: "/terms", label: "Terms" },
+    { href: "/voice-agreement", label: "Voice Agreement" },
     { href: "/help", label: "Help" },
     { href: "/accessibility", label: "Accessibility" },
     { href: "/parents/safety", label: "Parent Safety" },

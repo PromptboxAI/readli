@@ -1,4 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { holdPurchasedCredits, removeUnusedCredits } from "@/lib/billing/credit-refunds";
+import { cleanHousehold, openException } from "@/lib/lifecycle/cleanup";
+import { writeAudit } from "@/lib/lifecycle/db";
 import type { ProviderRefCipher } from "@/lib/server/provider-ref";
 import type { VoiceProvider } from "@/lib/voice/provider";
 
@@ -59,9 +62,11 @@ export async function updateDisplayName(db: SupabaseClient, userId: string, valu
 /** What a grown-up types to confirm deleting their account. */
 export const DELETE_CONFIRMATION = "DELETE";
 
-export type DeletionBlocker =
-  | { kind: "only_guardian"; householdId: string; householdName: string }
-  | { kind: "sponsoring"; giftId: string; recipientName: string };
+/**
+ * The one thing that holds a deletion: kids in a shared family who would be left with no grown-up in
+ * charge. A renewing plan or gift never blocks it (Kevin, 2026-10-12): deletion cancels renewals first.
+ */
+export type DeletionBlocker = { kind: "only_guardian"; householdId: string; householdName: string };
 
 interface Homes {
   /** Families nobody else belongs to; they go with the account. */
@@ -107,29 +112,53 @@ async function homesOf(db: SupabaseClient, userId: string): Promise<Homes> {
   return out;
 }
 
-/**
- * What has to happen before the account can go. Leaving a shared family's kids with no grown-up in
- * charge, or a gift subscription still renewing on the account, needs the grown-up's own choice.
- */
+/** What has to happen before the account can go: only a shared family's kids left with no grown-up in charge. */
 export async function deletionBlockers(db: SupabaseClient, userId: string): Promise<DeletionBlocker[]> {
-  return (await assess(db, userId)).blockers;
+  return (await homesOf(db, userId)).blockers;
 }
 
-async function assess(db: SupabaseClient, userId: string): Promise<Homes> {
-  const homes = await homesOf(db, userId);
-  const blockers = homes.blockers;
-  const [gifts, plans] = await Promise.all([
-    rows(db.from("gifts").select("id, plan_id, recipient_name, status, renewals_stopped").eq("giver_id", userId), "read gifts"),
+/** Stripe calls account deletion needs, to stop a plan renewing before the account goes. */
+export interface DeletionBilling {
+  /**
+   * Ends the subscription now, without refunding or crediting the unused part of the period (Kevin,
+   * 2026-10-12: no refunds on cancellation unless local law requires one). Returns the customer.
+   */
+  cancel(subscriptionRef: string): Promise<{ customer: string }>;
+  /** Removes the customer's leftover account credit (final closure). Called only with LIFECYCLE_CREDIT_FORFEITURE=on; returns cents removed. */
+  removeCredit?(customer: string, idempotencyKey: string): Promise<number>;
+}
+
+/**
+ * Stops everything that would renew once the account is gone: the Readli plans of families only this
+ * grown-up belongs to (cancelled now, with no refund or credit for unused time; leftover account credit is
+ * removed when credit forfeiture is switched on)
+ * and gift sponsorships they pay for (renewals stop; recipients keep the month already paid for).
+ * Runs before anything is deleted, so a failure leaves the account as it was.
+ */
+async function stopRenewals(db: SupabaseClient, billing: DeletionBilling | null, userId: string, solo: string[], at: string) {
+  const plans = solo.length
+    ? (await rows(db.from("household_entitlements").select("household_id, status, ends_at, provider_subscription_ref").in("household_id", solo), "read plans")).filter(
+        (p) => p.status === "active" && typeof p.provider_subscription_ref === "string" && p.provider_subscription_ref,
+      )
+    : [];
+  if (plans.length && !billing) {
+    throw new AccountError(503, "billing_off", "We can't reach billing right now to stop your plan renewing, so your account hasn't been deleted. Please try again later.");
+  }
+  const ended: { householdId: string; subscription: string; creditRemovedCents: number }[] = [];
+  for (const p of plans) {
+    const { customer } = await billing!.cancel(p.provider_subscription_ref as string);
+    const creditRemovedCents =
+      process.env.LIFECYCLE_CREDIT_FORFEITURE === "on" && billing!.removeCredit ? await billing!.removeCredit(customer, `closure-credit:${p.household_id as string}:${customer}`) : 0;
+    ended.push({ householdId: p.household_id as string, subscription: p.provider_subscription_ref as string, creditRemovedCents });
+  }
+  const [gifts, giftPlans] = await Promise.all([
+    rows(db.from("gifts").select("id, plan_id, status, renewals_stopped").eq("giver_id", userId), "read gifts"),
     rows(db.from("gift_plans").select("id, kind"), "read gift plans"),
   ]);
-  const recurring = new Set(plans.filter((p) => p.kind === "recurring").map((p) => p.id));
-  for (const g of gifts) {
-    const live = ["awaiting_payment", "scheduled", "sent", "active"].includes(g.status as string);
-    if (live && !g.renewals_stopped && recurring.has(g.plan_id)) {
-      blockers.push({ kind: "sponsoring", giftId: g.id as string, recipientName: g.recipient_name as string });
-    }
-  }
-  return homes;
+  const recurring = new Set(giftPlans.filter((g) => g.kind === "recurring").map((g) => g.id));
+  const renewing = gifts.filter((g) => ["awaiting_payment", "scheduled", "sent", "active"].includes(g.status as string) && !g.renewals_stopped && recurring.has(g.plan_id));
+  if (renewing.length) await run(db.from("gifts").update({ renewals_stopped: true }).in("id", ids(renewing)), "stop gift renewals");
+  return { plansEnded: ended, giftRenewalsStopped: renewing.length, at };
 }
 
 export async function removeObjects(db: SupabaseClient, bucket: string, keys: string[]): Promise<number> {
@@ -159,63 +188,134 @@ export interface DeletionResult {
 }
 
 /**
- * Deletes a grown-up's account, in an order that can be safely retried if any step fails:
- * 1. their cloned voices at the voice provider (ElevenLabs), so nothing can speak in their voice again;
- * 2. every recording of them (including takes whose clone failed), every audio file made from
- *    their voice in any family, and their profile photo, from storage;
- * 3. families only they belong to, with those families' kids profiles;
- * 4. the sign-in itself, which removes the rest of their rows (profile, voices, memberships,
- *    guardianships, consents, invitations, rewards) through the database's cascades.
- * In families they share, their approvals end with them, and the family carries on.
+ * Deletes a grown-up's account (Kevin, 2026-10-11, decision 3; 2026-10-12, answer 3), whenever they ask,
+ * in an order that can be safely retried if any step fails:
+ * 0. renewals stop first: plans of families only they belong to are cancelled (unused paid time is
+ *    credited and queued for a refund) and gift sponsorships stop renewing;
+ * 1. their clones at the voice provider (ElevenLabs), so nothing new can be made in their voice;
+ * 2. their voices are withdrawn: unfinished narration stops everywhere (unused credits go back),
+ *    no new narration can be requested, and their AI-training permission ends (a database trigger
+ *    records the withdrawal on their agreement history);
+ * 3. every original recording of them and their profile photo are removed from storage, with a
+ *    completed recording-deletion record kept for audit;
+ * 4. families only they belong to are cleaned up the same way as at Day 30 (their saved stories, kids
+ *    profiles and listening history go), but the family record stays so its plans, credits and
+ *    payment records survive; unspent purchased credits go to the admin exception queue;
+ * 5. the sign-in itself goes, which removes their profile, memberships and guardianships.
+ * Stories already made in their voice for other families stay playable there, as the Voice Recording
+ * & AI Training Agreement allows. Removing a specific story for legal reasons is a separate, audited
+ * admin process (lifecycle/legal-removal.ts). Their agreement history is kept with the account link
+ * cleared.
  */
 export async function deleteAccount(
-  deps: { db: SupabaseClient; provider: VoiceProvider | null; refs: ProviderRefCipher | null },
+  deps: { db: SupabaseClient; provider: VoiceProvider | null; refs: ProviderRefCipher | null; billing?: DeletionBilling | null; now?: () => Date },
   userId: string,
 ): Promise<DeletionResult> {
   const { db, provider, refs } = deps;
-  const { solo, blockers } = await assess(db, userId);
+  const now = (deps.now ?? (() => new Date()))();
+  const at = now.toISOString();
+  const { solo, blockers } = await homesOf(db, userId);
   if (blockers.length) return { deleted: false, blockers, voicesRemoved: 0, audioFilesRemoved: 0 };
 
-  const voices = await rows(db.from("voice_profiles").select("id, provider_voice_id_encrypted").eq("owner_id", userId), "read voices");
+  const voices = (await rows(db.from("voice_profiles").select("id, status, provider_voice_id_encrypted").eq("owner_id", userId), "read voices")).filter(
+    (v) => v.status !== "deleted",
+  );
   const cloned = voices.filter((v) => typeof v.provider_voice_id_encrypted === "string" && v.provider_voice_id_encrypted);
   if (cloned.length && (!provider || !refs)) {
     throw new AccountError(503, "voice_provider_off", "We can't reach our voice service right now, so your account hasn't been deleted. Please try again later.");
   }
+  const renewals = await stopRenewals(db, deps.billing ?? null, userId, solo, at);
   for (const v of cloned) await provider!.deleteVoice(refs!.decrypt(v.provider_voice_id_encrypted as string));
 
-  let audioFilesRemoved = 0;
-  const voiceIds = ids(voices);
-  if (voiceIds.length) {
-    const libraries = await rows(db.from("narration_libraries").select("key").in("voice_id", voiceIds), "read narration libraries");
-    const segments = libraries.length
-      ? await rows(db.from("narration_segments").select("storage_key").in("library_key", ids(libraries, "key")), "read narration audio")
-      : [];
-    const assets = await rows(db.from("narration_assets").select("storage_key").in("voice_id", voiceIds), "read older narration audio");
-    audioFilesRemoved += await removeObjects(db, NARRATION_BUCKETS.segments, keysOf(segments));
-    audioFilesRemoved += await removeObjects(db, NARRATION_BUCKETS.assets, keysOf(assets));
+  for (const v of voices) {
+    await run(
+      db
+        .from("voice_profiles")
+        .update({
+          status: "withdrawn",
+          withdrawn_at: v.status === "withdrawn" ? undefined : at,
+          clone_retired_at: at,
+          provider_voice_id_encrypted: null,
+          owner_deleted_at: at,
+          updated_at: at,
+        })
+        .eq("id", v.id as string),
+      "withdraw voice",
+    );
+    await run(db.from("voice_consents").update({ revoked_at: at }).eq("voice_id", v.id as string).is("revoked_at", null), "withdraw voice consent");
+    await run(db.rpc("stop_voice_narration", { p_voice: v.id as string }), "stop narration in progress");
   }
+
+  let audioFilesRemoved = 0;
   const sessions = await rows(db.from("voice_training_sessions").select("id").eq("owner_id", userId), "read recording sessions");
-  const takes = sessions.length
-    ? await rows(db.from("voice_training_segments").select("storage_key").in("session_id", ids(sessions)), "read recordings")
-    : [];
+  const takes = sessions.length ? await rows(db.from("voice_training_segments").select("storage_key").in("session_id", ids(sessions)), "read recordings") : [];
   const recordings = new Set([...keysOf(takes), ...(await folderKeys(db, RECORDINGS_BUCKET, userId))]);
   audioFilesRemoved += await removeObjects(db, RECORDINGS_BUCKET, [...recordings]);
+  await run(
+    db.from("voice_recording_deletions").insert({
+      owner_id: userId,
+      voice_id: null,
+      reason: "account_deletion",
+      requested_at: at,
+      due_at: at,
+      status: "completed",
+      completed_at: at,
+      files_removed: recordings.size,
+      detail: { voices: voices.length, sessions: sessions.length },
+    }),
+    "record recording deletion",
+  );
   audioFilesRemoved += await removeObjects(db, PREVIEWS_BUCKET, await folderKeys(db, PREVIEWS_BUCKET, userId));
   await removeObjects(db, PHOTOS_BUCKET, await folderKeys(db, PHOTOS_BUCKET, userId));
 
   await run(
     db
       .from("child_voice_approvals")
-      .update({ revoked_at: new Date().toISOString(), revoked_by: userId, revoke_reason: "guardian_removed" })
+      .update({ revoked_at: at, revoked_by: userId, revoke_reason: "guardian_removed" })
       .eq("approved_by", userId)
       .is("revoked_at", null),
     "end approvals",
   );
-  if (solo.length) await run(db.from("households").delete().in("id", solo), "delete families");
+
+  let creditsRemoved = 0;
+  let creditsHeld = 0;
+  // Account deletion is final closure. Purchased credits are held for an admin until forfeiture is switched on.
+  const forfeitPurchased = process.env.LIFECYCLE_CREDIT_FORFEITURE === "on";
+  for (const home of solo) {
+    await run(db.rpc("stop_household_narration", { p_household: home }), "stop family narration");
+    audioFilesRemoved += (await cleanHousehold(db, home, await soloLibraries(db, home), at)).audioFiles;
+    const credits = await removeUnusedCredits(db, home, at, { forfeitPurchased });
+    creditsRemoved += credits.purchasedRemoved;
+    creditsHeld += credits.purchasedHeld;
+    await holdPurchasedCredits(db, home, credits.purchasedHeld, "account deleted");
+  }
+
+  await writeAudit(db, [
+    {
+      actor: "account-owner",
+      action: "account_deleted",
+      detail: {
+        voices: voices.length,
+        clones_deleted: cloned.length,
+        recordings_removed: recordings.size,
+        families_cleaned: solo.length,
+        plans_ended: renewals.plansEnded,
+        credits_removed: creditsRemoved,
+        credits_held: creditsHeld,
+        gift_renewals_stopped: renewals.giftRenewalsStopped,
+      },
+    },
+    ...voices.map((v) => ({ actor: "account-owner", action: "voice_withdrawn", voiceId: v.id as string, detail: { reason: "account_deleted" } })),
+  ]);
 
   const { error } = await db.auth.admin.deleteUser(userId);
   if (error) throw new Error(`delete sign-in: ${error.message}`);
   return { deleted: true, blockers: [], voicesRemoved: cloned.length, audioFilesRemoved };
+}
+
+/** A solo family's own narration: libraries scoped to it (shared libraries belong to the voice). */
+async function soloLibraries(db: SupabaseClient, householdId: string): Promise<string[]> {
+  return ids(await rows(db.from("narration_libraries").select("key").eq("scope", householdId), "read family narration"), "key");
 }
 
 export function keysOf(list: Row[]): string[] {
@@ -231,7 +331,7 @@ const pick = (r: Row, keys: string[]) => Object.fromEntries(keys.map((k) => [k, 
  */
 export async function exportAccountData(db: SupabaseClient, user: { id: string; email: string | null; name: string }) {
   const me = user.id;
-  const [profile, memberships, voices, receipts, sessions, invites, giftsGiven, giftsReceived, rewards, referral, approvals] = await Promise.all([
+  const [profile, memberships, voices, receipts, sessions, invites, giftsGiven, giftsReceived, rewards, referral, approvals, agreements] = await Promise.all([
     rows(db.from("adult_profiles").select("*").eq("user_id", me), "read profile"),
     rows(db.from("household_members").select("*").eq("user_id", me), "read memberships"),
     rows(db.from("voice_profiles").select("*").eq("owner_id", me), "read voices"),
@@ -243,6 +343,7 @@ export async function exportAccountData(db: SupabaseClient, user: { id: string; 
     rows(db.from("reward_activities").select("*").eq("user_id", me), "read rewards"),
     rows(db.from("referral_codes").select("*").eq("user_id", me), "read referral code"),
     rows(db.from("child_voice_approvals").select("*").eq("approved_by", me), "read approvals"),
+    rows(db.from("voice_rights_agreements").select("*").eq("contributor_id", me), "read voice agreements"),
   ]);
   const homeIds = ids(memberships, "household_id");
   const voiceIds = ids(voices);
@@ -290,7 +391,10 @@ export async function exportAccountData(db: SupabaseClient, user: { id: string; 
       consents: consents.filter((c) => c.voice_id === v.id).map((c) => pick(c, ["policy_version", "purposes", "captured_at", "revoked_at"])),
     })),
     storytellersYouApproved: approvals.map((a) => ({ voiceId: a.voice_id, kid: kidName(a.child_id), ...pick(a, ["approved_at", "revoked_at", "revoke_reason"]) })),
-    recordings: sessions.map((s) => pick(s, ["recording_mode", "recorded_duration_ms", "usable_duration_ms", "recording_status", "created_at"])),
+    recordings: sessions.map((s) => pick(s, ["recording_mode", "recorded_duration_ms", "usable_duration_ms", "recording_status", "language", "agreement_version", "created_at"])),
+    voiceAgreements: [...agreements].sort((a, b) => String(a.agreed_at).localeCompare(String(b.agreed_at))).map((a) =>
+      pick(a, ["agreement_version", "event", "service_rights", "readli_development_rights", "third_party_licensing", "statements", "source", "agreed_at"]),
+    ),
     consentReceipts: receipts.map((r) => pick(r, ["policy_version", "purpose", "adult_owner_declared", "accepted_fields", "given_at", "revoked_at"])),
     invitationsSent: invites.map((i) => ({ family: homeName(i.household_id), ...pick(i, ["invitee_name", "relationship_label", "created_at", "expires_at", "accepted_at", "revoked_at"]) })),
     giftsGiven: giftsGiven.map((g) => pick(g, ["plan_id", "status", "recipient_name", "message", "deliver_on", "sent_at", "redeemed_at", "renewals_stopped", "created_at"])),

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { buttonSecondary } from "@/components/brand/buttons";
-import { ManagePlan, StartPlan } from "@/components/family/BillingActions";
+import { ArchiveChoice, ManagePlan, StartPlan } from "@/components/family/BillingActions";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
+import { accountEmail, loadTrialFacts, trialDecision } from "@/lib/billing/trial";
 import { billingConfig } from "@/lib/billing/config";
 import { effectivePlan } from "@/lib/billing/price-settings";
 import { billingSummary, type BillingSummary } from "@/lib/billing/summary";
@@ -11,6 +12,7 @@ import { familyPage } from "@/lib/family/page-data";
 import { formatPrice } from "@/lib/family/plan";
 import { guardianHousehold } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
+import { rewardsConfig } from "@/lib/rewards/rewards";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Plan and billing | Readli", robots: { index: false } };
@@ -27,8 +29,22 @@ const PLAN_NAMES: Record<BillingSummary["plan"], string> = {
   tester: "Readli Family (tester plan)",
 };
 
+/** The free-trial days checkout would offer this family (src/lib/billing/trial.ts decides). */
+async function offeredTrialDays(account: { id: string } | null, householdId: string, hadPlan: boolean): Promise<number> {
+  const days = rewardsConfig().trialDays;
+  const db = account ? accountDb() : null;
+  if (!db || !account) return hadPlan ? 0 : days;
+  const email = await accountEmail(db, account.id);
+  return trialDecision(await loadTrialFacts(db, { userId: account.id, email: email.email, emailVerified: email.verified, householdId }, days)).days;
+}
+
 function planNote(s: BillingSummary): string {
+  if (s.recovery) {
+    return `Your plan ended ${day(s.recovery.endedAt)}. Your family's stories, kids profiles and permissions are saved until ${day(s.recovery.deletesAt)}, but nobody can listen until you choose Readli Family or the Family Archive.`;
+  }
   if (s.plan === "none") return "Start Readli Family to set up kids profiles, add family storytellers and prepare stories.";
+  if (s.tier === "archive") return s.endsAt ? `Your Family Archive runs until ${day(s.endsAt)}.` : "Your stories are kept and your kids can keep listening. No new stories are made on the Archive.";
+  if (s.trialEndsAt) return `Your free trial ends ${day(s.trialEndsAt)}, then Readli Family renews automatically. You can cancel any time.`;
   if (s.plan === "trial") return s.endsAt ? `Your trial ends ${day(s.endsAt)}.` : "You're on a free trial.";
   if (s.plan === "gift") return s.endsAt ? `Someone special covered your plan until ${day(s.endsAt)}. It won't turn into a paid plan when it ends.` : "Someone special is covering your plan.";
   if (s.plan === "subscription") return s.endsAt ? `Canceled. Your plan stays on until ${day(s.endsAt)}.` : "Renews automatically. You can cancel any time.";
@@ -45,8 +61,12 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const householdId = await guardianHousehold(store, page.session.actor);
   if (!householdId) return <NeedsGrownUp text={NOT_GUARDIAN} />;
   const plan = await effectivePlan(page.session.account ? accountDb() : null, store.plan);
-  const s = billingSummary(await store.read(), plan, householdId);
+  const state = await store.read();
+  const s = billingSummary(state, plan, householdId);
   const paymentsOn = billingConfig().mode !== "off";
+  // A trial started through checkout is already the Stripe subscription: it's managed, not bought again.
+  const trialing = s.plan === "subscription" && s.trialEndsAt !== null;
+  const trialDays = s.plan === "none" ? await offeredTrialDays(page.session.account ?? null, householdId, state.entitlements.some((e) => e.householdId === householdId)) : 0;
 
   return (
     <FamilyShell>
@@ -59,22 +79,49 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       </header>
       {q.checkout === "success" && (
         <p role="status" className="rounded-2xl bg-mint/40 px-4 py-3">
-          Thank you! Your plan starts as soon as the payment goes through, usually within a minute.
+          Thank you! Your plan starts within a minute or so.
         </p>
       )}
       {q.checkout === "canceled" && <p role="status" className="rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/10">Checkout was canceled. Nothing was charged.</p>}
 
       <section className="flex flex-col gap-2 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10" aria-labelledby="plan-h" data-testid="current-plan">
-        <h2 id="plan-h" className="font-display text-2xl font-semibold">{PLAN_NAMES[s.plan]}</h2>
+        <h2 id="plan-h" className="font-display text-2xl font-semibold">{s.tier === "archive" ? "Readli Family Archive" : PLAN_NAMES[s.plan]}</h2>
         <p>{planNote(s)}</p>
-        {s.plan !== "none" && (
+        {s.plan !== "none" && s.tier === "family" && (
           <p>
             {s.narratorSlots} storyteller {s.narratorSlots === 1 ? "slot" : "slots"}
             {s.extraNarratorSlots > 0 ? ` (${s.extraNarratorSlots} extra${s.extraSlotsMonthlyCents ? `, ${formatPrice(s.extraSlotsMonthlyCents)} a month` : ""})` : ""}.
           </p>
         )}
-        {s.plan === "subscription" && <ManagePlan paymentsOn={paymentsOn} />}
+        {trialing && <p>Readli Family starts on the card you added when the trial ends, unless you cancel first.</p>}
+        {s.plan === "subscription" && (
+          <ManagePlan
+            paymentsOn={paymentsOn}
+            interval={s.tier === "family" ? s.billingInterval : null}
+            monthlyCents={plan.familyMonthlyPriceCents}
+            annualCents={plan.familyAnnualPriceCents}
+            hasExtraSlots={s.extraNarratorSlots > 0}
+            inTrial={trialing}
+          />
+        )}
       </section>
+
+      {(s.tier !== null || s.recovery) && (
+        <section className="flex flex-col gap-3" aria-labelledby="archive-h">
+          <h2 id="archive-h" className="font-display text-2xl font-semibold">
+            {s.tier === "archive" ? "Back to Readli Family" : "Readli Family Archive"}
+          </h2>
+          <ArchiveChoice
+            tier={s.tier}
+            tierChange={s.tierChange}
+            priceCents={s.archiveMonthlyPriceCents}
+            monthlyCents={plan.familyMonthlyPriceCents}
+            annualCents={plan.familyAnnualPriceCents}
+            paymentsOn={paymentsOn}
+            inTrial={trialing}
+          />
+        </section>
+      )}
 
       {s.canStartPlan && (
         <section className="flex flex-col gap-3" aria-labelledby="start-h">
@@ -86,6 +133,8 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
             slotsForSale={plan.extraSlotPriceApproved}
             includedSlots={plan.includedNarratorSlots}
             paymentsOn={paymentsOn}
+            trialDays={trialDays}
+            trialCredits={plan.trialCredits}
           />
         </section>
       )}

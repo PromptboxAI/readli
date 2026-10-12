@@ -1,12 +1,10 @@
 /**
- * What a grown-up agrees to before Readli makes their account voice. The exact wording is stored
- * on the consent receipt, so change the version whenever a line changes.
+ * What a grown-up agrees to before Readli makes their account voice: the required lines of the Voice
+ * Recording & AI Training Agreement. The exact wording is stored with the agreement record, so the
+ * version changes whenever a line changes.
  */
-export const VOICE_CONSENT_VERSION = "family-voice-2026-10";
+import { REQUIRED_AGREEMENT_STATEMENTS, VOICE_AGREEMENT_VERSION } from "./voice-agreement";
 
-export const VOICE_CONSENTS = [
-  "This is my own voice, and I'm the only person recording it.",
-  "Readli can make a private digital version of my voice to read stories.",
-  "Families can only use it after I share it with them, and their parents approve it for each child.",
-  "I can stop sharing, replace or delete my voice at any time.",
-] as const;
+export const VOICE_CONSENT_VERSION = VOICE_AGREEMENT_VERSION;
+
+export const VOICE_CONSENTS = REQUIRED_AGREEMENT_STATEMENTS;
