@@ -23,22 +23,31 @@ export interface HearOptions {
   activeSlug?: string | null;
   /** Shown under every book and disables the buttons, e.g. while previews are off or busy. */
   disabledReason?: string | null;
+  /** Books already read in this voice: they replay for free, even after the previews run out. */
+  explored?: ReadonlySet<string>;
+  /** Disables every button, explored books too (one story at a time). */
+  busy?: boolean;
 }
 
 const hearButton =
   "inline-flex min-h-12 items-center justify-center whitespace-nowrap rounded-full border-[3px] border-ink bg-sunshine px-2 text-sm font-display font-semibold sm:px-4 sm:text-base";
 
-export function DemoBookCard({ book, onHear, activeSlug, disabledReason }: { book: DemoBook } & HearOptions) {
+export function DemoBookCard({ book, onHear, activeSlug, disabledReason, explored, busy }: { book: DemoBook } & HearOptions) {
   const playable = isPassagePlayable(book);
   const headingId = `book-${book.slug}`;
   const active = activeSlug === book.slug;
+  const heard = explored?.has(book.slug) ?? false;
+  // Greyed out only when the story can't be heard; while another story loads, buttons just wait in their colour.
+  const unavailable = !playable || !onHear || (Boolean(disabledReason) && !heard && !busy);
   const status = !playable
     ? "Preview coming soon."
     : !onHear
-      ? "Record your voice first, then hear this in it."
+      ? null // Homepage: the button already leads to recording, so no hint (Kevin, 2026-10-11).
       : active
         ? "Playing in your voice."
-        : (disabledReason ?? "Plays in your recorded voice.");
+        : heard && !busy
+          ? "Explored. Replays are free."
+          : (disabledReason ?? "Plays in your recorded voice.");
   return (
     <article aria-labelledby={headingId} className="group flex w-full flex-col gap-3">
       <div className="px-1 sm:px-3">
@@ -57,21 +66,23 @@ export function DemoBookCard({ book, onHear, activeSlug, disabledReason }: { boo
       {onHear || !playable ? (
         <button
           type="button"
-          disabled={!playable || !onHear || Boolean(disabledReason) || active}
+          disabled={unavailable || active || Boolean(busy)}
           aria-describedby={`${headingId}-status`}
           onClick={() => onHear?.(book)}
-          className={`${hearButton} disabled:cursor-not-allowed disabled:bg-ivory disabled:text-muted ${active ? "!bg-mint !text-ink" : ""}`}
+          className={`${hearButton} disabled:cursor-not-allowed ${unavailable ? "disabled:bg-ivory disabled:text-muted" : ""} ${active ? "!bg-mint !text-ink" : ""}`}
         >
-          {active ? "Now playing" : "Hear this passage"}
+          {active ? "Now playing" : heard ? "Play again" : "Hear this passage"}
         </button>
       ) : (
-        <Link href="/try" aria-describedby={`${headingId}-status`} className={hearButton}>
+        <Link href="/try" className={hearButton}>
           Hear this passage
         </Link>
       )}
-      <p id={`${headingId}-status`} className="text-xs text-muted">
-        {status}
-      </p>
+      {status && (
+        <p id={`${headingId}-status`} className="text-xs text-muted">
+          {status}
+        </p>
+      )}
     </article>
   );
 }

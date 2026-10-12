@@ -24,7 +24,16 @@ export const SAMPLE_REWARDS: RewardsState = {
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /** Readli Rewards progress tracker. Adults only; never rendered in Readli Kids. */
-export function RewardsTracker({ state = SAMPLE_REWARDS, config = DEFAULT_REWARDS }: { state?: RewardsState; config?: RewardsConfig }) {
+export function RewardsTracker({
+  state = SAMPLE_REWARDS,
+  config = DEFAULT_REWARDS,
+  link = "https://readli.ai/r/preview",
+}: {
+  state?: RewardsState;
+  config?: RewardsConfig;
+  /** The grown-up's own referral link. */
+  link?: string;
+}) {
   const [copied, setCopied] = useState(false);
   const p = progress(state, config);
   const pct = Math.round((p.starterDone / p.starterTotal) * 100);
@@ -32,7 +41,7 @@ export function RewardsTracker({ state = SAMPLE_REWARDS, config = DEFAULT_REWARD
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText("https://readli.ai/r/preview");
+      await navigator.clipboard.writeText(link);
       setCopied(true);
     } catch {
       /* Clipboard blocked; the link is visible to copy by hand. */
@@ -121,7 +130,9 @@ export function RewardsTracker({ state = SAMPLE_REWARDS, config = DEFAULT_REWARD
             When a new family joins with your link and pays for their {ordinal(config.referralPaidCyclesRequired)} month of Readli Family,
             you get a month free.
           </p>
-          <p className="break-all rounded-2xl bg-surface p-3 font-mono text-sm">readli.ai/r/preview</p>
+          <p className="break-all rounded-2xl bg-surface p-3 font-mono text-sm" data-testid="referral-link">
+            {link.replace(/^https?:\/\//, "")}
+          </p>
           <button type="button" className={`${buttonSecondary} w-fit`} onClick={copy}>
             {copied ? "Link copied" : "Copy my link"}
           </button>

@@ -264,10 +264,10 @@ describe("narration libraries (required tests)", () => {
     expect(held.held).toBeGreaterThan(0);
     await cancelGeneration(store, mom, job!.id, clock);
     const back = creditBalance(state, DEFAULT_PLAN, H, new Date(tick).toISOString());
-    expect(back.available).toBe(DEFAULT_PLAN.monthlyNarrationMinutes * 60);
+    expect(back.available).toBe(DEFAULT_PLAN.monthlyCredits * DEFAULT_PLAN.charactersPerCredit);
     expect(libraryStatus(state, library(state), text).readiness).toBe("not_prepared");
     // With no allowance left, a request is refused before anything is claimed.
-    const tight = family({ ...DEFAULT_PLAN, monthlyNarrationMinutes: 0 });
+    const tight = family({ ...DEFAULT_PLAN, monthlyCredits: 0 });
     await rejects(requestGeneration(tight.store, mom, H, { voiceId: "voice-june", bookSlug: BOOK, scope: "book" }, clock), 402, "not_enough_credits");
     expect(tight.state.jobs).toHaveLength(0);
     // A child can't prepare narration.
@@ -283,5 +283,48 @@ describe("ElevenLabs cost model", () => {
     const perMinute = usdPerMinute(pro, modelCost("eleven_v3"));
     expect(perMinute).toBeGreaterThan(0.1);
     expect(perMinute * 60).toBeGreaterThan(2.4);
+  });
+});
+
+describe("each voice keeps its own reading model", () => {
+  class ModelProvider extends CountingProvider {
+    models: (string | undefined)[] = [];
+    override async synthesize(input: { voiceId: string; text: string; modelId?: string }) {
+      this.models.push(input.modelId);
+      return super.synthesize(input);
+    }
+  }
+  const june = (state: FamilyState) => state.voices.find((v) => v.id === "voice-june")!;
+
+  it("reads with the voice's pinned model, not the plan's newer one", async () => {
+    const { state, store } = family({ ...DEFAULT_PLAN, narrationModelId: "eleven_v5" });
+    june(state).modelId = "eleven_v4";
+    const provider = new ModelProvider();
+    await prepareJune(store, provider);
+    expect(new Set(provider.models)).toEqual(new Set(["eleven_v4"]));
+    expect(library(state, H, "voice-june", store.plan).modelId).toBe("eleven_v4");
+  });
+
+  it("after switching to a new model, finished books keep playing and new books use the new model", async () => {
+    const { state, store } = family();
+    june(state).modelId = "eleven_v4";
+    await prepareJune(store);
+    const before = library(state).key;
+
+    june(state).modelId = "eleven_v5";
+    expect(library(state).key).toBe(before);
+    expect(libraryStatus(state, library(state), text).readiness).toBe("ready");
+    const again = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: BOOK, scope: "book" }, clock);
+    expect(again.job).toBeNull();
+
+    expect(libraryFor(state, store.plan, "voice-june", bookText("the-little-red-hen")!, H).modelId).toBe("eleven_v5");
+  });
+
+  it("a book only partly prepared on the old model is finished on the new one", async () => {
+    const { state, store } = family();
+    june(state).modelId = "eleven_v4";
+    await prepareJune(store, new CountingProvider((t) => t === text.sentences.at(-1)!.text));
+    june(state).modelId = "eleven_v5";
+    expect(library(state).modelId).toBe("eleven_v5");
   });
 });

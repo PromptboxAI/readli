@@ -1,8 +1,9 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
 import type { ServerConfig } from "./config";
 import { GUEST_TTL_MS } from "./guest-token";
+import { ProviderRefCipher } from "./provider-ref";
 import { baseMimeType } from "./recording-qc";
 
 export interface GuestSession {
@@ -30,7 +31,7 @@ export interface ExpiredGuest {
 
 /** Everything the guest demo persists. Supabase in live mode, memory in stub mode. */
 export interface GuestStore {
-  createSession(input: { tokenHash: string; policyVersion: string }): Promise<GuestSession>;
+  createSession(input: { tokenHash: string; policyVersion: string; generationsAllowed: number }): Promise<GuestSession>;
   findSession(tokenHash: string): Promise<GuestSession | null>;
   saveRecording(sessionId: string, audio: Blob, meta: RecordingMeta): Promise<{ recordingId: string }>;
   latestRecording(sessionId: string): Promise<{ audio: Blob; mimeType: string } | null>;
@@ -41,6 +42,9 @@ export interface GuestStore {
   /** Atomically spends one preview; false when the guest has none left. */
   useGeneration(sessionId: string): Promise<boolean>;
   refundGeneration(sessionId: string): Promise<void>;
+  /** A story already read in this voice, kept so replays are free. `key` names the voice and the book. */
+  findPreview(sessionId: string, key: string): Promise<{ audio: Blob; contentType: string } | null>;
+  savePreview(sessionId: string, key: string, audio: ArrayBuffer, contentType: string): Promise<void>;
   /** Database kill switch (feature_flags.demo_audio). */
   demoAudioEnabled(): Promise<boolean>;
   listExpired(limit: number): Promise<ExpiredGuest[]>;
@@ -48,7 +52,10 @@ export interface GuestStore {
   deleteSession(sessionId: string): Promise<void>;
 }
 
-const GENERATIONS_ALLOWED = 2;
+/** Where a cached preview lives in the guest bucket. Keys come from the server, never the browser. */
+export function previewStorageKey(sessionId: string, key: string): string {
+  return `${sessionId}/previews/${key.replace(/[^a-zA-Z0-9_-]/g, "")}.mp3`;
+}
 
 function extensionFor(mimeType: string): string {
   return { "audio/webm": "webm", "audio/mp4": "m4a", "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/wav": "wav" }[baseMimeType(mimeType)] ?? "bin";
@@ -61,21 +68,22 @@ interface MemoryGuest {
   session: GuestSession;
   tokenHash: string;
   recordings: { key: string; audio: Blob; mimeType: string }[];
+  previews: Map<string, { audio: Blob; contentType: string }>;
   voiceId: string | null;
 }
 
 export class MemoryGuestStore implements GuestStore {
   readonly guests = new Map<string, MemoryGuest>();
 
-  async createSession({ tokenHash }: { tokenHash: string; policyVersion: string }) {
+  async createSession({ tokenHash, generationsAllowed }: { tokenHash: string; policyVersion: string; generationsAllowed: number }) {
     const session: GuestSession = {
       id: randomUUID(),
       expiresAt: new Date(Date.now() + GUEST_TTL_MS).toISOString(),
       generationsUsed: 0,
-      generationsAllowed: GENERATIONS_ALLOWED,
+      generationsAllowed,
       hasVoice: false,
     };
-    this.guests.set(session.id, { session, tokenHash, recordings: [], voiceId: null });
+    this.guests.set(session.id, { session, tokenHash, recordings: [], previews: new Map(), voiceId: null });
     return { ...session };
   }
 
@@ -130,6 +138,14 @@ export class MemoryGuestStore implements GuestStore {
     s.generationsUsed = Math.max(0, s.generationsUsed - 1);
   }
 
+  async findPreview(sessionId: string, key: string) {
+    return this.guest(sessionId).previews.get(key) ?? null;
+  }
+
+  async savePreview(sessionId: string, key: string, audio: ArrayBuffer, contentType: string) {
+    this.guest(sessionId).previews.set(key, { audio: new Blob([audio], { type: contentType }), contentType });
+  }
+
   async demoAudioEnabled() {
     return true;
   }
@@ -138,7 +154,11 @@ export class MemoryGuestStore implements GuestStore {
     return [...this.guests.values()]
       .filter((g) => Date.parse(g.session.expiresAt) <= Date.now())
       .slice(0, limit)
-      .map((g) => ({ sessionId: g.session.id, providerVoiceIds: g.voiceId ? [g.voiceId] : [], storageKeys: g.recordings.map((r) => r.key) }));
+      .map((g) => ({
+        sessionId: g.session.id,
+        providerVoiceIds: g.voiceId ? [g.voiceId] : [],
+        storageKeys: [...g.recordings.map((r) => r.key), ...[...g.previews.keys()].map((k) => previewStorageKey(g.session.id, k))],
+      }));
   }
 
   async deleteStorage() {}
@@ -158,28 +178,22 @@ type Row = Record<string, any>;
 
 export class SupabaseGuestStore implements GuestStore {
   private scriptVersionId: string | null = null;
-  private readonly key: Buffer;
+  private readonly cipher: ProviderRefCipher;
 
   constructor(
     private readonly db: SupabaseClient,
     secret: string,
   ) {
     // Provider voice ids are stored encrypted (guest_assets.provider_ref_encrypted).
-    this.key = createHash("sha256").update(`readli-provider-ref:${secret}`).digest();
+    this.cipher = new ProviderRefCipher(secret);
   }
 
   private encrypt(plain: string): string {
-    const iv = randomBytes(12);
-    const cipher = createCipheriv("aes-256-gcm", this.key, iv);
-    const body = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
-    return `\\x${Buffer.concat([iv, cipher.getAuthTag(), body]).toString("hex")}`;
+    return this.cipher.encrypt(plain);
   }
 
   private decrypt(stored: string): string {
-    const raw = Buffer.from(stored.replace(/^\\x/, ""), "hex");
-    const decipher = createDecipheriv("aes-256-gcm", this.key, raw.subarray(0, 12));
-    decipher.setAuthTag(raw.subarray(12, 28));
-    return Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString("utf8");
+    return this.cipher.decrypt(stored);
   }
 
   /** Runs a query that must return data. Rows are untyped until we generate Supabase types. */
@@ -201,11 +215,11 @@ export class SupabaseGuestStore implements GuestStore {
     return { id: row.id, expiresAt: row.expires_at, generationsUsed: row.generations_used, generationsAllowed: row.generations_allowed, hasVoice };
   }
 
-  async createSession({ tokenHash, policyVersion }: { tokenHash: string; policyVersion: string }) {
+  async createSession({ tokenHash, policyVersion, generationsAllowed }: { tokenHash: string; policyVersion: string; generationsAllowed: number }) {
     const row = await this.must(
       this.db
         .from("guest_sessions")
-        .insert({ signed_id_hash: tokenHash, generations_allowed: GENERATIONS_ALLOWED, expires_at: new Date(Date.now() + GUEST_TTL_MS).toISOString() })
+        .insert({ signed_id_hash: tokenHash, generations_allowed: generationsAllowed, expires_at: new Date(Date.now() + GUEST_TTL_MS).toISOString() })
         .select("id, expires_at, generations_used, generations_allowed")
         .single(),
       "create guest session",
@@ -245,7 +259,7 @@ export class SupabaseGuestStore implements GuestStore {
   private async guestScriptVersionId(): Promise<string> {
     if (this.scriptVersionId) return this.scriptVersionId;
     const row = await this.must(
-      this.db.from("voice_script_versions").select("id, voice_scripts!inner(slug)").eq("voice_scripts.slug", "guest_short.en").eq("version", DEMO_SCRIPT.version).single(),
+      this.db.from("voice_script_versions").select("id, voice_scripts!inner(slug)").eq("voice_scripts.slug", "guest_short.en").lte("version", DEMO_SCRIPT.version).order("version", { ascending: false }).limit(1).single(),
       "find guest script version",
     );
     this.scriptVersionId = row.id as string;
@@ -351,6 +365,38 @@ export class SupabaseGuestStore implements GuestStore {
     await this.maybe(this.db.rpc("refund_guest_generation", { p_session: sessionId }), "refund preview");
   }
 
+  async findPreview(sessionId: string, key: string) {
+    const storageKey = previewStorageKey(sessionId, key);
+    const row = await this.maybe(
+      this.db
+        .from("guest_assets")
+        .select("id")
+        .eq("guest_session_id", sessionId)
+        .eq("kind", "generated_audio")
+        .eq("storage_key", storageKey)
+        .eq("deletion_state", "active")
+        .limit(1)
+        .maybeSingle(),
+      "find cached preview",
+    );
+    if (!row) return null;
+    const { data, error } = await this.db.storage.from(BUCKET).download(storageKey);
+    if (error || !data) return null; // A missing file just means the story is read again.
+    return { audio: data, contentType: data.type || "audio/mpeg" };
+  }
+
+  async savePreview(sessionId: string, key: string, audio: ArrayBuffer, contentType: string) {
+    const storageKey = previewStorageKey(sessionId, key);
+    const type = baseMimeType(contentType);
+    const { error } = await this.db.storage.from(BUCKET).upload(storageKey, new Blob([audio], { type }), { contentType: type, upsert: true });
+    if (error) throw new Error(`save preview: ${error.message}`);
+    const session = await this.must(this.db.from("guest_sessions").select("expires_at").eq("id", sessionId).single(), "read guest session");
+    await this.maybe(
+      this.db.from("guest_assets").insert({ guest_session_id: sessionId, kind: "generated_audio", storage_key: storageKey, expires_at: session.expires_at }),
+      "record cached preview",
+    );
+  }
+
   async demoAudioEnabled() {
     const row = await this.maybe(this.db.from("feature_flags").select("enabled").eq("key", "demo_audio").maybeSingle(), "read demo_audio flag");
     return row?.enabled === true;
@@ -370,7 +416,7 @@ export class SupabaseGuestStore implements GuestStore {
       out.push({
         sessionId: id,
         providerVoiceIds: assets.filter((a) => a.kind === "provider_voice" && a.provider_ref_encrypted).map((a) => this.decrypt(a.provider_ref_encrypted as string)),
-        storageKeys: assets.filter((a) => a.kind === "recording" && a.storage_key).map((a) => a.storage_key as string),
+        storageKeys: assets.filter((a) => (a.kind === "recording" || a.kind === "generated_audio") && a.storage_key).map((a) => a.storage_key as string),
       });
     }
     return out;

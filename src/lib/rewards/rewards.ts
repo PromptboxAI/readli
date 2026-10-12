@@ -53,8 +53,8 @@ export interface RewardsConfig {
   /** Off until Kevin switches the program on. While off, production never shows rewards or referrals. */
   programPublic: boolean;
   trialDays: number;
-  /** New narration a trial household may generate during its trial. */
-  trialNarrationMinutes: number;
+  /** Readli credits a trial household may spend during its trial (kept apart from paid credits). */
+  trialCredits: number;
   /** Paid monthly cycles the referred household must complete before the referrer earns a month. */
   referralPaidCyclesRequired: number;
   /** Free months a household can earn from referrals in any rolling 12 months. */
@@ -64,7 +64,7 @@ export interface RewardsConfig {
 export const DEFAULT_REWARDS: RewardsConfig = {
   programPublic: false,
   trialDays: 14,
-  trialNarrationMinutes: 10,
+  trialCredits: 10,
   referralPaidCyclesRequired: 2,
   referralMonthsPerRolling12: 3,
 };
@@ -78,7 +78,7 @@ export function rewardsConfig(env: NodeJS.ProcessEnv = process.env): RewardsConf
   return {
     programPublic: env.REWARDS_PROGRAM_PUBLIC === "true",
     trialDays: int("REWARDS_TRIAL_DAYS", DEFAULT_REWARDS.trialDays),
-    trialNarrationMinutes: int("REWARDS_TRIAL_NARRATION_MINUTES", DEFAULT_REWARDS.trialNarrationMinutes),
+    trialCredits: int("REWARDS_TRIAL_CREDITS", DEFAULT_REWARDS.trialCredits),
     referralPaidCyclesRequired: Math.max(1, int("REWARDS_REFERRAL_PAID_CYCLES", DEFAULT_REWARDS.referralPaidCyclesRequired)),
     referralMonthsPerRolling12: int("REWARDS_REFERRAL_MONTHS_PER_12", DEFAULT_REWARDS.referralMonthsPerRolling12),
   };
@@ -116,14 +116,14 @@ export function trialEligibility(facts: TrialFacts, config: RewardsConfig = DEFA
 export interface TrialGrant {
   startsAt: Date;
   endsAt: Date;
-  narrationSeconds: number;
+  credits: number;
 }
 
 export function startTrial(at: Date, config: RewardsConfig = DEFAULT_REWARDS): TrialGrant {
   return {
     startsAt: at,
     endsAt: new Date(at.getTime() + config.trialDays * 86_400_000),
-    narrationSeconds: config.trialNarrationMinutes * 60,
+    credits: config.trialCredits,
   };
 }
 
@@ -132,12 +132,12 @@ export function startTrial(at: Date, config: RewardsConfig = DEFAULT_REWARDS): T
  * paying household gets its plan's monthly allowance, once, whether or not a free month covers the
  * charge. Reward months change the bill, never the allowance.
  */
-export function narrationAllowanceSeconds(
+export function narrationAllowanceCredits(
   period: { kind: "trial" } | { kind: "subscription"; coveredByRewardMonth: boolean },
-  monthlyNarrationMinutes: number,
+  monthlyCredits: number,
   config: RewardsConfig = DEFAULT_REWARDS,
 ): number {
-  return period.kind === "trial" ? config.trialNarrationMinutes * 60 : monthlyNarrationMinutes * 60;
+  return period.kind === "trial" ? config.trialCredits : monthlyCredits;
 }
 
 // ---------------------------------------------------------------------------

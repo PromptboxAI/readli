@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { DemoBookShelf } from "@/components/books/DemoBookShelf";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import type { DemoBook } from "@/lib/content/demo-books";
+import { ImproveLink, RecordingTipsDialog } from "./RecordingTips";
 import type { RecordedTake } from "./useMicrophone";
 
 type Mode = "live" | "stub" | "off" | "loading";
@@ -16,6 +17,15 @@ export interface TakeDetails {
   wpm: number;
   pauseCount: number;
   scriptOffsetEnd: number | null;
+  /** The reader asked how to improve before recording this take. */
+  afterFeedback?: boolean;
+}
+
+interface Played {
+  book: DemoBook;
+  url: string;
+  standIn: boolean;
+  cleanUp: boolean;
 }
 
 const PHASE_COPY: Partial<Record<Phase, string>> = {
@@ -36,13 +46,21 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
   return body?.error?.message ?? fallback;
 }
 
-/** Turns the finished take into a voice and reads a demo passage in it (PRD F-01, brief §6). */
-export function VoicePreview({ take, heading }: { take: TakeDetails; heading: string }) {
+/**
+ * Turns the finished take into a voice and reads demo passages in it (PRD F-01, brief §6). Each
+ * story read in a voice is kept, so replays are instant and never use up a preview.
+ */
+export function VoicePreview({ take, heading, onRecordAgain }: { take: TakeDetails; heading: string; onRecordAgain?: () => void }) {
   const [mode, setMode] = useState<Mode>("loading");
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [previewsLeft, setPreviewsLeft] = useState<number | null>(null);
-  const [playing, setPlaying] = useState<{ book: DemoBook; url: string; standIn: boolean; cleanUp: boolean } | null>(null);
+  const [previewsAllowed, setPreviewsAllowed] = useState<number | null>(null);
+  const [playing, setPlaying] = useState<Played | null>(null);
+  const [tipsOpen, setTipsOpen] = useState(false);
+  /** Stories already read, by voice ("take:clean-up") and book. */
+  const heard = useRef(new Map<string, Played>());
+  const [, setHeardCount] = useState(0);
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
   // Noise clean-up starts on only when the recorder heard a noisy room; quiet takes keep their natural sound.
   const [cleanUp, setCleanUp] = useState(() => take.recorded.qc.issues.includes("noisy"));
@@ -54,11 +72,14 @@ export function VoicePreview({ take, heading }: { take: TakeDetails; heading: st
   useEffect(() => {
     let cancelled = false;
     fetch("/api/demo/status", { cache: "no-store" })
-      .then((r) => r.json() as Promise<{ mode: Mode; guest: { previewsLeft: number } | null }>)
+      .then((r) => r.json() as Promise<{ mode: Mode; guest: { previewsLeft: number; previewsAllowed: number } | null }>)
       .then((s) => {
         if (cancelled) return;
         setMode(s.mode);
-        if (s.guest) setPreviewsLeft(s.guest.previewsLeft);
+        if (s.guest) {
+          setPreviewsLeft(s.guest.previewsLeft);
+          setPreviewsAllowed(s.guest.previewsAllowed);
+        }
       })
       .catch(() => !cancelled && setMode("off"));
     return () => {
@@ -67,10 +88,14 @@ export function VoicePreview({ take, heading }: { take: TakeDetails; heading: st
   }, []);
 
   useEffect(() => {
+    const cache = heard.current;
     return () => {
-      if (playing) URL.revokeObjectURL(playing.url);
+      for (const p of cache.values()) URL.revokeObjectURL(p.url);
     };
-  }, [playing]);
+  }, []);
+
+  const voiceKey = `${take.takeNumber}:${cleanUp}`;
+  const explored = new Set([...heard.current.keys()].filter((k) => k.startsWith(`${voiceKey}|`)).map((k) => k.split("|")[1]!));
 
   const ensureVoice = async (): Promise<boolean> => {
     const voiceKey = `${take.takeNumber}:${cleanUp}`;
@@ -98,8 +123,9 @@ export function VoicePreview({ take, heading }: { take: TakeDetails; heading: st
       body: JSON.stringify({ adultOwner: true, processing: true }),
     });
     if (!session.ok) throw new Error(await errorMessage(session, OFF_REASON));
-    const { previewsLeft: left } = (await session.json()) as { previewsLeft: number };
-    setPreviewsLeft(left);
+    const counts = (await session.json()) as { previewsLeft: number; previewsAllowed: number };
+    setPreviewsLeft(counts.previewsLeft);
+    setPreviewsAllowed(counts.previewsAllowed);
 
     const form = new FormData();
     form.append("audio", take.recorded.blob, "take");
@@ -108,6 +134,9 @@ export function VoicePreview({ take, heading }: { take: TakeDetails; heading: st
     form.append("pauseCount", String(take.pauseCount));
     form.append("deviceClass", deviceClass());
     if (take.scriptOffsetEnd !== null) form.append("scriptOffsetEnd", String(take.scriptOffsetEnd));
+    form.append("takeNumber", String(take.takeNumber));
+    form.append("afterFeedback", String(Boolean(take.afterFeedback)));
+    for (const issue of take.recorded.qc.issues) form.append("qcIssue", issue);
     const upload = await fetch("/api/guest/recording", { method: "POST", body: form });
     if (!upload.ok) throw new Error(await errorMessage(upload, "We couldn't save your recording. Please try again."));
     uploadedTake.current = take.takeNumber;
@@ -116,6 +145,12 @@ export function VoicePreview({ take, heading }: { take: TakeDetails; heading: st
   const hear = async (book: DemoBook) => {
     setError(null);
     setActiveSlug(book.slug);
+    const already = voiceMadeFrom.current === voiceKey ? heard.current.get(`${voiceKey}|${book.slug}`) : undefined;
+    if (already) {
+      setPlaying({ ...already });
+      setPhase("playing");
+      return;
+    }
     try {
       await ensureVoice();
       setPhase("reading");
@@ -126,9 +161,13 @@ export function VoicePreview({ take, heading }: { take: TakeDetails; heading: st
       });
       if (!res.ok) throw new Error(await errorMessage(res, "We couldn't read that story just now. Please try again."));
       const left = Number(res.headers.get("x-readli-previews-left"));
-      if (Number.isFinite(left)) setPreviewsLeft(left);
-      const url = URL.createObjectURL(await res.blob());
-      setPlaying({ book, url, standIn: res.headers.get("x-readli-stand-in") === "1", cleanUp });
+      if (res.headers.has("x-readli-previews-left") && Number.isFinite(left)) setPreviewsLeft(left);
+      const allowed = Number(res.headers.get("x-readli-previews-allowed"));
+      if (res.headers.has("x-readli-previews-allowed") && Number.isFinite(allowed)) setPreviewsAllowed(allowed);
+      const played: Played = { book, url: URL.createObjectURL(await res.blob()), standIn: res.headers.get("x-readli-stand-in") === "1", cleanUp };
+      heard.current.set(`${voiceKey}|${book.slug}`, played);
+      setHeardCount(heard.current.size);
+      setPlaying(played);
       setPhase("playing");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
@@ -151,8 +190,9 @@ export function VoicePreview({ take, heading }: { take: TakeDetails; heading: st
         : busy
           ? "One story at a time."
           : previewsLeft === 0
-            ? "You've used your free previews."
+            ? "You've explored all your free stories."
             : null;
+  const used = previewsLeft !== null && previewsAllowed !== null ? Math.max(0, previewsAllowed - previewsLeft) : null;
 
   return (
     <div ref={topRef} className="flex scroll-mt-20 flex-col gap-5" data-testid="voice-preview">
@@ -181,6 +221,7 @@ export function VoicePreview({ take, heading }: { take: TakeDetails; heading: st
               <summary className="cursor-pointer font-semibold">Read along</summary>
               <p className="mt-2 leading-relaxed">{playing.book.passageText}</p>
             </details>
+            <ImproveLink onOpen={() => setTipsOpen(true)} where="guest_preview" />
           </div>
         </div>
       )}
@@ -210,15 +251,39 @@ export function VoicePreview({ take, heading }: { take: TakeDetails; heading: st
         </label>
       )}
 
-      <DemoBookShelf heading={heading} onHear={hear} activeSlug={busy || playing ? activeSlug : null} disabledReason={disabledReason} />
+      {used !== null && previewsAllowed !== null && mode !== "off" && (
+        <div className="flex flex-col gap-2 rounded-2xl bg-surface p-4" data-testid="preview-counter">
+          <p className="font-display text-lg font-semibold">
+            {used} of {previewsAllowed} stories explored
+          </p>
+          <div className="flex gap-1.5" aria-hidden="true">
+            {Array.from({ length: previewsAllowed }, (_, i) => (
+              <span key={i} className={`h-2.5 flex-1 rounded-full ${i < used ? "bg-coral-deep" : "bg-ink/15"}`} />
+            ))}
+          </div>
+          <p className="text-sm text-muted">
+            {previewsLeft === 0
+              ? "That's all the free stories for this demo. Stories you've heard play again any time today."
+              : "Replaying a story you've already heard is free."}
+          </p>
+        </div>
+      )}
+
+      <DemoBookShelf
+        heading={heading}
+        onHear={hear}
+        activeSlug={busy || playing ? activeSlug : null}
+        disabledReason={disabledReason}
+        explored={explored}
+        busy={busy}
+      />
 
       <p className="text-sm text-muted">
         {mode === "off"
           ? "We never play a stock voice as if it were yours."
-          : previewsLeft !== null
-            ? `${previewsLeft} free ${previewsLeft === 1 ? "preview" : "previews"} left. Your recording and voice are deleted within 24 hours.`
-            : "Your recording and voice are deleted within 24 hours. We never play a stock voice as if it were yours."}
+          : "Your recording and voice are deleted within 24 hours. We never play a stock voice as if it were yours."}
       </p>
+      <RecordingTipsDialog open={tipsOpen} onClose={() => setTipsOpen(false)} onRecordAgain={onRecordAgain} where="guest_preview" />
     </div>
   );
 }

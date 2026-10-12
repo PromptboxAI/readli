@@ -1,12 +1,14 @@
 "use client";
 
+import { displayCredits } from "@/lib/narration/credits";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import type { GenerationQuote, PrepareBookView, PrepareVoiceView } from "@/lib/narration/narration";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 
-const n = (x: number) => x.toLocaleString("en-US");
+/** Units (characters) as credits, to one decimal place. */
+const n = (units: number) => displayCredits(units).toLocaleString("en-US");
 const duration = (seconds: number) => (seconds < 60 ? `about ${seconds} seconds` : `about ${Math.round((seconds / 60) * 10) / 10} minutes`);
 
 const BADGE: Record<string, string> = {
@@ -99,7 +101,7 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
 
   const creditsLink = (v: PrepareVoiceView, need: number, target: Target) => {
     const back = `/family/books/${view.book.slug}?voice=${v.voiceId}&scope=${target.scope}${target.chapter ? `&chapter=${target.chapter}` : ""}`;
-    return `/family/credits?need=${need}&return=${encodeURIComponent(back)}`;
+    return `/family/credits?need=${Math.ceil(need / view.credits.unitsPerCredit)}&return=${encodeURIComponent(back)}`;
   };
 
   return (
@@ -125,7 +127,8 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
             {n(balance)} Readli credits
           </p>
           <p className="text-sm text-muted">
-            {n(view.credits.bySource.subscription)} monthly, {n(view.credits.bySource.promotional)} promotional, {n(view.credits.bySource.purchased)} purchased.
+            {n(view.credits.bySource.subscription + view.credits.bySource.trial)} {view.credits.bySource.trial ? "trial" : "monthly"}, {n(view.credits.bySource.promotional)} promotional,{" "}
+            {n(view.credits.bySource.purchased)} purchased.
             {view.credits.held > 0 ? ` ${n(view.credits.held)} set aside for narration being prepared.` : ""}
           </p>
         </div>

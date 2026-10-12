@@ -7,7 +7,7 @@ import type { NarratorCard, NarratorSlotsView } from "@/lib/family/service";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 
 /** Readli Family → Narrator slots: choose which shared voices the household uses, and add slots. */
-export function NarratorSlots({ initial }: { initial: NarratorSlotsView }) {
+export function NarratorSlots({ initial, canBuy = true }: { initial: NarratorSlotsView; canBuy?: boolean }) {
   const [view, setView] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -122,7 +122,9 @@ export function NarratorSlots({ initial }: { initial: NarratorSlotsView }) {
           {price} a month for each extra active narrator. Storytellers never pay to share their voice, and there&apos;s no charge
           for more children.
         </p>
-        {!buying ? (
+        {!canBuy ? (
+          <p className="text-sm text-muted">Extra slots arrive with checkout, which isn&apos;t switched on yet.</p>
+        ) : !buying ? (
           <button type="button" className={`${buttonSecondary} self-start`} onClick={() => setBuying(true)}>
             Add a slot
           </button>

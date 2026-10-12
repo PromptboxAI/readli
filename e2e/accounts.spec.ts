@@ -4,11 +4,11 @@ async function noOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 }
 
-test("signup offers exactly two ways in: Family at $14.99 and Voice for free", async ({ page }, info) => {
+test("signup offers exactly two ways in: Family at $19.99 and Voice for free", async ({ page }, info) => {
   await page.goto("/signup");
   const options = page.getByTestId("signup-options");
   await expect(options.getByRole("heading", { level: 2 })).toHaveText(["Create a Family", "Share Your Voice"]);
-  await expect(options).toContainText("$14.99");
+  await expect(options).toContainText("$19.99");
   await expect(options).toContainText("Free");
   await expect(options.getByRole("heading", { name: /Kids/ })).toHaveCount(0);
   await noOverflow(page);
@@ -23,9 +23,25 @@ test("family invitations land on Readli Voice signup", async ({ page }, info) =>
   await page.screenshot({ path: `e2e/screenshots/signup-voice-${info.project.name}.png`, fullPage: true });
 });
 
+test("the yearly link on the pricing page opens signup with yearly picked", async ({ page }) => {
+  await page.goto("/pricing");
+  await page.getByRole("link", { name: "$179.99/year" }).click();
+  await expect(page).toHaveURL(/\/signup\/family\?billing=annual$/);
+  await expect(page.getByLabel("Yearly")).toBeChecked();
+  await expect(page.getByTestId("family-price")).toContainText("$179.99");
+});
+
 test("family checkout shows the plan and stays switched off", async ({ page }, info) => {
   await page.goto("/signup/family");
-  await expect(page.getByTestId("family-price")).toContainText("$14.99");
+  // Step 1 is just email or Google; the name comes after payment.
+  await expect(page.getByLabel("Email")).toBeVisible();
+  await expect(page.getByLabel("Your name")).toHaveCount(0);
+  await expect(page.getByTestId("family-price")).toContainText("$19.99");
+  await page.getByLabel("Yearly").check();
+  await expect(page.getByTestId("family-price")).toContainText("$179.99");
+  await expect(page.getByText("Renews yearly")).toBeVisible();
+  await page.getByLabel("Monthly").check();
+  await expect(page.getByTestId("family-price")).toContainText("$19.99");
   await expect(page.getByText("Up to six child profiles").first()).toBeVisible();
   await expect(page.getByTestId("checkout-off")).toBeVisible();
   await expect(page.getByTestId("family-trial")).toContainText("Try it free for 14 days");
@@ -47,15 +63,42 @@ test("contributors approve requests and stop sharing per family", async ({ page 
   await noOverflow(page);
 });
 
-test("extra narrator slots add to the bill but aren't sold until approved", async ({ page }, info) => {
+test("extra narrator slots add to the bill but aren't sold until payments are on", async ({ page }, info) => {
   await page.goto("/billing/narrator-slots");
-  await expect(page.getByTestId("slot-total")).toHaveText("$17.98");
+  await expect(page.getByTestId("slot-total")).toHaveText("$25.98");
   await page.getByRole("button", { name: "One more slot" }).click();
-  await expect(page.getByTestId("slot-total")).toHaveText("$20.97");
+  await expect(page.getByTestId("slot-total")).toHaveText("$31.97");
   await expect(page.getByTestId("slots-not-for-sale")).toBeVisible();
   await expect(page.getByRole("button", { name: /Add 2 slots/ })).toBeDisabled();
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/narrator-slots-${info.project.name}.png`, fullPage: true });
+});
+
+test("admin home links the admin pages and explains real numbers need Supabase", async ({ page }) => {
+  await page.goto("/admin");
+  await expect(page.getByRole("heading", { name: "Readli admin" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Plan settings" })).toHaveAttribute("href", "/admin/plans");
+  await expect(page.getByText("Real numbers and tester plans show here once sign-in and Supabase are connected.")).toBeVisible();
+  await noOverflow(page);
+});
+
+test("admin finances page explains it needs Supabase in the preview", async ({ page }) => {
+  await page.goto("/admin/finance");
+  await expect(page.getByRole("heading", { name: "Finances" })).toBeVisible();
+  await expect(page.getByText("Financial reporting shows here once sign-in and Supabase are connected.")).toBeVisible();
+  await noOverflow(page);
+});
+
+test("admins can issue complimentary annual memberships", async ({ page }) => {
+  await page.goto("/admin");
+  await page.getByRole("link", { name: "Complimentary memberships" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Complimentary memberships" })).toBeVisible();
+  const form = page.getByTestId("complimentary-form");
+  await expect(form.getByLabel("Kind")).toContainText("Promotional giveaway");
+  await form.getByLabel("Who they're for").fill("Oak Street Elementary");
+  await form.getByRole("button", { name: "Issue memberships" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Complimentary memberships need sign-in" })).toBeVisible();
+  await noOverflow(page);
 });
 
 test("admin plan settings list every configurable limit", async ({ page }, info) => {
@@ -64,9 +107,9 @@ test("admin plan settings list every configurable limit", async ({ page }, info)
   for (const label of ["Readli Family monthly price", "Included active narrator slots", "Maximum child profiles", "Included concurrent child streams", "Gifted membership entitlements"]) {
     await expect(settings).toContainText(label);
   }
-  await expect(settings).toContainText("$149.99");
+  await expect(settings).toContainText("$179.99");
   const rewards = page.getByTestId("reward-settings");
-  for (const text of ["Off", "14 days", "10 minutes", "Paid months before a referral earns", "Referral free months per rolling 12 months", "Standard only"]) {
+  for (const text of ["Off", "14 days", "10 credits", "Paid months before a referral earns", "Referral free months per rolling 12 months", "Standard only"]) {
     await expect(rewards).toContainText(text);
   }
   await noOverflow(page);
@@ -88,4 +131,13 @@ test("contributors verify, consent, record and approve their voice", async ({ pa
   await page.getByRole("button", { name: "Approve my voice" }).click();
   await expect(page.getByText("Nobody can use it until you share it")).toBeVisible();
   await noOverflow(page);
+});
+
+test("account settings and the account API need a real signed-in grown-up", async ({ page }) => {
+  await page.goto("/family/account");
+  await expect(page.getByRole("heading", { name: "Account settings" })).toBeVisible();
+  await expect(page.getByText("Log in to your own family to change your name")).toBeVisible();
+  await noOverflow(page);
+  expect((await page.request.get("/api/account/export")).status()).toBe(401);
+  expect((await page.request.delete("/api/account", { data: { confirm: "DELETE" } })).status()).toBe(401);
 });

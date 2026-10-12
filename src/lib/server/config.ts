@@ -7,6 +7,8 @@
  * - stub: VOICE_PROVIDER=stub for local dev and tests; in-memory storage and stand-in audio.
  * - off:  anything else, or DEMO_AUDIO_ENABLED=false (the global kill switch).
  */
+import { DEFAULT_MODEL } from "@/lib/voice/elevenlabs";
+
 export type PreviewMode = "live" | "stub" | "off";
 
 export interface ServerConfig {
@@ -22,6 +24,16 @@ export interface ServerConfig {
   maxRecordingMs: number;
   maxRecordingBytes: number;
   policyVersion: string;
+  /** Stories a guest can hear in their voice. Admins change it on /admin/voice-quality (demo_settings). */
+  guestPreviewsAllowed: number;
+}
+
+export const DEFAULT_GUEST_PREVIEWS = 4;
+export const MAX_GUEST_PREVIEWS = 12;
+
+export function previewsAllowed(value: unknown): number {
+  const n = Math.round(Number(value));
+  return value !== undefined && value !== null && value !== "" && Number.isFinite(n) && n >= 1 ? Math.min(n, MAX_GUEST_PREVIEWS) : DEFAULT_GUEST_PREVIEWS;
 }
 
 export function serverConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
@@ -35,13 +47,14 @@ export function serverConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig
     supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
     supabaseServiceKey: env.SUPABASE_SERVICE_ROLE_KEY,
     elevenLabsKey: env.ELEVENLABS_API_KEY,
-    elevenLabsModel: env.ELEVENLABS_MODEL_ID ?? "eleven_multilingual_v2",
+    elevenLabsModel: env.ELEVENLABS_MODEL_ID || DEFAULT_MODEL,
     cookieSecret,
     cronSecret: env.CRON_SECRET,
-    // The recorder won't finish before 1:00; a second of slack covers timer drift between browser clocks.
-    minRecordingMs: Number(env.GUEST_MIN_RECORDING_MS ?? 59_000),
+    // The recorder won't finish before the end of the script and 0:50; a second of slack covers clock drift.
+    minRecordingMs: Number(env.GUEST_MIN_RECORDING_MS ?? 49_000),
     maxRecordingMs: 150_000,
     maxRecordingBytes: 25 * 1024 * 1024,
     policyVersion: env.GUEST_POLICY_VERSION ?? "guest-demo-2026-10",
+    guestPreviewsAllowed: previewsAllowed(env.GUEST_PREVIEWS_ALLOWED),
   };
 }

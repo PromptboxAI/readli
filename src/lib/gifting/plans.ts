@@ -3,13 +3,14 @@ import { DEFAULT_PLAN } from "@/lib/family/plan";
 /**
  * Invite & Gift plans (Kevin, 2026-10-10). The giver pays; the recipient runs their own household,
  * which gets the same Readli Family entitlements as a paid plan. Prices follow the admin-configured
- * Readli Family monthly price (launch: $14.99) for one and three months; the year is its own
- * discounted price (Kevin approved $149.99). Checkout stays closed until payments are switched on.
+ * Readli Family monthly price for one and three months, and the year is the annual price (Kevin's
+ * 2026-10-11 pricing proposes $19.99, $59.97 and $179.99, pending final approval). Checkout stays
+ * closed until payments are switched on.
  *
  * Recipients never enter a payment method, and a gift never turns into a paid subscription when it
  * ends: the household simply goes back to free unless an adult there chooses a plan.
  */
-export const ANNUAL_GIFT_PRICE_CENTS = 14999;
+export const ANNUAL_GIFT_PRICE_CENTS = DEFAULT_PLAN.familyAnnualPriceCents;
 export const RECIPIENT_PAYMENT_METHOD_REQUIRED = false;
 export const CONVERTS_TO_PAID_ON_END = false;
 

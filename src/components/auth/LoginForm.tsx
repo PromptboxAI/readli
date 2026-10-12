@@ -14,7 +14,6 @@ function client() {
 export function LoginForm({ next }: { next: string }) {
   const id = useId();
   const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
   const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
   const [error, setError] = useState<string | null>(null);
   const [toGoogle, setToGoogle] = useState(false);
@@ -43,7 +42,7 @@ export function LoginForm({ next }: { next: string }) {
     setState("sending");
     const { error } = await client().auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: callback(), data: name.trim() ? { full_name: name.trim() } : undefined },
+      options: { emailRedirectTo: callback() },
     });
     if (error) {
       setState("idle");
@@ -58,7 +57,7 @@ export function LoginForm({ next }: { next: string }) {
       <div role="status" className="flex flex-col gap-2 rounded-[var(--radius-panel)] bg-mint/50 p-6 text-left">
         <p className="font-display text-2xl font-semibold">Check your email</p>
         <p>
-          We sent a sign-in link to <strong>{email.trim()}</strong>. Open it on this device to continue.
+          We sent a sign-in link to <strong>{email.trim()}</strong>. Open it on any device to continue.
         </p>
         <button type="button" className="self-start font-semibold underline underline-offset-4" onClick={() => setState("idle")}>
           Use a different email
@@ -90,12 +89,6 @@ export function LoginForm({ next }: { next: string }) {
             Email
           </label>
           <input id={`${id}-email`} type="email" className={field} autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-        </div>
-        <div className="flex flex-col gap-2">
-          <label htmlFor={`${id}-name`} className="font-semibold">
-            Your name <span className="font-normal text-muted">(new to Readli? optional)</span>
-          </label>
-          <input id={`${id}-name`} className={field} autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <button type="submit" className={buttonPrimary} disabled={state === "sending" || toGoogle}>
           {state === "sending" ? "Sending…" : "Email me a sign-in link"}

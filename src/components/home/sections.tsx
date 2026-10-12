@@ -7,8 +7,9 @@ import { HeroBedtimeScene } from "@/components/home/HeroBedtimeScene";
 import { FamilyOfStorytellers, HearLovedOnes, MakeStorytimeYourOwn } from "@/components/home/StoryIllustrations";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
-import { coverSrc, DEMO_BOOKS } from "@/lib/content/demo-books";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
+import { rewardsConfig } from "@/lib/rewards/rewards";
+import { NEW_BOOKS } from "@/lib/library/catalog";
 
 const GRANDPA = "/family-voices/grandpa.webp";
 
@@ -319,40 +320,39 @@ export function ThreeWaysToListen() {
   );
 }
 
+/** Introduces the full public library at /books (Kevin, 2026-10-11). The mint band is an intentional break between sections. */
 export function KidsShelf() {
   return (
     <section id="stories" aria-labelledby="shelf-heading" className="scroll-mt-20 bg-mint/40">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-14 sm:px-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-12 sm:px-6 sm:py-14">
+        <div className="flex flex-col gap-2 text-center">
           <h2 id="shelf-heading" className="font-display text-3xl font-semibold sm:text-4xl">
-            A shelf of classics
+            A Whole World of Stories Awaits
           </h2>
-          <Link href="/try" className={buttonSecondary}>
-            Hear one in your voice
-          </Link>
+          <p className="text-lg">Browse classic storybooks for every age and every bedtime. No account needed to look around.</p>
         </div>
-        <div className="flex flex-wrap gap-2" aria-label="Browse by">
-          {["Ages 3–5", "Ages 6–8", "Under 10 minutes", "Animals", "Adventure", "Bedtime"].map((tag) => (
-            <span key={tag} className="rounded-full border-2 border-ink bg-surface px-4 py-2 text-sm font-semibold">
-              {tag}
-            </span>
-          ))}
+        <div>
+          <ul className="flex snap-x gap-4 overflow-x-auto pb-2 sm:justify-center">
+            {NEW_BOOKS.map((book) => (
+              <li key={book.slug} className="w-28 shrink-0 snap-start sm:w-32">
+                <Link href={`/books/${book.slug}`} className="block rounded-xl transition-transform hover:-translate-y-1">
+                  <Image
+                    src={book.coverUrl}
+                    alt={book.title}
+                    width={600}
+                    height={800}
+                    sizes="128px"
+                    className="aspect-[3/4] w-full rounded-xl object-cover shadow-[4px_6px_0_rgba(40,53,72,0.18)]"
+                  />
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div aria-hidden="true" className="-mt-4 h-3.5 rounded-sm bg-wood shadow-[0_6px_0_var(--color-wood-deep)]" />
         </div>
-        <ul className="flex snap-x gap-4 overflow-x-auto pb-2">
-          {DEMO_BOOKS.map((book) => (
-            <li key={book.slug} className="w-40 shrink-0 snap-start">
-              <Image
-                src={coverSrc(book)}
-                alt={book.title}
-                width={600}
-                height={800}
-                sizes="160px"
-                className="aspect-[3/4] w-full rounded-xl object-cover shadow-[4px_6px_0_rgba(40,53,72,0.18)]"
-              />
-            </li>
-          ))}
-        </ul>
-        <div aria-hidden="true" className="-mt-8 h-3.5 rounded-sm bg-wood shadow-[0_6px_0_var(--color-wood-deep)]" />
+        <Link href="/books" className={`${buttonPrimary} mt-2 w-full self-center sm:w-auto`}>
+          Explore the Readli Library
+        </Link>
       </div>
     </section>
   );
@@ -378,14 +378,26 @@ export function FamilyCircles() {
 }
 
 export function FinalCta() {
+  const { trialDays } = rewardsConfig();
   return (
     <section className="bg-sunshine">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-14 text-center sm:px-6">
         <ReadiMascot size={120} decorative />
         <h2 className="font-display text-3xl font-semibold sm:text-4xl">Start a family library</h2>
-        <Link href="/try" className={buttonPrimary}>
-          Hear a story in your voice, free
-        </Link>
+        <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
+          <Link href="/try" className={`${buttonPrimary} w-full sm:w-auto`}>
+            Hear a story in your voice, free
+          </Link>
+          <Link href="/signup/family" className={`${buttonSecondary} w-full sm:w-auto`}>
+            Start your free trial
+          </Link>
+        </div>
+        <p data-testid="family-trial-line">
+          Try Readli Family free for {trialDays} days. Card required, cancel any time.{" "}
+          <Link href="/pricing" className="font-semibold underline underline-offset-4">
+            See pricing
+          </Link>
+        </p>
       </div>
     </section>
   );
@@ -394,6 +406,7 @@ export function FinalCta() {
 export function SiteFooter() {
   const links = [
     { href: "/company", label: "Company" },
+    { href: "/pricing", label: "Pricing" },
     { href: "/privacy", label: "Privacy" },
     { href: "/terms", label: "Terms" },
     { href: "/help", label: "Help" },

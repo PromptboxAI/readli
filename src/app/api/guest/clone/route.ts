@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { currentGuest, effectiveMode, guestDemoDeps } from "@/lib/server/guest-demo";
 import { fail, NO_SESSION, PREVIEWS_OFF } from "@/lib/server/http";
 import { fileExtension } from "@/lib/audio/mime";
+import { recordVoiceEvent } from "@/lib/server/voice-analytics";
 import { VoiceProviderError } from "@/lib/voice/provider";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
       removeBackgroundNoise,
     });
     await deps.store.setVoice(guest.id, voiceId);
+    await recordVoiceEvent(deps.config, { name: "voice_cloned", guestSessionId: guest.id, properties: { surface: "guest", removeBackgroundNoise } });
   } catch (err) {
     console.error("clone failed", err);
     const message = err instanceof VoiceProviderError ? err.userMessage : "We couldn't make your voice just now. Please try again.";

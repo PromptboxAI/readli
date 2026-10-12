@@ -48,7 +48,7 @@ describe("guest tokens", () => {
 describe("memory guest store", () => {
   it("caps previews, refunds failures and finds sessions only by token hash", async () => {
     const store = new MemoryGuestStore();
-    const s = await store.createSession({ tokenHash: "h1", policyVersion: "v" });
+    const s = await store.createSession({ tokenHash: "h1", policyVersion: "v", generationsAllowed: 2 });
     expect(await store.findSession("h1")).toMatchObject({ id: s.id, hasVoice: false });
     expect(await store.findSession("nope")).toBeNull();
     expect(await store.useGeneration(s.id)).toBe(true);
@@ -61,7 +61,7 @@ describe("memory guest store", () => {
   it("cleanup deletes the provider voice and the session once expired", async () => {
     const store = new MemoryGuestStore();
     const provider = new StubVoiceProvider();
-    const s = await store.createSession({ tokenHash: "h2", policyVersion: "v" });
+    const s = await store.createSession({ tokenHash: "h2", policyVersion: "v", generationsAllowed: 2 });
     await store.setVoice(s.id, "voice-1");
     store.guests.get(s.id)!.session.expiresAt = new Date(Date.now() - 1000).toISOString();
     const result = await cleanupExpiredGuests({ config: serverConfig({ VOICE_PROVIDER: "stub" } as unknown as NodeJS.ProcessEnv), store, provider });
@@ -88,6 +88,12 @@ describe("ElevenLabs provider", () => {
     await provider.createInstantVoice({ name: "n", audio: new Blob(["x"]), filename: "take.webm", description: "d", removeBackgroundNoise: false });
     expect((calls[1]!.init.body as FormData).get("remove_background_noise")).toBe("false");
 
+    await provider.synthesize({ voiceId: "v123", text: "Once upon a time" });
+    const tts = JSON.parse(String(calls[2]!.init.body)) as { model_id: string; voice_settings: Record<string, unknown> };
+    expect(calls[2]!.url).toContain("/text-to-speech/v123");
+    expect(tts.model_id).toBe("eleven_multilingual_v2");
+    expect(tts.voice_settings).toEqual({ stability: 0.4, similarity_boost: 0.8, style: 0, use_speaker_boost: true });
+
     const failing = new ElevenLabsProvider("key", "m", (async () => new Response("quota", { status: 401 })) as typeof fetch);
     const err = await failing.synthesize({ voiceId: "v", text: "hi" }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(VoiceProviderError);
@@ -95,5 +101,35 @@ describe("ElevenLabs provider", () => {
 
     const gone = new ElevenLabsProvider("key", "m", (async () => new Response("", { status: 404 })) as typeof fetch);
     await expect(gone.deleteVoice("v")).resolves.toBeUndefined();
+  });
+
+  it("reads with Eleven v4 by default, sending only the sliders v4 has", async () => {
+    expect(serverConfig({} as NodeJS.ProcessEnv).elevenLabsModel).toBe("eleven_v4");
+    expect(serverConfig({ ELEVENLABS_MODEL_ID: "eleven_multilingual_v2" } as unknown as NodeJS.ProcessEnv).elevenLabsModel).toBe("eleven_multilingual_v2");
+    const bodies: { model_id: string; voice_settings: Record<string, unknown> }[] = [];
+    const ok = (async (_url: string | URL | Request, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)));
+      return new Response("mp3", { status: 200 });
+    }) as typeof fetch;
+    await new ElevenLabsProvider("key", "eleven_v4", ok).synthesize({ voiceId: "v", text: "Once" });
+    expect(bodies[0]).toMatchObject({ model_id: "eleven_v4", voice_settings: { stability: 0.4, similarity_boost: 0.8 } });
+    expect(Object.keys(bodies[0]!.voice_settings)).toEqual(["stability", "similarity_boost"]);
+  });
+
+  it("falls back to multilingual v2 when v4 rejects a read, but not on auth or quota errors", async () => {
+    const models: string[] = [];
+    const picky = (async (_url: string | URL | Request, init?: RequestInit) => {
+      const { model_id } = JSON.parse(String(init?.body)) as { model_id: string };
+      models.push(model_id);
+      return model_id === "eleven_v4" ? new Response("unsupported", { status: 422 }) : new Response("mp3", { status: 200 });
+    }) as typeof fetch;
+    const audio = await new ElevenLabsProvider("key", "eleven_v4", picky).synthesize({ voiceId: "v", text: "Once" });
+    expect(audio.standIn).toBe(false);
+    expect(models).toEqual(["eleven_v4", "eleven_multilingual_v2"]);
+
+    let calls = 0;
+    const quota = (async () => (calls++, new Response("quota", { status: 401 }))) as typeof fetch;
+    await expect(new ElevenLabsProvider("key", "eleven_v4", quota).synthesize({ voiceId: "v", text: "Once" })).rejects.toBeInstanceOf(VoiceProviderError);
+    expect(calls).toBe(1);
   });
 });

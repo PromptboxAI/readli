@@ -3,6 +3,7 @@ import { ElevenLabsProvider } from "@/lib/voice/elevenlabs";
 import type { VoiceProvider } from "@/lib/voice/provider";
 import { StubVoiceProvider } from "@/lib/voice/stub";
 import { serverConfig, type PreviewMode, type ServerConfig } from "./config";
+import { guestPreviewsAllowed } from "./demo-settings";
 import { createSupabaseGuestStore, MemoryGuestStore, type GuestSession, type GuestStore } from "./guest-store";
 import { GUEST_COOKIE, GUEST_TTL_MS, hashGuestToken, newGuestToken } from "./guest-token";
 
@@ -48,6 +49,7 @@ export async function startGuest(deps: GuestDemoDeps): Promise<GuestSession> {
   const session = await deps.store.createSession({
     tokenHash: hashGuestToken(token, deps.config.cookieSecret!),
     policyVersion: deps.config.policyVersion,
+    generationsAllowed: await guestPreviewsAllowed(deps.config),
   });
   (await cookies()).set(GUEST_COOKIE, token, {
     httpOnly: true,
@@ -86,4 +88,9 @@ export async function cleanupExpiredGuests(deps: GuestDemoDeps, limit = 50): Pro
 
 export function previewsLeft(session: GuestSession): number {
   return Math.max(0, session.generationsAllowed - session.generationsUsed);
+}
+
+/** The counts the preview counter shows ("2 of 4 stories explored"). */
+export function previewCounts(session: GuestSession) {
+  return { previewsLeft: previewsLeft(session), previewsAllowed: session.generationsAllowed };
 }

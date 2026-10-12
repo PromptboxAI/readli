@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { sameHash } from "@/lib/server/guest-token";
+import { voiceSettings } from "@/lib/voice/elevenlabs";
 import type { VoiceProvider } from "@/lib/voice/provider";
 import type { Actor, CreditLot, FamilyState, NarrationJob, NarrationLibrary, NarrationSegment } from "@/lib/family/model";
 import { activeChild, activeEntitlement, activeShare, activeSlot, childVoiceAccess, readyVoice } from "@/lib/family/permissions";
@@ -15,7 +16,7 @@ import {
   type FamilyStore,
 } from "@/lib/family/service";
 import { estimateSeconds, modelCost } from "./costs";
-import { creditBalance, creditsFor, creditsUsed, draw, spendableLots, type CreditBalance } from "./credits";
+import { creditBalance, creditsFor, creditUnits, draw, spendableLots, type CreditBalance } from "./credits";
 import { CATALOG, findCatalogBook } from "@/lib/library/catalog";
 import { bookCharacters, bookText, type BookText } from "./text";
 
@@ -33,32 +34,53 @@ const now: Clock = () => new Date();
 // Library identity
 // ---------------------------------------------------------------------------
 
-export function generationConfig(plan: PlanConfig) {
-  return { modelId: plan.narrationModelId, outputFormat: "mp3_44100_128", voiceSettings: { stability: 0.5, similarity_boost: 0.75 } };
+export function generationConfig(modelId: string) {
+  return { modelId, outputFormat: "mp3_44100_128", voiceSettings: voiceSettings(modelId) };
 }
 
-function configHash(plan: PlanConfig): string {
-  return createHash("sha256").update(JSON.stringify(generationConfig(plan))).digest("hex").slice(0, 12);
+function configHash(modelId: string): string {
+  return createHash("sha256").update(JSON.stringify(generationConfig(modelId))).digest("hex").slice(0, 12);
+}
+
+/** The reading model a voice narrates with: its own, so a new model never changes an existing voice. */
+export function voiceModel(state: FamilyState, plan: PlanConfig, voiceId: string): string {
+  return state.voices.find((v) => v.id === voiceId)?.modelId ?? plan.narrationModelId;
 }
 
 /**
  * Where a household finds a voice's narration of a book. With cross-household reuse licensed,
  * every authorized household shares one library; otherwise each household has its own.
+ *
+ * A book fully prepared under an earlier model or settings keeps playing that audio, so switching
+ * a voice to a new model never makes finished books look unprepared. New books use the voice's model.
  */
 export function libraryFor(state: FamilyState, plan: PlanConfig, voiceId: string, text: BookText, householdId: string): NarrationLibrary {
   const voice = state.voices.find((v) => v.id === voiceId)!;
   const scope = plan.crossHouseholdReuse ? "shared" : householdId;
-  const hash = configHash(plan);
-  const key = [voice.id, `v${voice.version}`, text.slug, text.edition, text.revision, plan.narrationModelId, hash, scope].join(":");
+  const modelId = voiceModel(state, plan, voiceId);
+  const hash = configHash(modelId);
+  const key = [voice.id, `v${voice.version}`, text.slug, text.edition, text.revision, modelId, hash, scope].join(":");
+  const current = state.libraries.find((l) => l.key === key);
+  if (current) return current;
+  const finished = state.libraries.find(
+    (l) =>
+      l.voiceId === voice.id &&
+      l.voiceVersion === voice.version &&
+      l.bookSlug === text.slug &&
+      l.edition === text.edition &&
+      l.textRevision === text.revision &&
+      l.scope === scope &&
+      libraryStatus(state, l, text).readiness === "ready",
+  );
   return (
-    state.libraries.find((l) => l.key === key) ?? {
+    finished ?? {
       key,
       voiceId,
       voiceVersion: voice.version,
       bookSlug: text.slug,
       edition: text.edition,
       textRevision: text.revision,
-      modelId: plan.narrationModelId,
+      modelId,
       configHash: hash,
       scope,
       createdAt: "",
@@ -137,7 +159,7 @@ export async function purchaseCredits(store: FamilyStore, actor: Actor | null, h
     id: randomUUID(),
     householdId,
     source: "purchased",
-    credits: pack.credits,
+    credits: creditUnits(pack.credits, store.plan),
     grantedAt: at.toISOString(),
     expiresAt: expires,
     note: opts.paymentRef ? `Credit pack (${pack.credits})` : `Credit pack (${pack.credits}), preview: no payment taken`,
@@ -149,14 +171,14 @@ export async function purchaseCredits(store: FamilyStore, actor: Actor | null, h
   return lot;
 }
 
-/** Promotional credits: the welcome grant for a new household, or an admin grant. */
+/** Promotional credits (whole credits): the welcome grant for a new household, or an admin grant. */
 export async function grantPromoCredits(store: FamilyStore, householdId: string, credits: number, days: number, note: string, clock: Clock = now) {
   const at = clock();
   const lot: CreditLot = {
     id: randomUUID(),
     householdId,
     source: "promotional",
-    credits,
+    credits: creditUnits(credits, store.plan),
     grantedAt: at.toISOString(),
     expiresAt: days > 0 ? new Date(at.getTime() + days * 86_400_000).toISOString() : null,
     note,
@@ -265,7 +287,7 @@ function missingByChapter(state: FamilyState, plan: PlanConfig, library: Narrati
       const seg = segs.get(id);
       if (seg?.status === "ready" && seg.storageKey) ready += 1;
       else if (seg && activeJob(state, seg.jobId)) preparing += 1;
-      else credits += creditsFor(byId.get(id)!.text.length, plan);
+      else credits += creditsFor(byId.get(id)!.text.length);
     }
     const total = c.sentenceIds.length;
     const readiness: Readiness = ready === total ? "ready" : preparing > 0 ? "preparing" : ready > 0 ? "partial" : "not_prepared";
@@ -319,7 +341,7 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
     unavailableReason: reason,
     missingCredits,
     extraCreditsNeeded: Math.max(0, missingCredits - available),
-    estimateSeconds: status.missingCharacters ? estimateSeconds(status.missingCharacters, plan.narrationModelId) : 0,
+    estimateSeconds: status.missingCharacters ? estimateSeconds(status.missingCharacters, library.modelId) : 0,
     chapters,
     jobId: job?.id ?? null,
   };
@@ -435,7 +457,7 @@ export function quote(state: FamilyState, plan: PlanConfig, householdId: string,
     else {
       missing.push(s.id);
       characters += s.text.length;
-      credits += creditsFor(s.text.length, plan);
+      credits += creditsFor(s.text.length);
     }
   }
   const chapter = req.scope === "chapter" ? text.chapters.find((c) => c.number === req.chapter)! : null;
@@ -443,7 +465,7 @@ export function quote(state: FamilyState, plan: PlanConfig, householdId: string,
     sentenceIds: missing,
     characters,
     credits,
-    estimateSeconds: characters ? estimateSeconds(characters, plan.narrationModelId) : 0,
+    estimateSeconds: characters ? estimateSeconds(characters, library.modelId) : 0,
     reusedReady,
     alreadyQueued,
     scope: req.scope,
@@ -511,7 +533,7 @@ export async function requestGeneration(
     const byId = new Map(text.sentences.map((x) => [x.id, x]));
     for (const id of q.sentenceIds) {
       const sentence = byId.get(id)!;
-      const draws = draw(lots, creditsFor(sentence.text.length, store.plan))!;
+      const draws = draw(lots, creditsFor(sentence.text.length))!;
       job.reservations[id] = draws;
       const existing = s.segments.find((x) => x.libraryKey === library.key && x.sentenceId === id);
       if (existing) Object.assign(existing, { status: "pending", jobId: job.id, error: null, attempts: 0 });
@@ -580,7 +602,7 @@ export async function cancelGeneration(store: FamilyStore, actor: Actor | null, 
  * limit. Credits are committed per segment at most once (capped at what was reserved; Readli
  * absorbs any overrun), and anything not generated is refunded when the job ends.
  */
-export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId: string, clock: Clock = now): Promise<NarrationJob> {
+export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId: string, clock: Clock = now, deadline = Infinity): Promise<NarrationJob> {
   const state = await store.read();
   const job = state.jobs.find((j) => j.id === jobId);
   if (!job) throw new Error(`no job ${jobId}`);
@@ -593,8 +615,14 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
     job.status = "running";
   });
 
+  let outOfTime = false;
   for (const id of job.sentenceIds) {
     if (job.status !== "running") break; // canceled
+    // Stop between sentences when this worker's time is up; the next one picks up from here.
+    if (Date.now() > deadline) {
+      outOfTime = true;
+      break;
+    }
     const seg = state.segments.find((x) => x.libraryKey === job.libraryKey && x.sentenceId === id)!;
     if (seg.jobId !== job.id || seg.status === "ready") continue;
     // The owner may have revoked, or the voice been deleted, since the job was confirmed.
@@ -606,20 +634,35 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
       });
       try {
         const sentence = byId.get(id)!;
-        const { audio, contentType } = await provider.synthesize({ voiceId: voice.id, text: sentence.text });
+        const { audio, contentType } = await provider.synthesize({ voiceId: voice.id, text: sentence.text, modelId: library.modelId });
         const storageKey = `${library.key.replaceAll(":", "/")}/${id}`;
         await store.audio.put(storageKey, audio, contentType);
         if (!(await store.audio.exists(storageKey))) throw new Error("stored audio not readable");
         const at = clock().toISOString();
         const durationMs = Math.round((sentence.text.length / modelCost(library.modelId).charactersPerMinute) * 60_000);
-        const credits = Math.ceil(sentence.text.length * modelCost(library.modelId).creditsPerCharacter);
+        const cost = modelCost(library.modelId);
+        const credits = Math.ceil(sentence.text.length * cost.creditsPerCharacter);
         await store.write((s) => {
           Object.assign(seg, { status: "ready", storageKey, durationMs, providerCredits: credits, error: null, readyAt: at });
-          s.usage.push({ id: randomUUID(), libraryKey: library.key, sentenceId: id, modelId: library.modelId, characters: sentence.text.length, providerCredits: credits, durationMs, bytes: audio.byteLength, at });
+          s.usage.push({
+            id: randomUUID(),
+            libraryKey: library.key,
+            sentenceId: id,
+            householdId: job.householdId,
+            jobId: job.id,
+            modelId: library.modelId,
+            characters: sentence.text.length,
+            providerCredits: credits,
+            usd: (sentence.text.length / 1000) * cost.usdPer1kCharacters,
+            attempts: seg.attempts,
+            durationMs,
+            bytes: audio.byteLength,
+            at,
+          });
           if (!ledgerHas(s, job.id, id, "commit")) {
-            // Reconcile: commit what was actually used (never more than reserved; Readli absorbs any
-            // overrun), lot by lot in the order they were drawn, and return the rest to its lot.
-            let actual = creditsUsed(durationMs, store.plan);
+            // Reconcile: commit the characters actually generated (never more than reserved), lot by
+            // lot in the order they were drawn, and return the rest to its lot.
+            let actual = creditsFor(sentence.text.length);
             for (const d of job.reservations[id] ?? []) {
               const used = Math.min(d.credits, actual);
               actual -= used;
@@ -639,6 +682,7 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
     }
   }
 
+  if (outOfTime) return job;
   const at = clock().toISOString();
   await store.write((s) => {
     if (job.status !== "running") return;
@@ -653,7 +697,7 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
       householdId: job.householdId,
       text: allReady
         ? `${owner?.displayName ?? "Your storyteller"}'s reading of ${text.title} is ${status.readiness === "ready" ? "ready" : "partly ready"}.`
-        : `We couldn't finish preparing ${text.title} in ${owner?.displayName ?? "that voice"}. Unused minutes were returned.`,
+        : `We couldn't finish preparing ${text.title} in ${owner?.displayName ?? "that voice"}. Unused credits were returned.`,
       href: `/family/books/${text.slug}`,
       at,
       readAt: null,
@@ -662,10 +706,29 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
   return job;
 }
 
-/** Runs every queued job (background worker; resumes interrupted jobs). */
-export async function runPendingJobs(store: FamilyStore, provider: VoiceProvider, clock: Clock = now) {
+/**
+ * Runs a household's queued and interrupted jobs (background worker). Each job is leased first, so two
+ * workers never prepare the same job at once; a worker stops at `budgetMs` and the next request resumes.
+ */
+export async function runPendingJobs(
+  store: FamilyStore,
+  provider: VoiceProvider,
+  opts: { householdId?: string; budgetMs?: number } = {},
+  clock: Clock = now,
+) {
+  const deadline = opts.budgetMs === undefined ? Infinity : Date.now() + opts.budgetMs;
+  const leaseMs = opts.budgetMs === undefined ? 10 * 60_000 : opts.budgetMs + 60_000;
   const state = await store.read();
-  for (const job of state.jobs.filter((j) => j.status === "queued" || j.status === "running")) await runJob(store, provider, job.id, clock);
+  const pending = state.jobs.filter((j) => (j.status === "queued" || j.status === "running") && (!opts.householdId || j.householdId === opts.householdId));
+  for (const job of pending) {
+    if (Date.now() > deadline) break;
+    if (store.claimJob && !(await store.claimJob(job.id, leaseMs))) continue;
+    try {
+      await runJob(store, provider, job.id, clock, deadline);
+    } finally {
+      await store.releaseJob?.(job.id);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

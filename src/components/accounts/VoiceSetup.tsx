@@ -5,16 +5,12 @@ import { useId, useState } from "react";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonQuiet, buttonSecondary } from "@/components/brand/buttons";
 import { TeleprompterRecorder } from "@/components/teleprompter/TeleprompterRecorder";
+import { VOICE_CONSENTS } from "@/lib/content/voice-consents";
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
 
 const STEPS = ["Check it's you", "Your voice, your rules", "Record", "Approve your voice"] as const;
 
-const CONSENTS = [
-  "This is my own voice, and I'm the only person recording it.",
-  "Readli can make a private digital version of my voice to read stories.",
-  "Families can only use it after I share it with them, and their parents approve it for each child.",
-  "I can stop sharing, replace or delete my voice at any time.",
-] as const;
+const CONSENTS = VOICE_CONSENTS;
 
 /**
  * Readli Voice screen 4: verify, consent, record with the teleprompter, then approve the result.
@@ -88,7 +84,7 @@ export function VoiceSetup() {
       {step === 2 && (
         <section className="flex flex-col gap-4">
           <h2 className="font-display text-2xl font-semibold">Read the story out loud</h2>
-          <p>About a minute or two. Find a quiet spot and read the way you would at bedtime.</p>
+          <p>About a minute or two. Find a quiet spot and read it like a bedtime story, with lots of expression. Your voice copies how you read.</p>
           <TeleprompterRecorder script={DEMO_SCRIPT} />
           <button type="button" className={`${buttonSecondary} w-fit`} onClick={() => setStep(3)}>
             I&apos;ve finished recording

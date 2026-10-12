@@ -6,12 +6,17 @@ import { accountDb, AccountFamilyStore } from "./account-store";
 import { sameHash } from "@/lib/server/guest-token";
 import { StubVoiceProvider } from "@/lib/voice/stub";
 import { demoFamilyState } from "./demo-family";
+import { KIDS_COOKIE } from "./kids-mode";
 import type { Actor } from "./model";
 import { MemoryFamilyStore, type FamilyStore } from "./service";
 import { planConfig } from "./plan";
 import { DEMO_HOUSEHOLD_ID } from "./demo-family";
 import { seedDemoNarrations } from "@/lib/narration/demo-seed";
-import { MemoryNarrationStorage } from "@/lib/narration/storage";
+import { AccountNarrationProvider } from "@/lib/narration/account-provider";
+import { MemoryNarrationStorage, SupabaseNarrationStorage } from "@/lib/narration/storage";
+import { serverConfig } from "@/lib/server/config";
+import { accountVoiceDeps } from "@/lib/voice/account-voices";
+import type { VoiceProvider } from "@/lib/voice/provider";
 
 /**
  * Who is asking. A grown-up signed in with Supabase Auth (email link or Google) uses their own
@@ -23,7 +28,7 @@ import { MemoryNarrationStorage } from "@/lib/narration/storage";
  */
 export const FAMILY_COOKIE = "readli_family_demo";
 /** Which kids profile a signed-in grown-up opened on this device. Tied to that grown-up's account. */
-export const KIDS_COOKIE = "readli_kids_profile";
+export { KIDS_COOKIE };
 const ACCOUNT_SANDBOX = "account";
 
 export function familyPreviewEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -152,7 +157,8 @@ export async function familyStore(session: FamilySession | string): Promise<Fami
     if (known) return known;
     const db = accountDb();
     if (!db) return null;
-    const store = new AccountFamilyStore(db, session.account);
+    const audio = new SupabaseNarrationStorage(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const store = new AccountFamilyStore(db, session.account, planConfig(), audio);
     accountStores.set(session, store);
     return store;
   }
@@ -178,7 +184,15 @@ export function playbackKey(): string {
   return `${secret()}:playback`;
 }
 
-export function familyProvider(): StubVoiceProvider {
+/**
+ * Who reads narration aloud: for a signed-in family, the real voice behind each Readli voice (or the
+ * stand-in tone when voices run in stub mode); for the preview family, always the stand-in tone.
+ */
+export function familyProvider(session?: FamilySession): VoiceProvider | null {
+  if (session?.account) {
+    const deps = accountVoiceDeps(serverConfig());
+    return deps ? new AccountNarrationProvider(deps) : null;
+  }
   g.__readliFamily ??= { sandboxes: new Map(), provider: new StubVoiceProvider() };
   return g.__readliFamily.provider;
 }

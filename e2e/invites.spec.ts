@@ -32,7 +32,7 @@ test("inviting family adds a pending storyteller and shares no voice", async ({ 
 
 test("gift checkout stays closed until prices are final, and the recipient runs their own home", async ({ page }, info) => {
   await page.goto("/invite/gift");
-  await expect(page.getByText("$149.99")).toBeVisible();
+  await expect(page.getByText("$179.99")).toBeVisible();
   await page.getByText("Monthly sponsorship").click();
   await page.getByLabel("Their name").fill("Ben and family");
   await page.getByLabel("Their email").fill("ben@example.com");
@@ -45,7 +45,7 @@ test("gift checkout stays closed until prices are final, and the recipient runs 
   await expect(page).toHaveURL(/\/invite\/gift\/checkout\?/);
   await expect(page.getByTestId("payments-off")).toBeVisible();
   await expect(page.getByRole("button", { name: "Start sponsorship" })).toBeDisabled();
-  await expect(page.getByText("$14.99 a month").first()).toBeVisible();
+  await expect(page.getByText("$19.99 a month").first()).toBeVisible();
   await expect(page.getByText(/7 days before each charge/)).toBeVisible();
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/gift-checkout-${info.project.name}.png`, fullPage: true });
@@ -104,10 +104,22 @@ test("rewards track activities, and following Readli is optional and unrewarded"
   await page.screenshot({ path: `e2e/screenshots/rewards-${info.project.name}.png`, fullPage: true });
 });
 
+test("a referral link remembers its code and goes to sign-up", async ({ page, context }) => {
+  await page.goto("/r/ABCdef12");
+  await expect(page).toHaveURL(/\/signup/);
+  const ref = (await context.cookies()).find((c) => c.name === "readli_ref");
+  expect(ref).toMatchObject({ value: "abcdef12", httpOnly: true });
+  await page.goto("/r/not-a-code!");
+  expect(new URL(page.url()).pathname).toBe("/");
+});
+
 test("onboarding lets adults skip Follow Readli's Story", async ({ page }, info) => {
   await page.goto("/welcome");
   await expect(page.getByRole("heading", { name: "Welcome to Readli Family!" })).toBeVisible();
   await page.screenshot({ path: `e2e/screenshots/welcome-rewards-${info.project.name}.png`, fullPage: true });
+  // The grown-up's name is asked for here, after payment, not at signup.
+  await expect(page.getByRole("button", { name: "Next" })).toBeDisabled();
+  await page.getByLabel("What should your family call you?").fill("Sara");
   await page.getByRole("button", { name: "Next" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Follow Readli's Story" })).toBeVisible();
   await noOverflow(page);

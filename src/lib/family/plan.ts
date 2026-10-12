@@ -1,13 +1,18 @@
 /**
- * Readli Family plan settings (Final Signup Architecture and Subscription Pricing amendment).
- * Defaults are Kevin's numbers; the admin portal overrides them (plan_settings table, or PLAN_*
- * env vars until that exists). Prices are in cents.
+ * Readli Family plan settings. The one source of Readli's prices: checkout, signup, the pricing page
+ * and the admin portal all read them from here. Defaults are Kevin's numbers (Updated Pricing, Credits
+ * & Subscription Architecture, 2026-10-11); the admin portal overrides them (plan_settings table, or
+ * PLAN_* env vars until that exists). Prices are in cents.
  */
+import { DEFAULT_MODEL } from "@/lib/voice/elevenlabs";
+
 export interface PlanConfig {
   familyMonthlyPriceCents: number;
+  /** Same entitlements as monthly; monthly credits still refresh each month rather than all up front. */
+  familyAnnualPriceCents: number;
   includedNarratorSlots: number;
   extraSlotPriceCents: number;
-  /** The $2.99 extra slot is proposed, pending pricing approval and provider cost validation. */
+  /** Whether the extra slot price is approved for sale. Selling still needs payments switched on. */
   extraSlotPriceApproved: boolean;
   freeContributorVoices: number;
   maxChildProfiles: number;
@@ -18,15 +23,13 @@ export interface PlanConfig {
   slotReleasesPer30Days: number;
   /** A listening session with no heartbeat for this long no longer counts as playing. */
   sessionStaleMs: number;
-  /** New narration each household may generate per month. Provisional test setting (30), not a promise. */
-  monthlyNarrationMinutes: number;
-  /** New narration a free-trial household may generate during its whole trial (rewards program). */
-  trialNarrationMinutes: number;
-  /** One Readli credit pays for this many seconds of new narration. */
-  secondsPerCredit: number;
-  /** Quotes and reservations add this share on top of the model estimate (0.1 = 10%). */
-  quoteSafetyMargin: number;
-  /** Credit packs a parent can buy. Provisional: final pricing waits for commercial testing. */
+  /** Readli credits included each billing month, shared by the household (annual plans also refresh monthly). */
+  monthlyCredits: number;
+  /** Readli credits for a whole free trial, kept apart from paid credits. */
+  trialCredits: number;
+  /** One Readli credit pays for this many characters of new narration. Balances are kept in characters. */
+  charactersPerCredit: number;
+  /** One-time credit packs for active Readli Family households (Kevin, 2026-10-11). */
   creditPacks: CreditPack[];
   /** Real checkout for credit packs. Off until payments and pack pricing are approved. */
   narrationPurchasesEnabled: boolean;
@@ -65,29 +68,29 @@ export interface CreditPack {
 }
 
 export const DEFAULT_PLAN: PlanConfig = {
-  familyMonthlyPriceCents: 1499,
+  familyMonthlyPriceCents: 1999,
+  familyAnnualPriceCents: 17999,
   includedNarratorSlots: 2,
-  extraSlotPriceCents: 299,
-  extraSlotPriceApproved: false,
+  extraSlotPriceCents: 599,
+  extraSlotPriceApproved: true,
   freeContributorVoices: 1,
   maxChildProfiles: 6,
   includedConcurrentStreams: 3,
   extraStreamsUpgradeEnabled: false,
   slotReleasesPer30Days: 4,
   sessionStaleMs: 90_000,
-  monthlyNarrationMinutes: 30,
-  trialNarrationMinutes: 10,
-  secondsPerCredit: 1,
-  quoteSafetyMargin: 0.1,
+  monthlyCredits: 40,
+  trialCredits: 10,
+  charactersPerCredit: 1000,
   creditPacks: [
-    { id: "pack-small", credits: 600, priceCents: 299 },
-    { id: "pack-medium", credits: 1800, priceCents: 799 },
-    { id: "pack-large", credits: 3600, priceCents: 1499 },
+    { id: "pack-small", credits: 20, priceCents: 699 },
+    { id: "pack-medium", credits: 50, priceCents: 1499 },
+    { id: "pack-large", credits: 100, priceCents: 2499 },
   ],
   narrationPurchasesEnabled: false,
   purchasedCreditMonths: 12,
   subscriptionRolloverMonths: 0,
-  welcomePromoCredits: 300,
+  welcomePromoCredits: 0,
   welcomePromoDays: 30,
   quickStoryMaxMinutes: 3,
   recommendedShortStories: ["the-tale-of-peter-rabbit", "the-lion-and-the-mouse", "the-three-little-pigs"],
@@ -95,7 +98,7 @@ export const DEFAULT_PLAN: PlanConfig = {
   chapterGenerationEnabled: true,
   simulatedCheckout: false,
   crossHouseholdReuse: true,
-  narrationModelId: "eleven_multilingual_v2",
+  narrationModelId: DEFAULT_MODEL,
   playbackUrlTtlSeconds: 120,
   maxSegmentAttempts: 3,
 };
@@ -108,17 +111,17 @@ export function planConfig(env: NodeJS.ProcessEnv = process.env): PlanConfig {
   return {
     ...DEFAULT_PLAN,
     familyMonthlyPriceCents: num("PLAN_FAMILY_PRICE_CENTS", DEFAULT_PLAN.familyMonthlyPriceCents),
+    familyAnnualPriceCents: num("PLAN_FAMILY_ANNUAL_PRICE_CENTS", DEFAULT_PLAN.familyAnnualPriceCents),
     includedNarratorSlots: num("PLAN_INCLUDED_SLOTS", DEFAULT_PLAN.includedNarratorSlots),
     extraSlotPriceCents: num("PLAN_EXTRA_SLOT_PRICE_CENTS", DEFAULT_PLAN.extraSlotPriceCents),
-    extraSlotPriceApproved: env.PLAN_EXTRA_SLOT_PRICE_APPROVED === "true",
+    extraSlotPriceApproved: env.PLAN_EXTRA_SLOT_PRICE_APPROVED ? env.PLAN_EXTRA_SLOT_PRICE_APPROVED === "true" : DEFAULT_PLAN.extraSlotPriceApproved,
     freeContributorVoices: num("PLAN_FREE_CONTRIBUTOR_VOICES", DEFAULT_PLAN.freeContributorVoices),
     maxChildProfiles: num("PLAN_MAX_CHILD_PROFILES", DEFAULT_PLAN.maxChildProfiles),
     includedConcurrentStreams: num("PLAN_INCLUDED_STREAMS", DEFAULT_PLAN.includedConcurrentStreams),
-    monthlyNarrationMinutes: num("PLAN_NARRATION_MINUTES", DEFAULT_PLAN.monthlyNarrationMinutes),
+    monthlyCredits: num("PLAN_MONTHLY_CREDITS", DEFAULT_PLAN.monthlyCredits),
     // Same setting the rewards program reads (src/lib/rewards), so the two never disagree.
-    trialNarrationMinutes: num("REWARDS_TRIAL_NARRATION_MINUTES", DEFAULT_PLAN.trialNarrationMinutes),
-    secondsPerCredit: Math.max(1, num("PLAN_SECONDS_PER_CREDIT", DEFAULT_PLAN.secondsPerCredit)),
-    quoteSafetyMargin: Math.min(1, num("PLAN_QUOTE_SAFETY_MARGIN", DEFAULT_PLAN.quoteSafetyMargin)),
+    trialCredits: num("REWARDS_TRIAL_CREDITS", DEFAULT_PLAN.trialCredits),
+    charactersPerCredit: Math.max(1, num("PLAN_CHARACTERS_PER_CREDIT", DEFAULT_PLAN.charactersPerCredit)),
     creditPacks: packs(env.PLAN_CREDIT_PACKS) ?? DEFAULT_PLAN.creditPacks,
     narrationPurchasesEnabled: env.PLAN_NARRATION_PURCHASES_ENABLED === "true",
     purchasedCreditMonths: num("PLAN_PURCHASED_CREDIT_MONTHS", DEFAULT_PLAN.purchasedCreditMonths),
@@ -133,7 +136,7 @@ export function planConfig(env: NodeJS.ProcessEnv = process.env): PlanConfig {
     simulatedCheckout: env.NODE_ENV !== "production" || env.VOICE_PROVIDER === "stub" || env.FAMILY_DEMO === "1",
     // Off in production until the ElevenLabs reuse confirmations are in; on for the preview.
     crossHouseholdReuse: env.NARRATION_CROSS_HOUSEHOLD_REUSE ? env.NARRATION_CROSS_HOUSEHOLD_REUSE === "true" : env.NODE_ENV !== "production" || env.VOICE_PROVIDER === "stub",
-    narrationModelId: env.ELEVENLABS_MODEL_ID ?? DEFAULT_PLAN.narrationModelId,
+    narrationModelId: env.ELEVENLABS_MODEL_ID || DEFAULT_PLAN.narrationModelId,
   };
 }
 
@@ -142,7 +145,7 @@ function list(value: string | undefined): string[] | null {
   return items?.length ? items : null;
 }
 
-/** PLAN_CREDIT_PACKS="600:299,1800:799" (credits:cents). */
+/** PLAN_CREDIT_PACKS="20:699,50:1499" (credits:cents). */
 function packs(value: string | undefined): CreditPack[] | null {
   const items = list(value)?.map((x, i) => {
     const [credits, cents] = x.split(":").map(Number);

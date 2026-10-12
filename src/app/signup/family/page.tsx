@@ -5,16 +5,19 @@ import { PlanList } from "@/components/accounts/PlanList";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
 import { ACCOUNT_TYPES } from "@/lib/accounts/accounts";
-import { DEFAULT_PLAN, formatPrice } from "@/lib/family/plan";
+import { BillingChoice } from "@/components/accounts/BillingChoice";
+import { effectivePlan } from "@/lib/billing/price-settings";
+import { accountDb } from "@/lib/family/account-store";
 import { familyCheckoutOpen } from "@/lib/accounts/checkout";
 import { rewardsConfig, rewardsVisible } from "@/lib/rewards/rewards";
 
 export const metadata: Metadata = { title: "Create a Family | Readli", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
-export default function FamilySignupPage() {
+export default async function FamilySignupPage({ searchParams }: { searchParams: Promise<{ billing?: string | string[] }> }) {
   const open = familyCheckoutOpen();
-  const price = formatPrice(DEFAULT_PLAN.familyMonthlyPriceCents);
+  const plan = await effectivePlan(accountDb());
+  const initial = (await searchParams).billing === "annual" ? "annual" : "monthly";
   const rewards = rewardsConfig();
   // The trial shows on previews for review, and in production only once the program is public.
   const showTrial = rewardsVisible(rewards);
@@ -33,37 +36,30 @@ export default function FamilySignupPage() {
           <h2 id="acct" className="font-display text-2xl font-semibold">
             1. Your account
           </h2>
-          <AccountFields />
-          <p className="text-sm text-muted">You&apos;ll add your children&apos;s profiles after checkout. There&apos;s no charge per child.</p>
+          <AccountFields askName={false} />
+          <p className="text-sm text-muted">After checkout you&apos;ll add your name and your children&apos;s profiles. There&apos;s no charge per child.</p>
         </section>
 
         <section aria-labelledby="checkout" className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-sunshine/50 p-6 sm:p-8">
           <h2 id="checkout" className="font-display text-2xl font-semibold">
             2. Your plan
           </h2>
-          <div className="flex items-baseline justify-between gap-4 rounded-2xl bg-surface p-4">
-            <span className="font-display text-xl font-semibold">Readli Family</span>
-            <span className="font-display text-xl" data-testid="family-price">
-              {price}
-              <span className="text-base text-muted">/month</span>
-            </span>
-          </div>
+          <BillingChoice
+            monthlyCents={plan.familyMonthlyPriceCents}
+            annualCents={plan.familyAnnualPriceCents}
+            monthlyCredits={plan.monthlyCredits}
+            initial={initial}
+          />
           {showTrial && (
             <div className="flex flex-col gap-1 rounded-2xl bg-mint/60 p-4" data-testid="family-trial">
               <p className="font-display text-lg font-semibold">Try it free for {rewards.trialDays} days</p>
               <p className="text-sm">
-                For new families. Your trial includes {rewards.trialNarrationMinutes} minutes of new narration in your storytellers&apos; voices.
+                For new families. Your trial includes {rewards.trialCredits} narration credits for new stories in your storytellers&apos; voices.
               </p>
               {!rewards.programPublic && <p className="text-sm text-muted">Not switched on yet. This is how it will look.</p>}
             </div>
           )}
           <PlanList items={ACCOUNT_TYPES.family.includes} />
-          <dl className="grid grid-cols-[1fr_auto] gap-y-1 border-t-2 border-ink/10 pt-3">
-            <dt>Monthly total</dt>
-            <dd className="font-semibold">{price}</dd>
-            <dt className="text-sm text-muted">Renews monthly. Cancel any time.</dt>
-            <dd />
-          </dl>
           {!open && (
             <p data-testid="checkout-off" className="rounded-2xl bg-surface/80 p-3 text-sm">
               Checkout isn&apos;t switched on yet, so nothing will be charged.
