@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { applyBillingChange, recordRevenue } from "@/lib/billing/apply";
+import { applyBillingChange, recordInvitationConversion, recordRevenue } from "@/lib/billing/apply";
 import { billingConfig } from "@/lib/billing/config";
 import { billingChange } from "@/lib/billing/events";
 import { queuePaymentFailed, queueTrialReminder, reviewCreditOnCancel } from "@/lib/billing/notify";
@@ -74,6 +74,7 @@ export async function POST(req: Request) {
       },
     });
     await recordRevenue(db, revenueRows(event));
+    await recordInvitationConversion(db, event);
     if (event.type === "invoice.payment_failed") await queuePaymentFailed(db, event, `${new URL(req.url).origin}/family/billing`);
     await reviewCreditOnCancel(db, event, (customer) => stripe.customerBalance(customer));
     await queueTrialReminder(db, event, `${new URL(req.url).origin}/family/billing`, async (customer, subscription) => (await stripe.previewInvoice({ customer, subscription })).amount_due);

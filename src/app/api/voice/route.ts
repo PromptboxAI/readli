@@ -3,6 +3,7 @@ import { VOICE_CHOICES_NOTICE_VERSION } from "@/lib/content/voice-agreement";
 import { accountDb } from "@/lib/family/account-store";
 import { requestRecordingDeletion } from "@/lib/lifecycle/recordings";
 import { serverConfig } from "@/lib/server/config";
+import { track } from "@/lib/invitations/server";
 import { fail } from "@/lib/server/http";
 import { AccountVoiceError, accountVoiceDeps, createAccountVoice, deleteAccountVoice } from "@/lib/voice/account-voices";
 import { voiceOwner } from "@/lib/voice/owner";
@@ -67,6 +68,8 @@ export async function POST(req: Request) {
       qc: parseQc(form.get("qc")),
       userAgent: req.headers.get("user-agent")?.slice(0, 500) ?? null,
     });
+    const db = accountDb();
+    if (db && voice.version === 1) await track(db, "contributor_voice_created", {}, user.id);
     return NextResponse.json({ voice }, { status: 201 });
   } catch (err) {
     if (err instanceof AccountVoiceError) return fail(err.status, err.code, err.userMessage);

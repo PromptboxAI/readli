@@ -58,7 +58,7 @@ describe("the email outbox", () => {
     expect(await recordEmailEvent(db, { id: "msg_1", type: "email.bounced", data: { email_id: "em_9", to: ["Gone@Example.com"], bounce: { type: "Permanent" } } })).toEqual({ duplicate: false, suppressed: 1 });
     expect(await recordEmailEvent(db, { id: "msg_1", type: "email.bounced", data: { email_id: "em_9", to: ["Gone@Example.com"] } })).toEqual({ duplicate: true, suppressed: 0 });
     expect(await recordEmailEvent(db, { id: "msg_2", type: "email.bounced", data: { to: ["soft@example.com"], bounce: { type: "Transient" } } })).toEqual({ duplicate: false, suppressed: 0 });
-    expect(tables.email_suppressions).toEqual([expect.objectContaining({ email_key: suppressionKey("gone@example.com"), reason: "bounce" })]);
+    expect(tables.email_delivery_suppressions).toEqual([expect.objectContaining({ email_key: suppressionKey("gone@example.com"), reason: "bounce" })]);
     await queueEmails(db, [{ dedupeKey: "x", ...message, to: { email: "gone@example.com" }, sendAfter: NOW.toISOString() }]);
     const { s, sent } = sender([]);
     expect(await sendDueEmails({ db, sender: s, config, now: () => NOW })).toMatchObject({ suppressed: 1 });

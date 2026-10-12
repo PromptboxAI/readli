@@ -13,6 +13,7 @@ import { familyPage, guardianChildren } from "@/lib/family/page-data";
 import { activeEntitlement } from "@/lib/family/permissions";
 import { familyPreviewEnabled } from "@/lib/family/session";
 import { authConfigured } from "@/lib/auth/supabase";
+import { carriedInvitationToken } from "@/lib/invitations/context";
 
 function SignOutButton() {
   return (
@@ -114,6 +115,7 @@ export default async function FamilyHome() {
   const notes = state.notifications.filter((n) => homes.has(n.householdId)).slice(-3).reverse();
   const home = [...homes][0];
   const hasPlan = home ? Boolean(activeEntitlement(state, home)) : false;
+  const invited = account && isGuardian ? await carriedInvitationToken() : null;
   return (
     <FamilyShell>
       <div className="flex items-center gap-4">
@@ -125,6 +127,11 @@ export default async function FamilyHome() {
         </div>
       </div>
       <PreviewNote />
+      {invited && (
+        <Link href={`/v/${invited}/connect`} className="rounded-2xl bg-sky/50 px-4 py-3 font-semibold underline-offset-4 hover:underline" data-testid="invitation-waiting">
+          A storyteller invited your family. Add them to your Family Circle →
+        </Link>
+      )}
       {account && home && <p className="font-display text-xl">{state.households.find((h) => h.id === home)?.name}</p>}
 
       <section className="flex flex-col gap-3" aria-labelledby="my-voice-h">

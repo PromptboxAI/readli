@@ -131,7 +131,7 @@ export async function sendDueEmails(deps: OutboxDeps): Promise<SendReport> {
         report.skipped += 1;
         continue;
       }
-      const suppressed = await rows(db.from("email_suppressions").select("email_key").eq("email_key", suppressionKey(to)), "read suppressions");
+      const suppressed = await rows(db.from("email_delivery_suppressions").select("email_key").eq("email_key", suppressionKey(to)), "read suppressions");
       if (suppressed.length) {
         await run(db.from("email_outbox").update({ status: "suppressed", last_error: "suppressed" }).eq("id", id), "suppress email");
         report.suppressed += 1;
@@ -193,7 +193,7 @@ export async function recordEmailEvent(
   const addresses = (Array.isArray(to) ? to : to ? [to] : []).filter((a) => typeof a === "string" && a.includes("@"));
   if (addresses.length) {
     await run(
-      db.from("email_suppressions").upsert(
+      db.from("email_delivery_suppressions").upsert(
         addresses.map((a) => ({ email_key: suppressionKey(a), reason: complaint ? "complaint" : "bounce", source: "resend", detail: { event_id: event.id } })),
         { onConflict: "email_key", ignoreDuplicates: true },
       ),

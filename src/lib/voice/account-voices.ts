@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { RECORDINGS_BUCKET } from "@/lib/account/privacy";
+import { folderKeys, PREVIEWS_BUCKET, RECORDINGS_BUCKET, removeObjects } from "@/lib/account/privacy";
 import { fileExtension } from "@/lib/audio/mime";
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
 import { VOICE_CONSENT_VERSION } from "@/lib/content/voice-consents";
@@ -548,6 +548,9 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
   async withdrawVoice(ownerId: string, voiceId: string) {
     const at = new Date().toISOString();
     const db = this.db;
+    // Family-invitation previews were read in this voice, so they go now.
+    await removeObjects(db, PREVIEWS_BUCKET, await folderKeys(db, PREVIEWS_BUCKET, ownerId));
+    await this.q(db.from("voice_previews").update({ retired_at: at }).eq("owner_id", ownerId).is("retired_at", null), "retire invitation previews");
     // Marking it withdrawn records the withdrawal on the owner's agreement history (a database trigger),
     // which takes every recording of it out of voice_recordings_usable and so out of training.
     await this.q(

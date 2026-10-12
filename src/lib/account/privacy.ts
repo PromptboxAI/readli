@@ -30,6 +30,8 @@ const ids = (list: Row[], key = "id") => [...new Set(list.map((r) => r[key] as s
 export const RECORDINGS_BUCKET = "voice-recordings";
 /** Grown-ups' profile photos, one folder per person. */
 export const PHOTOS_BUCKET = "profile-photos";
+/** Approved family-invitation previews in the contributor's voice (src/lib/invitations). */
+export const PREVIEWS_BUCKET = "voice-previews";
 export const NARRATION_BUCKETS = { segments: "narrations", assets: "generated-audio" } as const;
 
 export class AccountError extends Error {
@@ -266,6 +268,7 @@ export async function deleteAccount(
     }),
     "record recording deletion",
   );
+  audioFilesRemoved += await removeObjects(db, PREVIEWS_BUCKET, await folderKeys(db, PREVIEWS_BUCKET, userId));
   await removeObjects(db, PHOTOS_BUCKET, await folderKeys(db, PHOTOS_BUCKET, userId));
 
   await run(

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { planConfig, type PlanConfig } from "@/lib/family/plan";
+import { recordInvitationBilling } from "@/lib/invitations/server";
 import { creditUnits } from "@/lib/narration/credits";
 import type { BillingChange } from "./events";
 import type { RevenueRow } from "./revenue";
@@ -91,6 +92,8 @@ export async function applyBillingChange(
     check({ error: historyError }, "read plan history");
     check(await db.from("household_entitlements").insert(row), "start plan");
     if (change.trialEndsAt && change.status === "active" && opts.trialStart) await claimTrial(db, change, await opts.trialStart(change));
+    // A trial bought through a family invitation counts toward that invitation (idempotent).
+    if (change.trialEndsAt && change.status === "active") await recordInvitationBilling(db, { invitationId: change.invitationId ?? null, householdId: change.householdId, kind: "trial" });
     // Welcome credits for a family's very first plan, if the admin turned them on (they never expire unless set to).
     if (!earlier?.length && plan.welcomePromoCredits > 0) {
       check(
@@ -154,4 +157,26 @@ export async function recordRevenue(db: SupabaseClient, rows: RevenueRow[]): Pro
   if (!rows.length) return;
   const { error } = await db.from("revenue_events").upsert(rows, { onConflict: "provider,provider_ref", ignoreDuplicates: true });
   if (error) throw new Error(`record revenue: ${error.message}`);
+}
+
+/**
+ * A household's first paid subscription invoice counts as its family invitation converting. Safe to
+ * repeat: recordInvitationBilling only stamps invitations that haven't converted yet.
+ */
+export async function recordInvitationConversion(db: SupabaseClient, event: { type: string; data?: { object?: Record<string, unknown> } }): Promise<boolean> {
+  if (event.type !== "invoice.paid") return false;
+  const invoice = event.data?.object ?? {};
+  if (!(typeof invoice.amount_paid === "number" && invoice.amount_paid > 0)) return false;
+  const o = (v: unknown) => (v && typeof v === "object" ? (v as Record<string, unknown>) : {});
+  const details = [o(invoice.subscription_details), o(o(invoice.parent).subscription_details)];
+  const subscription = typeof invoice.subscription === "string" ? invoice.subscription : details.map((d) => d.subscription).find((x) => typeof x === "string");
+  if (!subscription) return false;
+  let householdId = details.map((d) => o(d.metadata).household_id).find((x): x is string => typeof x === "string" && x.length > 0);
+  if (!householdId && typeof invoice.customer === "string") {
+    const { data } = await db.from("billing_customers").select("household_id").eq("customer_ref", invoice.customer).limit(1).maybeSingle();
+    householdId = (data?.household_id as string | undefined) ?? undefined;
+  }
+  if (!householdId) return false;
+  await recordInvitationBilling(db, { householdId, kind: "paid" });
+  return true;
 }

@@ -23,6 +23,8 @@ export interface SubscriptionChange {
   billingInterval: "month" | "year" | null;
   startsAt: string;
   endsAt: string | null;
+  /** The family invitation this plan was bought through, if any (checked at checkout). */
+  invitationId?: string | null;
 }
 
 export interface CustomerLink {
@@ -118,6 +120,7 @@ export function billingChange(event: { type: string; data?: { object?: StripeObj
       billingInterval: billingInterval(obj),
       startsAt: iso(obj.start_date) ?? new Date().toISOString(),
       endsAt,
+      invitationId: str((obj.metadata as StripeObject | undefined)?.invitation_id),
     };
   }
 

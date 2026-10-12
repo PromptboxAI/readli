@@ -55,6 +55,12 @@ export async function POST(req: Request) {
     });
     if (!request.ok) return fail(request.status, request.code, request.message);
 
+    // A plan bought through a family invitation keeps that invitation, if it belongs to this family.
+    const asked = typeof body.invitationId === "string" && /^[0-9a-f-]{36}$/i.test(body.invitationId) ? body.invitationId : null;
+    const { data: invitation } = asked
+      ? await db.from("voice_invitations").select("id").eq("id", asked).eq("household_id", householdId).maybeSingle()
+      : { data: null };
+    const invitationId = request.mode === "subscription" ? ((invitation?.id as string | undefined) ?? null) : null;
     const { data: customer } = await db.from("billing_customers").select("customer_ref").eq("household_id", householdId).maybeSingle();
     const origin = new URL(req.url).origin;
     const metadata = {
@@ -63,6 +69,7 @@ export async function POST(req: Request) {
       item: request.mode === "subscription" ? request.plan.id : request.pack.id,
       // The credits paid for, so a later admin change to the packs can't change what this purchase grants.
       ...(request.mode === "payment" ? { credits: String(request.pack.credits ?? 0) } : {}),
+      ...(invitationId ? { invitation_id: invitationId } : {}),
     };
     const stripe = new StripeApi(config);
     try {

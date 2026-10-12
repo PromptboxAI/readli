@@ -36,6 +36,7 @@ describe("billingChange", () => {
       billingInterval: "month",
       startsAt: "2025-10-09T08:53:20.000Z",
       endsAt: null,
+      invitationId: null,
     });
   });
 

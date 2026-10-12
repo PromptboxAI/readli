@@ -84,14 +84,14 @@ create index email_outbox_due on public.email_outbox (status, next_attempt_at) w
 create index email_outbox_provider_ref on public.email_outbox (provider_ref);
 comment on table public.email_outbox is 'Transactional emails, sent through Resend by the email worker with an idempotency key per row. Never used for marketing lists.';
 
-create table public.email_suppressions (
+create table public.email_delivery_suppressions (
   email_key text primary key check (char_length(email_key) = 64),
   reason text not null check (reason in ('bounce', 'complaint', 'manual')),
   source text not null default 'resend',
   detail jsonb not null default '{}',
   created_at timestamptz not null default now()
 );
-comment on table public.email_suppressions is 'Hashed addresses Readli no longer emails after a hard bounce or spam complaint.';
+comment on table public.email_delivery_suppressions is 'Hashed addresses Readli no longer emails after a hard bounce or spam complaint.';
 
 create table public.email_events (
   id bigint generated always as identity primary key,
@@ -106,12 +106,12 @@ comment on table public.email_events is 'Resend webhook events (delivered, bounc
 alter table public.voice_recording_deletions enable row level security;
 alter table public.lifecycle_exceptions enable row level security;
 alter table public.lifecycle_runs enable row level security;
-alter table public.email_suppressions enable row level security;
+alter table public.email_delivery_suppressions enable row level security;
 alter table public.email_events enable row level security;
 revoke all on public.voice_recording_deletions from anon, authenticated;
 revoke all on public.lifecycle_exceptions from anon, authenticated;
 revoke all on public.lifecycle_runs from anon, authenticated;
-revoke all on public.email_suppressions from anon, authenticated;
+revoke all on public.email_delivery_suppressions from anon, authenticated;
 revoke all on public.email_events from anon, authenticated;
 
 alter table public.email_outbox drop constraint if exists email_outbox_recipient_user_id_fkey;

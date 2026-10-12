@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_PLAN } from "@/lib/family/plan";
 import { fakeSupabase } from "@/lib/testing/fake-supabase";
-import { applyBillingChange } from "./apply";
+import { applyBillingChange, recordInvitationConversion } from "./apply";
 import { billingChange } from "./events";
 import { queuePaymentFailed, reviewCreditOnCancel } from "./notify";
 import { describeChange, planChange, previewParams, schedulePhases } from "./plan-change";
@@ -197,6 +197,21 @@ describe("Stripe events are the source of truth", () => {
     expect(tables.email_outbox).toEqual([expect.objectContaining({ template: "payment_failed", recipient_user_id: "sara", category: "transactional" })]);
     await apply(db, subEvent("customer.subscription.updated", { ...family, status: "unpaid" }, NOW + 20));
     expect(tables.household_entitlements![0]).toMatchObject({ status: "canceled" });
+  });
+
+  it("credits the family invitation when its trial starts and when the first paid invoice arrives, once each", async () => {
+    const { db, tables } = fakeSupabase({ voice_invitations: [{ id: "inv_1", contributor_id: "gran", household_id: "h1", trial_started_at: null, converted_at: null }] });
+    const trialing = stripeSub([["si_plan", "readli_family_annual_17999"]], { status: "trialing", metadata: { household_id: "h1", invitation_id: "inv_1" } });
+    await apply(db, subEvent("customer.subscription.created", trialing, NOW, { trial_end: NOW + 14 * 86_400 }));
+    expect(tables.voice_invitations![0]!.trial_started_at).toBeTruthy();
+    const paid = { type: "invoice.paid", data: { object: { amount_paid: 17999, customer: "cus_1", parent: { subscription_details: { subscription: "sub_1", metadata: { household_id: "h1" } } } } } };
+    expect(await recordInvitationConversion(db, paid)).toBe(true);
+    const converted = tables.voice_invitations![0]!.converted_at;
+    expect(converted).toBeTruthy();
+    await recordInvitationConversion(db, paid);
+    expect(tables.voice_invitations![0]!.converted_at).toBe(converted);
+    expect(await recordInvitationConversion(db, { type: "invoice.paid", data: { object: { amount_paid: 0, subscription: "sub_1" } } })).toBe(false);
+    expect((tables.analytics_events ?? []).map((e) => e.name)).toEqual(["invite_trial_started", "invite_converted"]);
   });
 
   it("gives a reused card Readli Family without the free trial credits, and records the trial signals", async () => {
