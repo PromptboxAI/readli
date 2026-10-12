@@ -197,7 +197,7 @@ export function useMicrophone({ onInterrupted }: { onInterrupted?: () => void } 
     const mimeType = r.mimeType || chunksRef.current[0]?.type || "audio/webm";
     const blob = new Blob(chunksRef.current, { type: mimeType });
     chunksRef.current = [];
-    const qc = evaluateLevels(trackerRef.current?.stats() ?? { totalMs: 0, speechMs: 0, silentMs: 0, clippedMs: 0, noiseFloor: 0 });
+    const qc = evaluateLevels(trackerRef.current?.stats() ?? { totalMs: 0, speechMs: 0, silentMs: 0, clippedMs: 0, longestSilenceMs: 0, noiseFloor: 0 });
     return { blob, mimeType, durationMs: Math.round(recordedMsRef.current), qc };
   }, []);
 

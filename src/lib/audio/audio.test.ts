@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fileExtension, pickMimeType } from "./mime";
-import { createLevelTracker, evaluateLevels } from "./qc";
+import { blockingIssues, createLevelTracker, evaluateLevels } from "./qc";
 
 describe("pickMimeType", () => {
   it("prefers Opus WebM", () => {
@@ -26,8 +26,9 @@ function feed(frames: Array<[level: number, count: number]>, frameMs = 50) {
 
 describe("advisory QC", () => {
   it("accepts a clean minute of speech", () => {
-    // 70s speech at 0.3, 20s gaps at 0.01
-    expect(feed([[0.3, 1400], [0.01, 400]])).toMatchObject({ ok: true, issues: [] });
+    // 70s speech at 0.3 with 20s of short pauses at 0.01
+    const take = Array.from({ length: 20 }, () => [[0.3, 70], [0.01, 20]] as Array<[number, number]>).flat();
+    expect(feed(take)).toMatchObject({ ok: true, issues: [] });
   });
   it("flags silence", () => {
     expect(feed([[0.005, 1200]]).issues).toEqual(["silent"]);
@@ -40,5 +41,14 @@ describe("advisory QC", () => {
   });
   it("flags a noisy room", () => {
     expect(feed([[0.3, 1400], [0.05, 600]]).issues).toContain("noisy");
+  });
+  it("flags one long silent stretch, but not the same silence spread across short pauses", () => {
+    expect(feed([[0.3, 700], [0.005, 240], [0.3, 700]]).issues).toContain("long_pause"); // 12s gap
+    const spread = Array.from({ length: 12 }, () => [[0.3, 120], [0.005, 20]] as Array<[number, number]>).flat();
+    expect(feed(spread).issues).not.toContain("long_pause");
+  });
+  it("only silence and too little speech block a take", () => {
+    expect(blockingIssues({ issues: ["silent", "clipping"] })).toEqual(["silent"]);
+    expect(blockingIssues({ issues: ["noisy", "long_pause", "too_quiet"] })).toEqual([]);
   });
 });

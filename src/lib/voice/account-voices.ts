@@ -16,6 +16,9 @@ import { StubVoiceProvider } from "./stub";
  * consent, clone, save. One voice per person; recording again replaces the provider voice on the
  * same row, so families it is shared with keep it. Deleting it removes the voice everywhere, and the
  * owner can record a new one whenever they like. Server-only: the provider voice id never leaves.
+ *
+ * A new recording first becomes a candidate (voice_candidates). The owner hears a sample of it and
+ * keeps it or throws it away; until they keep it, their current voice stays exactly as it was.
  */
 
 export interface AccountVoice {
@@ -43,12 +46,50 @@ export interface SavedTake {
   consentReceiptId: string;
 }
 
+/** What's recorded about a take once its audio is stored. */
+export interface TakeMeta {
+  mimeType: string;
+  durationMs: number;
+  wpm: number | null;
+  pauseCount: number;
+  deviceClass: "phone" | "tablet" | "desktop" | null;
+  scriptOffsetEnd: number | null;
+  removeBackgroundNoise: boolean;
+}
+
+/** A clone made from a new take, waiting for the owner to keep it or throw it away. */
+export interface VoiceCandidate extends TakeMeta, SavedTake {
+  id: string;
+  ownerId: string;
+  providerVoiceId: string;
+  createdAt: string;
+}
+
+function metaOf(take: TakeUpload): TakeMeta {
+  return {
+    mimeType: baseMimeType(take.audio.type),
+    durationMs: take.durationMs,
+    wpm: take.wpm,
+    pauseCount: take.pauseCount,
+    deviceClass: take.deviceClass,
+    scriptOffsetEnd: take.scriptOffsetEnd,
+    removeBackgroundNoise: take.removeBackgroundNoise,
+  };
+}
+
 /** Persistence for account voices. Supabase in production, memory in tests and stub mode. */
 export interface AccountVoiceStore {
   findVoice(ownerId: string): Promise<(AccountVoice & { providerVoiceId: string | null }) | null>;
   saveTake(owner: { id: string; name: string }, take: TakeUpload, policyVersion: string): Promise<SavedTake>;
   /** Creates or replaces the owner's voice row and records their consent against it. */
-  saveVoice(owner: { id: string; name: string }, providerVoiceId: string, take: TakeUpload, saved: SavedTake): Promise<AccountVoice>;
+  saveVoice(owner: { id: string; name: string }, providerVoiceId: string, take: TakeMeta, saved: SavedTake): Promise<AccountVoice>;
+  saveCandidate(owner: { id: string }, providerVoiceId: string, take: TakeMeta, saved: SavedTake): Promise<VoiceCandidate>;
+  findCandidate(ownerId: string): Promise<VoiceCandidate | null>;
+  deleteCandidate(candidateId: string): Promise<void>;
+  /** Candidates nobody kept or discarded, older than a time, for the daily clean-up. */
+  staleCandidates(beforeIso: string, limit: number): Promise<VoiceCandidate[]>;
+  /** Deletes a stored take's audio (a discarded candidate's recording). */
+  deleteTake(storageKey: string): Promise<void>;
   providerVoiceId(voiceId: string): Promise<string | null>;
   /**
    * Removes everything kept for the owner's voice except the record that it existed: their
@@ -76,8 +117,11 @@ export interface AccountVoiceDeps {
   limits: QcLimits;
 }
 
-/** Checks the take and consent, saves the recording, clones it and saves the voice. */
-export async function createAccountVoice(deps: AccountVoiceDeps, owner: { id: string; name: string }, take: TakeUpload): Promise<AccountVoice> {
+/**
+ * Checks the take and consent, saves the recording and clones it into a candidate. The owner's
+ * current voice is untouched until they keep the candidate. A newer take replaces an older candidate.
+ */
+export async function createVoiceCandidate(deps: AccountVoiceDeps, owner: { id: string; name: string }, take: TakeUpload): Promise<VoiceCandidate> {
   if (!VOICE_CONSENTS.every((c) => take.consents.includes(c))) {
     throw new AccountVoiceError(400, "consent_required", "Please agree to each point before we make your voice.");
   }
@@ -85,7 +129,6 @@ export async function createAccountVoice(deps: AccountVoiceDeps, owner: { id: st
   if (issues.length > 0) throw new AccountVoiceError(422, issues[0]!, SERVER_QC_MESSAGES[issues[0]!]);
 
   const saved = await deps.store.saveTake(owner, take, VOICE_CONSENT_VERSION);
-  const previous = await deps.store.findVoice(owner.id);
   let providerVoiceId: string;
   try {
     ({ voiceId: providerVoiceId } = await deps.provider.createInstantVoice({
@@ -97,15 +140,60 @@ export async function createAccountVoice(deps: AccountVoiceDeps, owner: { id: st
     }));
   } catch (err) {
     console.error("account voice clone failed", err);
+    await deps.store.deleteTake(saved.storageKey).catch(() => undefined);
     const message = err instanceof VoiceProviderError ? err.userMessage : "We couldn't make your voice just now. Please try again.";
     throw new AccountVoiceError(502, "clone_failed", message);
   }
-  const voice = await deps.store.saveVoice(owner, providerVoiceId, take, saved);
-  // A new recording replaces the old provider voice straight away.
-  if (previous?.providerVoiceId && previous.providerVoiceId !== providerVoiceId) {
+  const previous = await deps.store.findCandidate(owner.id);
+  const candidate = await deps.store.saveCandidate(owner, providerVoiceId, metaOf(take), saved);
+  if (previous) await dropCandidate(deps, previous);
+  return candidate;
+}
+
+async function dropCandidate(deps: AccountVoiceDeps, candidate: VoiceCandidate) {
+  await deps.provider.deleteVoice(candidate.providerVoiceId).catch((err) => console.error("candidate voice delete failed", err));
+  await deps.store.deleteTake(candidate.storageKey).catch((err) => console.error("candidate take delete failed", err));
+  await deps.store.deleteCandidate(candidate.id);
+}
+
+/** Makes the candidate the owner's voice. Only now is the old provider voice deleted. */
+export async function keepVoiceCandidate(deps: AccountVoiceDeps, owner: { id: string; name: string }): Promise<AccountVoice> {
+  const candidate = await deps.store.findCandidate(owner.id);
+  if (!candidate) throw new AccountVoiceError(404, "no_candidate", "There's no new recording to keep. Record your voice first.");
+  const previous = await deps.store.findVoice(owner.id);
+  const voice = await deps.store.saveVoice(owner, candidate.providerVoiceId, candidate, candidate);
+  await deps.store.deleteCandidate(candidate.id);
+  if (previous?.providerVoiceId && previous.providerVoiceId !== candidate.providerVoiceId) {
     await deps.provider.deleteVoice(previous.providerVoiceId).catch((err) => console.error("old account voice delete failed", err));
   }
   return voice;
+}
+
+/** Throws the new recording away. The owner's current voice, if any, carries on unchanged. */
+export async function discardVoiceCandidate(deps: AccountVoiceDeps, ownerId: string): Promise<void> {
+  const candidate = await deps.store.findCandidate(ownerId);
+  if (candidate) await dropCandidate(deps, candidate);
+}
+
+/** Daily: clears candidates left undecided for a day, so no provider voice lingers. */
+export async function cleanupStaleCandidates(deps: AccountVoiceDeps, olderThanMs = 24 * 60 * 60 * 1000, limit = 50) {
+  const result = { deleted: 0, failed: 0 };
+  for (const c of await deps.store.staleCandidates(new Date(Date.now() - olderThanMs).toISOString(), limit)) {
+    try {
+      await dropCandidate(deps, c);
+      result.deleted += 1;
+    } catch (err) {
+      result.failed += 1;
+      console.error("candidate cleanup failed", c.id, err);
+    }
+  }
+  return result;
+}
+
+/** Records, clones and keeps in one go. For callers that have no listening step. */
+export async function createAccountVoice(deps: AccountVoiceDeps, owner: { id: string; name: string }, take: TakeUpload): Promise<AccountVoice> {
+  await createVoiceCandidate(deps, owner, take);
+  return keepVoiceCandidate(deps, owner);
 }
 
 /**
@@ -113,6 +201,7 @@ export async function createAccountVoice(deps: AccountVoiceDeps, owner: { id: st
  * everything Readli kept. Families it was shared with lose it at once. Recording again makes a new voice.
  */
 export async function deleteAccountVoice(deps: AccountVoiceDeps, ownerId: string): Promise<void> {
+  await discardVoiceCandidate(deps, ownerId);
   const voice = await deps.store.findVoice(ownerId);
   if (!voice) throw new AccountVoiceError(404, "no_voice", "You don't have a Readli voice to delete.");
   if (voice.providerVoiceId) {
@@ -126,8 +215,16 @@ export async function deleteAccountVoice(deps: AccountVoiceDeps, ownerId: string
   await deps.store.removeVoice(ownerId, voice.id);
 }
 
-/** A short line in the owner's voice, for "Does this sound like you?". Only the owner can hear it. */
-export async function accountVoiceSample(deps: AccountVoiceDeps, ownerId: string): Promise<SynthesizedAudio> {
+/**
+ * A short line in the owner's voice, for "Does this sound like you?". Only the owner can hear it.
+ * With `candidate`, it's the new recording waiting for their decision; otherwise their current voice.
+ */
+export async function accountVoiceSample(deps: AccountVoiceDeps, ownerId: string, { candidate = false } = {}): Promise<SynthesizedAudio> {
+  if (candidate) {
+    const c = await deps.store.findCandidate(ownerId);
+    if (!c) throw new AccountVoiceError(404, "no_candidate", "Record your voice first, then you can hear a sample.");
+    return deps.provider.synthesize({ voiceId: c.providerVoiceId, text: SAMPLE_TEXT });
+  }
   const voice = await deps.store.findVoice(ownerId);
   if (!voice?.providerVoiceId || voice.status !== "ready") {
     throw new AccountVoiceError(404, "no_voice", "Record your voice first, then you can hear a sample.");
@@ -143,6 +240,7 @@ export class MemoryAccountVoiceStore implements AccountVoiceStore {
   readonly voices = new Map<string, AccountVoice & { ownerId: string; providerVoiceId: string | null }>();
   readonly receipts: { id: string; ownerId: string; statements: readonly string[]; removeBackgroundNoise: boolean }[] = [];
   readonly takes: { key: string; ownerId: string; bytes: number }[] = [];
+  readonly candidates = new Map<string, VoiceCandidate>();
 
   private entry(ownerId: string) {
     return [...this.voices.values()].find((v) => v.ownerId === ownerId && v.status !== "deleted") ?? null;
@@ -171,6 +269,31 @@ export class MemoryAccountVoiceStore implements AccountVoiceStore {
     const id = randomUUID();
     this.voices.set(id, { id, ownerId: owner.id, providerVoiceId, status: "ready", updatedAt: at, version: 1 });
     return { id, status: "ready" as const, version: 1, updatedAt: at };
+  }
+
+  async saveCandidate(owner: { id: string }, providerVoiceId: string, take: TakeMeta, saved: SavedTake) {
+    const c: VoiceCandidate = { ...take, ...saved, id: randomUUID(), ownerId: owner.id, providerVoiceId, createdAt: new Date().toISOString() };
+    this.candidates.set(c.id, c);
+    return { ...c };
+  }
+
+  async findCandidate(ownerId: string) {
+    const mine = [...this.candidates.values()].filter((c) => c.ownerId === ownerId);
+    const latest = mine.at(-1);
+    return latest ? { ...latest } : null;
+  }
+
+  async deleteCandidate(candidateId: string) {
+    this.candidates.delete(candidateId);
+  }
+
+  async staleCandidates(beforeIso: string, limit: number) {
+    return [...this.candidates.values()].filter((c) => c.createdAt < beforeIso).slice(0, limit);
+  }
+
+  async deleteTake(storageKey: string) {
+    const i = this.takes.findIndex((t) => t.key === storageKey);
+    if (i >= 0) this.takes.splice(i, 1);
   }
 
   async providerVoiceId(voiceId: string) {
@@ -266,7 +389,7 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
     return (row?.display_name as string | undefined) ?? owner.name;
   }
 
-  async saveVoice(owner: { id: string; name: string }, providerVoiceId: string, take: TakeUpload, saved: SavedTake) {
+  async saveVoice(owner: { id: string; name: string }, providerVoiceId: string, take: TakeMeta, saved: SavedTake) {
     const at = new Date().toISOString();
     const encrypted = this.cipher.encrypt(providerVoiceId);
     const existing = await this.findVoice(owner.id);
@@ -326,7 +449,7 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
         session_id: session.id,
         ordinal: 0,
         storage_key: saved.storageKey,
-        mime_type: baseMimeType(take.audio.type),
+        mime_type: take.mimeType,
         duration_ms: Math.round(take.durationMs),
         usable_duration_ms: Math.round(take.durationMs),
         script_offset_start: 0,
@@ -336,6 +459,72 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
       "save recording segment",
     );
     return { id: voiceId, status: row.status as AccountVoice["status"], version: Number(row.version ?? 1), updatedAt: row.updated_at as string };
+  }
+
+  private toCandidate(row: Row): VoiceCandidate {
+    return {
+      id: row.id as string,
+      ownerId: row.owner_id as string,
+      providerVoiceId: this.cipher.decrypt(row.provider_voice_id_encrypted as string),
+      storageKey: row.storage_key as string,
+      consentReceiptId: row.consent_receipt_id as string,
+      mimeType: (row.mime_type as string | null) ?? "audio/webm",
+      durationMs: Number(row.duration_ms ?? 0),
+      wpm: (row.teleprompter_wpm as number | null) ?? null,
+      pauseCount: Number(row.pause_count ?? 0),
+      deviceClass: (row.device_class as VoiceCandidate["deviceClass"]) ?? null,
+      scriptOffsetEnd: (row.script_offset_end as number | null) ?? null,
+      removeBackgroundNoise: row.remove_background_noise === true,
+      createdAt: row.created_at as string,
+    };
+  }
+
+  async saveCandidate(owner: { id: string }, providerVoiceId: string, take: TakeMeta, saved: SavedTake) {
+    const row = await this.q<Row>(
+      this.db
+        .from("voice_candidates")
+        .insert({
+          owner_id: owner.id,
+          provider_voice_id_encrypted: this.cipher.encrypt(providerVoiceId),
+          storage_key: saved.storageKey,
+          mime_type: take.mimeType,
+          consent_receipt_id: saved.consentReceiptId,
+          remove_background_noise: take.removeBackgroundNoise,
+          duration_ms: Math.round(take.durationMs),
+          teleprompter_wpm: take.wpm,
+          pause_count: take.pauseCount,
+          device_class: take.deviceClass,
+          script_offset_end: take.scriptOffsetEnd,
+        })
+        .select("*")
+        .single(),
+      "save voice candidate",
+    );
+    return this.toCandidate(row);
+  }
+
+  async findCandidate(ownerId: string) {
+    const row = await this.q<Row | null>(
+      this.db.from("voice_candidates").select("*").eq("owner_id", ownerId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      "find voice candidate",
+    );
+    return row ? this.toCandidate(row) : null;
+  }
+
+  async deleteCandidate(candidateId: string) {
+    await this.q(this.db.from("voice_candidates").delete().eq("id", candidateId), "delete voice candidate");
+  }
+
+  async staleCandidates(beforeIso: string, limit: number) {
+    const rows = await this.q<Row[]>(
+      this.db.from("voice_candidates").select("*").lt("created_at", beforeIso).order("created_at").limit(limit),
+      "list stale candidates",
+    );
+    return rows.map((r) => this.toCandidate(r));
+  }
+
+  async deleteTake(storageKey: string) {
+    await removeObjects(this.db, BUCKET, [storageKey]);
   }
 
   async providerVoiceId(voiceId: string) {
@@ -393,8 +582,8 @@ const g = globalThis as typeof globalThis & { __readliAccountVoices?: { store: M
 
 /** Store and provider for the current mode; null when account voices can't be made here. */
 export function accountVoiceDeps(config: ServerConfig): AccountVoiceDeps | null {
-  // A real voice needs a real minute; the guest test override doesn't apply to accounts.
-  const limits = { ...config, minRecordingMs: Math.max(config.minRecordingMs, 59_000) };
+  // A real voice needs the whole script (about a minute or more); the guest test override doesn't apply to accounts.
+  const limits = { ...config, minRecordingMs: Math.max(config.minRecordingMs, 49_000) };
   if (config.mode === "stub") {
     g.__readliAccountVoices ??= { store: new MemoryAccountVoiceStore(), provider: new StubVoiceProvider() };
     return { ...g.__readliAccountVoices, limits: config };
