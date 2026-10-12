@@ -4,7 +4,7 @@ import { DEFAULT_PLAN } from "@/lib/family/plan";
 import { fakeSupabase } from "@/lib/testing/fake-supabase";
 import { applyBillingChange, recordInvitationConversion } from "./apply";
 import { billingChange } from "./events";
-import { queuePaymentFailed, reviewCreditOnCancel } from "./notify";
+import { queuePaymentFailed } from "./notify";
 import { describeChange, planChange, previewParams, schedulePhases } from "./plan-change";
 import type { StripeSubscription } from "./stripe-api";
 import { accountKey, cardKey, emailKey } from "./trial";
@@ -140,18 +140,6 @@ describe("Readli's plan change requests", () => {
     const keep = planChange(trial, { to: "family_annual" }, "price_year", NOW);
     if (!keep.ok) throw new Error("expected a change");
     expect(describeChange(trial, keep, 17_999, null, null, NOW)).toMatchObject({ keepsTrial: true, dueNowCents: 0, nextBillingAt: iso(NOW + 500) });
-  });
-});
-
-describe("credit left when a subscription ends", () => {
-  it("goes to the admin queue for a refund instead of lapsing", async () => {
-    const { db, tables } = fakeSupabase();
-    const ended = { type: "customer.subscription.deleted", data: { object: { id: "sub_1", customer: "cus_1", metadata: { household_id: "h1" } } } };
-    expect(await reviewCreditOnCancel(db, ended, async () => -1934)).toBe(1934);
-    expect(await reviewCreditOnCancel(db, ended, async () => -1934)).toBe(1934);
-    expect(tables.lifecycle_exceptions).toEqual([expect.objectContaining({ kind: "billing_credit_refund", household_id: "h1", status: "open", detail: expect.objectContaining({ credit_cents: 1934 }) })]);
-    expect(await reviewCreditOnCancel(db, ended, async () => 0)).toBe(0);
-    expect(await reviewCreditOnCancel(db, { ...ended, type: "customer.subscription.updated" }, async () => -5)).toBe(0);
   });
 });
 

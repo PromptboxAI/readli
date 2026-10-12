@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { purchasedPacks, reconciliation } from "@/lib/billing/credit-refunds";
+import { removeUnusedCredits } from "@/lib/billing/credit-refunds";
 import { cleanHousehold, openException } from "@/lib/lifecycle/cleanup";
 import { writeAudit } from "@/lib/lifecycle/db";
 import type { ProviderRefCipher } from "@/lib/server/provider-ref";
@@ -119,10 +119,11 @@ export async function deletionBlockers(db: SupabaseClient, userId: string): Prom
 
 /** Stripe calls account deletion needs, to stop a plan renewing before the account goes. */
 export interface DeletionBilling {
-  /** Ends the subscription now, crediting unused paid time to the customer's balance. Returns the customer. */
+  /**
+   * Ends the subscription now, without refunding or crediting the unused part of the period (Kevin,
+   * 2026-10-12: no refunds on cancellation unless local law requires one). Returns the customer.
+   */
   cancel(subscriptionRef: string): Promise<{ customer: string }>;
-  /** The customer's balance in cents; negative is credit owed to them. */
-  balance(customer: string): Promise<number>;
 }
 
 /**
@@ -140,19 +141,10 @@ async function stopRenewals(db: SupabaseClient, billing: DeletionBilling | null,
   if (plans.length && !billing) {
     throw new AccountError(503, "billing_off", "We can't reach billing right now to stop your plan renewing, so your account hasn't been deleted. Please try again later.");
   }
-  const ended: { householdId: string; subscription: string; creditCents: number }[] = [];
+  const ended: { householdId: string; subscription: string }[] = [];
   for (const p of plans) {
-    const { customer } = await billing!.cancel(p.provider_subscription_ref as string);
-    const balance = await billing!.balance(customer);
-    ended.push({ householdId: p.household_id as string, subscription: p.provider_subscription_ref as string, creditCents: Math.max(0, -balance) });
-    if (balance < 0) {
-      await openException(db, {
-        kind: "billing_credit_refund",
-        householdId: p.household_id as string,
-        reason: `Account deleted with $${(-balance / 100).toFixed(2)} of unused paid time credited; refund it to the customer's card in Stripe`,
-        detail: { customer, credit_cents: -balance, subscription: p.provider_subscription_ref, reason: "account_deleted" },
-      });
-    }
+    await billing!.cancel(p.provider_subscription_ref as string);
+    ended.push({ householdId: p.household_id as string, subscription: p.provider_subscription_ref as string });
   }
   const [gifts, giftPlans] = await Promise.all([
     rows(db.from("gifts").select("id, plan_id, status, renewals_stopped").eq("giver_id", userId), "read gifts"),
@@ -280,18 +272,11 @@ export async function deleteAccount(
     "end approvals",
   );
 
+  let creditsRemoved = 0;
   for (const home of solo) {
     await run(db.rpc("stop_household_narration", { p_household: home }), "stop family narration");
     audioFilesRemoved += (await cleanHousehold(db, home, await soloLibraries(db, home), at)).audioFiles;
-    const owed = reconciliation(await purchasedPacks(db, home));
-    if (owed.credits > 0) {
-      await openException(db, {
-        kind: "purchased_credits_unreconciled",
-        householdId: home,
-        reason: `Account deleted with ${owed.credits} purchased credits unspent (unused value $${(owed.unusedValueCents / 100).toFixed(2)}); reconcile any refund owed`,
-        detail: { credits: owed.credits, unused_value_cents: owed.unusedValueCents, packs: owed.packs },
-      });
-    }
+    creditsRemoved += await removeUnusedCredits(db, home, at);
   }
 
   await writeAudit(db, [
@@ -304,6 +289,7 @@ export async function deleteAccount(
         recordings_removed: recordings.size,
         families_cleaned: solo.length,
         plans_ended: renewals.plansEnded,
+        credits_removed: creditsRemoved,
         gift_renewals_stopped: renewals.giftRenewalsStopped,
       },
     },

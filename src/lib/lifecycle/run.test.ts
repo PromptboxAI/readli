@@ -126,18 +126,19 @@ describe("the daily lifecycle run", () => {
     expect(tables.households!.find((h) => h.id === "h1")!.cleaned_at).toBe(NOW.toISOString());
     expect(tables.household_entitlements).toHaveLength(2);
     expect(tables.narration_credit_lots).toHaveLength(1);
-    expect(tables.lifecycle_exceptions).toEqual([expect.objectContaining({ kind: "purchased_credits_unreconciled", household_id: "h1", detail: expect.objectContaining({ credits: 15, unused_value_cents: 524 }) })]);
+    expect(tables.narration_credit_lots![0]!.expires_at).toBe(NOW.toISOString());
+    expect(tables.lifecycle_exceptions ?? []).toEqual([]);
     expect(tables.household_recovery![0]).toMatchObject({ status: "deleted" });
     expect(tables.email_outbox).toEqual([expect.objectContaining({ template: "household_deleted", recipient_user_id: "sara" })]);
     expect(sent).toBe(1);
   });
 
-  it("is safe to run again, and doesn't open a second exception", async () => {
+  it("is safe to run again", async () => {
     const { db, tables } = world();
     await runLifecycle(deps(db, { deletion: true, recordingDeletion: true }));
     const again = await runLifecycle(deps(db, { deletion: true, recordingDeletion: true, now: () => new Date(NOW.getTime() + DAY) }));
     expect(again.errors).toEqual([]);
-    expect(tables.lifecycle_exceptions).toHaveLength(1);
+    expect(tables.lifecycle_exceptions ?? []).toHaveLength(0);
     expect(tables.email_outbox).toHaveLength(1);
     expect(tables.lifecycle_runs!.map((r) => r.status)).toEqual(["succeeded", "succeeded"]);
   });

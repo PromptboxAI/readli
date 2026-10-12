@@ -4,10 +4,10 @@ import { allIn, rows, run, writeAudit } from "@/lib/lifecycle/db";
 
 /**
  * Purchased credit packs and what each is worth unused (Kevin, 2026-10-12, decisions 1 and 2).
- * Purchased credits never expire while the account is active and are never forfeited silently. A pack
- * is refundable in full on request within PACK_REFUND_DAYS of purchase if none of its credits were
- * used; a partly used pack is refunded only where the law requires it or an admin approves it, for the
- * unused share of the price actually paid. A refunded pack is closed (expires_at set to the refund
+ * Purchased credits never expire while the account is active. A pack is refundable in full on request
+ * within PACK_REFUND_DAYS of purchase if none of its credits were used; otherwise only where local law
+ * requires it or an admin approves it, for the unused share of the price actually paid. When a plan ends
+ * for good (after the recovery window, or on account deletion) unused credits are removed, not refunded. A refunded pack is closed (expires_at set to the refund
  * time), so its credits can't be spent, and stays on record with the refund.
  */
 
@@ -69,22 +69,20 @@ export async function purchasedPacks(db: SupabaseClient, householdId: string): P
   });
 }
 
-/** What the admin queue needs to settle a household's purchased credits before its records close. */
-export function reconciliation(packs: PurchasedPack[]): { credits: number; unusedValueCents: number; packs: Record<string, unknown>[] } {
-  const open = packs.filter((p) => !p.refundedAt && p.creditsLeft > 0);
-  return {
-    credits: open.reduce((n, p) => n + p.creditsLeft, 0),
-    unusedValueCents: open.reduce((n, p) => n + unusedValueCents(p), 0),
-    packs: open.map((p) => ({
-      lot: p.lotId,
-      payment: p.paymentRef,
-      bought_at: p.grantedAt,
-      credits: p.credits,
-      credits_left: p.creditsLeft,
-      paid_cents: p.paidCents,
-      unused_value_cents: unusedValueCents(p),
-    })),
-  };
+/**
+ * Removes a household's unused credits when its plan ends for good (Kevin, 2026-10-12: standard practice
+ * is to delete unused credits; no refund unless local law requires one). Every open lot is closed by
+ * setting expires_at, so the lots and their ledger stay on record with what was left. Returns the
+ * purchased credits removed.
+ */
+export async function removeUnusedCredits(db: SupabaseClient, householdId: string, at: string): Promise<number> {
+  const left = (await purchasedPacks(db, householdId)).filter((p) => !p.refundedAt && p.creditsLeft > 0).reduce((n, p) => n + p.creditsLeft, 0);
+  const open = await rows(db.from("narration_credit_lots").select("id, expires_at").eq("household_id", householdId), "read credit lots");
+  const closing = open.filter((l) => !l.expires_at || Date.parse(l.expires_at as string) > Date.parse(at)).map((l) => l.id as string);
+  for (let i = 0; i < closing.length; i += 200) {
+    await run(db.from("narration_credit_lots").update({ expires_at: at }).in("id", closing.slice(i, i + 200)), "remove unused credits");
+  }
+  return left;
 }
 
 export class PackRefundError extends Error {}

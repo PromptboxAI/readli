@@ -97,8 +97,8 @@ export function AccountSettings({ name, email, blockers }: { name: string; email
         <p>This can&apos;t be undone. Deleting your account:</p>
         <ul className="list-disc pl-6">
           <li>
-            first stops anything that renews: the Readli plan of a family only you belong to is cancelled now, and any unused time you&apos;ve paid for is
-            refunded to your card; gifts you pay for stop renewing, and the people you gave them to keep the month already paid for,
+            first stops anything that renews: the Readli plan of a family only you belong to is cancelled now (unused paid time and unused credits aren&apos;t
+            refunded unless the law where you live requires it); gifts you pay for stop renewing, and the people you gave them to keep the month already paid for,
           </li>
           <li>removes your voice from our voice service, so no new stories can be made in your voice,</li>
           <li>deletes your original voice recordings and ends any permission to use them for AI training,</li>

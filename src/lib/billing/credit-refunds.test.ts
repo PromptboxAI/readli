@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { checkoutNotice } from "@/lib/content/billing-policy";
 import { fakeSupabase } from "@/lib/testing/fake-supabase";
-import { packRefund, purchasedPacks, reconciliation, refundPack, type PurchasedPack } from "./credit-refunds";
+import { packRefund, refundPack, removeUnusedCredits, type PurchasedPack } from "./credit-refunds";
 import { queueTrialReminder } from "./notify";
 
-/** Kevin's billing policy decisions (2026-10-12): pack refunds, reconciliation and the trial reminder. */
+/** Kevin's billing policy decisions (2026-10-12): pack refunds, removing unused credits and the trial reminder. */
 const NOW = new Date("2026-10-20T12:00:00Z");
 const pack = (over: Partial<PurchasedPack> = {}): PurchasedPack => ({
   lotId: "lot1",
@@ -51,19 +51,20 @@ describe("credit pack refunds", () => {
     expect(issued).toHaveLength(1);
   });
 
-  it("reconciles what's left of each pack at the price actually paid, skipping refunded packs", async () => {
-    const { db } = fakeSupabase({
+  it("removes unused credits when a plan ends for good, without a refund, keeping them on record", async () => {
+    const { db, tables } = fakeSupabase({
       narration_credit_lots: [
         { id: "a", household_id: "h1", source: "purchased", credits: 20, granted_at: "2026-09-01T00:00:00Z", payment_ref: "pi_a" },
-        { id: "b", household_id: "h1", source: "purchased", credits: 100, granted_at: "2026-09-02T00:00:00Z", payment_ref: "pi_b", refunded_at: "2026-09-03T00:00:00Z" },
+        { id: "b", household_id: "h1", source: "purchased", credits: 100, granted_at: "2026-09-02T00:00:00Z", payment_ref: "pi_b", refunded_at: "2026-09-03T00:00:00Z", expires_at: "2026-09-03T00:00:00Z" },
         { id: "c", household_id: "h1", source: "promotional", credits: 10, granted_at: "2026-09-01T00:00:00Z" },
       ],
       narration_credit_ledger: [{ household_id: "h1", lot_id: "a", kind: "reserve", credits: 8 }, { household_id: "h1", lot_id: "a", kind: "refund", credits: 3 }],
-      revenue_events: [{ provider_ref: "pi_a", kind: "credit_pack", amount_cents: 699 }, { provider_ref: "pi_b", kind: "credit_pack", amount_cents: 2499 }],
+      revenue_events: [{ provider_ref: "pi_a", kind: "credit_pack", amount_cents: 699 }],
     });
-    const owed = reconciliation(await purchasedPacks(db, "h1"));
-    expect(owed).toMatchObject({ credits: 15, unusedValueCents: 524 });
-    expect(owed.packs).toEqual([expect.objectContaining({ lot: "a", credits_left: 15, paid_cents: 699 })]);
+    expect(await removeUnusedCredits(db, "h1", NOW.toISOString())).toBe(15);
+    expect(tables.narration_credit_lots!.map((l) => l.expires_at)).toEqual([NOW.toISOString(), "2026-09-03T00:00:00Z", NOW.toISOString()]);
+    expect(tables.narration_credit_ledger).toHaveLength(2);
+    expect(tables.lifecycle_exceptions ?? []).toEqual([]);
   });
 
   it("tells buyers the refund and renewal terms before they pay", () => {

@@ -43,14 +43,13 @@ export function deletionBilling(): DeletionBilling | null {
     async cancel(ref) {
       try {
         const sub = await stripe.subscription(ref);
-        // A retried deletion finds it already cancelled.
-        if (sub.status !== "canceled" && sub.status !== "incomplete_expired") await stripe.cancelSubscription(ref, { prorate: true });
+        // A retried deletion finds it already cancelled. No proration: unused time isn't refunded or credited.
+        if (sub.status !== "canceled" && sub.status !== "incomplete_expired") await stripe.cancelSubscription(ref, { prorate: false });
         return { customer: sub.customer };
       } catch (err) {
         return unreachable(err);
       }
     },
-    balance: (customer) => stripe.customerBalance(customer).catch(unreachable),
   };
 }
 

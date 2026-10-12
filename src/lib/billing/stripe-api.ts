@@ -173,12 +173,6 @@ export class StripeApi {
     return this.call<StripeSubscription>("DELETE", `subscriptions/${encodeURIComponent(id)}`, opts.prorate ? { prorate: true, invoice_now: true } : {});
   }
 
-  /** The customer's balance in cents: negative is credit Readli owes them. */
-  async customerBalance(customer: string): Promise<number> {
-    const c = await this.call<{ balance?: number; deleted?: boolean }>("GET", `customers/${encodeURIComponent(customer)}`);
-    return c.balance ?? 0;
-  }
-
   /** Stripe's hosted page where a parent updates their card, changes slots or cancels. */
   /** Refunds part or all of a one-time payment, once per idempotency key. */
   async refund(paymentIntent: string, amountCents: number, idempotencyKey: string, metadata: Record<string, string>): Promise<{ id: string; status: string }> {

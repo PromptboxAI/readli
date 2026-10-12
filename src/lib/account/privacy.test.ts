@@ -84,16 +84,16 @@ describe("deleting an account", () => {
     expect(auth.deleted).toEqual([ME]);
   });
 
-  it("doesn't wait for a renewing plan: it cancels it first and queues the unused paid time for a refund", async () => {
+  it("doesn't wait for a renewing plan: it cancels it first, with no refund of unused time", async () => {
     const { db, tables, auth } = fakeDb(sarasData({ household_entitlements: [{ household_id: "home", status: "active", ends_at: null, provider_subscription_ref: "sub_1" }] }));
     expect(await deletionBlockers(db, ME)).toEqual([]);
     const cancelled: string[] = [];
-    const billing = { cancel: async (ref: string) => (cancelled.push(ref), { customer: "cus_1" }), balance: async () => -1250 };
+    const billing = { cancel: async (ref: string) => (cancelled.push(ref), { customer: "cus_1" }) };
     const result = await deleteAccount({ db, ...recordingProvider(), refs, billing }, ME);
     expect(result.deleted).toBe(true);
     expect(cancelled).toEqual(["sub_1"]);
-    expect(tables.lifecycle_exceptions).toEqual([expect.objectContaining({ kind: "billing_credit_refund", household_id: "home", detail: expect.objectContaining({ credit_cents: 1250 }) })]);
-    expect(tables.lifecycle_audit_log![0]!.detail).toMatchObject({ plans_ended: [{ householdId: "home", subscription: "sub_1", creditCents: 1250 }] });
+    expect(tables.lifecycle_exceptions ?? []).toEqual([]);
+    expect(tables.lifecycle_audit_log![0]!.detail).toMatchObject({ plans_ended: [{ householdId: "home", subscription: "sub_1" }] });
     expect(auth.deleted).toEqual([ME]);
   });
 
@@ -106,7 +106,7 @@ describe("deleting an account", () => {
     expect(auth.deleted).toEqual([]);
   });
 
-  it("keeps unspent purchased credits and sends them to the exception queue", async () => {
+  it("removes unspent credits without a refund, keeping the lots and ledger on record", async () => {
     const { db, tables } = fakeDb(
       sarasData({
         narration_credit_lots: [{ id: "lot1", household_id: "home", source: "purchased", credits: 20, granted_at: "2026-09-01T00:00:00Z", payment_ref: "pi_1" }],
@@ -116,7 +116,10 @@ describe("deleting an account", () => {
     );
     await deleteAccount({ db, ...recordingProvider(), refs }, ME);
     expect(tables.narration_credit_lots).toHaveLength(1);
-    expect(tables.lifecycle_exceptions).toEqual([expect.objectContaining({ kind: "purchased_credits_unreconciled", household_id: "home", detail: expect.objectContaining({ credits: 15, unused_value_cents: 524 }) })]);
+    expect(tables.narration_credit_lots![0]!.expires_at).toBeTruthy();
+    expect(tables.narration_credit_ledger).toHaveLength(1);
+    expect(tables.lifecycle_exceptions ?? []).toEqual([]);
+    expect(tables.lifecycle_audit_log![0]!.detail).toMatchObject({ credits_removed: 15 });
   });
 
   it("won't leave a shared family's kids without a guardian, and deletes nothing", async () => {
