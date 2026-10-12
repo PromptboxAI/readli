@@ -15,6 +15,16 @@ import { ACTIVITIES, type ActivityId } from "@/lib/rewards/rewards";
  */
 export function WelcomeSteps({ showRewards = true }: { showRewards?: boolean }) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [name, setName] = useState("");
+
+  // The name is asked for here, after payment, rather than at signup. Saving needs a signed-in
+  // account; in the preview there isn't one, so a failed save just moves on.
+  const saveName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    await fetch("/api/account", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ displayName: name.trim() }) }).catch(() => null);
+    setStep(2);
+  };
   const justJoined = { completed: new Set<ActivityId>(["family_account"]), pendingReferrals: 0, monthsEarned12: 0, monthsBanked: 0 };
 
   return (
@@ -46,11 +56,27 @@ export function WelcomeSteps({ showRewards = true }: { showRewards?: boolean }) 
               <RewardsCard state={justJoined} />
             </>
           )}
-          <div className="flex flex-wrap gap-3">
-            <button type="button" className={buttonPrimary} onClick={() => setStep(2)}>
-              Next
-            </button>
-          </div>
+          <form className="flex flex-col gap-3" onSubmit={saveName}>
+            <label htmlFor="welcome-name" className="font-display text-xl font-semibold">
+              What should your family call you?
+            </label>
+            <p className="-mt-2 text-sm">This is how you&apos;ll appear to your kids and storytellers. You can change it later in Account settings.</p>
+            <input
+              id="welcome-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Mom, Dad, Sara…"
+              autoComplete="name"
+              maxLength={60}
+              required
+              className="min-h-12 w-full max-w-sm rounded-2xl border-[3px] border-ink/20 bg-surface px-4 text-lg focus:border-ink"
+            />
+            <div className="flex flex-wrap gap-3">
+              <button type="submit" className={buttonPrimary} disabled={!name.trim()}>
+                Next
+              </button>
+            </div>
+          </form>
         </section>
       )}
       {step === 2 && (
