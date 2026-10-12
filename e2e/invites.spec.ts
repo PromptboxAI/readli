@@ -127,3 +127,21 @@ test("onboarding lets adults skip Follow Readli's Story", async ({ page }, info)
   await page.getByRole("button", { name: "Skip" }).click();
   await expect(page.getByRole("heading", { name: "You're all set" })).toBeVisible();
 });
+
+test("several gifts go in one checkout, each with its own length, and checkout stays off", async ({ page }, info) => {
+  await page.goto("/invite/gift");
+  await page.getByRole("link", { name: "Giving to more than one family?" }).click();
+  await expect(page.getByRole("heading", { name: "Give Readli to several families" })).toBeVisible();
+  const cart = page.getByTestId("gift-cart");
+  await expect(cart.getByRole("listitem")).toHaveCount(2);
+  await expect(page.getByTestId("gift-cart-total")).toHaveText("2 gifts, $359.98");
+  await cart.getByRole("listitem", { name: "Gift 2" }).getByLabel("How long").selectOption("prepaid_1m");
+  await expect(page.getByTestId("gift-cart-total")).toHaveText("2 gifts, $199.98");
+  await cart.getByRole("button", { name: "Add another person" }).click();
+  await expect(page.getByTestId("gift-cart-total")).toHaveText("3 gifts, $379.97");
+  await expect(page.getByTestId("gift-cart-off")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pay for 3 gifts" })).toBeDisabled();
+  await noOverflow(page);
+  await page.screenshot({ path: `e2e/screenshots/invite-gift-several-${info.project.name}.png`, fullPage: true });
+  expect((await page.request.post("/api/billing/gift-checkout", { data: { giverName: "Nana", gifts: [] } })).status()).toBe(404);
+});

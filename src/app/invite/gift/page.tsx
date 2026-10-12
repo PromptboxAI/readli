@@ -26,7 +26,10 @@ export default async function InviteGiftPage({ searchParams }: { searchParams: P
           <p className="text-lg">Their own library of classic stories, read by the people they love.</p>
         </div>
       </header>
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-4">
+        <Link href="/invite/gift/several" className="font-display font-semibold underline underline-offset-4">
+          Giving to more than one family?
+        </Link>
         <Link href="/invite/gift/manage" className="font-display font-semibold underline underline-offset-4">
           Manage gifts you&apos;ve given
         </Link>
