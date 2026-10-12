@@ -12,7 +12,7 @@ async function consent(page: Page) {
   await cont.click();
 }
 
-test("continuous take: no Next button, scrolls, pauses, resumes, finishes at the end of the story", async ({ page }, info) => {
+test("continuous take: no Next button, scrolls, pauses, resumes, finishes once the last paragraph starts", async ({ page }, info) => {
   await consent(page);
   const prompter = page.getByTestId("teleprompter");
   await expect(page.getByRole("button", { name: /next/i })).toHaveCount(0);
@@ -37,10 +37,10 @@ test("continuous take: no Next button, scrolls, pauses, resumes, finishes at the
   const finish = page.getByRole("button", { name: "Finish" });
   await expect(finish).toBeDisabled();
   await expect(page.getByTestId("script-progress")).toBeVisible();
-  // Time alone isn't enough: Finish waits for the end of the story too.
+  // Time alone isn't enough: Finish waits for the last paragraph too.
   await page.clock.fastForward(61_000);
   await expect(finish).toBeDisabled();
-  await expect(page.locator("#duration-guidance-text")).toContainText(/end of the story/i);
+  await expect(page.locator("#duration-guidance-text")).toContainText(/last paragraph/i);
   await prompter.hover();
   // Scroll to the end, stepping the timers so each scroll registers, then spend a few seconds on the last line.
   await expect

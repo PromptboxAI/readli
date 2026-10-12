@@ -33,6 +33,17 @@ describe("advisory QC", () => {
   it("flags silence", () => {
     expect(feed([[0.005, 1200]]).issues).toEqual(["silent"]);
   });
+  it("counts a quiet phone read with natural word gaps as a full minute of speech", () => {
+    // 65s read: words peaking at 0.04 (no auto gain) with 150ms gaps between them and a 600ms breath each sentence
+    const sentence = [...Array.from({ length: 8 }, () => [[0.04, 7], [0.01, 3]] as Array<[number, number]>).flat(), [0.01, 12]] as Array<[number, number]>;
+    const take = Array.from({ length: 14 }, () => sentence).flat();
+    const qc = feed(take);
+    expect(qc.issues).not.toContain("too_short");
+    expect(qc.speechMs).toBeGreaterThan(50_000);
+  });
+  it("does not bridge long pauses", () => {
+    expect(feed([[0.3, 20], [0.01, 40], [0.3, 20]]).speechMs).toBe(2000);
+  });
   it("flags short takes", () => {
     expect(feed([[0.3, 400], [0.01, 100]]).issues).toContain("too_short");
   });

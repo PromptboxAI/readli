@@ -7,7 +7,7 @@ import { VOICE_CONSENT_VERSION, VOICE_CONSENTS } from "@/lib/content/voice-conse
 import type { ServerConfig } from "@/lib/server/config";
 import { ProviderRefCipher } from "@/lib/server/provider-ref";
 import { baseMimeType, checkUpload, SERVER_QC_MESSAGES, type QcLimits } from "@/lib/server/recording-qc";
-import { ElevenLabsProvider } from "./elevenlabs";
+import { DEFAULT_MODEL, ElevenLabsProvider } from "./elevenlabs";
 import { VoiceProviderError, type SynthesizedAudio, type VoiceProvider } from "./provider";
 import { StubVoiceProvider } from "./stub";
 
@@ -27,6 +27,8 @@ export interface AccountVoice {
   /** Bumps on every re-recording; narration libraries are kept per version. */
   version: number;
   updatedAt: string;
+  /** The reading model this voice narrates with; null for voices made before models were pinned. */
+  modelId: string | null;
 }
 
 export interface TakeUpload {
@@ -91,6 +93,8 @@ export interface AccountVoiceStore {
   /** Deletes a stored take's audio (a discarded candidate's recording). */
   deleteTake(storageKey: string): Promise<void>;
   providerVoiceId(voiceId: string): Promise<string | null>;
+  /** Pins the reading model a voice narrates with. */
+  setModel(voiceId: string, modelId: string): Promise<void>;
   /**
    * Removes everything kept for the owner's voice except the record that it existed: their
    * recordings, audio made from the voice, sharing and kids' approvals. Safe to retry.
@@ -115,7 +119,11 @@ export interface AccountVoiceDeps {
   store: AccountVoiceStore;
   provider: VoiceProvider;
   limits: QcLimits;
+  /** The reading model new voices get. Existing voices keep theirs until the owner switches. */
+  newVoiceModel?: string;
 }
+
+const latestModel = (deps: AccountVoiceDeps) => deps.newVoiceModel ?? DEFAULT_MODEL;
 
 /**
  * Checks the take and consent, saves the recording and clones it into a candidate. The owner's
@@ -161,7 +169,10 @@ export async function keepVoiceCandidate(deps: AccountVoiceDeps, owner: { id: st
   const candidate = await deps.store.findCandidate(owner.id);
   if (!candidate) throw new AccountVoiceError(404, "no_candidate", "There's no new recording to keep. Record your voice first.");
   const previous = await deps.store.findVoice(owner.id);
-  const voice = await deps.store.saveVoice(owner, candidate.providerVoiceId, candidate, candidate);
+  const saved = await deps.store.saveVoice(owner, candidate.providerVoiceId, candidate, candidate);
+  // Every new recording reads with the newest model; older voices keep theirs until switched.
+  const voice = { ...saved, modelId: latestModel(deps) };
+  await deps.store.setModel(voice.id, voice.modelId);
   await deps.store.deleteCandidate(candidate.id);
   if (previous?.providerVoiceId && previous.providerVoiceId !== candidate.providerVoiceId) {
     await deps.provider.deleteVoice(previous.providerVoiceId).catch((err) => console.error("old account voice delete failed", err));
@@ -219,17 +230,44 @@ export async function deleteAccountVoice(deps: AccountVoiceDeps, ownerId: string
  * A short line in the owner's voice, for "Does this sound like you?". Only the owner can hear it.
  * With `candidate`, it's the new recording waiting for their decision; otherwise their current voice.
  */
-export async function accountVoiceSample(deps: AccountVoiceDeps, ownerId: string, { candidate = false } = {}): Promise<SynthesizedAudio> {
+export async function accountVoiceSample(
+  deps: AccountVoiceDeps,
+  ownerId: string,
+  { candidate = false, latest = false }: { candidate?: boolean; latest?: boolean } = {},
+): Promise<SynthesizedAudio> {
   if (candidate) {
     const c = await deps.store.findCandidate(ownerId);
     if (!c) throw new AccountVoiceError(404, "no_candidate", "Record your voice first, then you can hear a sample.");
-    return deps.provider.synthesize({ voiceId: c.providerVoiceId, text: SAMPLE_TEXT });
+    return deps.provider.synthesize({ voiceId: c.providerVoiceId, text: SAMPLE_TEXT, modelId: latestModel(deps) });
   }
   const voice = await deps.store.findVoice(ownerId);
   if (!voice?.providerVoiceId || voice.status !== "ready") {
     throw new AccountVoiceError(404, "no_voice", "Record your voice first, then you can hear a sample.");
   }
-  return deps.provider.synthesize({ voiceId: voice.providerVoiceId, text: SAMPLE_TEXT });
+  // `latest` previews the voice on the newest model before the owner decides to switch.
+  const modelId = latest ? latestModel(deps) : (voice.modelId ?? undefined);
+  return deps.provider.synthesize({ voiceId: voice.providerVoiceId, text: SAMPLE_TEXT, modelId });
+}
+
+/** Whether the owner's voice could move to a newer reading model, and which. */
+export async function voiceModelStatus(deps: AccountVoiceDeps, ownerId: string): Promise<{ current: string | null; latest: string; canUpgrade: boolean }> {
+  const voice = await deps.store.findVoice(ownerId);
+  const latest = latestModel(deps);
+  const current = voice?.status === "ready" ? voice.modelId : null;
+  return { current, latest, canUpgrade: Boolean(current && current !== latest) };
+}
+
+/**
+ * Moves the owner's voice to the newest reading model. Books already prepared keep their audio;
+ * books prepared from now on use the new model.
+ */
+export async function switchVoiceModel(deps: AccountVoiceDeps, ownerId: string): Promise<AccountVoice> {
+  const voice = await deps.store.findVoice(ownerId);
+  if (!voice || voice.status !== "ready") throw new AccountVoiceError(404, "no_voice", "Record your voice first.");
+  const latest = latestModel(deps);
+  if (voice.modelId === latest) throw new AccountVoiceError(409, "already_latest", "Your voice already uses the newest version.");
+  await deps.store.setModel(voice.id, latest);
+  return { id: voice.id, status: voice.status, version: voice.version, updatedAt: voice.updatedAt, modelId: latest };
 }
 
 // ---------------------------------------------------------------------------
@@ -264,11 +302,16 @@ export class MemoryAccountVoiceStore implements AccountVoiceStore {
     const existing = this.entry(owner.id);
     if (existing) {
       Object.assign(existing, { providerVoiceId, status: "ready", updatedAt: at, version: existing.version + 1 });
-      return { id: existing.id, status: existing.status, version: existing.version, updatedAt: at };
+      return { id: existing.id, status: existing.status, version: existing.version, updatedAt: at, modelId: existing.modelId };
     }
     const id = randomUUID();
-    this.voices.set(id, { id, ownerId: owner.id, providerVoiceId, status: "ready", updatedAt: at, version: 1 });
-    return { id, status: "ready" as const, version: 1, updatedAt: at };
+    this.voices.set(id, { id, ownerId: owner.id, providerVoiceId, status: "ready", updatedAt: at, version: 1, modelId: null });
+    return { id, status: "ready" as const, version: 1, updatedAt: at, modelId: null };
+  }
+
+  async setModel(voiceId: string, modelId: string) {
+    const v = this.voices.get(voiceId);
+    if (v) v.modelId = modelId;
   }
 
   async saveCandidate(owner: { id: string }, providerVoiceId: string, take: TakeMeta, saved: SavedTake) {
@@ -331,7 +374,7 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
     const row = await this.q<Row | null>(
       this.db
         .from("voice_profiles")
-        .select("id, status, version, updated_at, provider_voice_id_encrypted")
+        .select("*")
         .eq("owner_id", ownerId)
         .neq("status", "deleted")
         .order("created_at", { ascending: false })
@@ -346,6 +389,7 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
       status: row.status as AccountVoice["status"],
       version: Number(row.version ?? 1),
       updatedAt: row.updated_at as string,
+      modelId: typeof row.model_id === "string" ? row.model_id : null,
       providerVoiceId: enc ? this.cipher.decrypt(enc) : null,
     };
   }
@@ -458,7 +502,7 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
       }),
       "save recording segment",
     );
-    return { id: voiceId, status: row.status as AccountVoice["status"], version: Number(row.version ?? 1), updatedAt: row.updated_at as string };
+    return { id: voiceId, status: row.status as AccountVoice["status"], version: Number(row.version ?? 1), updatedAt: row.updated_at as string, modelId: null };
   }
 
   private toCandidate(row: Row): VoiceCandidate {
@@ -527,6 +571,13 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
     await removeObjects(this.db, BUCKET, [storageKey]);
   }
 
+  async setModel(voiceId: string, modelId: string) {
+    const { error } = await this.db.from("voice_profiles").update({ model_id: modelId }).eq("id", voiceId);
+    // Before the model migration runs there is no column yet; the voice still works on the default model.
+    if (error && /model_id/.test(error.message)) console.warn("voice model not saved yet:", error.message);
+    else if (error) throw new Error(`set voice model: ${error.message}`);
+  }
+
   async providerVoiceId(voiceId: string) {
     const row = await this.q<Row | null>(
       this.db.from("voice_profiles").select("provider_voice_id_encrypted").eq("id", voiceId).neq("status", "deleted").maybeSingle(),
@@ -589,7 +640,7 @@ export function accountVoiceDeps(config: ServerConfig): AccountVoiceDeps | null 
   const limits = { ...config, minRecordingMs: Math.max(config.minRecordingMs, 49_000) };
   if (config.mode === "stub") {
     g.__readliAccountVoices ??= { store: new MemoryAccountVoiceStore(), provider: new StubVoiceProvider() };
-    return { ...g.__readliAccountVoices, limits: config };
+    return { ...g.__readliAccountVoices, limits: config, newVoiceModel: config.elevenLabsModel };
   }
   if (config.mode === "live" && config.supabaseUrl && config.supabaseServiceKey && config.cookieSecret) {
     const db = createClient(config.supabaseUrl, config.supabaseServiceKey, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -597,6 +648,7 @@ export function accountVoiceDeps(config: ServerConfig): AccountVoiceDeps | null 
       store: new SupabaseAccountVoiceStore(db, config.cookieSecret),
       provider: new ElevenLabsProvider(config.elevenLabsKey!, config.elevenLabsModel),
       limits,
+      newVoiceModel: config.elevenLabsModel,
     };
   }
   return null;

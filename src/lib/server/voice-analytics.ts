@@ -13,12 +13,14 @@ export const VOICE_EVENTS = [
   "voice_discarded",
   "preview_generated",
   "preview_replayed",
+  "voice_model_switched",
   // From the browser
   "recording_restarted",
   "quality_warning_shown",
   "recording_used_with_warnings",
   "tips_opened",
   "doesnt_sound_like_me",
+  "model_preview_played",
 ] as const;
 
 export type VoiceEventName = (typeof VOICE_EVENTS)[number];
@@ -30,6 +32,7 @@ export const CLIENT_VOICE_EVENTS: readonly VoiceEventName[] = [
   "recording_used_with_warnings",
   "tips_opened",
   "doesnt_sound_like_me",
+  "model_preview_played",
 ];
 
 export type EventProperties = Record<string, string | number | boolean | null | string[]>;
@@ -136,6 +139,9 @@ export interface VoiceQualityMetrics {
   /** Recordings made after the reader asked how to improve. */
   rerecordsAfterFeedback: number;
   previews: { generated: number; replayed: number; characters: number; usd: number };
+  /** Grown-ups who heard their voice on a newer model, and who switched to it. */
+  modelPreviews: number;
+  modelSwitches: number;
 }
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
@@ -155,6 +161,8 @@ export function summarizeVoiceEvents(events: { name: string; properties: EventPr
     tipsOpened: 0,
     rerecordsAfterFeedback: 0,
     previews: { generated: 0, replayed: 0, characters: 0, usd: 0 },
+    modelPreviews: 0,
+    modelSwitches: 0,
   };
   for (const e of events) {
     const p = e.properties;
@@ -196,9 +204,32 @@ export function summarizeVoiceEvents(events: { name: string; properties: EventPr
       case "preview_replayed":
         m.previews.replayed += 1;
         break;
+      case "model_preview_played":
+        m.modelPreviews += 1;
+        break;
+      case "voice_model_switched":
+        m.modelSwitches += 1;
+        break;
     }
   }
   const decided = m.accountKept + m.accountDiscarded;
   m.acceptanceRate = decided ? m.accountKept / decided : null;
   return m;
+}
+
+/** How many live voices read with each model; "unpinned" are voices made before models were pinned. */
+export async function voiceModelCounts(config: ServerConfig): Promise<Record<string, number> | null> {
+  if (!config.supabaseUrl || !config.supabaseServiceKey || config.mode === "stub") return null;
+  const db = createClient(config.supabaseUrl, config.supabaseServiceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data, error } = await db.from("voice_profiles").select("*").is("deleted_at", null).eq("status", "ready").limit(50_000);
+  if (error) {
+    console.error("voice model counts failed", error.message);
+    return null;
+  }
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    const model = typeof row.model_id === "string" ? row.model_id : "unpinned";
+    counts[model] = (counts[model] ?? 0) + 1;
+  }
+  return counts;
 }

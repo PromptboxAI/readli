@@ -82,7 +82,8 @@ export class ElevenLabsProvider implements VoiceProvider {
     return { voiceId: json.voice_id };
   }
 
-  async synthesize({ voiceId, text }: { voiceId: string; text: string }): Promise<SynthesizedAudio> {
+  async synthesize({ voiceId, text, modelId: requested }: { voiceId: string; text: string; modelId?: string }): Promise<SynthesizedAudio> {
+    const model = requested ?? this.modelId;
     const speak = (modelId: string) =>
       this.call(`/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`, {
         method: "POST",
@@ -90,15 +91,15 @@ export class ElevenLabsProvider implements VoiceProvider {
         body: JSON.stringify({ text, model_id: modelId, voice_settings: voiceSettings(modelId) }),
       });
     let res: Response;
-    let modelId = this.modelId;
+    let modelId = model;
     try {
-      res = await speak(this.modelId);
+      res = await speak(model);
     } catch (err) {
       // A newer model turning the request down (400/422) shouldn't silence a story: read it with the
       // previous model instead. Auth, quota and missing-voice errors still surface.
       const rejected = err instanceof VoiceProviderError && (err.status === 400 || err.status === 422);
-      if (!rejected || this.modelId === FALLBACK_MODEL) throw err;
-      console.warn(`ElevenLabs ${this.modelId} rejected a read, using ${FALLBACK_MODEL}: ${(err as Error).message}`);
+      if (!rejected || model === FALLBACK_MODEL) throw err;
+      console.warn(`ElevenLabs ${model} rejected a read, using ${FALLBACK_MODEL}: ${(err as Error).message}`);
       res = await speak(FALLBACK_MODEL);
       modelId = FALLBACK_MODEL;
     }

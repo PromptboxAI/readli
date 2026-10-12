@@ -24,8 +24,8 @@ export interface RecorderState {
   /** Furthest script sentence reached while recording, and how many sentences the script has. */
   furthestSentence: number;
   totalSentences: number;
-  /** Recording time spent after reaching the last sentence, so it gets read, not just scrolled to. */
-  lastSentenceMs: number;
+  /** The sentence that unlocks Finish: the first one of the script's last paragraph. */
+  finishFromSentence: number;
 }
 
 export type RecorderAction =
@@ -35,7 +35,7 @@ export type RecorderAction =
   | { type: "pause" }
   | { type: "resume" }
   | { type: "tick"; deltaMs: number }
-  | { type: "progress"; sentence: number; totalSentences: number }
+  | { type: "progress"; sentence: number; totalSentences: number; finishFromSentence?: number }
   | { type: "finish" }
   | { type: "start_over" };
 
@@ -55,7 +55,7 @@ export const initialRecorderState: RecorderState = {
   take: 0,
   furthestSentence: 0,
   totalSentences: 0,
-  lastSentenceMs: 0,
+  finishFromSentence: 0,
 };
 
 export function hasConsent(consent: ConsentState): boolean {
@@ -78,43 +78,43 @@ export function recorderReducer(state: RecorderState, action: RecorderAction): R
       return state.status === "paused" ? { ...state, status: "recording" } : state;
     case "tick": {
       if (state.status !== "recording") return state;
-      const delta = Math.max(0, action.deltaMs);
-      const onLast = state.totalSentences > 0 && state.furthestSentence >= state.totalSentences - 1;
-      return { ...state, elapsedMs: state.elapsedMs + delta, lastSentenceMs: state.lastSentenceMs + (onLast ? delta : 0) };
+      return { ...state, elapsedMs: state.elapsedMs + Math.max(0, action.deltaMs) };
     }
-    case "progress":
+    case "progress": {
+      const finishFromSentence = Math.min(action.finishFromSentence ?? action.totalSentences - 1, action.totalSentences - 1);
       // Scrolling before Start, or after Finish, doesn't count as reading.
-      if (state.status !== "recording" && state.status !== "paused") return { ...state, totalSentences: action.totalSentences };
+      if (state.status !== "recording" && state.status !== "paused") return { ...state, totalSentences: action.totalSentences, finishFromSentence };
       return {
         ...state,
         totalSentences: action.totalSentences,
+        finishFromSentence,
         furthestSentence: Math.max(state.furthestSentence, Math.min(action.sentence, action.totalSentences - 1)),
       };
+    }
     case "finish":
       return (state.status === "recording" || state.status === "paused") && canFinish(state) ? { ...state, status: "review" } : state;
     case "start_over":
       if (state.status === "consent") return state;
-      return { ...state, status: "ready", elapsedMs: 0, pauseCount: 0, take: state.take + 1, furthestSentence: 0, lastSentenceMs: 0 };
+      return { ...state, status: "ready", elapsedMs: 0, pauseCount: 0, take: state.take + 1, furthestSentence: 0 };
   }
 }
-
-/** Time to give the last sentence before Finish unlocks: about how long it takes to read it. */
-export const LAST_SENTENCE_MS = 3_000;
 
 export type FinishBlocker = "script" | "time" | null;
 
 /**
- * Why Finish is still locked: the reader hasn't reached and read the end of the script, or the
- * take is shorter than the floor. Natural reading speeds all reach the end well past the floor.
+ * Why Finish is still locked: the reader hasn't reached the last paragraph yet, or the take is
+ * shorter than the floor. Finish turns on as the last paragraph starts, so a reader who gets there
+ * ahead of the scroll never waits in silence (Kevin, 2026-10-12).
  */
-export function finishBlocker(state: Pick<RecorderState, "elapsedMs" | "furthestSentence" | "totalSentences" | "lastSentenceMs">): FinishBlocker {
-  const scriptKnown = state.totalSentences > 0;
-  if (scriptKnown && (state.furthestSentence < state.totalSentences - 1 || state.lastSentenceMs < LAST_SENTENCE_MS)) return "script";
+type FinishFacts = Pick<RecorderState, "elapsedMs" | "furthestSentence" | "totalSentences" | "finishFromSentence">;
+
+export function finishBlocker(state: FinishFacts): FinishBlocker {
+  if (state.totalSentences > 0 && state.furthestSentence < state.finishFromSentence) return "script";
   if (state.elapsedMs < MIN_FINISH_MS) return "time";
   return null;
 }
 
-export function canFinish(state: Pick<RecorderState, "elapsedMs" | "furthestSentence" | "totalSentences" | "lastSentenceMs">): boolean {
+export function canFinish(state: FinishFacts): boolean {
   return finishBlocker(state) === null;
 }
 
