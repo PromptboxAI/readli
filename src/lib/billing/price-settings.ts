@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { planConfig, type CreditPack, type PlanConfig } from "@/lib/family/plan";
+import { planConfig, type CreditPack, type GenerationLimits, type PlanConfig } from "@/lib/family/plan";
 
 /**
  * Admin-editable prices. They live in the plan_settings row and override the defaults in plan.ts,
@@ -40,16 +40,55 @@ export function withPriceSettings(plan: PlanConfig, row: Row | null | undefined)
     extraSlotPriceApproved: typeof row.extra_slot_price_approved === "boolean" ? row.extra_slot_price_approved : plan.extraSlotPriceApproved,
     creditPacks: packsFrom(row.credit_packs) ?? plan.creditPacks,
     archiveMonthlyPriceCents: cents(row.archive_monthly_price_cents) ?? plan.archiveMonthlyPriceCents,
+    generationLimits: limitsFrom(row.generation_limits, plan.generationLimits),
   };
+}
+
+/** Saved generation limits on top of the defaults; a missing or malformed value keeps the default. */
+export function limitsFrom(v: unknown, base: GenerationLimits): GenerationLimits {
+  if (!v || typeof v !== "object") return base;
+  const out = { ...base };
+  for (const key of Object.keys(base) as (keyof GenerationLimits)[]) {
+    const n = (v as Row)[key];
+    if (typeof n === "number" && Number.isFinite(n) && n >= 0) out[key] = n;
+  }
+  return out;
+}
+
+/** Labels for the generation limits form on /admin/plans, in order. */
+export const LIMIT_FIELDS: { key: keyof GenerationLimits; label: string; decimals?: boolean }[] = [
+  { key: "requestsPerHour", label: "Requests per hour (paid)" },
+  { key: "trialRequestsPerHour", label: "Requests per hour (trial)" },
+  { key: "trialRequestsPerDay", label: "Requests per day (trial)" },
+  { key: "charactersPerDay", label: "Characters per day (paid)" },
+  { key: "trialCharactersPerDay", label: "Characters per day (trial)" },
+  { key: "maxRequestCharacters", label: "Most characters in one request" },
+  { key: "maxConcurrentJobs", label: "Preparations at once (paid)" },
+  { key: "trialMaxConcurrentJobs", label: "Preparations at once (trial)" },
+  { key: "dailySpendUsd", label: "Voice provider spend per day, all families (USD)", decimals: true },
+  { key: "dailyCharactersAllHouseholds", label: "Characters per day, all families" },
+];
+
+/** Reads the generation limits form. Every field needs a whole number (spend may have cents). */
+export function parseLimitsForm(get: (name: string) => string): { ok: true; limits: GenerationLimits } | { ok: false; error: string } {
+  const limits = {} as GenerationLimits;
+  for (const f of LIMIT_FIELDS) {
+    const raw = get(`limit_${f.key}`).trim();
+    const n = Number(raw);
+    if (!raw || !Number.isFinite(n) || n < 0 || (!f.decimals && !Number.isInteger(n))) return { ok: false, error: `${f.label} needs a ${f.decimals ? "number" : "whole number"} of 0 or more.` };
+    limits[f.key] = n;
+  }
+  return { ok: true, limits };
 }
 
 /** The plan as checkout and the pricing page should see it: defaults, env overrides, then admin prices. */
 export async function effectivePlan(db: SupabaseClient | null, base: PlanConfig = planConfig()): Promise<PlanConfig> {
   if (!db) return base;
   const { data } = await db.from("plan_settings").select(PRICE_COLUMNS).maybeSingle();
-  // Read on its own, so prices still load before the Archive migration has run.
+  // Read on their own, so prices still load before the Archive and limits migrations have run.
   const archive = await db.from("plan_settings").select("archive_monthly_price_cents").maybeSingle();
-  return withPriceSettings(base, data ? { ...(data as Row), ...((archive.data as Row | null) ?? {}) } : null);
+  const limits = await db.from("plan_settings").select("generation_limits").maybeSingle();
+  return withPriceSettings(base, data ? { ...(data as Row), ...((archive.data as Row | null) ?? {}), ...((limits.data as Row | null) ?? {}) } : null);
 }
 
 /** "19.99" or "$19.99" to 1999. Null unless it's a positive amount with at most two decimals. */

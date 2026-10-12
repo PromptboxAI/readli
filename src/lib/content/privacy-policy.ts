@@ -4,6 +4,7 @@
  * The draft's internal "Required publication details" checklist is intentionally not published.
  * 2026-10-11: voice-rights amendment (Kevin): what voice data is kept, why, who receives it, model training,
  * retention and how to exercise rights. New section 4; later sections renumbered.
+ * 2026-10-12: the three voice actions (Kevin's answer 5) and when the voice clone is retired.
  */
 
 export type PolicyParagraph = { lead?: string; text: string };
@@ -88,11 +89,11 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Raw audio",
-        text: "the original recording, kept privately in Readli’s storage with its recording details. Used to create, re-create, restore and improve the contributor’s voice, and to develop and test Readli’s own voice technology. Kept while the voice or account exists, and while it is needed by a household with a plan or kept under the contributor’s agreement. Three choices are separate: turning off sharing with a family stops that family’s new stories but doesn’t delete the recording; withdrawing AI-training permission stops its use for development, training and licensing at once; and a deletion request removes it from Readli’s active storage through a documented process, normally within 30 days, subject to legal exceptions and the [BACKUPS] timeline. When the contributor deletes their voice, the recording is no longer used to re-create the voice or for any development or training, and is deleted on the [DELETED VOICES] timeline or sooner on request; deleting the account deletes it.",
+        text: "the original recording, kept privately in Readli’s storage with its recording details. Used to create, re-create, restore and improve the contributor’s voice, and to develop and test Readli’s own voice technology. Kept while the voice or account exists, and while it is needed by a household with a plan or kept under the contributor’s agreement. Withdrawing AI-training permission stops its use for development, training and licensing at once. Three voice actions are separate and each is recorded: “Delete my original recordings” removes it from Readli’s active storage through a documented process, normally within 30 days, subject to legal exceptions and the [BACKUPS] timeline (the story voice already made keeps working only while it is shared and the contributor’s permission remains in force); “Stop sharing my voice” stops new stories in every family and retires the voice model, but keeps the recording so new stories can be allowed again; and “Delete my voice entirely” stops all new use of the recording and deletes it on the same normally-30-day process. Turning off sharing with one family doesn’t delete the recording. Deleting the account deletes it.",
       },
       {
         lead: "Voice characteristics and models",
-        text: "voice models, embeddings or identifiers derived from a recording by Readli or its speech provider. Used only to generate narration for families the owner has shared with. The voice clone is hosted by Readli’s speech provider; Readli deletes it there when the voice is replaced or deleted, and retires it when no Readli Family household has needed it for a while, re-creating it from the original recording only if a family needs it again and the owner’s authorization is still in force. Provider identifiers are stored encrypted and never sent to browsers.",
+        text: "voice models, embeddings or identifiers derived from a recording by Readli or its speech provider. Used only to generate narration for families the owner has shared with. The voice clone is hosted by Readli’s speech provider; Readli deletes it there when the voice is replaced or deleted, and retires it when no family may have new stories made in it any more (sharing off everywhere, or the owner stopped new stories) or no Readli Family household has needed it for a while. It is re-created from the original recording only if a family needs it again, the owner’s authorization is still in force and the recording hasn’t been deleted. Provider identifiers are stored encrypted and never sent to browsers.",
       },
       {
         lead: "Generated narration",
@@ -112,7 +113,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Your choices",
-        text: "you can turn independent commercial licensing off at any time, stop sharing a voice, or delete your voice or account. Deleting your voice stops new narration in it in every family, deletes its clone at our speech provider, takes your original recordings out of all future development, training and licensing, and is recorded as a withdrawal; stories already prepared in it stay with the families you shared it with unless you ask us to remove them where the law requires. Models already trained may not be able to remove what they learned. Use the controls in Readli or contact admin@readli.ai to exercise these or any other privacy rights described in section 12.",
+        text: "you can turn independent commercial licensing off at any time, withdraw AI-training permission, delete your original recordings, stop sharing your voice (with one family or, for new stories, with every family), or delete your voice or account. Deleting your voice stops new narration in it in every family, deletes its clone at our speech provider, takes your original recordings out of all future development, training and licensing and deletes them from our storage, normally within 30 days, and is recorded as a withdrawal; stories already prepared in it stay with the families you shared it with unless you ask us to remove them where the law requires. Models already trained may not be able to remove what they learned. Use the controls in Readli or contact admin@readli.ai to exercise these or any other privacy rights described in section 12.",
       },
     ],
   },

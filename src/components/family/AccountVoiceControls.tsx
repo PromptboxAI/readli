@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { buttonPrimary, buttonQuiet, buttonSecondary } from "@/components/brand/buttons";
+import { VOICE_CHOICES } from "@/lib/content/voice-agreement";
 
 /** The signed-in grown-up's own recording: hear it, record it again for better quality, or delete it. */
 export function AccountVoiceControls({ voice }: { voice: { status: string; version: number; updatedAt: string } | null }) {
@@ -31,7 +32,9 @@ export function AccountVoiceControls({ voice }: { voice: { status: string; versi
     setConfirming(false);
     if (!res.ok) return setMessage((await res.json().catch(() => null))?.error?.message ?? "We couldn't delete your voice. Please try again.");
     setSample(null);
-    setMessage("Your voice is deleted. Nothing new can be made in it. Stories already prepared in it stay with the families you shared it with.");
+    setMessage(
+      "Your voice is deleted. Nothing new can be made in it, and your original recordings will be deleted from our storage, normally within 30 days. Stories already prepared in it stay with the families you shared it with.",
+    );
     router.refresh();
   };
 
@@ -49,14 +52,13 @@ export function AccountVoiceControls({ voice }: { voice: { status: string; versi
           </p>
           {confirming ? (
             <div className="flex flex-col gap-3 rounded-2xl bg-coral/15 p-4">
-              <p className="font-semibold">
-                Delete your voice? No new stories can be made in it, and anything still being prepared stops (unused credits go back to
-                the family). Stories already prepared in your voice stay with the families you shared it with. To have those removed too,
-                email admin@readli.ai. You can record a new voice whenever you like.
+              <p className="font-semibold">{VOICE_CHOICES.deleteVoice.title}?</p>
+              <p>
+                {VOICE_CHOICES.deleteVoice.notice} To have stories already prepared removed too, email admin@readli.ai.
               </p>
               <div className="flex flex-wrap gap-3">
                 <button type="button" className={buttonPrimary} disabled={busy} onClick={remove}>
-                  Delete my voice
+                  {VOICE_CHOICES.deleteVoice.title}
                 </button>
                 <button type="button" className={buttonSecondary} disabled={busy} onClick={() => setConfirming(false)}>
                   Keep it
@@ -72,7 +74,7 @@ export function AccountVoiceControls({ voice }: { voice: { status: string; versi
                 Record again
               </Link>
               <button type="button" className={buttonQuiet} disabled={busy} onClick={() => setConfirming(true)}>
-                Delete my voice
+                {VOICE_CHOICES.deleteVoice.title}
               </button>
             </div>
           )}

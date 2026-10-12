@@ -179,7 +179,7 @@ export function consentPurposes(agreement: VoiceAgreement): string[] {
  * Stories already prepared keep playing for the families it was shared with. Recording again makes a
  * new voice under a new agreement.
  */
-export async function deleteAccountVoice(deps: AccountVoiceDeps, ownerId: string): Promise<{ stoppedJobs: number }> {
+export async function deleteAccountVoice(deps: AccountVoiceDeps, ownerId: string): Promise<{ stoppedJobs: number; voiceId: string }> {
   const voice = await deps.store.findVoice(ownerId);
   if (!voice) throw new AccountVoiceError(404, "no_voice", "You don't have a Readli voice to delete.");
   if (voice.providerVoiceId) {
@@ -194,7 +194,7 @@ export async function deleteAccountVoice(deps: AccountVoiceDeps, ownerId: string
   await deps.store
     .logEvent({ actor: ownerId, action: "voice_withdrawn", voiceId: voice.id, detail: { stopped_jobs: result.stoppedJobs, clone_retired: Boolean(voice.providerVoiceId) } })
     .catch((err) => console.error("voice lifecycle log failed", err));
-  return result;
+  return { ...result, voiceId: voice.id };
 }
 
 /**
@@ -567,8 +567,9 @@ export class SupabaseAccountVoiceStore implements AccountVoiceStore {
 
   async recloneSource(voiceId: string) {
     const db = this.db;
-    const voice = await this.q<Row | null>(db.from("voice_profiles").select("owner_id, status").eq("id", voiceId).maybeSingle(), "read voice");
-    if (!voice || voice.status !== "ready") return null;
+    const voice = await this.q<Row | null>(db.from("voice_profiles").select("owner_id, status, new_stories_paused_at").eq("id", voiceId).maybeSingle(), "read voice");
+    // A paused voice (no new stories, action B) isn't re-made until its owner resumes.
+    if (!voice || voice.status !== "ready" || voice.new_stories_paused_at) return null;
     // Only recordings whose owner's authorization is still in force appear in this view.
     const usable = await this.q<Row[]>(
       db.from("voice_recordings_usable").select("session_id, storage_key, mime_type, recorded_at").eq("voice_profile_id", voiceId).order("recorded_at", { ascending: false }).limit(1),

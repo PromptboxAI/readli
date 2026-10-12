@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { VOICE_CHOICES_NOTICE_VERSION } from "@/lib/content/voice-agreement";
+import { accountDb } from "@/lib/family/account-store";
+import { requestRecordingDeletion } from "@/lib/lifecycle/recordings";
 import { serverConfig } from "@/lib/server/config";
 import { fail } from "@/lib/server/http";
 import { AccountVoiceError, accountVoiceDeps, createAccountVoice, deleteAccountVoice } from "@/lib/voice/account-voices";
@@ -72,9 +75,10 @@ export async function POST(req: Request) {
 }
 
 /**
- * Deletes (withdraws) the grown-up's voice: no new stories in it, its clone retired, unfinished
- * narration stopped with credits returned, its recordings out of training. Stories already prepared
- * keep playing for the families it was shared with. They can record a new one at any time.
+ * "Delete my voice entirely" (action C): no new stories in it, its clone deleted at the provider and never
+ * re-made, unfinished narration stopped with credits returned, its recordings out of training and queued
+ * for deletion from storage (normally within 30 days). Stories already prepared keep playing for the
+ * families it was shared with. They can record a new one at any time.
  */
 export async function DELETE() {
   const deps = accountVoiceDeps(serverConfig());
@@ -83,7 +87,17 @@ export async function DELETE() {
   if ("error" in owner) return owner.error;
   try {
     const result = await deleteAccountVoice(deps, owner.user.id);
-    return NextResponse.json({ voice: null, stoppedJobs: result.stoppedJobs });
+    const db = accountDb();
+    const deletion = db
+      ? await requestRecordingDeletion(db, {
+          ownerId: owner.user.id,
+          voiceId: result.voiceId,
+          reason: "owner_request",
+          at: new Date(),
+          detail: { action: "delete_voice", notice: VOICE_CHOICES_NOTICE_VERSION },
+        })
+      : null;
+    return NextResponse.json({ voice: null, stoppedJobs: result.stoppedJobs, recordingsDueBy: deletion?.dueAt ?? null });
   } catch (err) {
     if (err instanceof AccountVoiceError) return fail(err.status, err.code, err.userMessage);
     throw err;

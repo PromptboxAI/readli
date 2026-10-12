@@ -4,8 +4,8 @@ import { DEFAULT_PLAN } from "@/lib/family/plan";
 import { fakeSupabase } from "@/lib/testing/fake-supabase";
 import { applyBillingChange } from "./apply";
 import { billingChange } from "./events";
-import { queuePaymentFailed } from "./notify";
-import { planChange } from "./plan-change";
+import { queuePaymentFailed, reviewCreditOnCancel } from "./notify";
+import { describeChange, planChange, previewParams, schedulePhases } from "./plan-change";
 import type { StripeSubscription } from "./stripe-api";
 import { accountKey, cardKey, emailKey } from "./trial";
 
@@ -39,43 +39,119 @@ async function apply(db: ReturnType<typeof fakeSupabase>["db"], e: ReturnType<ty
 }
 
 describe("Readli's plan change requests", () => {
-  const family = stripeSub([
-    ["si_plan", "readli_family_monthly_1999"],
-    ["si_slot", "readli_extra_slot_599", 2],
-  ]);
+  const PERIOD_END = NOW + 86_400 * 20;
+  const family = stripeSub(
+    [
+      ["si_plan", "readli_family_monthly_1999"],
+      ["si_slot", "readli_extra_slot_599", 2],
+    ],
+    { current_period_end: PERIOD_END },
+  );
+  const annual = stripeSub([["si_plan", "readli_family_annual_17999"]], { current_period_end: NOW + 86_400 * 200 });
 
-  it("downgrades to the Archive now, removing extra slots, with unused time credited", () => {
-    const change = planChange(family, "archive_monthly", "price_archive", NOW);
-    expect(change).toMatchObject({ ok: true, from: "family_monthly", to: "archive_monthly", upgrade: false });
-    expect(change.ok && change.params).toMatchObject({
+  it("schedules a downgrade to the Archive for the end of the paid term, dropping slots only then", () => {
+    const change = planChange(family, { to: "archive_monthly" }, "price_archive", NOW);
+    expect(change).toMatchObject({ ok: true, kind: "scheduled", from: "family_monthly", to: "archive_monthly", upgrade: false, effectiveAt: PERIOD_END });
+    if (!change.ok || change.kind !== "scheduled") throw new Error("expected a scheduled change");
+    expect(change.current).toEqual([{ price: "price_readli_family_monthly_1999", quantity: 1 }, { price: "price_readli_extra_slot_599", quantity: 2 }]);
+    expect(change.next).toEqual([{ price: "price_archive", quantity: 1 }]);
+    const phases = schedulePhases({ id: "sched_1", status: "active", phases: [{ start_date: NOW - 100, end_date: PERIOD_END, items: [] }] }, change);
+    expect(phases).toMatchObject({
+      end_behavior: "release",
+      phases: [
+        { start_date: NOW - 100, end_date: PERIOD_END, metadata: { household_id: "h1" } },
+        { items: [{ price: "price_archive" }], metadata: { household_id: "h1", last_plan_change: "family_monthly->archive_monthly" } },
+      ],
+    });
+  });
+
+  it("schedules annual → Archive at the end of the paid year by default", () => {
+    expect(planChange(annual, { to: "archive_monthly" }, "price_archive", NOW)).toMatchObject({ ok: true, kind: "scheduled", effectiveAt: NOW + 86_400 * 200 });
+    expect(planChange(annual, { to: "family_monthly" }, "price_month", NOW)).toMatchObject({ ok: true, kind: "scheduled" });
+  });
+
+  it("downgrades now only when asked, with unused time credited and no cash refund", () => {
+    const change = planChange(family, { to: "archive_monthly", timing: "now" }, "price_archive", NOW);
+    expect(change).toMatchObject({ ok: true, kind: "now", upgrade: false });
+    expect(change.ok && change.kind === "now" && change.params).toMatchObject({
       items: [{ id: "si_plan", price: "price_archive", quantity: 1 }, { id: "si_slot", deleted: true }],
       proration_behavior: "create_prorations",
     });
-    expect(change.ok && change.params).not.toHaveProperty("payment_behavior");
+    expect(change.ok && change.kind === "now" && change.params).not.toHaveProperty("payment_behavior");
+    const yearly = planChange(annual, { to: "family_monthly", timing: "now" }, "price_month", NOW);
+    expect(yearly.ok && yearly.kind === "now" && yearly.params).toMatchObject({ billing_cycle_anchor: "now", proration_behavior: "create_prorations" });
   });
 
-  it("upgrades from the Archive only once payment succeeds", () => {
+  it("upgrades now, only once payment succeeds", () => {
     const archive = stripeSub([["si_plan", "readli_archive_monthly_699"]]);
-    const change = planChange(archive, "family_monthly", "price_family", NOW);
-    expect(change.ok && change.params).toMatchObject({ proration_behavior: "always_invoice", payment_behavior: "pending_if_incomplete", items: [{ id: "si_plan", price: "price_family" }] });
-    expect(change.ok && change.params).not.toHaveProperty("metadata");
-    const yearly = planChange(archive, "family_annual", "price_year", NOW);
-    expect(yearly.ok && yearly.params).toMatchObject({ billing_cycle_anchor: "now", proration_behavior: "always_invoice" });
+    const change = planChange(archive, { to: "family_monthly" }, "price_family", NOW);
+    expect(change.ok && change.kind === "now" && change.params).toMatchObject({ proration_behavior: "always_invoice", payment_behavior: "pending_if_incomplete", items: [{ id: "si_plan", price: "price_family" }] });
+    expect(change.ok && change.kind === "now" && change.params).not.toHaveProperty("metadata");
+    const yearly = planChange(archive, { to: "family_annual" }, "price_year", NOW);
+    expect(yearly.ok && yearly.kind === "now" && yearly.params).toMatchObject({ billing_cycle_anchor: "now", proration_behavior: "always_invoice" });
+    expect(planChange(family, { to: "family_annual" }, "price_year", NOW)).toEqual({ ok: false, reason: "has_slots" });
   });
 
-  it("switches monthly ↔ yearly with a new billing date, and refuses yearly while monthly slots remain", () => {
-    expect(planChange(family, "family_annual", "price_year", NOW)).toEqual({ ok: false, reason: "has_slots" });
-    const plain = stripeSub([["si_plan", "readli_family_monthly_1999"]]);
-    expect(planChange(plain, "family_annual", "price_year", NOW)).toMatchObject({ ok: true, upgrade: true, params: { billing_cycle_anchor: "now" } });
-    const annual = stripeSub([["si_plan", "readli_family_annual_17999"]]);
-    expect(planChange(annual, "family_monthly", "price_month", NOW)).toMatchObject({ ok: true, upgrade: false, params: { billing_cycle_anchor: "now", proration_behavior: "create_prorations" } });
-    expect(planChange(annual, "archive_monthly", "price_archive", NOW)).toMatchObject({ ok: true, params: { billing_cycle_anchor: "now" } });
+  describe("during a free trial", () => {
+    const trial = stripeSub([["si", "readli_family_monthly_1999"]], { status: "trialing", trial_end: NOW + 86_400 * 9 });
+
+    it("switches monthly ↔ yearly without shortening the trial or charging", () => {
+      const change = planChange(trial, { to: "family_annual" }, "price_year", NOW);
+      expect(change).toMatchObject({ ok: true, kind: "now", keepsTrial: true, endsTrial: false });
+      expect(change.ok && change.kind === "now" && change.params).toMatchObject({ trial_end: NOW + 86_400 * 9, proration_behavior: "none" });
+      expect(change.ok && change.kind === "now" && change.params).not.toHaveProperty("billing_cycle_anchor");
+    });
+
+    it("waits for the trial to end before a downgrade to the Archive", () => {
+      expect(planChange(trial, { to: "archive_monthly", timing: "now" }, "price_archive", NOW)).toMatchObject({ ok: true, kind: "scheduled", effectiveAt: NOW + 86_400 * 9, trialEnd: NOW + 86_400 * 9 });
+    });
+
+    it("ends the trial early only with the customer's confirmation", () => {
+      expect(planChange(trial, { to: "family_annual", endTrial: true }, "price_year", NOW)).toEqual({ ok: false, reason: "trial_end_unconfirmed" });
+      const change = planChange(trial, { to: "family_annual", endTrial: true, trialEndConfirmed: true }, "price_year", NOW);
+      expect(change).toMatchObject({ ok: true, kind: "now", endsTrial: true, keepsTrial: false });
+      expect(change.ok && change.kind === "now" && change.params).toMatchObject({ trial_end: "now", payment_behavior: "pending_if_incomplete" });
+    });
   });
 
-  it("refuses a change during the trial, to the same plan, or on an ended subscription", () => {
-    expect(planChange(stripeSub([["si", "readli_family_monthly_1999"]], { status: "trialing", trial_end: NOW + 100 }), "archive_monthly", "p", NOW)).toEqual({ ok: false, reason: "in_trial" });
-    expect(planChange(family, "family_monthly", "p", NOW)).toEqual({ ok: false, reason: "same_plan" });
-    expect(planChange({ ...family, status: "canceled" }, "archive_monthly", "p", NOW)).toEqual({ ok: false, reason: "not_active" });
+  it("refuses the same plan or an ended subscription", () => {
+    expect(planChange(family, { to: "family_monthly" }, "p", NOW)).toEqual({ ok: false, reason: "same_plan" });
+    expect(planChange({ ...family, status: "canceled" }, { to: "archive_monthly" }, "p", NOW)).toEqual({ ok: false, reason: "not_active" });
+  });
+
+  it("previews the effective date, adjustment and resulting amount", () => {
+    const later = planChange(family, { to: "archive_monthly" }, "price_archive", NOW);
+    if (!later.ok) throw new Error("expected a change");
+    expect(describeChange(family, later, 699, null, null, NOW)).toMatchObject({ timing: "period_end", effectiveAt: iso(PERIOD_END), dueNowCents: 0, creditCents: 0, nextAmountCents: 699, nextBillingAt: iso(PERIOD_END) });
+
+    const now = planChange(family, { to: "archive_monthly", timing: "now" }, "price_archive", NOW);
+    if (!now.ok || now.kind !== "now") throw new Error("expected an immediate change");
+    expect(previewParams(family, now, NOW)).toMatchObject({ customer: "cus_1", subscription: "sub_1", subscription_details: { proration_behavior: "create_prorations", proration_date: NOW } });
+    const invoice = { amount_due: 0, total: -1500, lines: { data: [{ amount: -2400, parent: { subscription_item_details: { proration: true } } }, { amount: 466, proration: true }, { amount: 699, period: { start: PERIOD_END, end: PERIOD_END + 86_400 * 30 } }] } };
+    expect(describeChange(family, now, 699, invoice, NOW, NOW)).toMatchObject({ timing: "now", dueNowCents: 0, creditCents: 1934, nextBillingAt: iso(PERIOD_END), prorationDate: NOW });
+
+    const archive = stripeSub([["si_plan", "readli_archive_monthly_699"]], { current_period_end: PERIOD_END });
+    const up = planChange(archive, { to: "family_annual" }, "price_year", NOW);
+    if (!up.ok || up.kind !== "now") throw new Error("expected an immediate change");
+    const upInvoice = { amount_due: 17_500, total: 17_500, lines: { data: [{ amount: -499, proration: true }, { amount: 17_999, period: { start: NOW, end: NOW + 86_400 * 365 } }] } };
+    expect(describeChange(archive, up, 17_999, upInvoice, NOW, NOW)).toMatchObject({ dueNowCents: 17_500, creditCents: 0, nextBillingAt: iso(NOW + 86_400 * 365) });
+
+    const trial = stripeSub([["si", "readli_family_monthly_1999"]], { status: "trialing", trial_end: NOW + 500 });
+    const keep = planChange(trial, { to: "family_annual" }, "price_year", NOW);
+    if (!keep.ok) throw new Error("expected a change");
+    expect(describeChange(trial, keep, 17_999, null, null, NOW)).toMatchObject({ keepsTrial: true, dueNowCents: 0, nextBillingAt: iso(NOW + 500) });
+  });
+});
+
+describe("credit left when a subscription ends", () => {
+  it("goes to the admin queue for a refund instead of lapsing", async () => {
+    const { db, tables } = fakeSupabase();
+    const ended = { type: "customer.subscription.deleted", data: { object: { id: "sub_1", customer: "cus_1", metadata: { household_id: "h1" } } } };
+    expect(await reviewCreditOnCancel(db, ended, async () => -1934)).toBe(1934);
+    expect(await reviewCreditOnCancel(db, ended, async () => -1934)).toBe(1934);
+    expect(tables.lifecycle_exceptions).toEqual([expect.objectContaining({ kind: "billing_credit_refund", household_id: "h1", status: "open", detail: expect.objectContaining({ credit_cents: 1934 }) })]);
+    expect(await reviewCreditOnCancel(db, ended, async () => 0)).toBe(0);
+    expect(await reviewCreditOnCancel(db, { ...ended, type: "customer.subscription.updated" }, async () => -5)).toBe(0);
   });
 });
 

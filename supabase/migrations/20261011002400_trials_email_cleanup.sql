@@ -157,3 +157,29 @@ create or replace view public.voice_recordings_usable with (security_invoker = t
 comment on view public.voice_recordings_usable is
   'Original adult recordings with the rights currently in force. Filter readli_development_rights or third_party_licensing. Withdrawn or deleted voices, recordings with a pending or completed deletion request, guest demo recordings and children never appear.';
 revoke all on public.voice_recordings_usable from anon, authenticated;
+
+alter table public.plan_settings add column generation_limits jsonb;
+comment on column public.plan_settings.generation_limits is 'Admin-set generation safeguards (requests, characters, request size, concurrency, daily spend). Missing keys use the defaults in plan.ts.';
+
+alter table public.voice_profiles add column new_stories_paused_at timestamptz;
+comment on column public.voice_profiles.new_stories_paused_at is 'The owner stopped new stories in this voice for every family (Stop sharing my voice). Its clone is retired; stories already prepared keep playing. Cleared when they allow new stories again.';
+
+alter table public.permission_audit_log drop constraint if exists permission_audit_log_action_check;
+alter table public.permission_audit_log add constraint permission_audit_log_action_check check (action in (
+  'voice_shared', 'voice_unshared', 'child_voice_approved', 'child_voice_removed',
+  'narration_authorized', 'narration_denied', 'narration_requested', 'narration_canceled',
+  'narrator_activated', 'narrator_released', 'narrator_slot_added', 'child_profile_created',
+  'child_profile_removed', 'entitlement_granted', 'credits_purchased', 'voice_withdrawn', 'plan_changed',
+  'voice_paused', 'voice_resumed'
+));
+
+create or replace function public.narration_spend_since(p_since timestamptz)
+returns table (usd numeric, characters bigint)
+language sql stable security definer set search_path = public as $$
+  select coalesce(sum(u.usd), 0), coalesce(sum(u.characters), 0)::bigint
+  from public.narration_provider_usage u
+  where u.at >= p_since
+$$;
+comment on function public.narration_spend_since(timestamptz) is 'Voice-provider spend and characters across every household since a time, for the daily spending safeguard.';
+revoke all on function public.narration_spend_since(timestamptz) from public, anon, authenticated;
+create index if not exists narration_provider_usage_at on public.narration_provider_usage (at);

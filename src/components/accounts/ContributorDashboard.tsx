@@ -70,7 +70,7 @@ export function ContributorDashboard({ invited = false }: { invited?: boolean })
                       setConfirmDelete(false);
                     }}
                   >
-                    Delete my voice
+                    Delete my voice entirely
                   </button>
                   <button type="button" className={buttonSecondary} onClick={() => setConfirmDelete(false)}>
                     Keep it
@@ -86,7 +86,7 @@ export function ContributorDashboard({ invited = false }: { invited?: boolean })
                   Re-record my voice
                 </Link>
                 <button type="button" className={buttonQuiet} onClick={() => setConfirmDelete(true)}>
-                  Delete my voice
+                  Delete my voice entirely
                 </button>
               </div>
             )}

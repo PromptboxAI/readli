@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { DEFAULT_PLAN } from "@/lib/family/plan";
-import { dollarsToCents, effectivePlan, parsePriceForm, priceSettingsRow, withPriceSettings } from "./price-settings";
+import { dollarsToCents, effectivePlan, LIMIT_FIELDS, parseLimitsForm, parsePriceForm, priceSettingsRow, withPriceSettings } from "./price-settings";
 
 const form = (values: Record<string, string>) => (name: string) => values[name] ?? "";
 const good = {
@@ -61,5 +61,23 @@ describe("admin prices", () => {
     expect(await effectivePlan(null, DEFAULT_PLAN)).toBe(DEFAULT_PLAN);
     const db = { from: () => ({ select: () => ({ maybeSingle: async () => ({ data: { family_monthly_price_cents: 2499 } }) }) }) };
     expect((await effectivePlan(db as never, DEFAULT_PLAN)).familyMonthlyPriceCents).toBe(2499);
+  });
+});
+
+describe("admin generation limits", () => {
+  const L = DEFAULT_PLAN.generationLimits;
+
+  it("applies saved limits on top of the defaults and ignores bad values", () => {
+    const plan = withPriceSettings(DEFAULT_PLAN, { generation_limits: { requestsPerHour: 12, dailySpendUsd: 42.5, trialRequestsPerDay: -1, maxConcurrentJobs: "3" } });
+    expect(plan.generationLimits).toEqual({ ...L, requestsPerHour: 12, dailySpendUsd: 42.5 });
+    expect(withPriceSettings(DEFAULT_PLAN, { generation_limits: null }).generationLimits).toEqual(L);
+  });
+
+  it("reads the limits form, refusing blanks and fractions where a whole number is needed", () => {
+    const all = Object.fromEntries(LIMIT_FIELDS.map((f) => [`limit_${f.key}`, String(L[f.key])]));
+    expect(parseLimitsForm(form(all))).toEqual({ ok: true, limits: L });
+    expect(parseLimitsForm(form({ ...all, limit_dailySpendUsd: "12.50" }))).toMatchObject({ ok: true, limits: { dailySpendUsd: 12.5 } });
+    expect(parseLimitsForm(form({ ...all, limit_requestsPerHour: "2.5" }))).toMatchObject({ ok: false });
+    expect(parseLimitsForm(form({ ...all, limit_trialMaxConcurrentJobs: "" }))).toMatchObject({ ok: false });
   });
 });

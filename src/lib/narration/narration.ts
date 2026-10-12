@@ -4,7 +4,7 @@ import { voiceSettings } from "@/lib/voice/elevenlabs";
 import type { VoiceProvider } from "@/lib/voice/provider";
 import type { Actor, CreditLot, FamilyState, NarrationJob, NarrationLibrary, NarrationSegment } from "@/lib/family/model";
 import { activeChild, activeEntitlement, activeShare, activeSlot, childVoiceAccess, familyEntitlement, readyVoice, storedNarrationAccess, storedShare } from "@/lib/family/permissions";
-import type { PlanConfig } from "@/lib/family/plan";
+import type { GenerationLimits, PlanConfig } from "@/lib/family/plan";
 import {
   actorLabel,
   audit,
@@ -220,6 +220,8 @@ export function creditHistory(state: FamilyState, householdId: string) {
 
 const ARCHIVE_NO_NEW = "Preparing new stories needs Readli Family. Your Family Archive keeps the stories you've already prepared";
 const WITHDRAWN_NO_NEW = "This storyteller deleted their voice, so no new stories can be made in it. Stories already prepared still play";
+const PAUSED_NO_NEW = "This storyteller has stopped new stories in their voice for now. Stories already prepared still play";
+const paused = (state: FamilyState, voiceId: string) => state.voices.some((v) => v.id === voiceId && v.pausedAt);
 
 function requirePreparable(state: FamilyState, plan: PlanConfig, householdId: string, voiceId: string) {
   if (!familyEntitlement(state, householdId)) {
@@ -227,6 +229,7 @@ function requirePreparable(state: FamilyState, plan: PlanConfig, householdId: st
     throw new PermissionError(402, "no_family_plan", archive ? `${ARCHIVE_NO_NEW}.` : "Preparing narration needs Readli Family.");
   }
   if (state.voices.some((v) => v.id === voiceId && v.status === "withdrawn")) throw new PermissionError(409, "voice_withdrawn", `${WITHDRAWN_NO_NEW}.`);
+  if (paused(state, voiceId)) throw new PermissionError(409, "voice_paused", `${PAUSED_NO_NEW}.`);
   if (!readyVoice(state, voiceId) || !activeShare(state, voiceId, householdId)) {
     throw new PermissionError(403, "voice_not_shared", "This storyteller hasn't shared their voice with your family.");
   }
@@ -323,6 +326,7 @@ function missingByChapter(state: FamilyState, plan: PlanConfig, library: Narrati
 function unavailableReason(state: FamilyState, plan: PlanConfig, householdId: string, voiceId: string, approvedFor: string[]): string | null {
   if (!familyEntitlement(state, householdId)) return activeEntitlement(state, householdId) ? ARCHIVE_NO_NEW : "Needs Readli Family";
   if (state.voices.some((v) => v.id === voiceId && v.status === "withdrawn")) return WITHDRAWN_NO_NEW;
+  if (paused(state, voiceId)) return PAUSED_NO_NEW;
   if (!readyVoice(state, voiceId) || !activeShare(state, voiceId, householdId)) return "This storyteller hasn't shared their voice with your family";
   if (!activeSlot(state, voiceId, householdId, plan)) return "Add this storyteller to a narrator slot first";
   if (approvedFor.length === 0) return "Not approved for any child yet";
@@ -533,22 +537,41 @@ export async function quoteGeneration(store: FamilyStore, actor: Actor | null, h
  * so two simultaneous requests can't both claim (and pay for) the same segment.
  */
 /**
- * How many new narration requests a household can make (Kevin, 2026-10-11, decision 6): a steady cap
- * for every household, and a tighter one during the free trial, so repeated sign-ups can't run up
- * unlimited voice-provider generation. Credits remain the real quota; this stops bursts.
+ * Whether a household may make this request now (Kevin, 2026-10-11, decision 6; 2026-10-12, answer 4):
+ * request counts per hour (tighter during the free trial, with a daily trial cap), characters per day,
+ * the size of one request, and preparations at once. Credits remain the real quota, checked after
+ * this; asking again for audio already queued or stored is free and never counts. The limits come from
+ * the plan, so an admin can tune them on /admin/plans.
  */
-export const GENERATION_LIMITS = { perHour: 20, trialPerHour: 5, trialPerDay: 10 } as const;
-
-export function generationLimit(state: FamilyState, householdId: string, at: string): { code: string; message: string } | null {
+export function generationLimit(
+  state: FamilyState,
+  limits: GenerationLimits,
+  householdId: string,
+  at: string,
+  characters: number,
+): { code: string; message: string; status: number } | null {
   const t = Date.parse(at);
-  const recent = (ms: number) => state.jobs.filter((j) => j.householdId === householdId && t - Date.parse(j.createdAt) < ms).length;
+  const mine = state.jobs.filter((j) => j.householdId === householdId);
+  const recent = (ms: number) => mine.filter((j) => t - Date.parse(j.createdAt) < ms).length;
   const e = activeEntitlement(state, householdId, at);
   const trial = e ? inTrial(e, at) : false;
-  if (trial && recent(86_400_000) >= GENERATION_LIMITS.trialPerDay) {
-    return { code: "trial_rate_limited", message: "You've prepared a lot of stories today on your free trial. Try again tomorrow." };
+  if (characters > limits.maxRequestCharacters) {
+    return { status: 413, code: "request_too_large", message: "That's a lot to prepare in one go. Please prepare it a chapter at a time." };
   }
-  if (recent(3_600_000) >= (trial ? GENERATION_LIMITS.trialPerHour : GENERATION_LIMITS.perHour)) {
-    return { code: "rate_limited", message: "You've asked for a lot of stories in the last hour. Please try again a little later." };
+  if (mine.filter((j) => j.status === "queued" || j.status === "running").length >= (trial ? limits.trialMaxConcurrentJobs : limits.maxConcurrentJobs)) {
+    return { status: 429, code: "too_many_at_once", message: "You've got stories being prepared already. Please wait for one to finish, then try again." };
+  }
+  if (trial && recent(86_400_000) >= limits.trialRequestsPerDay) {
+    return { status: 429, code: "trial_rate_limited", message: "You've prepared a lot of stories today on your free trial. Try again tomorrow." };
+  }
+  if (recent(3_600_000) >= (trial ? limits.trialRequestsPerHour : limits.requestsPerHour)) {
+    return { status: 429, code: "rate_limited", message: "You've asked for a lot of stories in the last hour. Please try again a little later." };
+  }
+  // Characters reserved in the last 24 hours, less any refunded when a preparation stopped (credits are kept in characters).
+  const day = state.ledger.filter((l) => l.householdId === householdId && t - Date.parse(l.at) < 86_400_000);
+  const used = day.filter((l) => l.kind === "reserve").reduce((n, l) => n + l.credits, 0) - day.filter((l) => l.kind === "refund").reduce((n, l) => n + l.credits, 0);
+  if (used + characters > (trial ? limits.trialCharactersPerDay : limits.charactersPerDay)) {
+    return { status: 429, code: "daily_characters", message: "You've prepared a lot of story today. Please try again tomorrow, or prepare a shorter part now." };
   }
   return null;
 }
@@ -572,8 +595,8 @@ export async function requestGeneration(
     const q = quote(s, store.plan, householdId, req);
     result = { job: null, quote: q };
     if (q.sentenceIds.length === 0) return;
-    const limited = generationLimit(s, householdId, at);
-    if (limited) throw new PermissionError(429, limited.code, limited.message);
+    const limited = generationLimit(s, store.plan.generationLimits, householdId, at, q.characters);
+    if (limited) throw new PermissionError(limited.status, limited.code, limited.message);
     const lots = spendableLots(s, store.plan, householdId, at);
     const available = lots.reduce((n, l) => n + l.left, 0);
     if (q.credits > available) {
@@ -691,7 +714,7 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
     const seg = state.segments.find((x) => x.libraryKey === job.libraryKey && x.sentenceId === id)!;
     if (seg.jobId !== job.id || seg.status === "ready") continue;
     // The owner may have revoked or deleted the voice, or the family moved to the Archive, since the job was confirmed.
-    if (!voice || voice.deletedAt || !activeShare(state, voice.id, job.householdId) || !familyEntitlement(state, job.householdId)) break;
+    if (!voice || voice.deletedAt || voice.pausedAt || !activeShare(state, voice.id, job.householdId) || !familyEntitlement(state, job.householdId)) break;
     while ((seg.status as string) !== "ready" && seg.attempts < store.plan.maxSegmentAttempts && job.status === "running") {
       await store.write(() => {
         seg.status = "generating";

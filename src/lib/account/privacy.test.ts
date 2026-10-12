@@ -84,9 +84,26 @@ describe("deleting an account", () => {
     expect(auth.deleted).toEqual([ME]);
   });
 
-  it("asks to cancel a renewing plan of a family only they belong to", async () => {
-    const { db } = fakeDb(sarasData({ household_entitlements: [{ household_id: "home", status: "active", ends_at: null, provider_subscription_ref: "sub_1" }] }));
-    expect(await deletionBlockers(db, ME)).toEqual([{ kind: "active_plan", householdId: "home", householdName: "The Rivera family" }]);
+  it("doesn't wait for a renewing plan: it cancels it first and queues the unused paid time for a refund", async () => {
+    const { db, tables, auth } = fakeDb(sarasData({ household_entitlements: [{ household_id: "home", status: "active", ends_at: null, provider_subscription_ref: "sub_1" }] }));
+    expect(await deletionBlockers(db, ME)).toEqual([]);
+    const cancelled: string[] = [];
+    const billing = { cancel: async (ref: string) => (cancelled.push(ref), { customer: "cus_1" }), balance: async () => -1250 };
+    const result = await deleteAccount({ db, ...recordingProvider(), refs, billing }, ME);
+    expect(result.deleted).toBe(true);
+    expect(cancelled).toEqual(["sub_1"]);
+    expect(tables.lifecycle_exceptions).toEqual([expect.objectContaining({ kind: "billing_credit_refund", household_id: "home", detail: expect.objectContaining({ credit_cents: 1250 }) })]);
+    expect(tables.lifecycle_audit_log![0]!.detail).toMatchObject({ plans_ended: [{ householdId: "home", subscription: "sub_1", creditCents: 1250 }] });
+    expect(auth.deleted).toEqual([ME]);
+  });
+
+  it("deletes nothing if it can't reach billing to stop a renewing plan", async () => {
+    const { db, auth, removed } = fakeDb(sarasData({ household_entitlements: [{ household_id: "home", status: "active", ends_at: null, provider_subscription_ref: "sub_1" }] }));
+    const { provider, deleted } = recordingProvider();
+    await expect(deleteAccount({ db, provider, refs, billing: null }, ME)).rejects.toMatchObject({ code: "billing_off" });
+    expect(deleted).toEqual([]);
+    expect(removed).toEqual({});
+    expect(auth.deleted).toEqual([]);
   });
 
   it("keeps unspent purchased credits and sends them to the exception queue", async () => {
@@ -119,11 +136,14 @@ describe("deleting an account", () => {
     expect(auth.deleted).toEqual([]);
   });
 
-  it("asks to stop a monthly gift first", async () => {
-    const { db } = fakeDb(
+  it("stops a monthly gift renewing instead of blocking; the recipient keeps the paid month", async () => {
+    const { db, tables, auth } = fakeDb(
       sarasData({ gifts: [{ id: "g1", giver_id: ME, plan_id: "sponsored_monthly", recipient_name: "Grandma", status: "active", renewals_stopped: false }] }),
     );
-    expect(await deletionBlockers(db, ME)).toEqual([{ kind: "sponsoring", giftId: "g1", recipientName: "Grandma" }]);
+    expect(await deletionBlockers(db, ME)).toEqual([]);
+    await deleteAccount({ db, ...recordingProvider(), refs }, ME);
+    expect(tables.gifts![0]).toMatchObject({ status: "active", renewals_stopped: true });
+    expect(auth.deleted).toEqual([ME]);
   });
 
   it("leaves a shared family to the other guardian and ends the approvals it gave", async () => {

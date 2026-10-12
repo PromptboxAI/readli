@@ -173,7 +173,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
     question: "Can I replace or delete my voice?",
     status: "draft",
     answer: [
-      "Yes, at any time. In Readli Family, open My voice: choose Record again to replace your voice with a better take (a quiet room helps), or Delete my voice to remove it entirely. Deleting your voice removes it from every family you shared it with, along with the stories prepared in it, and you can record a new one whenever you like.",
+      "Yes, at any time. In Readli Family, open My voice: choose Record again to replace your voice with a better take (a quiet room helps), or Delete my voice entirely. Deleting your voice means no new stories can be made in it, deletes your voice model at our voice provider, and deletes your original recordings from our storage, normally within 30 days. Stories already prepared in it stay with the families you shared it with. You can record a new one whenever you like.",
+      "There are two lighter choices too. Stop sharing my voice stops new stories in it for every family and retires your voice model, while stories already made keep playing and your recordings are kept. Delete my original recordings (in Account settings) removes your stored recordings; your story voice keeps working only while you keep sharing it.",
     ],
     keywords: ["re-record", "remove", "delete voice", "redo"],
     related: ["revoke-sharing", "data-deletion", "record-my-voice"],

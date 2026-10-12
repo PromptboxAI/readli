@@ -74,7 +74,47 @@ export interface PlanConfig {
   narrationModelId: string;
   playbackUrlTtlSeconds: number;
   maxSegmentAttempts: number;
+  /** Generation safeguards, adjustable on /admin/plans (plan_settings.generation_limits). */
+  generationLimits: GenerationLimits;
 }
+
+/**
+ * Limits on new narration (Kevin, 2026-10-12, answer 4). Credits remain the real quota; these stop
+ * bursts, oversized requests and runaway voice-provider costs. The request counts are Kevin's
+ * provisional numbers; the rest are defaults to tune on /admin/plans. The free demo's story previews
+ * have their own allowance (demo_settings.previews_allowed, PR #62), never these or a family's credits.
+ */
+export interface GenerationLimits {
+  /** New narration requests a household may make per rolling hour (paid Family), and during a trial. */
+  requestsPerHour: number;
+  trialRequestsPerHour: number;
+  /** New narration requests per rolling 24 hours during a trial. */
+  trialRequestsPerDay: number;
+  /** Characters of new narration a household may request per rolling 24 hours, paid and in a trial. */
+  charactersPerDay: number;
+  trialCharactersPerDay: number;
+  /** The most characters one request may ask for; longer books are prepared a chapter at a time. */
+  maxRequestCharacters: number;
+  /** Preparations a household may have queued or running at once, paid and in a trial. */
+  maxConcurrentJobs: number;
+  trialMaxConcurrentJobs: number;
+  /** Spending safeguard across every household: new requests pause once the last 24 hours reach either. */
+  dailySpendUsd: number;
+  dailyCharactersAllHouseholds: number;
+}
+
+export const DEFAULT_GENERATION_LIMITS: GenerationLimits = {
+  requestsPerHour: 20,
+  trialRequestsPerHour: 5,
+  trialRequestsPerDay: 10,
+  charactersPerDay: 100_000,
+  trialCharactersPerDay: 10_000,
+  maxRequestCharacters: 60_000,
+  maxConcurrentJobs: 2,
+  trialMaxConcurrentJobs: 1,
+  dailySpendUsd: 100,
+  dailyCharactersAllHouseholds: 3_000_000,
+};
 
 export interface CreditPack {
   id: string;
@@ -119,6 +159,7 @@ export const DEFAULT_PLAN: PlanConfig = {
   narrationModelId: DEFAULT_MODEL,
   playbackUrlTtlSeconds: 120,
   maxSegmentAttempts: 3,
+  generationLimits: DEFAULT_GENERATION_LIMITS,
 };
 
 export function planConfig(env: NodeJS.ProcessEnv = process.env): PlanConfig {

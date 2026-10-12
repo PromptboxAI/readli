@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
 import { CONTRIBUTOR_HOUSEHOLD_MAX_ADULTS } from "@/lib/accounts/accounts";
 import { buttonPrimary } from "@/components/brand/buttons";
-import { effectivePlan, MAX_CREDIT_PACKS } from "@/lib/billing/price-settings";
+import { effectivePlan, LIMIT_FIELDS, MAX_CREDIT_PACKS } from "@/lib/billing/price-settings";
 import { accountDb } from "@/lib/family/account-store";
 import { formatPrice, type PlanConfig } from "@/lib/family/plan";
 import { rewardsConfig } from "@/lib/rewards/rewards";
 import { requireAdmin } from "@/lib/admin/access";
-import { updatePriceSettingsAction } from "./actions";
+import { updateGenerationLimitsAction, updatePriceSettingsAction } from "./actions";
 
 export const metadata: Metadata = { title: "Plan settings | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -90,6 +90,7 @@ export default async function AdminPlansPage({ searchParams }: { searchParams: P
       {ok && <p role="status" className="rounded-2xl bg-mint/40 px-4 py-3">{ok}</p>}
       {err && <p role="alert" className="rounded-2xl bg-coral/30 px-4 py-3">{err}</p>}
       <PriceSettings plan={plan} editable={Boolean(db)} />
+      <GenerationLimitsForm plan={plan} editable={Boolean(db)} />
       <PreviewNote>Values come from the plan_settings and reward_settings tables, or PLAN_* and REWARDS_* settings until those exist.</PreviewNote>
       <Settings rows={rows(plan)} testId="plan-settings" />
       <h2 className="font-display text-2xl font-semibold">Readli Rewards</h2>
@@ -164,6 +165,35 @@ function PriceSettings({ plan, editable }: { plan: PlanConfig; editable: boolean
           ))}
         </fieldset>
         <button className={`${buttonPrimary} self-start`} disabled={!editable}>Save prices</button>
+      </form>
+    </section>
+  );
+}
+
+/** Generation safeguards: per-family request, character and concurrency limits, spend caps and preview allowances. */
+function GenerationLimitsForm({ plan, editable }: { plan: PlanConfig; editable: boolean }) {
+  return (
+    <section className="flex flex-col gap-3" aria-labelledby="limits-h">
+      <h2 id="limits-h" className="font-display text-2xl font-semibold">Generation limits</h2>
+      <p className="text-sm">
+        Credits are still the main allowance. These stop bursts, oversized requests and runaway voice costs. Requests already queued finish; new requests over a
+        limit are refused with a friendly message, and reaching a daily all-families cap opens an item in the voices exception queue.
+      </p>
+      <form action={updateGenerationLimitsAction} className="grid gap-3 sm:grid-cols-2" data-testid="generation-limits">
+        {LIMIT_FIELDS.map((f) => (
+          <label key={f.key} className="flex min-w-0 flex-col gap-1 text-sm">
+            <span className="font-semibold">{f.label}</span>
+            <input
+              name={`limit_${f.key}`}
+              inputMode={f.decimals ? "decimal" : "numeric"}
+              defaultValue={String(plan.generationLimits[f.key])}
+              required
+              disabled={!editable}
+              className="w-full min-w-0 rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/15 disabled:opacity-60"
+            />
+          </label>
+        ))}
+        <button className={`${buttonPrimary} self-start`} disabled={!editable}>Save limits</button>
       </form>
     </section>
   );

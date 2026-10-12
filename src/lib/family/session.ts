@@ -2,6 +2,7 @@ import { createHmac, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { cache } from "react";
 import { authConfigured, currentUser, supabaseServer } from "@/lib/auth/supabase";
+import { effectivePlan } from "@/lib/billing/price-settings";
 import { accountDb, AccountFamilyStore } from "./account-store";
 import { sameHash } from "@/lib/server/guest-token";
 import { StubVoiceProvider } from "@/lib/voice/stub";
@@ -157,7 +158,8 @@ export async function familyStore(session: FamilySession | string): Promise<Fami
     const db = accountDb();
     if (!db) return null;
     const audio = new SupabaseNarrationStorage(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-    const store = new AccountFamilyStore(db, session.account, planConfig(), audio);
+    // Admin settings (prices, generation limits) on top of the defaults.
+    const store = new AccountFamilyStore(db, session.account, await effectivePlan(db, planConfig()), audio);
     accountStores.set(session, store);
     return store;
   }

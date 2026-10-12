@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { PERMISSION_STATEMENTS, VOICE_AGREEMENT_PATH } from "@/lib/content/voice-agreement";
+import { PERMISSION_STATEMENTS, VOICE_AGREEMENT_PATH, VOICE_CHOICES } from "@/lib/content/voice-agreement";
 
 interface Agreement {
   id: string;
@@ -65,7 +65,7 @@ export function VoicePermissions() {
   const requestDeletion = async () => {
     setBusy(true);
     setError(null);
-    const res = await fetch("/api/voice/recordings", { method: "POST" });
+    const res = await fetch("/api/voice/recordings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ acknowledged: true }) });
     setBusy(false);
     setConfirmDelete(false);
     if (!res.ok) return setError("We couldn't send your request. Please try again.");
@@ -112,12 +112,8 @@ export function VoicePermissions() {
           ))}
         </ul>
       </details>
-      <div className="flex flex-col gap-2 rounded-2xl bg-ivory p-4">
+      <div className="flex flex-col gap-3 rounded-2xl bg-ivory p-4" data-testid="voice-choices">
         <h3 className="font-semibold">Your choices are separate</h3>
-        <p className="text-sm">
-          <span className="font-semibold">Family sharing:</span> turn sharing off for a family on your voice page. That family stops hearing new stories in
-          your voice; your recordings aren&apos;t deleted.
-        </p>
         <p className="text-sm">
           <span className="font-semibold">AI training:</span>{" "}
           {training ? "you can stop Readli using your recordings to improve its voice technology, and to license them. Your story voice keeps working." : "off. Readli doesn't use your recordings for AI training."}
@@ -127,31 +123,63 @@ export function VoicePermissions() {
             Stop using my recordings for AI training
           </button>
         )}
-        <p className="text-sm">
-          <span className="font-semibold">Delete my recordings:</span>{" "}
-          {deletion?.status === "pending"
-            ? `requested. We've stopped using them and will delete them from our storage by ${new Date(deletion.due_at).toLocaleDateString(undefined, { dateStyle: "long" })}.`
-            : deletion?.status === "completed"
-              ? "done. Your original recordings were deleted."
-              : "removes your original recordings from Readli's storage, normally within 30 days. Stories already made stay with your families."}
-        </p>
-        {deletion?.status !== "pending" &&
-          (confirmDelete ? (
-            <span className="flex flex-wrap gap-3">
-              <button type="button" className="font-semibold text-coral-deep underline underline-offset-4" disabled={busy} onClick={() => void requestDeletion()}>
-                Yes, delete my recordings
-              </button>
-              <button type="button" className="underline underline-offset-4" onClick={() => setConfirmDelete(false)}>
-                Keep them
-              </button>
-            </span>
+        <Choice letter="A" title={VOICE_CHOICES.deleteRecordings.title}>
+          {deletion?.status === "pending" ? (
+            <p className="text-sm">
+              Requested. We&apos;ve stopped using your recordings and will delete them from our storage by{" "}
+              {new Date(deletion.due_at).toLocaleDateString(undefined, { dateStyle: "long" })}.
+            </p>
+          ) : deletion?.status === "completed" ? (
+            <p className="text-sm">Done. Your original recordings were deleted.</p>
+          ) : confirmDelete ? (
+            <>
+              <p className="text-sm">{VOICE_CHOICES.deleteRecordings.notice}</p>
+              <span className="flex flex-wrap gap-3">
+                <button type="button" className="font-semibold text-coral-deep underline underline-offset-4" disabled={busy} onClick={() => void requestDeletion()}>
+                  Yes, delete my recordings
+                </button>
+                <button type="button" className="underline underline-offset-4" onClick={() => setConfirmDelete(false)}>
+                  Keep them
+                </button>
+              </span>
+            </>
           ) : (
             <button type="button" className="self-start font-semibold underline underline-offset-4" onClick={() => setConfirmDelete(true)}>
-              Delete my original recordings
+              {VOICE_CHOICES.deleteRecordings.title}
             </button>
-          ))}
+          )}
+        </Choice>
+        <Choice letter="B" title={VOICE_CHOICES.stopSharing.title}>
+          <p className="text-sm">
+            {VOICE_CHOICES.stopSharing.notice}{" "}
+            <a href="/family/my-voice" className="font-semibold underline underline-offset-4">
+              Manage it on My voice
+            </a>
+            .
+          </p>
+        </Choice>
+        <Choice letter="C" title={VOICE_CHOICES.deleteVoice.title}>
+          <p className="text-sm">
+            {VOICE_CHOICES.deleteVoice.notice}{" "}
+            <a href="/family/my-voice" className="font-semibold underline underline-offset-4">
+              Delete it on My voice
+            </a>
+            .
+          </p>
+        </Choice>
       </div>
-      <p className="text-sm text-muted">To stop your voice being used at all, delete your voice or your account below.</p>
+      <p className="text-sm text-muted">Deleting your account below does all of this and more.</p>
     </section>
+  );
+}
+
+function Choice({ letter, title, children }: { letter: string; title: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1 border-t-2 border-ink/10 pt-3">
+      <h4 className="font-semibold">
+        {letter}. {title}
+      </h4>
+      {children}
+    </div>
   );
 }

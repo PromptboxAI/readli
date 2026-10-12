@@ -97,10 +97,11 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
         {s.plan === "subscription" && (
           <ManagePlan
             paymentsOn={paymentsOn}
-            interval={s.tier === "family" && !trialing ? s.billingInterval : null}
+            interval={s.tier === "family" ? s.billingInterval : null}
             monthlyCents={plan.familyMonthlyPriceCents}
             annualCents={plan.familyAnnualPriceCents}
             hasExtraSlots={s.extraNarratorSlots > 0}
+            inTrial={trialing}
           />
         )}
       </section>
@@ -112,11 +113,12 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           </h2>
           <ArchiveChoice
             tier={s.tier}
-            tierChange={trialing ? null : s.tierChange}
+            tierChange={s.tierChange}
             priceCents={s.archiveMonthlyPriceCents}
             monthlyCents={plan.familyMonthlyPriceCents}
             annualCents={plan.familyAnnualPriceCents}
             paymentsOn={paymentsOn}
+            inTrial={trialing}
           />
         </section>
       )}

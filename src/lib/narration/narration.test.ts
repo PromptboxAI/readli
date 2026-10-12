@@ -10,7 +10,9 @@ import {
   releaseNarrator,
   setChildApprovals,
   setHouseholdShare,
+  setNewStoriesPaused,
   startListening,
+  voiceInUse,
 } from "@/lib/family/service";
 import type { SynthesizedAudio, VoiceProvider } from "@/lib/voice/provider";
 import { toneWav } from "@/lib/voice/stub";
@@ -222,6 +224,32 @@ describe("narration libraries (required tests)", () => {
     await rejects(readPlayback(store, ivy, ivyToken, KEY, tick), 403);
     expect(await store.audio.get(storageKey)).toBeNull();
     expect(state.segments.some((s) => s.libraryKey === library(state).key)).toBe(false);
+  });
+
+  it("stopping new stories everywhere (action B) blocks new narration but keeps prepared stories playing, until resumed", async () => {
+    const { state, store } = family();
+    await addSecondHousehold(state, store);
+    await prepareJune(store);
+    const june: Actor = { kind: "adult", adultId: "june" };
+    // Another book is mid-preparation when June pauses.
+    const other = { voiceId: "voice-june", bookSlug: "the-tale-of-peter-rabbit", scope: "book" as const };
+    const { job } = await requestGeneration(store, kim, H2, other, clock);
+    await setNewStoriesPaused(store, june, "voice-june", true, clock);
+    expect(voiceInUse(state, "voice-june")).toBe(false);
+    await rejects(requestGeneration(store, mom, H, { ...other, bookSlug: "the-three-little-pigs" }, clock), 409, "voice_paused");
+    const provider = new CountingProvider();
+    await runJob(store, provider, job!.id, clock);
+    expect(provider.calls).toEqual([]);
+    // Prepared stories keep playing in both families; shares and approvals are untouched.
+    expect(await play(store, maya, 0)).toBeTruthy();
+    expect(await play(store, ivy, 0)).toBeTruthy();
+    expect(state.shares.filter((x) => x.voiceId === "voice-june" && x.revokedAt === null)).toHaveLength(2);
+    expect(state.audit.map((e) => e.action)).toContain("voice_paused");
+    // Only the owner can pause or resume.
+    await rejects(setNewStoriesPaused(store, mom, "voice-june", false, clock), 403);
+    await setNewStoriesPaused(store, june, "voice-june", false, clock);
+    expect(voiceInUse(state, "voice-june")).toBe(true);
+    expect((await requestGeneration(store, mom, H, { ...other, bookSlug: "the-three-little-pigs" }, clock)).job).toBeTruthy();
   });
 
   it("duplicate concurrent requests create one job and one charge", async () => {

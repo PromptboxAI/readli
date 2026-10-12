@@ -68,6 +68,22 @@ export async function carryOutRecordingDeletion(db: SupabaseClient, request: { i
   return { id: request.id, files, sessions: sessionIds.length };
 }
 
+/**
+ * Whether the owner's story voice may keep working after their recordings are deleted (Kevin, 2026-10-12,
+ * answer 5, action A): only while it is ready, their Readli service permission is still in force and at
+ * least one family still has it shared. Otherwise it has no valid use and its clone is retired.
+ */
+export async function cloneMayRemain(db: SupabaseClient, ownerId: string): Promise<{ voiceId: string | null; keep: boolean }> {
+  const voices = await rows(db.from("voice_profiles").select("id, status, provider_voice_id_encrypted").eq("owner_id", ownerId).eq("status", "ready").limit(1), "read voice");
+  const voice = voices[0];
+  if (!voice) return { voiceId: null, keep: false };
+  const [rights, shares] = await Promise.all([
+    rows(db.from("voice_rights_current").select("service_rights").eq("contributor_id", ownerId).limit(1), "read voice rights"),
+    rows(db.from("voice_household_shares").select("id").eq("voice_id", voice.id as string).is("revoked_at", null).limit(1), "read voice sharing"),
+  ]);
+  return { voiceId: voice.id as string, keep: Boolean(rights[0]?.service_rights) && shares.length > 0 };
+}
+
 export async function pendingRecordingDeletions(db: SupabaseClient, limit = 200): Promise<Record<string, unknown>[]> {
   return rows(db.from("voice_recording_deletions").select("id, owner_id, voice_id, reason, due_at, attempts").eq("status", "pending").order("due_at").limit(limit), "read deletion requests");
 }

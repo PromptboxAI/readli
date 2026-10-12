@@ -175,6 +175,7 @@ export class AccountFamilyStore implements FamilyStore {
         deletedAt: str(v.deleted_at),
         withdrawnAt: str(v.withdrawn_at),
         cloneRetiredAt: str(v.clone_retired_at),
+        pausedAt: str(v.new_stories_paused_at),
       }));
       state.shares = shares.map((x) => ({
         id: x.id as string,
@@ -403,11 +404,14 @@ export class AccountFamilyStore implements FamilyStore {
       );
     }
 
-    // Voice rows come from the recording flow; a change here is only a status or deletion.
+    // Voice rows come from the recording flow; a change here is only a status, deletion or pause.
     for (const v of after.voices) {
       const old = before.voices.find((x) => x.id === v.id);
-      if (old && (old.status !== v.status || old.deletedAt !== v.deletedAt)) {
-        await this.q(db.from("voice_profiles").update({ status: v.status, deleted_at: v.deletedAt }).eq("id", v.id), "update voice");
+      if (old && (old.status !== v.status || old.deletedAt !== v.deletedAt || (old.pausedAt ?? null) !== (v.pausedAt ?? null))) {
+        await this.q(
+          db.from("voice_profiles").update({ status: v.status, deleted_at: v.deletedAt, new_stories_paused_at: v.pausedAt ?? null }).eq("id", v.id),
+          "update voice",
+        );
       }
     }
     // Order matters to the database guards: a share before its slot, a slot before an approval,

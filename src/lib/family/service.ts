@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Actor, AuditAction, FamilyState, ListeningSession } from "./model";
+import type { Actor, AuditAction, FamilyState, ListeningSession, VoiceShare } from "./model";
 import {
   activeChild,
   activeEntitlement,
@@ -105,6 +105,8 @@ function requireAdult(actor: Actor | null): string {
 export interface MyVoiceView {
   voiceId: string;
   status: string;
+  /** New stories stopped for every family (action B); prepared stories still play. */
+  paused: boolean;
   households: { id: string; name: string; shared: boolean }[];
 }
 
@@ -117,6 +119,7 @@ export async function myVoices(store: FamilyStore, actor: Actor | null): Promise
     .map((v) => ({
       voiceId: v.id,
       status: v.status,
+      paused: Boolean(v.pausedAt),
       households: homes.map((m) => ({
         id: m.householdId,
         name: state.households.find((h) => h.id === m.householdId)?.name ?? "Family",
@@ -161,23 +164,57 @@ export async function setHouseholdShare(
       return;
     }
     if (!current) return;
-    current.revokedAt = at;
-    current.revokedBy = adultId;
-    for (const slot of s.slots) {
-      if (slot.voiceId === voice.id && slot.householdId === input.householdId && slot.releasedAt === null) {
-        slot.releasedAt = at;
-        slot.releasedBy = adultId;
-      }
+    revokeShare(s, current, adultId, at);
+  });
+}
+
+/** Ends one live share: its narrator slot is released and the kids' approvals in that family end. */
+function revokeShare(s: FamilyState, share: VoiceShare, adultId: string, at: string) {
+  share.revokedAt = at;
+  share.revokedBy = adultId;
+  for (const slot of s.slots) {
+    if (slot.voiceId === share.voiceId && slot.householdId === share.householdId && slot.releasedAt === null) {
+      slot.releasedAt = at;
+      slot.releasedBy = adultId;
     }
-    const kids = new Set(s.children.filter((c) => c.householdId === input.householdId).map((c) => c.id));
-    for (const a of s.approvals) {
-      if (a.voiceId === voice.id && kids.has(a.childId) && a.revokedAt === null) {
-        a.revokedAt = at;
-        a.revokedBy = adultId;
-        a.revokeReason = "owner_revoked";
-      }
+  }
+  const kids = new Set(s.children.filter((c) => c.householdId === share.householdId).map((c) => c.id));
+  for (const a of s.approvals) {
+    if (a.voiceId === share.voiceId && kids.has(a.childId) && a.revokedAt === null) {
+      a.revokedAt = at;
+      a.revokedBy = adultId;
+      a.revokeReason = "owner_revoked";
     }
-    audit(s, adultId, "voice_unshared", at, { voiceId: voice.id, householdId: input.householdId });
+  }
+  audit(s, adultId, "voice_unshared", at, { voiceId: share.voiceId, householdId: share.householdId });
+}
+
+/** Whether any family may still have new stories made in this voice (a live share, and not paused). */
+export function voiceInUse(state: FamilyState, voiceId: string): boolean {
+  const voice = state.voices.find((v) => v.id === voiceId);
+  return Boolean(voice && !voice.pausedAt && voice.status === "ready" && state.shares.some((x) => x.voiceId === voiceId && x.revokedAt === null));
+}
+
+/**
+ * "Stop sharing my voice" (Kevin, 2026-10-12, answer 5, action B): the owner withdraws authorization for
+ * new stories in every family at once, or gives it again. While paused nothing new is made in the voice;
+ * the caller stops narration in progress and retires the provider clone, since no valid use remains.
+ * Shares, slots and kids' approvals stay, so stories already prepared keep playing, and the voice and
+ * its original recordings stay, so resuming re-makes the clone from the recording. Turning sharing off
+ * for one family is the separate, per-family switch.
+ */
+export async function setNewStoriesPaused(store: FamilyStore, actor: Actor | null, voiceId: string, paused: boolean, clock: Clock = now): Promise<void> {
+  const adultId = requireAdult(actor);
+  const state = await store.read();
+  const voice = state.voices.find((v) => v.id === voiceId && v.deletedAt === null);
+  if (!voice || voice.ownerId !== adultId) throw NOT_OWNER;
+  if (voice.status !== "ready") throw new PermissionError(409, "voice_not_ready", "Your voice isn't ready, so there's nothing to pause.");
+  if (Boolean(voice.pausedAt) === paused) return;
+  const at = clock().toISOString();
+  await store.write((s) => {
+    const v = s.voices.find((x) => x.id === voiceId)!;
+    v.pausedAt = paused ? at : null;
+    audit(s, adultId, paused ? "voice_paused" : "voice_resumed", at, { voiceId });
   });
 }
 

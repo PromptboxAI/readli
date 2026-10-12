@@ -115,7 +115,7 @@ describe("account voices", () => {
       stopped = voiceId;
       return 2;
     };
-    expect(await deleteAccountVoice(deps, owner.id)).toEqual({ stoppedJobs: 2 });
+    expect(await deleteAccountVoice(deps, owner.id)).toEqual({ stoppedJobs: 2, voiceId: first.id });
     expect(stopped).toBe(first.id);
     expect(provider.deleted).toEqual(["stub-voice-1"]);
     expect(await store.findVoice(owner.id)).toBeNull();

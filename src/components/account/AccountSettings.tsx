@@ -15,11 +15,7 @@ async function errorText(res: Response) {
 }
 
 function blockerText(b: DeletionBlocker): string {
-  if (b.kind === "only_guardian") {
-    return `You're the only parent or guardian for kids profiles in ${b.householdName}. Another grown-up there needs to look after every kids profile first, or remove the kids profiles.`;
-  }
-  if (b.kind === "active_plan") return `${b.householdName} still has a Readli plan that renews. Cancel it in Billing first.`;
-  return `Your gift for ${b.recipientName} still renews every month. Stop the renewals first.`;
+  return `You're the only parent or guardian for kids profiles in ${b.householdName}. Another grown-up there needs to look after every kids profile first, or remove the kids profiles.`;
 }
 
 /** A signed-in grown-up's name, a copy of their data, and deleting their account. */
@@ -100,6 +96,10 @@ export function AccountSettings({ name, email, blockers }: { name: string; email
         </h2>
         <p>This can&apos;t be undone. Deleting your account:</p>
         <ul className="list-disc pl-6">
+          <li>
+            first stops anything that renews: the Readli plan of a family only you belong to is cancelled now, and any unused time you&apos;ve paid for is
+            refunded to your card; gifts you pay for stop renewing, and the people you gave them to keep the month already paid for,
+          </li>
           <li>removes your voice from our voice service, so no new stories can be made in your voice,</li>
           <li>deletes your original voice recordings and ends any permission to use them for AI training,</li>
           <li>removes the saved stories, kids profiles and listening history of families only you belong to,</li>
@@ -115,7 +115,7 @@ export function AccountSettings({ name, email, blockers }: { name: string; email
             <p className="font-semibold">Before you can delete your account:</p>
             <ul className="list-disc pl-6">
               {blockers.map((b) => (
-                <li key={b.kind === "sponsoring" ? b.giftId : `${b.kind}:${b.householdId}`}>{blockerText(b)}</li>
+                <li key={`${b.kind}:${b.householdId}`}>{blockerText(b)}</li>
               ))}
             </ul>
           </div>

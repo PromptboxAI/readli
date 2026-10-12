@@ -59,10 +59,11 @@ export async function updateDisplayName(db: SupabaseClient, userId: string, valu
 /** What a grown-up types to confirm deleting their account. */
 export const DELETE_CONFIRMATION = "DELETE";
 
-export type DeletionBlocker =
-  | { kind: "only_guardian"; householdId: string; householdName: string }
-  | { kind: "sponsoring"; giftId: string; recipientName: string }
-  | { kind: "active_plan"; householdId: string; householdName: string };
+/**
+ * The one thing that holds a deletion: kids in a shared family who would be left with no grown-up in
+ * charge. A renewing plan or gift never blocks it (Kevin, 2026-10-12): deletion cancels renewals first.
+ */
+export type DeletionBlocker = { kind: "only_guardian"; householdId: string; householdName: string };
 
 interface Homes {
   /** Families nobody else belongs to; they go with the account. */
@@ -108,42 +109,56 @@ async function homesOf(db: SupabaseClient, userId: string): Promise<Homes> {
   return out;
 }
 
-/**
- * What has to happen before the account can go. Leaving a shared family's kids with no grown-up in
- * charge, or a gift subscription still renewing on the account, needs the grown-up's own choice.
- */
+/** What has to happen before the account can go: only a shared family's kids left with no grown-up in charge. */
 export async function deletionBlockers(db: SupabaseClient, userId: string): Promise<DeletionBlocker[]> {
-  return (await assess(db, userId)).blockers;
+  return (await homesOf(db, userId)).blockers;
 }
 
-async function assess(db: SupabaseClient, userId: string): Promise<Homes> {
-  const homes = await homesOf(db, userId);
-  const blockers = homes.blockers;
-  // A family only they belong to can't be left paying for a plan nobody can use.
-  if (homes.solo.length) {
-    const [plans, names] = await Promise.all([
-      rows(db.from("household_entitlements").select("household_id, status, ends_at, provider_subscription_ref").in("household_id", homes.solo), "read plans"),
-      rows(db.from("households").select("id, name").in("id", homes.solo), "read households"),
-    ]);
-    for (const home of homes.solo) {
-      const renewing = plans.some(
-        (p) => p.household_id === home && p.status === "active" && p.provider_subscription_ref && (p.ends_at === null || p.ends_at === undefined),
-      );
-      if (renewing) blockers.push({ kind: "active_plan", householdId: home, householdName: (names.find((h) => h.id === home)?.name as string) ?? "your family" });
+/** Stripe calls account deletion needs, to stop a plan renewing before the account goes. */
+export interface DeletionBilling {
+  /** Ends the subscription now, crediting unused paid time to the customer's balance. Returns the customer. */
+  cancel(subscriptionRef: string): Promise<{ customer: string }>;
+  /** The customer's balance in cents; negative is credit owed to them. */
+  balance(customer: string): Promise<number>;
+}
+
+/**
+ * Stops everything that would renew once the account is gone: the Readli plans of families only this
+ * grown-up belongs to (cancelled now; credit for unused time goes to the admin queue to be refunded)
+ * and gift sponsorships they pay for (renewals stop; recipients keep the month already paid for).
+ * Runs before anything is deleted, so a failure leaves the account as it was.
+ */
+async function stopRenewals(db: SupabaseClient, billing: DeletionBilling | null, userId: string, solo: string[], at: string) {
+  const plans = solo.length
+    ? (await rows(db.from("household_entitlements").select("household_id, status, ends_at, provider_subscription_ref").in("household_id", solo), "read plans")).filter(
+        (p) => p.status === "active" && typeof p.provider_subscription_ref === "string" && p.provider_subscription_ref,
+      )
+    : [];
+  if (plans.length && !billing) {
+    throw new AccountError(503, "billing_off", "We can't reach billing right now to stop your plan renewing, so your account hasn't been deleted. Please try again later.");
+  }
+  const ended: { householdId: string; subscription: string; creditCents: number }[] = [];
+  for (const p of plans) {
+    const { customer } = await billing!.cancel(p.provider_subscription_ref as string);
+    const balance = await billing!.balance(customer);
+    ended.push({ householdId: p.household_id as string, subscription: p.provider_subscription_ref as string, creditCents: Math.max(0, -balance) });
+    if (balance < 0) {
+      await openException(db, {
+        kind: "billing_credit_refund",
+        householdId: p.household_id as string,
+        reason: `Account deleted with $${(-balance / 100).toFixed(2)} of unused paid time credited; refund it to the customer's card in Stripe`,
+        detail: { customer, credit_cents: -balance, subscription: p.provider_subscription_ref, reason: "account_deleted" },
+      });
     }
   }
-  const [gifts, plans] = await Promise.all([
-    rows(db.from("gifts").select("id, plan_id, recipient_name, status, renewals_stopped").eq("giver_id", userId), "read gifts"),
+  const [gifts, giftPlans] = await Promise.all([
+    rows(db.from("gifts").select("id, plan_id, status, renewals_stopped").eq("giver_id", userId), "read gifts"),
     rows(db.from("gift_plans").select("id, kind"), "read gift plans"),
   ]);
-  const recurring = new Set(plans.filter((p) => p.kind === "recurring").map((p) => p.id));
-  for (const g of gifts) {
-    const live = ["awaiting_payment", "scheduled", "sent", "active"].includes(g.status as string);
-    if (live && !g.renewals_stopped && recurring.has(g.plan_id)) {
-      blockers.push({ kind: "sponsoring", giftId: g.id as string, recipientName: g.recipient_name as string });
-    }
-  }
-  return homes;
+  const recurring = new Set(giftPlans.filter((g) => g.kind === "recurring").map((g) => g.id));
+  const renewing = gifts.filter((g) => ["awaiting_payment", "scheduled", "sent", "active"].includes(g.status as string) && !g.renewals_stopped && recurring.has(g.plan_id));
+  if (renewing.length) await run(db.from("gifts").update({ renewals_stopped: true }).in("id", ids(renewing)), "stop gift renewals");
+  return { plansEnded: ended, giftRenewalsStopped: renewing.length, at };
 }
 
 export async function removeObjects(db: SupabaseClient, bucket: string, keys: string[]): Promise<number> {
@@ -173,8 +188,10 @@ export interface DeletionResult {
 }
 
 /**
- * Deletes a grown-up's account (Kevin, 2026-10-11, decision 3), in an order that can be safely retried
- * if any step fails:
+ * Deletes a grown-up's account (Kevin, 2026-10-11, decision 3; 2026-10-12, answer 3), whenever they ask,
+ * in an order that can be safely retried if any step fails:
+ * 0. renewals stop first: plans of families only they belong to are cancelled (unused paid time is
+ *    credited and queued for a refund) and gift sponsorships stop renewing;
  * 1. their clones at the voice provider (ElevenLabs), so nothing new can be made in their voice;
  * 2. their voices are withdrawn: unfinished narration stops everywhere (unused credits go back),
  *    no new narration can be requested, and their AI-training permission ends (a database trigger
@@ -191,13 +208,13 @@ export interface DeletionResult {
  * cleared.
  */
 export async function deleteAccount(
-  deps: { db: SupabaseClient; provider: VoiceProvider | null; refs: ProviderRefCipher | null; now?: () => Date },
+  deps: { db: SupabaseClient; provider: VoiceProvider | null; refs: ProviderRefCipher | null; billing?: DeletionBilling | null; now?: () => Date },
   userId: string,
 ): Promise<DeletionResult> {
   const { db, provider, refs } = deps;
   const now = (deps.now ?? (() => new Date()))();
   const at = now.toISOString();
-  const { solo, blockers } = await assess(db, userId);
+  const { solo, blockers } = await homesOf(db, userId);
   if (blockers.length) return { deleted: false, blockers, voicesRemoved: 0, audioFilesRemoved: 0 };
 
   const voices = (await rows(db.from("voice_profiles").select("id, status, provider_voice_id_encrypted").eq("owner_id", userId), "read voices")).filter(
@@ -207,6 +224,7 @@ export async function deleteAccount(
   if (cloned.length && (!provider || !refs)) {
     throw new AccountError(503, "voice_provider_off", "We can't reach our voice service right now, so your account hasn't been deleted. Please try again later.");
   }
+  const renewals = await stopRenewals(db, deps.billing ?? null, userId, solo, at);
   for (const v of cloned) await provider!.deleteVoice(refs!.decrypt(v.provider_voice_id_encrypted as string));
 
   for (const v of voices) {
@@ -273,7 +291,18 @@ export async function deleteAccount(
   }
 
   await writeAudit(db, [
-    { actor: "account-owner", action: "account_deleted", detail: { voices: voices.length, clones_deleted: cloned.length, recordings_removed: recordings.size, families_cleaned: solo.length } },
+    {
+      actor: "account-owner",
+      action: "account_deleted",
+      detail: {
+        voices: voices.length,
+        clones_deleted: cloned.length,
+        recordings_removed: recordings.size,
+        families_cleaned: solo.length,
+        plans_ended: renewals.plansEnded,
+        gift_renewals_stopped: renewals.giftRenewalsStopped,
+      },
+    },
     ...voices.map((v) => ({ actor: "account-owner", action: "voice_withdrawn", voiceId: v.id as string, detail: { reason: "account_deleted" } })),
   ]);
 
