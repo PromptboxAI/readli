@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { applyBillingChange, recordRevenue } from "@/lib/billing/apply";
 import { billingConfig } from "@/lib/billing/config";
 import { billingChange } from "@/lib/billing/events";
+import { applyGiftCheckout, giftCheckoutChange } from "@/lib/billing/gifts";
 import { revenueRows } from "@/lib/billing/revenue";
 import { verifyStripeSignature } from "@/lib/billing/stripe-signature";
 import { accountDb } from "@/lib/family/account-store";
@@ -21,9 +22,9 @@ interface StripeEvent {
 /**
  * Stripe webhook. While payments are off it answers 404 as if it didn't exist. When on, it accepts
  * only correctly signed events whose mode matches ours, stores each event once and applies it once:
- * subscription events start, update or end the household's Readli Family plan, and paid invoices,
- * one-time payments and refunds are recorded for the admin finance report. A failed apply is
- * recorded and answered with a 500, so Stripe retries it.
+ * subscription events start, update or end the household's Readli Family plan, gift checkouts schedule
+ * or cancel their gifts, and paid invoices, one-time payments and refunds are recorded for the admin
+ * finance report. A failed apply is recorded and answered with a 500, so Stripe retries it.
  */
 export async function POST(req: Request) {
   const config = billingConfig();
@@ -58,6 +59,7 @@ export async function POST(req: Request) {
 
   try {
     await applyBillingChange(db, billingChange(event), event.livemode);
+    await applyGiftCheckout(db, giftCheckoutChange(event));
     await recordRevenue(db, revenueRows(event));
   } catch (err) {
     await db.from("payment_events").update({ error: String(err instanceof Error ? err.message : err).slice(0, 500) }).eq("id", stored.id);
