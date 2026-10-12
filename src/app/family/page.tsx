@@ -100,7 +100,7 @@ export default async function FamilyHome() {
           <p className="text-muted">Signed in as</p>
           <h1 className="font-display text-4xl font-semibold">{adult.displayName}</h1>
         </div>
-        <CreateFamily suggestion={`The ${adult.displayName.split(" ").pop()} family`} />
+        <CreateFamily />
         <div className="flex flex-wrap gap-2">
           <Link href="/family/account" className={buttonSecondary}>
             Account settings

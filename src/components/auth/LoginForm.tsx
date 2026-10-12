@@ -58,7 +58,7 @@ export function LoginForm({ next }: { next: string }) {
       <div role="status" className="flex flex-col gap-2 rounded-[var(--radius-panel)] bg-mint/50 p-6 text-left">
         <p className="font-display text-2xl font-semibold">Check your email</p>
         <p>
-          We sent a sign-in link to <strong>{email.trim()}</strong>. Open it on this device to continue.
+          We sent a sign-in link to <strong>{email.trim()}</strong>. Open it on any device to continue.
         </p>
         <button type="button" className="self-start font-semibold underline underline-offset-4" onClick={() => setState("idle")}>
           Use a different email
