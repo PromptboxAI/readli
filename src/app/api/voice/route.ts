@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { currentAdult } from "@/lib/auth/adult";
 import { serverConfig } from "@/lib/server/config";
-import { accountDb } from "@/lib/family/account-store";
-import { track } from "@/lib/invitations/server";
 import { fail } from "@/lib/server/http";
-import { AccountVoiceError, accountVoiceDeps, createAccountVoice } from "@/lib/voice/account-voices";
+import { recordVoiceEvent } from "@/lib/server/voice-analytics";
+import { AccountVoiceError, accountVoiceDeps, createVoiceCandidate } from "@/lib/voice/account-voices";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -28,9 +27,13 @@ export async function GET() {
   return NextResponse.json({ voice: voice ? { id: voice.id, status: voice.status, version: voice.version, updatedAt: voice.updatedAt } : null }, { headers: { "cache-control": "no-store" } });
 }
 
-/** Records consent, saves the take privately, clones it and saves (or replaces) the grown-up's voice. */
+/**
+ * Records consent, saves the take privately and clones it into a candidate the grown-up listens to.
+ * Their current voice stays in use until they keep the candidate (POST /api/voice/keep).
+ */
 export async function POST(req: Request) {
-  const deps = accountVoiceDeps(serverConfig());
+  const config = serverConfig();
+  const deps = accountVoiceDeps(config);
   if (!deps) return fail(503, "voices_off", VOICES_OFF);
   const user = await currentAdult();
   if (!user) return fail(401, "sign_in_required", SIGN_IN);
@@ -39,20 +42,33 @@ export async function POST(req: Request) {
   const audio = form?.get("audio");
   if (!form || !(audio instanceof Blob)) return fail(400, "no_audio", "We didn't get your recording. Please try again.");
   const device = form.get("deviceClass");
+  const durationMs = Number(form.get("durationMs"));
+  const removeBackgroundNoise = form.get("removeBackgroundNoise") === "true";
   try {
-    const voice = await createAccountVoice(deps, { id: user.id, name: user.name }, {
+    const candidate = await createVoiceCandidate(deps, { id: user.id, name: user.name }, {
       audio,
-      durationMs: Number(form.get("durationMs")),
+      durationMs,
       wpm: intOrNull(form.get("wpm")),
       pauseCount: intOrNull(form.get("pauseCount")) ?? 0,
       deviceClass: DEVICE_CLASSES.find((d) => d === device) ?? null,
       scriptOffsetEnd: intOrNull(form.get("scriptOffsetEnd")),
       consents: form.getAll("consent").filter((c): c is string => typeof c === "string"),
-      removeBackgroundNoise: form.get("removeBackgroundNoise") === "true",
+      removeBackgroundNoise,
     });
-    const db = accountDb();
-    if (db && voice.version === 1) await track(db, "contributor_voice_created", {}, user.id);
-    return NextResponse.json({ voice }, { status: 201 });
+    const deviceClass = DEVICE_CLASSES.find((d) => d === device) ?? null;
+    await recordVoiceEvent(config, {
+      name: "recording_submitted",
+      userId: user.id,
+      properties: {
+        surface: "account",
+        durationMs: Math.round(durationMs),
+        afterFeedback: form.get("afterFeedback") === "true",
+        qcIssues: form.getAll("qcIssue").filter((i): i is string => typeof i === "string").slice(0, 6),
+        deviceClass,
+      },
+    });
+    await recordVoiceEvent(config, { name: "voice_cloned", userId: user.id, properties: { surface: "account", removeBackgroundNoise } });
+    return NextResponse.json({ candidate: { id: candidate.id, createdAt: candidate.createdAt } }, { status: 201 });
   } catch (err) {
     if (err instanceof AccountVoiceError) return fail(err.status, err.code, err.userMessage);
     throw err;

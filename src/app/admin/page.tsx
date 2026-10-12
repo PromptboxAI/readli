@@ -5,6 +5,8 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { requireAdmin } from "@/lib/admin/access";
 import { adminOverview, filterFamilies, type AdminFamily } from "@/lib/admin/overview";
 import { accountDb } from "@/lib/family/account-store";
+import { serverConfig } from "@/lib/server/config";
+import { fetchProviderModels } from "@/lib/voice/model-watch";
 import { endTesterPlanAction, grantTesterPlanAction } from "./actions";
 
 export const metadata: Metadata = { title: "Readli admin", robots: { index: false } };
@@ -38,6 +40,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const families = overview ? filterFamilies(overview.families, q) : [];
   const ok = param(params, "ok");
   const err = param(params, "err");
+  const config = serverConfig();
+  const newModels = (await fetchProviderModels(config.elevenLabsKey, config.elevenLabsModel))?.filter((m) => m.isNew) ?? [];
 
   return (
     <AdultPage wide>
@@ -51,9 +55,16 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <Link href="/admin/narration" className={buttonSecondary}>Narration</Link>
           <Link href="/admin/complimentary" className={buttonSecondary}>Complimentary memberships</Link>
           <Link href="/admin/invitations" className={buttonSecondary}>Family invitations</Link>
+          <Link href="/admin/voice-quality" className={buttonSecondary}>Voice quality</Link>
         </nav>
       </header>
 
+      {newModels.length > 0 && (
+        <p role="status" className="rounded-2xl bg-sunshine/40 px-4 py-3">
+          ElevenLabs has a new reading model: {newModels.map((m) => m.name).join(", ")}.{" "}
+          <Link href="/admin/voice-quality" className="font-semibold underline underline-offset-4">See details</Link>
+        </p>
+      )}
       {ok && <p role="status" className="rounded-2xl bg-mint/40 px-4 py-3">{ok}</p>}
       {err && <p role="alert" className="rounded-2xl bg-coral/30 px-4 py-3">{err}</p>}
 

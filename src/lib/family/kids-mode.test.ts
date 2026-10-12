@@ -5,6 +5,9 @@ import { kidsModeRoute } from "./kids-mode";
 const GROWN_UP_API = [
   "/api/voice",
   "/api/voice/sample",
+  "/api/voice/candidate",
+  "/api/voice/keep",
+  "/api/voice/model",
   "/api/account",
   "/api/account/export",
   "/api/account/photo",

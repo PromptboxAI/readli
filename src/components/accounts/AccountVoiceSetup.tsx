@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonQuiet, buttonSecondary } from "@/components/brand/buttons";
+import { ImproveLink, RecordingTipsDialog } from "@/components/teleprompter/RecordingTips";
 import { TeleprompterRecorder } from "@/components/teleprompter/TeleprompterRecorder";
 import type { TakeDetails } from "@/components/teleprompter/VoicePreview";
 import { VOICE_CONSENTS } from "@/lib/content/voice-consents";
@@ -11,7 +12,7 @@ import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
 
 const STEPS = ["Your voice, your rules", "Record", "Check it's you", "Done"] as const;
 
-type Phase = "idle" | "making" | "sampling" | "ready" | "error";
+type Phase = "idle" | "making" | "sampling" | "ready" | "keeping" | "error";
 
 function deviceClass(): "phone" | "tablet" | "desktop" {
   const w = window.innerWidth;
@@ -25,7 +26,8 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
 
 /**
  * Readli Voice for a signed-in grown-up: consent, record with the teleprompter, make the voice,
- * listen to a sample and keep it. The voice is saved privately; sharing happens per family.
+ * listen to a sample and keep it. The voice is saved privately; sharing happens per family. A new
+ * recording stays a candidate until "Keep my voice", so a working voice is never lost to a worse one.
  */
 export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
   const [step, setStep] = useState(0);
@@ -35,6 +37,8 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [sample, setSample] = useState<{ url: string; cleanUp: boolean; standIn: boolean } | null>(null);
+  const [tipsOpen, setTipsOpen] = useState(false);
+  const [afterFeedback, setAfterFeedback] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -66,11 +70,13 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
       if (take.scriptOffsetEnd !== null) form.append("scriptOffsetEnd", String(take.scriptOffsetEnd));
       for (const c of VOICE_CONSENTS) form.append("consent", c);
       form.append("removeBackgroundNoise", String(cleanUp));
+      form.append("afterFeedback", String(afterFeedback));
+      for (const issue of take.recorded.qc.issues) form.append("qcIssue", issue);
       const made = await fetch("/api/voice", { method: "POST", body: form });
       if (!made.ok) throw new Error(await errorMessage(made, "We couldn't make your voice just now. Please try again."));
 
       setPhase("sampling");
-      const res = await fetch("/api/voice/sample", { method: "POST" });
+      const res = await fetch("/api/voice/sample?candidate=1", { method: "POST" });
       if (!res.ok) throw new Error(await errorMessage(res, "Your voice is saved, but we couldn't play a sample just now."));
       setSample({ url: URL.createObjectURL(await res.blob()), cleanUp, standIn: res.headers.get("x-readli-stand-in") === "1" });
       setPhase("ready");
@@ -80,7 +86,30 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
     }
   };
 
-  const busy = phase === "making" || phase === "sampling";
+  const keepVoice = async () => {
+    setError(null);
+    setPhase("keeping");
+    try {
+      const res = await fetch("/api/voice/keep", { method: "POST" });
+      if (!res.ok) throw new Error(await errorMessage(res, "We couldn't save your voice just now. Please try again."));
+      setStep(3);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      setPhase("ready");
+    }
+  };
+
+  /** Back to the recorder. A clone that wasn't kept is thrown away; the current voice carries on. */
+  const recordAgain = (fromFeedback = false) => {
+    if (sample) void fetch("/api/voice/candidate", { method: "DELETE" }).catch(() => undefined);
+    if (fromFeedback) setAfterFeedback(true);
+    setSample(null);
+    setPhase("idle");
+    setError(null);
+    setStep(1);
+  };
+
+  const busy = phase === "making" || phase === "sampling" || phase === "keeping";
 
   return (
     <div className="flex flex-col gap-6">
@@ -98,7 +127,12 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
       {step === 0 && (
         <section className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-lavender/40 p-6 sm:p-8">
           <h2 className="font-display text-2xl font-semibold">Your voice, your rules</h2>
-          {hasVoice && <p>You already have a Readli voice. Recording again replaces it, and families you share it with keep hearing you.</p>}
+          {hasVoice && (
+            <p>
+              You already have a Readli voice. If you record again, your current voice keeps working until you listen to the new one
+              and choose to keep it. Families you share with keep hearing you either way.
+            </p>
+          )}
           <fieldset className="flex flex-col gap-3">
             <legend className="sr-only">Your agreement</legend>
             {VOICE_CONSENTS.map((c, i) => (
@@ -122,7 +156,7 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
       {step === 1 && (
         <section className="flex flex-col gap-4">
           <h2 className="font-display text-2xl font-semibold">Read the story out loud</h2>
-          <p>At least a minute, ideally one to two. Find a quiet spot and read it like a bedtime story, with lots of expression. Your voice copies how you read.</p>
+          <p>Read the whole story, about one to two minutes. Find a quiet spot and read it in your natural, warm storytime voice. Your Readli voice copies how you read.</p>
           <TeleprompterRecorder script={DEMO_SCRIPT} onTake={takeChosen} takeActionLabel="Use this recording" />
         </section>
       )}
@@ -149,7 +183,7 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
           {busy && (
             <div role="status" className="flex items-center gap-4 rounded-2xl bg-plum p-4 text-white">
               <ReadiMascot state="listening" size={72} decorative className="animate-bob" />
-              <p className="font-display text-lg font-semibold">{phase === "making" ? "Readi is listening to your voice…" : "Getting your sample ready…"}</p>
+              <p className="font-display text-lg font-semibold">{phase === "making" ? "Readi is listening to your voice…" : phase === "keeping" ? "Saving your voice…" : "Getting your sample ready…"}</p>
             </div>
           )}
 
@@ -158,6 +192,8 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
               <audio key={sample.url} controls autoPlay src={sample.url} className="w-full" aria-label="A sample of your Readli voice" />
               <p className="text-sm text-muted">Noise clean-up {sample.cleanUp ? "on" : "off"}</p>
               {sample.standIn && <p className="text-sm font-semibold">Test mode: this is a stand-in sound, not your voice.</p>}
+              <ImproveLink onOpen={() => setTipsOpen(true)} where="account_sample" />
+              {hasVoice && <p className="text-sm text-muted">Your current voice stays in use until you keep this one.</p>}
             </div>
           )}
 
@@ -169,7 +205,7 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
 
           <div className="flex flex-wrap gap-3">
             {phase === "ready" && sample?.cleanUp === cleanUp ? (
-              <button type="button" className={buttonPrimary} onClick={() => setStep(3)}>
+              <button type="button" className={buttonPrimary} onClick={() => void keepVoice()}>
                 Keep my voice
               </button>
             ) : (
@@ -177,10 +213,11 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
                 {sample ? `Try again with clean-up ${cleanUp ? "on" : "off"}` : "Make my voice"}
               </button>
             )}
-            <button type="button" className={buttonSecondary} disabled={busy} onClick={() => setStep(1)}>
+            <button type="button" className={buttonSecondary} disabled={busy} onClick={() => recordAgain()}>
               Record again
             </button>
           </div>
+          <RecordingTipsDialog open={tipsOpen} onClose={() => setTipsOpen(false)} onRecordAgain={() => recordAgain(true)} where="account_sample" />
         </section>
       )}
 

@@ -97,7 +97,7 @@ export class AccountFamilyStore implements FamilyStore {
       const people = [...new Set(members.map((m) => m.user_id as string))];
       const since = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
       const [voices, shares, slots, sessions, notices, releases, approvals] = await Promise.all([
-        this.q(this.db.from("voice_profiles").select("id, owner_id, version, status, created_at, deleted_at").in("owner_id", people).is("deleted_at", null), "read voices"),
+        this.q(this.db.from("voice_profiles").select("*").in("owner_id", people).is("deleted_at", null), "read voices"),
         this.q(this.db.from("voice_household_shares").select("*").in("household_id", homeIds), "read sharing"),
         this.q(this.db.from("narrator_slot_assignments").select("*").in("household_id", homeIds), "read narrator slots"),
         this.q(this.db.from("listening_sessions").select("*").in("household_id", homeIds).is("ended_at", null), "read listening"),
@@ -157,6 +157,7 @@ export class AccountFamilyStore implements FamilyStore {
         ownerId: v.owner_id as string,
         version: Number(v.version ?? 1),
         status: v.status as VoiceStatus,
+        modelId: str(v.model_id),
         createdAt: v.created_at as string,
         deletedAt: str(v.deleted_at),
       }));
