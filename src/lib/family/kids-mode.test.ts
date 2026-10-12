@@ -68,11 +68,11 @@ describe("Kids Mode routes", () => {
     expect(kidsModeRoute("/api/kidsx")).toBe("deny");
   });
 
-  it("sends grown-up pages back to the bookshelf and leaves public pages open", () => {
-    for (const path of ["/admin", "/admin/plans", "/family/billing", "/family/my-voice", "/family/kids", "/voice", "/voice/record", "/billing/narrator-slots", "/gift/open", "/rewards", "/invite/family", "/signup", "/signup/family", "/welcome", "/try", "/r/abc", "/v/tok", "/v/tok/connect", "/v/respond/tok", "/voice/invite"]) {
+  it("sends every page but Readli Kids, sign-in and legal pages to the bookshelf", () => {
+    for (const path of ["/", "/family", "/books", "/help", "/pricing", "/voices", "/tryout", "/admin", "/admin/plans", "/family/billing", "/family/my-voice", "/family/kids", "/family/devices", "/voice", "/voice/record", "/billing/narrator-slots", "/gift/open", "/rewards", "/invite/family", "/signup", "/signup/family", "/welcome", "/try", "/r/abc", "/v/tok", "/v/tok/connect", "/v/respond/tok", "/voice/invite", "/kidsx"]) {
       expect(kidsModeRoute(path), path).toBe("to_kids");
     }
-    for (const path of ["/", "/kids", "/kids/listen/the-tale-of-peter-rabbit", "/family", "/login", "/auth/callback", "/books", "/help", "/pricing", "/privacy", "/voices", "/tryout"]) {
+    for (const path of ["/kids", "/kids/listen/the-tale-of-peter-rabbit", "/kids/app.webmanifest", "/login", "/auth/callback", "/privacy", "/terms", "/accessibility", "/robots.txt", "/_next/data/x.json"]) {
       expect(kidsModeRoute(path), path).toBe("allow");
     }
   });
