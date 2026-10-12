@@ -12,10 +12,10 @@ export class StubVoiceProvider implements VoiceProvider {
     return { voiceId: `stub-voice-${this.next++}` };
   }
 
-  async synthesize({ text }: { voiceId: string; text: string }): Promise<SynthesizedAudio> {
+  async synthesize({ text, modelId }: { voiceId: string; text: string; modelId?: string }): Promise<SynthesizedAudio> {
     // About a fifth of a second per word, capped so tests stay fast.
     const seconds = Math.min(4, Math.max(1, text.split(/\s+/).length / 25));
-    return { audio: toneWav(seconds), contentType: "audio/wav", standIn: true, modelId: "stub", characters: text.length };
+    return { audio: toneWav(seconds), contentType: "audio/wav", standIn: true, modelId: modelId ?? "stub", characters: text.length };
   }
 
   async deleteVoice(voiceId: string) {

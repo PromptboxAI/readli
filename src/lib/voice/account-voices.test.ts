@@ -13,7 +13,9 @@ import {
   discardVoiceCandidate,
   keepVoiceCandidate,
   MemoryAccountVoiceStore,
+  switchVoiceModel,
   type TakeUpload,
+  voiceModelStatus,
 } from "./account-voices";
 
 const limits = { minRecordingMs: 59_000, maxRecordingMs: 150_000, maxRecordingBytes: 25 * 1024 * 1024 };
@@ -165,5 +167,24 @@ describe("account voices", () => {
     const stored = cipher.encrypt("voice-abc");
     expect(stored).not.toContain("voice-abc");
     expect(cipher.decrypt(stored)).toBe("voice-abc");
+  });
+});
+
+describe("voice reading models", () => {
+  it("new voices get the newest model; older voices keep theirs until the owner switches", async () => {
+    const { store, deps } = setup();
+    const newer = { ...deps, newVoiceModel: "eleven_v5" };
+    const voice = await createAccountVoice({ ...deps, newVoiceModel: "eleven_v4" }, owner, take());
+    expect(voice.modelId).toBe("eleven_v4");
+
+    expect(await voiceModelStatus(newer, owner.id)).toEqual({ current: "eleven_v4", latest: "eleven_v5", canUpgrade: true });
+    expect((await accountVoiceSample(newer, owner.id)).modelId).toBe("eleven_v4");
+    expect((await accountVoiceSample(newer, owner.id, { latest: true })).modelId).toBe("eleven_v5");
+
+    const switched = await switchVoiceModel(newer, owner.id);
+    expect(switched.modelId).toBe("eleven_v5");
+    expect((await store.findVoice(owner.id))?.modelId).toBe("eleven_v5");
+    expect(((await switchVoiceModel(newer, owner.id).catch((e: unknown) => e)) as AccountVoiceError).code).toBe("already_latest");
+    expect((await voiceModelStatus(newer, owner.id)).canUpgrade).toBe(false);
   });
 });

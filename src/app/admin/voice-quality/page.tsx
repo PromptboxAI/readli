@@ -6,7 +6,7 @@ import { requireAdmin } from "@/lib/admin/access";
 import { QC_MESSAGES, type QcIssue } from "@/lib/audio/qc";
 import { MAX_GUEST_PREVIEWS, serverConfig } from "@/lib/server/config";
 import { guestPreviewsAllowed } from "@/lib/server/demo-settings";
-import { summarizeVoiceEvents, voiceEventSink, type VoiceQualityMetrics } from "@/lib/server/voice-analytics";
+import { summarizeVoiceEvents, voiceEventSink, voiceModelCounts, type VoiceQualityMetrics } from "@/lib/server/voice-analytics";
 import { activePreset, FALLBACK_MODEL, VOICE_PRESETS, voiceSettings } from "@/lib/voice/elevenlabs";
 import { fetchProviderModels } from "@/lib/voice/model-watch";
 import { updateDemoPreviewsAction } from "./actions";
@@ -76,6 +76,7 @@ export default async function VoiceQualityPage({ searchParams }: { searchParams:
   const preset = activePreset();
   const models = await fetchProviderModels(config.elevenLabsKey, model);
   const newModels = models?.filter((x) => x.isNew) ?? [];
+  const byModel = await voiceModelCounts(config);
 
   return (
     <AdultPage wide>
@@ -175,6 +176,25 @@ export default async function VoiceQualityPage({ searchParams }: { searchParams:
             { label: "Cloning", value: "Instant Voice Clone", note: "Noise clean-up on when the browser hears a noisy room; the reader can switch it" },
           ]}
         />
+        {byModel && (
+          <>
+            <h3 className="font-display text-xl font-semibold">Voices on each model</h3>
+            <Table
+              rows={Object.entries(byModel)
+                .sort((a, b) => b[1] - a[1])
+                .map(([id, count]) => ({
+                  label: id === "unpinned" ? "Not pinned yet" : id,
+                  value: String(count),
+                  note: id === model ? "New voices get this model" : id === "unpinned" ? "Made before models were pinned; reads with the current model" : "Owners can hear the new version and switch",
+                }))}
+            />
+            {m && (
+              <p className="text-sm text-muted">
+                Last {DAYS} days: {m.modelPreviews} heard their voice on the new version, {m.modelSwitches} switched.
+              </p>
+            )}
+          </>
+        )}
         {models && (
           <p className="text-sm text-muted">
             Reading models ElevenLabs offers this account: {models.map((x) => x.id).join(", ")}. Checked once a day.
