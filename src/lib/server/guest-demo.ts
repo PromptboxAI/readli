@@ -5,7 +5,7 @@ import { StubVoiceProvider } from "@/lib/voice/stub";
 import { serverConfig, type PreviewMode, type ServerConfig } from "./config";
 import { guestPreviewsAllowed } from "./demo-settings";
 import { createSupabaseGuestStore, MemoryGuestStore, type GuestSession, type GuestStore } from "./guest-store";
-import { GUEST_COOKIE, GUEST_TTL_MS, hashGuestToken, newGuestToken } from "./guest-token";
+import { DEMO_DELETION_PROMISE_MS, GUEST_COOKIE, GUEST_TTL_MS, hashGuestToken, newGuestToken } from "./guest-token";
 
 export interface GuestDemoDeps {
   config: ServerConfig;
@@ -66,7 +66,7 @@ export interface CleanupResult {
   failed: number;
   /** Expired guests still waiting because the run hit its time budget. */
   backlog: boolean;
-  /** Guests still not deleted 24 hours after their session expired: past the public 48-hour promise. */
+  /** Guests still not deleted 48 hours after their demo started: past the public promise. */
   overdue: number;
 }
 
@@ -82,12 +82,20 @@ export async function cleanupExpiredGuests(deps: GuestDemoDeps, limit = 50, budg
   const started = now();
   const tried = new Set<string>();
   for (;;) {
-    const batch = (await deps.store.listExpired(limit + tried.size)).filter((g) => !tried.has(g.sessionId)).slice(0, limit);
+    const batch = (await deps.store.listExpired(limit + tried.size, new Date(now()).toISOString())).filter((g) => !tried.has(g.sessionId)).slice(0, limit);
     if (!batch.length) break;
     for (const guest of batch) {
       tried.add(guest.sessionId);
       try {
-        for (const voiceId of guest.providerVoiceIds) await deps.provider.deleteVoice(voiceId);
+        if (guest.providerVoiceIds.length) {
+          try {
+            for (const voiceId of guest.providerVoiceIds) await deps.provider.deleteVoice(voiceId);
+          } catch (err) {
+            await deps.store.markDeletion(guest.sessionId, "provider_voice", "failed").catch(() => undefined);
+            throw err;
+          }
+          await deps.store.markDeletion(guest.sessionId, "provider_voice", "deleted");
+        }
         await deps.store.deleteStorage(guest.storageKeys);
         await deps.store.deleteSession(guest.sessionId);
         result.deleted += 1;
@@ -97,18 +105,19 @@ export async function cleanupExpiredGuests(deps: GuestDemoDeps, limit = 50, budg
       }
     }
     if (now() - started > budgetMs) {
-      result.backlog = (await deps.store.listExpired(tried.size + 1)).some((g) => !tried.has(g.sessionId));
+      result.backlog = (await deps.store.listExpired(tried.size + 1, new Date(now()).toISOString())).some((g) => !tried.has(g.sessionId));
       break;
     }
   }
-  result.overdue = await deps.store.overdueCount(new Date(now() - GUEST_TTL_MS).toISOString());
+  // A session expires GUEST_TTL_MS after it starts, so this counts demos started over 48 hours ago.
+  result.overdue = await deps.store.overdueCount(new Date(now() - (DEMO_DELETION_PROMISE_MS - GUEST_TTL_MS)).toISOString());
   return result;
 }
 
 /** What needs an admin's attention after a cleanup run, or null when it went fine. */
 export function cleanupAlert(guests: CleanupResult | null, candidates: { failed: number } | null, candidatesError: boolean): string | null {
   const problems: string[] = [];
-  if (guests?.failed) problems.push(`${guests.failed} expired demo(s) couldn't be deleted this run; they'll be retried tomorrow.`);
+  if (guests?.failed) problems.push(`${guests.failed} expired demo(s) couldn't be deleted this run; they'll be retried on the next run.`);
   if (guests?.overdue) problems.push(`${guests.overdue} demo(s) are past the 48-hour deletion promise and still not deleted.`);
   if (guests?.backlog) problems.push("The run ran out of time with expired demos still waiting.");
   if (candidates?.failed) problems.push(`${candidates.failed} unkept account recording(s) couldn't be deleted.`);

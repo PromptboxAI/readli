@@ -4,7 +4,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * An in-memory stand-in for the parts of the Supabase client the server code uses: table queries with
  * the common filters, inserts, updates, deletes and upserts (with onConflict and ignoreDuplicates),
  * storage remove and list, auth admin lookups and deletion, and named rpc handlers. Unique columns
- * can be declared so an insert that would duplicate one fails the way Postgres does.
+ * can be declared so an insert that would duplicate one fails the way Postgres does, and foreign keys
+ * with on delete cascade so deleting a parent row deletes its children. Storage keeps its files: a
+ * remove deletes them (or fails, for keys `failRemove` matches) and list shows a folder's direct
+ * children the way Supabase does, with sub-folders as entries whose id is null.
  */
 type Row = Record<string, unknown>;
 type Filter = (r: Row) => boolean;
@@ -14,6 +17,10 @@ export interface FakeOptions {
   users?: Record<string, { email: string | null; email_confirmed_at?: string | null }>;
   unique?: Record<string, string[]>;
   rpc?: Record<string, (args: Row, tables: Record<string, Row[]>) => unknown>;
+  /** Parent table to [child table, foreign key column] pairs deleted with it. */
+  cascade?: Record<string, [string, string][]>;
+  /** Storage removes fail while this returns true for a bucket and key. */
+  failRemove?: (bucket: string, key: string) => boolean;
 }
 
 let seq = 0;
@@ -33,6 +40,7 @@ export function fakeSupabase(tables: Record<string, Row[]> = {}, opts: FakeOptio
     let range: [number, number] | null = null;
     let single = false;
     let order: { col: string; asc: boolean } | null = null;
+    let count: { head: boolean } | null = null;
 
     // "col" is a unique column; "col=value" a partial unique index on rows where col = value.
     const violates = (row: Row, except?: Row) =>
@@ -51,7 +59,7 @@ export function fakeSupabase(tables: Record<string, Row[]> = {}, opts: FakeOptio
           t(name).push(row);
           made.push(row);
         }
-        return { data: returning ? made.map((r) => ({ ...r })) : null, error: null };
+        return { data: returning ? (single ? { ...made[0] } : made.map((r) => ({ ...r }))) : null, error: null };
       }
       if (op.kind === "upsert") {
         const made: Row[] = [];
@@ -69,7 +77,7 @@ export function fakeSupabase(tables: Record<string, Row[]> = {}, opts: FakeOptio
             made.push(row);
           }
         }
-        return { data: returning ? made.map((r) => ({ ...r })) : null, error: null };
+        return { data: returning ? (single ? { ...made[0] } : made.map((r) => ({ ...r }))) : null, error: null };
       }
       let hit = t(name).filter((r) => filters.every((f) => f(r)));
       if (op.kind === "update") {
@@ -81,9 +89,10 @@ export function fakeSupabase(tables: Record<string, Row[]> = {}, opts: FakeOptio
         return { data: returning ? hit.map((r) => ({ ...r })) : null, error: null };
       }
       if (op.kind === "delete") {
-        tables[name] = t(name).filter((r) => !hit.includes(r));
+        deleteRows(name, hit);
         return { data: returning ? hit : null, error: null };
       }
+      if (count) return { data: count.head ? null : hit.map((r) => ({ ...r })), count: hit.length, error: null } as never;
       if (order) {
         const { col, asc } = order;
         hit = [...hit].sort((a, b) => (asc ? cmp(a[col], b[col]) : cmp(b[col], a[col])));
@@ -95,7 +104,9 @@ export function fakeSupabase(tables: Record<string, Row[]> = {}, opts: FakeOptio
     };
 
     const q = {
-      select: () => ((returning = op.kind !== "select"), q),
+      select: (_cols?: string, o?: { count?: string; head?: boolean }) => (
+        (returning = op.kind !== "select"), o?.count && (count = { head: Boolean(o.head) }), q
+      ),
       eq: (k: string, v: unknown) => (filters.push((r) => r[k] === v), q),
       neq: (k: string, v: unknown) => (filters.push((r) => r[k] !== v), q),
       in: (k: string, v: unknown[]) => (filters.push((r) => v.includes(r[k])), q),
@@ -127,6 +138,13 @@ export function fakeSupabase(tables: Record<string, Row[]> = {}, opts: FakeOptio
     return q;
   };
 
+  const deleteRows = (name: string, rows: Row[]) => {
+    tables[name] = t(name).filter((r) => !rows.includes(r));
+    for (const [child, fk] of opts.cascade?.[name] ?? []) deleteRows(child, t(child).filter((c) => rows.some((r) => r.id === c[fk])));
+  };
+  const files = (opts.files ??= {});
+  const uploads: Record<string, Blob> = {};
+
   const db = {
     from,
     rpc: async (name: string, args: Row) => {
@@ -136,11 +154,31 @@ export function fakeSupabase(tables: Record<string, Row[]> = {}, opts: FakeOptio
     },
     storage: {
       from: (bucket: string) => ({
-        remove: async (keys: string[]) => ((removed[bucket] ??= []).push(...keys), { data: [], error: null }),
-        list: async (folder: string) => ({
-          data: (opts.files?.[bucket] ?? []).filter((k) => k.startsWith(`${folder}/`)).map((k) => ({ id: k, name: k.slice(folder.length + 1) })),
-          error: null,
-        }),
+        upload: async (key: string, body: Blob) => {
+          const keys = (files[bucket] ??= []);
+          if (!keys.includes(key)) keys.push(key);
+          uploads[key] = body;
+          return { data: { path: key }, error: null };
+        },
+        download: async (key: string) =>
+          (files[bucket] ?? []).includes(key) && uploads[key] ? { data: uploads[key], error: null } : { data: null, error: { message: "Object not found" } },
+        remove: async (keys: string[]) => {
+          const failing = keys.find((k) => opts.failRemove?.(bucket, k));
+          if (failing) return { data: null, error: { message: `storage unavailable for ${failing}` } };
+          (removed[bucket] ??= []).push(...keys);
+          if (files[bucket]) files[bucket] = files[bucket].filter((k) => !keys.includes(k));
+          return { data: keys.map((name) => ({ name })), error: null };
+        },
+        list: async (folder: string, o?: { limit?: number; offset?: number }) => {
+          const children = new Map<string, string | null>();
+          for (const k of (files[bucket] ?? []).filter((k) => k.startsWith(`${folder}/`))) {
+            const [first, ...rest] = k.slice(folder.length + 1).split("/");
+            children.set(first ?? "", rest.length ? null : k);
+          }
+          const all = [...children].map(([name, id]) => ({ id, name }));
+          const offset = o?.offset ?? 0;
+          return { data: all.slice(offset, offset + (o?.limit ?? 100)), error: null };
+        },
       }),
     },
     auth: {
@@ -154,5 +192,5 @@ export function fakeSupabase(tables: Record<string, Row[]> = {}, opts: FakeOptio
       },
     },
   } as unknown as SupabaseClient;
-  return { db, tables, removed, auth, rpcs };
+  return { db, tables, removed, auth, rpcs, files };
 }

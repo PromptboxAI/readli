@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { serverConfig } from "@/lib/server/config";
 import { fail } from "@/lib/server/http";
 import { recordVoiceEvent } from "@/lib/server/voice-analytics";
-import { accountVoiceDeps, discardVoiceCandidate } from "@/lib/voice/account-voices";
+import { AccountVoiceError, accountVoiceDeps, discardVoiceCandidate } from "@/lib/voice/account-voices";
 import { voiceOwner } from "@/lib/voice/owner";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,12 @@ export async function DELETE() {
   if ("error" in owner) return owner.error;
   const user = owner.user;
   const had = await deps.store.findCandidate(user.id);
-  await discardVoiceCandidate(deps, user.id);
+  try {
+    await discardVoiceCandidate(deps, user.id);
+  } catch (err) {
+    if (err instanceof AccountVoiceError) return fail(err.status, err.code, err.userMessage);
+    throw err;
+  }
   if (had) await recordVoiceEvent(config, { name: "voice_discarded", userId: user.id, properties: { surface: "account" } });
   return NextResponse.json({ discarded: Boolean(had) });
 }

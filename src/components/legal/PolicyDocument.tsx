@@ -4,7 +4,7 @@ import type { PolicySection } from "@/lib/content/privacy-policy";
 
 const TOKEN = /(\[[A-Z][A-Z -]*\]|[\w.+-]+@[\w-]+\.[\w.]+\w|https:\/\/[^\s]+\w)/;
 
-/** Links emails and URLs, and highlights details still to be confirmed, like [LOG RETENTION PERIODS TO BE CONFIRMED]. */
+/** Links emails and URLs, and highlights any bracketed placeholder so it cannot go out unnoticed. */
 function RichText({ text }: { text: string }) {
   return text.split(TOKEN).map((part, i) => {
     if (i % 2 === 0) return <Fragment key={i}>{part}</Fragment>;

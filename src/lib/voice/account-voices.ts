@@ -211,13 +211,19 @@ export async function createVoiceCandidate(deps: AccountVoiceDeps, owner: { id: 
   }
   const previous = await deps.store.findCandidate(owner.id);
   const candidate = await deps.store.saveCandidate(owner, providerVoiceId, metaOf(agreed), saved);
-  if (previous) await dropCandidate(deps, previous);
+  // If the old candidate can't be deleted now, its row stays and the daily clean-up retries it.
+  if (previous) await dropCandidate(deps, previous).catch((err) => console.error("previous candidate delete failed", err));
   return candidate;
 }
 
+/**
+ * Deletes a candidate's provider voice and recording, then its row. The row holds the only reference
+ * to both, so it is deleted only after both succeed; on failure it stays for the daily clean-up to retry.
+ * Both steps are safe to repeat (a voice or file already gone counts as deleted).
+ */
 async function dropCandidate(deps: AccountVoiceDeps, candidate: VoiceCandidate) {
-  await deps.provider.deleteVoice(candidate.providerVoiceId).catch((err) => console.error("candidate voice delete failed", err));
-  await deps.store.deleteTake(candidate.storageKey).catch((err) => console.error("candidate take delete failed", err));
+  await deps.provider.deleteVoice(candidate.providerVoiceId);
+  await deps.store.deleteTake(candidate.storageKey);
   await deps.store.deleteCandidate(candidate.id);
 }
 
@@ -271,7 +277,13 @@ export function consentPurposes(agreement: VoiceAgreement): string[] {
 /** Throws the new recording away. The owner's current voice, if any, carries on unchanged. */
 export async function discardVoiceCandidate(deps: AccountVoiceDeps, ownerId: string): Promise<void> {
   const candidate = await deps.store.findCandidate(ownerId);
-  if (candidate) await dropCandidate(deps, candidate);
+  if (!candidate) return;
+  try {
+    await dropCandidate(deps, candidate);
+  } catch (err) {
+    console.error("candidate discard failed", candidate.id, err);
+    throw new AccountVoiceError(502, "discard_failed", "We couldn't delete that recording just now. Please try again.");
+  }
 }
 
 /** Daily: clears candidates left undecided for a day, so no provider voice lingers. */

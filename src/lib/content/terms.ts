@@ -149,7 +149,7 @@ export const TERMS_SECTIONS: PolicySection[] = [
     title: "8. Public demo",
     paragraphs: [
       {
-        text: "An anonymous voice preview may be available subject to a recording consent notice, provider disclosures, rate limits, and fraud prevention measures. Demo recordings, temporary demo voices and preview audio are deleted within 48 hours unless you create an account and choose to keep the recording as your voice. Preview availability is not guaranteed; the Privacy Policy explains the processing and deletion practices. Demo recordings are used only to make the preview and are not used to develop Readli technology or licensed to anyone.",
+        text: "An anonymous voice preview may be available subject to a recording consent notice, provider disclosures, rate limits, and fraud prevention measures. Demo recordings, temporary demo voices and preview audio are normally deleted within 48 hours unless you create an account and choose to keep the recording as your voice. Preview availability is not guaranteed; the Privacy Policy explains the processing and deletion practices. Demo recordings are used only to make the preview and are not used to develop Readli technology or licensed to anyone.",
       },
     ],
   },

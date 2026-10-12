@@ -11,9 +11,11 @@ export const maxDuration = 60;
 
 /**
  * Deletes expired guest demos (their recordings, preview audio, provider voices and rows), plus account
- * voice recordings nobody kept or discarded within a day. Vercel Cron calls this daily with CRON_SECRET;
- * with the 24-hour demo session that keeps every demo within the public 48-hour promise. Failures, a
- * backlog or anything past 48 hours emails the admins and returns 500 so the cron run shows as failed.
+ * voice recordings nobody kept or discarded within a day. Vercel Cron calls this three times a day
+ * (05:00, 13:00 and 21:00 UTC) with CRON_SECRET. On Hobby a run can start any time in its hour, so an
+ * expired demo waits at most about 9 hours: with the 24-hour session, about 33 hours from the start of
+ * the demo, leaving room for one failed run inside the public 48-hour promise (guest-cleanup-timing.test).
+ * Failures, a backlog or anything past 48 hours emails the admins and returns 500 so the run shows as failed.
  */
 export async function GET(req: Request) {
   const config = serverConfig();
@@ -44,7 +46,7 @@ export async function GET(req: Request) {
       await queueOpsAlert(db, {
         key: "demo_cleanup",
         subject: "Readli demo clean-up needs attention",
-        body: `The daily demo clean-up reported a problem:\n\n${problem}\n\nReadli promises that demo recordings, demo voices and preview audio are deleted within 48 hours. Check the Vercel cron logs for /api/cron/guest-cleanup.`,
+        body: `The demo clean-up reported a problem:\n\n${problem}\n\nReadli promises that demo recordings, demo voices and preview audio are normally deleted within 48 hours. Check the Vercel cron logs for /api/cron/guest-cleanup.`,
       }).catch((err) => console.error("ops alert failed", err));
     }
   }
