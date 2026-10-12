@@ -1,11 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
+import { hashGiftCode } from "@/lib/gifting/codes.server";
 import { MemoryMailer } from "./email";
 import {
   acceptInvitation,
   approvePreview,
   emailHash,
   generatePreview,
+  giftPreview,
+  playGiftPreview,
   hashInvitationToken,
   invitationIdFromRespondToken,
   maskEmail,
@@ -184,5 +187,21 @@ describe("family invitations on the server", () => {
     const { db, calls } = fakeDb({}, () => "not_guardian");
     expect(await acceptInvitation(db, "tok", "u2", "h1")).toBe("not_guardian");
     expect(calls).toEqual([{ name: "accept_voice_invitation", args: { p_token_hash: hashInvitationToken("tok"), p_user: "u2", p_household: "h1" } }]);
+  });
+
+  it("play the giver's approved preview on their gift's page, and nothing for a cancelled gift", async () => {
+    const code = "ABCD-EFGH-JKMN";
+    const { db, tables } = fakeDb({
+      gifts: [{ id: "g1", giver_id: "u1", status: "sent", code_hash: hashGiftCode(code) }],
+      voice_profiles: [{ id: "v1", owner_id: "u1", status: "ready", version: 2 }],
+      voice_previews: [{ id: "p1", owner_id: "u1", voice_version: 2, approved_at: "2026-10-01", retired_at: null, book_slug: "winnie-the-pooh", storage_key: "u1/p1.mp3" }],
+      adult_profiles: [{ user_id: "u1", display_name: "June" }],
+    });
+    expect(await giftPreview(db, code)).toEqual({ giverName: "June", book: { title: "Winnie-the-Pooh", coverUrl: expect.any(String) } });
+    expect(await playGiftPreview(db, code)).toBe("https://signed/u1/p1.mp3");
+    expect(tables.analytics_events!.map((e) => e.name)).toEqual(["gift_preview_played"]);
+    tables.gifts![0]!.status = "cancelled";
+    expect(await playGiftPreview(db, code)).toBeNull();
+    expect(await giftPreview(db, "nonsense")).toBeNull();
   });
 });
