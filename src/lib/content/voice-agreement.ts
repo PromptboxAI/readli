@@ -1,6 +1,6 @@
 /**
  * Readli Voice Recording & AI Training Agreement, from Kevin's proposed voice-rights terms (2026-10-11).
- * Counsel must review before launch. The exact wording a contributor accepts is stored on their agreement
+ * The exact wording a contributor accepts is stored on their agreement
  * record, so bump VOICE_AGREEMENT_VERSION whenever a line here or a permission statement changes.
  */
 

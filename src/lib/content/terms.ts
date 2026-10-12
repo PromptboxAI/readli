@@ -2,7 +2,7 @@
  * Readli Terms of Service, from Kevin's draft "Readli_Terms_of_Service_Readli_ai_LLC_DRAFT.docx" (2026-10-10).
  * Not published from the draft: the internal "Pre-publication verification" checklist and the two
  * [COUNSEL REVIEW REQUIRED] notes (§14: whether to add a liability cap and exclusions; §15: courts or dispute
- * process, consumer notices, and whether arbitration is appropriate). Counsel must review before launch.
+ * process, consumer notices, and whether arbitration is appropriate).
  * 2026-10-11: voice-rights amendment (Kevin): recording, development and licensing rights, provider substitution,
  * contributor representations, payment and Archive entitlements, credit expiry, generated content, business
  * transfers and withdrawal. Sections renumbered.
@@ -158,7 +158,7 @@ export const TERMS_SECTIONS: PolicySection[] = [
     title: "9. Subscriptions, payment, credits and the Archive",
     paragraphs: [
       {
-        text: "When paid plans launch, the checkout page will present the then-current price, included features, recurring billing interval, applicable taxes, any usage quotas, trial conditions, how to cancel, and refund rules. You authorize charges only through a clearly disclosed checkout process.",
+        text: "Before you pay, the checkout page shows the then-current price, included features, recurring billing interval, applicable taxes, any usage quotas, trial conditions, how to cancel, and refund rules. You authorize charges only through a clearly disclosed checkout process.",
       },
       {
         lead: "Changing plan",
@@ -198,7 +198,7 @@ export const TERMS_SECTIONS: PolicySection[] = [
         text: "Inviting a family member to join Readli, contribute a voice, or accept a family-tree connection does not create a paid membership or grant automatic voice access.",
       },
       {
-        text: 'If available, "Invite & Gift" permits an adult purchaser to pay for another adult’s or household’s plan using a fixed-duration gift or a recurring sponsorship. The buyer controls their payment method and recurring sponsorship; the recipient retains control of their account, children’s profiles, family connections, and voice permissions.',
+        text: '"Invite & Gift" lets an adult purchaser to pay for another adult’s or household’s plan using a fixed-duration gift or a recurring sponsorship. The buyer controls their payment method and recurring sponsorship; the recipient retains control of their account, children’s profiles, family connections, and voice permissions.',
       },
       {
         text: "Fixed-term gifts do not authorize charges to the recipient. Recurring gifts must clearly disclose the amount, frequency, renewal, and cancellation method to the purchaser before checkout. Cancellation or payment failure may end sponsored access after notice or an applicable grace period; recipients may be offered the option to pay independently. Refunds and redemption periods are disclosed at purchase.",
@@ -336,7 +336,7 @@ export const TERMS_SECTIONS: PolicySection[] = [
     title: "20. Governing law and disputes",
     paragraphs: [
       {
-        text: "These Terms are intended to be governed by the laws of New York, subject to mandatory consumer protections that apply where you live.",
+        text: "These Terms are governed by the laws of the State of New York, subject to mandatory consumer protections that apply where you live.",
       },
     ],
   },

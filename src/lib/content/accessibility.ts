@@ -7,8 +7,7 @@
 
 import type { PolicySection } from "@/lib/content/privacy-policy";
 
-/** The draft says to set the real effective date when it is published. */
-export const ACCESSIBILITY_EFFECTIVE_DATE = "October 10, 2026";
+export const ACCESSIBILITY_EFFECTIVE_DATE = "October 12, 2026";
 
 export const ACCESSIBILITY_INTRO: string[] = [
   "At Readli, we want stories to be enjoyable and accessible to families with a wide range of needs and abilities. This statement covers readli.ai and Readli’s web-based experiences. It describes our accessibility goals and how to contact us for help. This is a commitment and feedback statement, not a certification that every feature currently meets an accessibility standard.",
@@ -62,7 +61,7 @@ export const ACCESSIBILITY_SECTIONS: PolicySection[] = [
     title: "Third-party services",
     paragraphs: [
       {
-        text: "Some features may depend on outside providers, including speech processing, authentication, billing, embedded media, or external links. We cannot control every aspect of their interfaces, but accessibility concerns about experiences reached through Readli can be reported to us and will be evaluated.",
+        text: "Some features may depend on outside providers, including speech processing, authentication, billing, embedded media, or external links. We cannot control every aspect of their interfaces, but accessibility concerns about experiences reached through Readli can be reported to us and we review each report.",
       },
     ],
   },
@@ -83,7 +82,7 @@ export const ACCESSIBILITY_SECTIONS: PolicySection[] = [
     title: "Updates",
     paragraphs: [
       {
-        text: "We will revise this statement when our accessibility practices, supported features, or testing results materially change. Last updated: October 10, 2026.",
+        text: "We will revise this statement when our accessibility practices, supported features, or testing results materially change. Last updated: October 12, 2026.",
       },
     ],
   },

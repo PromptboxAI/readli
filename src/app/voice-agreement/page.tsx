@@ -16,7 +16,6 @@ export default function VoiceAgreementPage() {
       <PolicyDocument
         title="Voice Recording & AI Training Agreement"
         effectiveDate={VOICE_AGREEMENT_EFFECTIVE_DATE}
-        draftNote
         intro={VOICE_AGREEMENT_INTRO}
         sections={VOICE_AGREEMENT_SECTIONS}
       />

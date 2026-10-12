@@ -16,7 +16,6 @@ export default function AccessibilityPage() {
       <PolicyDocument
         title="Accessibility Statement"
         effectiveDate={ACCESSIBILITY_EFFECTIVE_DATE}
-        draftNote
         intro={ACCESSIBILITY_INTRO}
         sections={ACCESSIBILITY_SECTIONS}
       />

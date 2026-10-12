@@ -1,7 +1,7 @@
 /**
  * Readli's billing and refund policy (Kevin, 2026-10-12, "Final Business Policy Decisions", 1 to 4).
  * One wording for the Terms, the in-app purchase screens and Stripe Checkout, so what a customer sees
- * before paying matches the Terms. Counsel must review before launch.
+ * before paying matches the Terms.
  */
 
 /** Days after purchase in which an unused credit pack can be refunded on request. */
