@@ -17,6 +17,7 @@ import { blockingIssues, QC_MESSAGES } from "@/lib/audio/qc";
 import { trackVoiceEvent } from "@/lib/voice/track";
 import { RecordingTipsDialog, TipsLink } from "./RecordingTips";
 import { Teleprompter, type TeleprompterProgress } from "./Teleprompter";
+import { micBlockedSteps, micPlatform } from "@/lib/audio/mic-help";
 import { MIC_ERROR_MESSAGES, useMicrophone, type RecordedTake } from "./useMicrophone";
 import { VoicePreview, type TakeDetails } from "./VoicePreview";
 
@@ -113,6 +114,22 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
     mic.resume();
     dispatch({ type: "resume" });
   };
+
+  // Show the fix before the first tap when the browser already has the microphone blocked.
+  const [micBlocked, setMicBlocked] = useState(false);
+  useEffect(() => {
+    let status: PermissionStatus | null = null;
+    const update = () => setMicBlocked(status?.state === "denied");
+    navigator.permissions
+      ?.query({ name: "microphone" as PermissionName })
+      .then((s) => {
+        status = s;
+        update();
+        s.addEventListener("change", update);
+      })
+      .catch(() => undefined);
+    return () => status?.removeEventListener("change", update);
+  }, []);
 
   const startRecording = async () => {
     setNotice(null);
@@ -273,10 +290,14 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
 
           {state.status !== "review" && <InputMeter levelRef={mic.levelRef} active={mic.isOpen} />}
 
-          {mic.error && (
-            <p role="alert" className="rounded-2xl bg-coral/25 p-3 text-sm">
-              {MIC_ERROR_MESSAGES[mic.error]}
-            </p>
+          {mic.error === "denied" || (micBlocked && !mic.isOpen) ? (
+            <MicBlockedHelp />
+          ) : (
+            mic.error && (
+              <p role="alert" className="rounded-2xl bg-coral/25 p-3 text-sm">
+                {MIC_ERROR_MESSAGES[mic.error]}
+              </p>
+            )
           )}
 
           {notice && (
@@ -469,6 +490,24 @@ function ConsentStep({
         No account or email needed. <Link href="/privacy" className="underline">How we handle voice recordings</Link>
       </p>
     </form>
+  );
+}
+
+/** A blocked microphone, with steps for the reader's own browser and a reload to pick up the change. */
+function MicBlockedHelp() {
+  const [help] = useState(() => micBlockedSteps(micPlatform(navigator.userAgent)));
+  return (
+    <div role="alert" className="flex flex-col gap-2 rounded-2xl bg-coral/25 p-3 text-sm" data-testid="mic-blocked">
+      <p className="font-semibold">Microphone access was blocked. {help.lead}</p>
+      <ol className="flex list-decimal flex-col gap-1 pl-5">
+        {help.steps.map((s) => (
+          <li key={s}>{s}</li>
+        ))}
+      </ol>
+      <button type="button" className="w-fit font-semibold underline underline-offset-4" onClick={() => window.location.reload()}>
+        Reload the page
+      </button>
+    </div>
   );
 }
 

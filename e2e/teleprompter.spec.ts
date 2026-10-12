@@ -42,11 +42,13 @@ test("continuous take: no Next button, scrolls, pauses, resumes, finishes at the
   await expect(finish).toBeDisabled();
   await expect(page.locator("#duration-guidance-text")).toContainText(/end of the story/i);
   await prompter.hover();
-  // Scroll to the end, stepping the timers so each scroll registers, then dwell on the last line.
+  // Scroll to the end, stepping the timers so each scroll registers, then spend a few seconds on the last line.
   await expect
     .poll(async () => {
       await page.mouse.wheel(0, 5_000);
-      await page.clock.runFor(1_000);
+      await page.clock.runFor(500);
+      // A jump fires the elapsed-time timer once with the whole gap, like a few seconds on the last line.
+      await page.clock.fastForward(4_000);
       return finish.isEnabled();
     }, { timeout: 20_000 })
     .toBe(true);
@@ -127,6 +129,8 @@ test("blocked microphone shows recovery guidance and does not start", async ({ p
   await consent(page);
   await page.getByRole("button", { name: "Start recording" }).click();
   await expect(page.getByText(/Microphone access was blocked/)).toBeVisible();
+  await expect(page.getByTestId("mic-blocked").getByRole("listitem").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reload the page" })).toBeVisible();
   await expect(page.getByRole("status")).toHaveText(/Ready to record/);
 });
 
