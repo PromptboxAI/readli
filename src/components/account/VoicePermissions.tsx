@@ -166,11 +166,11 @@ export function VoicePermissions() {
         </Choice>
         <Choice letter="C" title={VOICE_CHOICES.deleteVoice.title}>
           <p className="text-sm">
-            {VOICE_CHOICES.deleteVoice.notice}{" "}
-            <a href="/family/my-voice" className="font-semibold underline underline-offset-4">
-              Delete it on My voice
-            </a>
-            .
+            Deleting a voice yourself is paused while we update how finished stories are kept. Email{" "}
+            <a href="mailto:admin@readli.ai" className="font-semibold underline underline-offset-4">
+              admin@readli.ai
+            </a>{" "}
+            if you need it deleted now.
           </p>
         </Choice>
       </div>

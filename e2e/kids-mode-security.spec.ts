@@ -52,10 +52,8 @@ test.describe("Kids Mode on a device", () => {
   });
 });
 
-// Deleting a voice is back with the voice rights work: finished stories stay with the families they
-// were shared with. It still needs a signed-in grown-up off Kids Mode.
-test("deleting a voice needs a signed-in grown-up", async ({ request }) => {
+test("deleting a voice is paused for everyone until finished stories are kept", async ({ request }) => {
   const res = await request.delete("/api/voice");
-  expect([401, 503]).toContain(res.status());
-  expect(["sign_in_required", "voices_off"]).toContain((await res.json()).error.code);
+  expect(res.status()).toBe(409);
+  expect((await res.json()).error.code).toBe("deletion_paused");
 });

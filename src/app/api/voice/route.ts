@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
-import { VOICE_CHOICES_NOTICE_VERSION } from "@/lib/content/voice-agreement";
-import { accountDb } from "@/lib/family/account-store";
-import { requestRecordingDeletion } from "@/lib/lifecycle/recordings";
 import { serverConfig } from "@/lib/server/config";
 import { fail } from "@/lib/server/http";
 import { recordVoiceEvent } from "@/lib/server/voice-analytics";
-import { AccountVoiceError, accountVoiceDeps, createVoiceCandidate, deleteAccountVoice } from "@/lib/voice/account-voices";
+import { AccountVoiceError, accountVoiceDeps, createVoiceCandidate } from "@/lib/voice/account-voices";
 import { voiceOwner } from "@/lib/voice/owner";
 
 export const dynamic = "force-dynamic";
@@ -96,31 +93,10 @@ export async function POST(req: Request) {
 }
 
 /**
- * "Delete my voice entirely" (action C): no new stories in it, its clone deleted at the provider and never
- * re-made, unfinished narration stopped with credits returned, its recordings out of training and queued
- * for deletion from storage (normally within 30 days). Stories already prepared keep playing for the
- * families it was shared with. They can record a new one at any time.
+ * Deleting a voice is paused (Kevin, 2026-10-11 and 2026-10-12): before it comes back, household-sharing
+ * dependencies are verified, deleting source recordings is kept apart from revoking future stories, and
+ * finished authorized stories stay available. deleteAccountVoice is ready but not reachable from here.
  */
 export async function DELETE() {
-  const deps = accountVoiceDeps(serverConfig());
-  if (!deps) return fail(503, "voices_off", VOICES_OFF);
-  const owner = await voiceOwner("Please sign in to delete your voice.");
-  if ("error" in owner) return owner.error;
-  try {
-    const result = await deleteAccountVoice(deps, owner.user.id);
-    const db = accountDb();
-    const deletion = db
-      ? await requestRecordingDeletion(db, {
-          ownerId: owner.user.id,
-          voiceId: result.voiceId,
-          reason: "owner_request",
-          at: new Date(),
-          detail: { action: "delete_voice", notice: VOICE_CHOICES_NOTICE_VERSION },
-        })
-      : null;
-    return NextResponse.json({ voice: null, stoppedJobs: result.stoppedJobs, recordingsDueBy: deletion?.dueAt ?? null });
-  } catch (err) {
-    if (err instanceof AccountVoiceError) return fail(err.status, err.code, err.userMessage);
-    throw err;
-  }
+  return fail(409, "deletion_paused", "Deleting a voice is paused while we update how finished stories are kept. Your voice hasn't changed. Email admin@readli.ai if you need it deleted now.");
 }

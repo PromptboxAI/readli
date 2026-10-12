@@ -4,6 +4,7 @@ import { accountDb } from "@/lib/family/account-store";
 import { jsonBody } from "@/lib/family/http";
 import { writeAudit } from "@/lib/lifecycle/db";
 import { cloneMayRemain, requestRecordingDeletion } from "@/lib/lifecycle/recordings";
+import { lifecycleFlags } from "@/lib/lifecycle/run";
 import { serverConfig } from "@/lib/server/config";
 import { fail } from "@/lib/server/http";
 import { accountVoiceDeps, retireUnusedClone } from "@/lib/voice/account-voices";
@@ -52,7 +53,8 @@ export async function POST(req: Request) {
     detail: { action: "delete_recordings", notice: VOICE_CHOICES_NOTICE_VERSION, clone_kept: clone.keep },
   });
   let cloneRetired = false;
-  if (clone.voiceId && !clone.keep) {
+  // Retiring the clone at once waits for LIFECYCLE_CLONE_RETIREMENT (Kevin, 2026-10-12).
+  if (clone.voiceId && !clone.keep && lifecycleFlags().cloneRetirement) {
     const deps = accountVoiceDeps(serverConfig());
     if (deps) cloneRetired = await retireUnusedClone(deps, clone.voiceId);
   }
