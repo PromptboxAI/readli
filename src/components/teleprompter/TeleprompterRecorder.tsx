@@ -59,7 +59,6 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
   const [autoScrollOn, setAutoScrollOn] = useState(true);
   const [wpm, setWpm] = useState(DEFAULT_WPM);
   const [fontIndex, setFontIndex] = useState(DEFAULT_FONT_INDEX);
-  const [progress, setProgress] = useState<TeleprompterProgress>({ activeSentence: 0, remainingSeconds: 0 });
   const [notice, setNotice] = useState<string | null>(null);
   const [showBooks, setShowBooks] = useState(false);
   // Settings start collapsed on phones so the script keeps most of the screen.
@@ -70,6 +69,8 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
   // Set when the reader asked how to improve and records again, so the dashboard can count re-records.
   const [afterFeedback, setAfterFeedback] = useState(false);
   const sentences = useMemo(() => script.paragraphs.flatMap(splitSentences), [script]);
+  // Finish turns on at the first sentence of the last paragraph.
+  const finishFromSentence = useMemo(() => script.paragraphs.slice(0, -1).flatMap(splitSentences).length, [script]);
   const sentenceWords = useMemo(() => sentences.map((t) => t.split(/\s+/).filter(Boolean).length), [sentences]);
   const [starting, setStarting] = useState(false);
   const [interruptions, setInterruptions] = useState(0);
@@ -208,10 +209,9 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
 
   const onProgress = useCallback(
     (p: TeleprompterProgress) => {
-      setProgress(p);
-      dispatch({ type: "progress", sentence: p.activeSentence, totalSentences: sentences.length });
+      dispatch({ type: "progress", sentence: p.activeSentence, totalSentences: sentences.length, finishFromSentence });
     },
-    [sentences.length],
+    [sentences.length, finishFromSentence],
   );
 
   const startOver = (reason: "start_over" | "feedback" = "start_over") => {
@@ -277,14 +277,12 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
           {state.status !== "review" && (
           <p id="duration-guidance-text" className="text-xs text-muted sm:text-sm" data-testid="duration-guidance">
             {state.status === "ready"
-              ? "Read the whole story aloud, about 1 to 2 minutes. Finish unlocks when you reach the end."
+              ? "Read the whole story aloud, about 1 to 2 minutes. Finish turns on when you reach the last paragraph."
               : blocker === "script"
-                ? progress.remainingSeconds > 0
-                  ? `Keep reading: Finish unlocks at the end of the story. About ${progress.remainingSeconds}s left at this speed.`
-                  : "Read the last line, then Finish unlocks."
+                ? "Keep reading: Finish turns on when you reach the last paragraph."
                 : blocker === "time"
                   ? `You read quickly! Keep going until ${formatClock(MIN_FINISH_MS)} so we have enough of your voice. Read a line again if you need to.`
-                  : "You've reached the end. Tap Finish."}
+                  : "You're on the last paragraph. Read to the end, then tap Finish."}
           </p>
           )}
 
