@@ -114,3 +114,13 @@ test("a parent sees and revokes a device, and it loses access on its next reques
   await expect(page.getByText("Readli Kids has ended on this device.")).toBeVisible();
   await phone.close();
 });
+
+test("Readli Kids saves to the home screen as an app that opens on the bookshelf", async ({ page, context }) => {
+  await parentSetsUpDevice(page, context);
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/kids$/);
+  const href = await page.locator('link[rel="manifest"]').getAttribute("href");
+  expect(href).toBe("/kids/app.webmanifest");
+  const manifest = await (await page.request.get(href!)).json();
+  expect(manifest).toMatchObject({ name: "Readli Kids", start_url: "/kids", scope: "/kids", display: "standalone" });
+});
