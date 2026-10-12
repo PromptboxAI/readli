@@ -1,7 +1,7 @@
 import type { GuestStore } from "@/lib/server/guest-store";
 import { AccountVoiceError, createVoiceCandidate, type AccountVoiceDeps, type VoiceCandidate } from "./account-voices";
 
-export const NO_DEMO_RECORDING = "We couldn't find your demo recording. Demo recordings are deleted after 24 hours, so please record again.";
+export const NO_DEMO_RECORDING = "We couldn't find your demo recording. A demo recording can only be kept for 24 hours after you make it, so please record again.";
 
 /**
  * Makes a candidate Readli voice (kept with "Keep my voice", like a new recording) from the take they recorded in the guest demo, on the same

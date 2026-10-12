@@ -126,11 +126,26 @@ describe("the daily lifecycle run", () => {
     expect(tables.households!.find((h) => h.id === "h1")!.cleaned_at).toBe(NOW.toISOString());
     expect(tables.household_entitlements).toHaveLength(2);
     expect(tables.narration_credit_lots).toHaveLength(1);
-    expect(tables.narration_credit_lots![0]!.expires_at).toBe(NOW.toISOString());
-    expect(tables.lifecycle_exceptions ?? []).toEqual([]);
+    // Purchased credits are held for an admin while credit forfeiture is off; never refunded automatically.
+    expect(tables.narration_credit_lots![0]!.expires_at ?? null).toBeNull();
+    expect(tables.lifecycle_exceptions).toEqual([expect.objectContaining({ kind: "purchased_credits_held", household_id: "h1" })]);
     expect(tables.household_recovery![0]).toMatchObject({ status: "deleted" });
     expect(tables.email_outbox).toEqual([expect.objectContaining({ template: "household_deleted", recipient_user_id: "sara" })]);
     expect(sent).toBe(1);
+  });
+
+  it("removes purchased credits and account credit at cleanup once credit forfeiture is on", async () => {
+    const { db, tables } = world();
+    tables.billing_customers = [{ household_id: "h1", customer_ref: "cus_1" }];
+    const cleared: string[] = [];
+    const report = await runLifecycle(
+      deps(db, { deletion: true, recordingDeletion: true, creditForfeiture: true, removeAccountCredit: async (c: string) => (cleared.push(c), 500) }),
+    );
+    expect(report.errors).toEqual([]);
+    expect(tables.narration_credit_lots![0]!.expires_at).toBe(NOW.toISOString());
+    expect(tables.lifecycle_exceptions ?? []).toEqual([]);
+    expect(cleared).toEqual(["cus_1"]);
+    expect(tables.lifecycle_audit_log!.find((x) => x.action === "household_cleaned")!.detail).toMatchObject({ account_credit_removed_cents: 500 });
   });
 
   it("is safe to run again", async () => {
@@ -138,7 +153,7 @@ describe("the daily lifecycle run", () => {
     await runLifecycle(deps(db, { deletion: true, recordingDeletion: true }));
     const again = await runLifecycle(deps(db, { deletion: true, recordingDeletion: true, now: () => new Date(NOW.getTime() + DAY) }));
     expect(again.errors).toEqual([]);
-    expect(tables.lifecycle_exceptions ?? []).toHaveLength(0);
+    expect(tables.lifecycle_exceptions).toHaveLength(1);
     expect(tables.email_outbox).toHaveLength(1);
     expect(tables.lifecycle_runs!.map((r) => r.status)).toEqual(["succeeded", "succeeded"]);
   });

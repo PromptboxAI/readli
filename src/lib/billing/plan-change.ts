@@ -14,8 +14,8 @@ import type { Params, StripeInvoicePreview, StripeSchedule, StripeSubscription }
  * - Downgrades (Family → Archive, yearly → monthly) are scheduled for the end of the term already
  *   paid for, so paid Family benefits are never removed early. The customer may instead choose to
  *   switch now: Stripe then credits the unused part of the period to the customer's balance, which
- *   pays future invoices. No cash refund is issued automatically; credit left when the subscription
- *   ends goes to the admin queue (credit-review.ts), so it is never silently forfeited.
+ *   pays future invoices. It is never paid out in cash. Credit left when a household's plan ends stays
+ *   through the 30-day recovery window and is removed at final closure (LIFECYCLE_CREDIT_FORFEITURE).
  * - During a free trial: switching between monthly and yearly keeps the trial; a downgrade to the
  *   Archive waits until the trial ends; ending the trial early to start paying needs the customer's
  *   explicit confirmation. A trial is never shortened silently.
@@ -210,7 +210,7 @@ export interface PlanChangePreview {
   endsTrial: boolean;
   /** Charged to the card when confirmed. */
   dueNowCents: number;
-  /** Credit for unused time, kept on the account to pay future bills (never a silent forfeit). */
+  /** Credit for unused time, kept on the account to pay future bills; never paid out in cash. */
   creditCents: number;
   /** The new plan's regular amount, and when it is first billed. */
   nextAmountCents: number;

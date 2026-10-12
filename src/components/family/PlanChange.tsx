@@ -109,7 +109,7 @@ export function PlanChangeConfirm(props: { to: PlanTarget; downgrade: boolean; i
           {preview.creditCents > 0 && (
             <li>
               <span className="font-semibold">Credit for unused time:</span> {formatPrice(preview.creditCents)}, kept on your account and used for your next bills. It
-              isn&apos;t paid out in cash; if your plan ends with credit left, it stays on your account for when you come back.
+              isn&apos;t paid out in cash. If your plan ends, any credit left is kept for 30 days in case you come back, then removed.
             </li>
           )}
           <li>

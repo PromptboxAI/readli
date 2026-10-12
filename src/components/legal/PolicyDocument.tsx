@@ -1,9 +1,10 @@
 import { Fragment } from "react";
+import { LEGAL_REVIEW_PENDING } from "@/lib/content/legal-status";
 import type { PolicySection } from "@/lib/content/privacy-policy";
 
 const TOKEN = /(\[[A-Z][A-Z -]*\]|[\w.+-]+@[\w-]+\.[\w.]+\w|https:\/\/[^\s]+\w)/;
 
-/** Links emails and URLs, and highlights launch placeholders like [PRIVACY EMAIL] so they are easy to spot. */
+/** Links emails and URLs, and highlights details still to be confirmed, like [LOG RETENTION PERIODS TO BE CONFIRMED]. */
 function RichText({ text }: { text: string }) {
   return text.split(TOKEN).map((part, i) => {
     if (i % 2 === 0) return <Fragment key={i}>{part}</Fragment>;
@@ -40,6 +41,11 @@ export function PolicyDocument({
         <h1 className="font-display text-4xl font-semibold sm:text-5xl">{title}</h1>
         <p className="text-muted">
           Effective date: {effectiveDate}
+          {LEGAL_REVIEW_PENDING && (
+            <span className="ml-2 inline-block rounded-full bg-sunshine px-3 py-0.5 text-sm font-bold text-ink" data-testid="legal-review">
+              Under legal review
+            </span>
+          )}
         </p>
         {intro.map((p) => (
           <p key={p} className="text-lg">

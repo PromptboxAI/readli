@@ -4,7 +4,7 @@ import { effectivePlan } from "@/lib/billing/price-settings";
 import { queueEmails, type SendReport } from "@/lib/email/outbox";
 import { recordingsDeletedEmail } from "@/lib/email/templates";
 import type { PlanConfig } from "@/lib/family/plan";
-import { removeUnusedCredits } from "@/lib/billing/credit-refunds";
+import { holdPurchasedCredits, removeUnusedCredits } from "@/lib/billing/credit-refunds";
 import { cleanHousehold, openException } from "./cleanup";
 import { all, allIn, rows, run, writeAudit, type AuditEntry, type Row } from "./db";
 import { deletedEmail, recoveryEmail } from "./notices";
@@ -15,6 +15,7 @@ import { DEFAULT_LIFECYCLE, planLifecycleRun, type LifecycleAction, type Lifecyc
  * Carries out the daily lifecycle plan against Supabase. Non-destructive steps (opening a recovery
  * window, queueing reminder emails, restoring a household that came back, marking voices unlinked)
  * always run. Destructive steps run only when switched on (LIFECYCLE_DELETION=on for Day-30 cleanup,
+ * LIFECYCLE_CREDIT_FORFEITURE=on for removing purchased credits at cleanup instead of holding them,
  * LIFECYCLE_CLONE_RETIREMENT=on for retiring unused clones, LIFECYCLE_RECORDING_DELETION=on for
  * carrying out recording deletion requests); otherwise they are logged as dry runs. Every step, real
  * or dry, goes to the lifecycle audit log under one run id, and each run is recorded in
@@ -35,6 +36,10 @@ export interface LifecycleDeps {
   deletion: boolean;
   cloneRetirement: boolean;
   recordingDeletion?: boolean;
+  /** Purchased credits are removed at cleanup only when on (after counsel checks prepaid-balance laws); otherwise held for an admin. */
+  creditForfeiture?: boolean;
+  /** Removes a Stripe customer's account credit at final closure, returning the cents removed. Only called with creditForfeiture on. */
+  removeAccountCredit?: ((customerRef: string, householdId: string) => Promise<number>) | null;
   /** Sends due outbox emails after the run (null while email is off). */
   sendEmails?: (() => Promise<SendReport | null>) | null;
   config?: LifecycleConfig;
@@ -54,11 +59,12 @@ export interface LifecycleReport {
   errors: string[];
 }
 
-export function lifecycleFlags(env: NodeJS.ProcessEnv = process.env): { deletion: boolean; cloneRetirement: boolean; recordingDeletion: boolean } {
+export function lifecycleFlags(env: NodeJS.ProcessEnv = process.env): { deletion: boolean; cloneRetirement: boolean; recordingDeletion: boolean; creditForfeiture: boolean } {
   return {
     deletion: env.LIFECYCLE_DELETION === "on",
     cloneRetirement: env.LIFECYCLE_CLONE_RETIREMENT === "on",
     recordingDeletion: env.LIFECYCLE_RECORDING_DELETION === "on",
+    creditForfeiture: env.LIFECYCLE_CREDIT_FORFEITURE === "on",
   };
 }
 
@@ -375,16 +381,24 @@ export async function runLifecycle(deps: LifecycleDeps): Promise<LifecycleReport
           if (typeof v.owner_id !== "string") continue;
           await requestRecordingDeletion(db, { ownerId: v.owner_id, voiceId: v.id as string, reason: "household_cleanup", at: now, detail: { household_id: action.householdId } });
         }
-        // Unused credits end with the household's records (Kevin, 2026-10-12: removed, not refunded,
-        // unless local law requires a refund). The lots and ledger stay on record.
-        const balance = await removeUnusedCredits(db, action.householdId, at);
+        // Unused credits end with the household's records after the 30-day recovery window (Kevin, 2026-10-12:
+        // no refunds). Purchased credits are held for an admin until forfeiture is switched on, so a legally
+        // required refund or preservation is still possible. The lots and ledger stay on record.
+        const credits = await removeUnusedCredits(db, action.householdId, at, { forfeitPurchased: deps.creditForfeiture === true });
+        await holdPurchasedCredits(db, action.householdId, credits.purchasedHeld, "Day-30 cleanup");
+        // No reusable billing credit is kept after final closure either, under the same switch.
+        let accountCreditCents = 0;
+        if (deps.creditForfeiture && deps.removeAccountCredit) {
+          const customers = await rows(db.from("billing_customers").select("customer_ref").eq("household_id", action.householdId), "read billing customer");
+          for (const c of customers) accountCreditCents += await deps.removeAccountCredit(c.customer_ref as string, action.householdId);
+        }
         await run(db.from("household_recovery").update({ status: "deleted", deleted_at: at }).eq("household_id", action.householdId), "mark cleaned");
         const email = deletedEmail({ familyName: name, deletedAt: at, billingUrl: deps.billingUrl });
         await queueEmails(
           db,
           recipients.map((user) => ({ dedupeKey: `household_deleted:${action.householdId}:${at.slice(0, 10)}:${user}`, template: "household_deleted" as const, ...email, to: { userId: user }, householdId: action.householdId })),
         );
-        log("household_cleaned", { householdId: action.householdId, detail: { ...detail, audio_files: result.audioFiles, kids: result.kids, credits_removed: balance } });
+        log("household_cleaned", { householdId: action.householdId, detail: { ...detail, audio_files: result.audioFiles, kids: result.kids, credits_removed: credits.purchasedRemoved, credits_held: credits.purchasedHeld, account_credit_removed_cents: accountCreditCents } });
         return count("household_cleaned");
       }
       case "unlink_voice":

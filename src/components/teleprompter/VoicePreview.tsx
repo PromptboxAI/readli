@@ -283,7 +283,7 @@ export function VoicePreview({ take, heading, onRecordAgain, afterListen }: { ta
       <p className="text-sm text-muted">
         {mode === "off"
           ? "We never play a stock voice as if it were yours."
-          : "Your recording and voice are deleted within 24 hours. We never play a stock voice as if it were yours."}
+          : "Your recording and voice are deleted within 48 hours. We never play a stock voice as if it were yours."}
       </p>
       <RecordingTipsDialog open={tipsOpen} onClose={() => setTipsOpen(false)} onRecordAgain={onRecordAgain} where="guest_preview" />
     </div>

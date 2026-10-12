@@ -5,8 +5,8 @@ import { requireAdmin } from "@/lib/admin/access";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { loadFinance, type CostConfig, type FinanceReport } from "@/lib/admin/finance";
 import { accountDb } from "@/lib/family/account-store";
-import { PACK_REFUND_DAYS, REFUND_START_BUSINESS_DAYS } from "@/lib/content/billing-policy";
-import { refundCreditPackAction, updateCostSettingsAction } from "../actions";
+import { REFUND_START_BUSINESS_DAYS } from "@/lib/content/billing-policy";
+import { forfeitHeldCreditsAction, refundCreditPackAction, updateCostSettingsAction } from "../actions";
 
 export const metadata: Metadata = { title: "Finances | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -159,6 +159,7 @@ function Report({ r, test }: { r: FinanceReport; test: boolean }) {
       </section>
 
       <PackRefund />
+      <HeldCredits />
       <CostSettings costs={costs} />
     </>
   );
@@ -195,15 +196,15 @@ function CostSettings({ costs }: { costs: CostConfig }) {
   );
 }
 
-/** Refunds one credit pack by its Stripe payment ID; the eligibility rules are checked on the server. */
+/** Refunds one credit pack, only for a duplicate charge, a billing error or a legally required refund. */
 function PackRefund() {
   return (
     <section id="pack-refund" className="flex flex-col gap-3" aria-labelledby="pack-refund-h">
-      <h2 id="pack-refund-h" className="font-display text-2xl font-semibold">Refund a credit pack</h2>
+      <h2 id="pack-refund-h" className="font-display text-2xl font-semibold">Correct a charge or make a required refund</h2>
       <p className="text-sm">
-        A pack with no credits used can be refunded in full within {PACK_REFUND_DAYS} days of purchase. A partly used or older pack is refunded only
-        where the law requires it or it&apos;s approved, for the unused share of what was paid. Start approved refunds within {REFUND_START_BUSINESS_DAYS} business
-        days. The refunded pack is closed so its credits can&apos;t be spent.
+        Readli doesn&apos;t refund credits on request. Use this only for a duplicate charge, a billing error, or a refund the law requires, and say
+        why. A duplicate charge or billing error defaults to what was paid for the pack; a legally required refund defaults to its unused share.
+        Start owed refunds within {REFUND_START_BUSINESS_DAYS} business days. The refunded pack is closed so its credits can&apos;t be spent.
       </p>
       <form action={refundCreditPackAction} className="grid gap-3 sm:grid-cols-2" data-testid="pack-refund">
         <label className="flex flex-col gap-1 text-sm">
@@ -211,14 +212,47 @@ function PackRefund() {
           <input name="payment_ref" placeholder="pi_..." required pattern="pi_[A-Za-z0-9]+" className="rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/15" />
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-semibold">Why (needed for an approved refund)</span>
-          <input name="note" maxLength={500} className="rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/15" />
+          <span className="font-semibold">Reason</span>
+          <select name="basis" required className="rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/15">
+            <option value="duplicate_charge">Duplicate charge</option>
+            <option value="billing_error">Billing error</option>
+            <option value="legally_required">Required by law</option>
+          </select>
         </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="approved" className="size-5 accent-coral-deep" />
-          <span>Approved or legally required refund of the unused share</span>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-semibold">Amount in dollars (optional)</span>
+          <input name="amount" type="number" min="0.01" step="0.01" className="rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/15" />
         </label>
-        <button className={`${buttonPrimary} self-start`}>Refund the pack</button>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-semibold">What happened</span>
+          <input name="note" required minLength={5} maxLength={500} className="rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/15" />
+        </label>
+        <button className={`${buttonPrimary} self-start`}>Refund</button>
+      </form>
+    </section>
+  );
+}
+
+/** Purchased credits held at final closure wait here until an admin decides (lifecycle exception "purchased_credits_held"). */
+function HeldCredits() {
+  return (
+    <section id="held-credits" className="flex flex-col gap-3" aria-labelledby="held-credits-h">
+      <h2 id="held-credits-h" className="font-display text-2xl font-semibold">Held purchased credits</h2>
+      <p className="text-sm">
+        When a plan ends for good, purchased credits are held instead of removed until removal is switched on (LIFECYCLE_CREDIT_FORFEITURE).
+        Each household shows up in the exception queue. Check whether the law where the customer lives requires keeping them or a refund. If it
+        does, refund above; if not, remove them here and say what you checked.
+      </p>
+      <form action={forfeitHeldCreditsAction} className="grid gap-3 sm:grid-cols-2" data-testid="held-credits">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-semibold">Household ID</span>
+          <input name="household_id" required className="rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/15" />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-semibold">What you checked</span>
+          <input name="note" required minLength={5} maxLength={500} className="rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/15" />
+        </label>
+        <button className={`${buttonPrimary} self-start`}>Remove held credits</button>
       </form>
     </section>
   );

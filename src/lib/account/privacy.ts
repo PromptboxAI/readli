@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { removeUnusedCredits } from "@/lib/billing/credit-refunds";
+import { holdPurchasedCredits, removeUnusedCredits } from "@/lib/billing/credit-refunds";
 import { cleanHousehold, openException } from "@/lib/lifecycle/cleanup";
 import { writeAudit } from "@/lib/lifecycle/db";
 import type { ProviderRefCipher } from "@/lib/server/provider-ref";
@@ -124,11 +124,14 @@ export interface DeletionBilling {
    * 2026-10-12: no refunds on cancellation unless local law requires one). Returns the customer.
    */
   cancel(subscriptionRef: string): Promise<{ customer: string }>;
+  /** Removes the customer's leftover account credit (final closure). Called only with LIFECYCLE_CREDIT_FORFEITURE=on; returns cents removed. */
+  removeCredit?(customer: string, idempotencyKey: string): Promise<number>;
 }
 
 /**
  * Stops everything that would renew once the account is gone: the Readli plans of families only this
- * grown-up belongs to (cancelled now; credit for unused time goes to the admin queue to be refunded)
+ * grown-up belongs to (cancelled now, with no refund or credit for unused time; leftover account credit is
+ * removed when credit forfeiture is switched on)
  * and gift sponsorships they pay for (renewals stop; recipients keep the month already paid for).
  * Runs before anything is deleted, so a failure leaves the account as it was.
  */
@@ -141,10 +144,12 @@ async function stopRenewals(db: SupabaseClient, billing: DeletionBilling | null,
   if (plans.length && !billing) {
     throw new AccountError(503, "billing_off", "We can't reach billing right now to stop your plan renewing, so your account hasn't been deleted. Please try again later.");
   }
-  const ended: { householdId: string; subscription: string }[] = [];
+  const ended: { householdId: string; subscription: string; creditRemovedCents: number }[] = [];
   for (const p of plans) {
-    await billing!.cancel(p.provider_subscription_ref as string);
-    ended.push({ householdId: p.household_id as string, subscription: p.provider_subscription_ref as string });
+    const { customer } = await billing!.cancel(p.provider_subscription_ref as string);
+    const creditRemovedCents =
+      process.env.LIFECYCLE_CREDIT_FORFEITURE === "on" && billing!.removeCredit ? await billing!.removeCredit(customer, `closure-credit:${p.household_id as string}:${customer}`) : 0;
+    ended.push({ householdId: p.household_id as string, subscription: p.provider_subscription_ref as string, creditRemovedCents });
   }
   const [gifts, giftPlans] = await Promise.all([
     rows(db.from("gifts").select("id, plan_id, status, renewals_stopped").eq("giver_id", userId), "read gifts"),
@@ -273,10 +278,16 @@ export async function deleteAccount(
   );
 
   let creditsRemoved = 0;
+  let creditsHeld = 0;
+  // Account deletion is final closure. Purchased credits are held for an admin until forfeiture is switched on.
+  const forfeitPurchased = process.env.LIFECYCLE_CREDIT_FORFEITURE === "on";
   for (const home of solo) {
     await run(db.rpc("stop_household_narration", { p_household: home }), "stop family narration");
     audioFilesRemoved += (await cleanHousehold(db, home, await soloLibraries(db, home), at)).audioFiles;
-    creditsRemoved += await removeUnusedCredits(db, home, at);
+    const credits = await removeUnusedCredits(db, home, at, { forfeitPurchased });
+    creditsRemoved += credits.purchasedRemoved;
+    creditsHeld += credits.purchasedHeld;
+    await holdPurchasedCredits(db, home, credits.purchasedHeld, "account deleted");
   }
 
   await writeAudit(db, [
@@ -290,6 +301,7 @@ export async function deleteAccount(
         families_cleaned: solo.length,
         plans_ended: renewals.plansEnded,
         credits_removed: creditsRemoved,
+        credits_held: creditsHeld,
         gift_renewals_stopped: renewals.giftRenewalsStopped,
       },
     },

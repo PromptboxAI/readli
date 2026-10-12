@@ -49,6 +49,8 @@ export interface GuestStore {
   /** Database kill switch (feature_flags.demo_audio). */
   demoAudioEnabled(): Promise<boolean>;
   listExpired(limit: number): Promise<ExpiredGuest[]>;
+  /** Guests whose session expired before this time and still aren't deleted: past the 48-hour promise when the time is 24 hours ago. */
+  overdueCount(expiredBeforeIso: string): Promise<number>;
   deleteStorage(keys: string[]): Promise<void>;
   deleteSession(sessionId: string): Promise<void>;
 }
@@ -162,7 +164,11 @@ export class MemoryGuestStore implements GuestStore {
       }));
   }
 
-  async deleteStorage() {}
+  async overdueCount(expiredBeforeIso: string) {
+    return [...this.guests.values()].filter((g) => g.session.expiresAt < expiredBeforeIso).length;
+  }
+
+  async deleteStorage(_keys: string[]) {}
 
   async deleteSession(sessionId: string) {
     this.guests.delete(sessionId);
@@ -332,15 +338,14 @@ export class SupabaseGuestStore implements GuestStore {
 
   async setVoice(sessionId: string, voiceId: string) {
     const session = await this.must(this.db.from("guest_sessions").select("expires_at").eq("id", sessionId).single(), "read guest session");
-    await this.maybe(
-      this.db.from("guest_assets").insert({
-        guest_session_id: sessionId,
-        kind: "provider_voice",
-        provider_ref_encrypted: this.encrypt(voiceId),
-        expires_at: session.expires_at,
-      }),
-      "record provider voice",
-    );
+    // Must be recorded, or the cleanup job would never find this provider voice to delete it.
+    const { error } = await this.db.from("guest_assets").insert({
+      guest_session_id: sessionId,
+      kind: "provider_voice",
+      provider_ref_encrypted: this.encrypt(voiceId),
+      expires_at: session.expires_at,
+    });
+    if (error) throw new Error(`record provider voice: ${error.message}`);
   }
 
   async getVoice(sessionId: string) {
@@ -428,10 +433,34 @@ export class SupabaseGuestStore implements GuestStore {
       out.push({
         sessionId: id,
         providerVoiceIds: assets.filter((a) => a.kind === "provider_voice" && a.provider_ref_encrypted).map((a) => this.decrypt(a.provider_ref_encrypted as string)),
-        storageKeys: assets.filter((a) => (a.kind === "recording" || a.kind === "generated_audio") && a.storage_key).map((a) => a.storage_key as string),
+        // Everything under the guest's folders goes too, even a file whose asset row was never written.
+        storageKeys: [
+          ...new Set([
+            ...assets.filter((a) => (a.kind === "recording" || a.kind === "generated_audio") && a.storage_key).map((a) => a.storage_key as string),
+            ...(await this.folderFiles(id)),
+            ...(await this.folderFiles(`${id}/previews`)),
+          ]),
+        ],
       });
     }
     return out;
+  }
+
+  /** Files directly inside one folder of the guest bucket. */
+  private async folderFiles(folder: string): Promise<string[]> {
+    const keys: string[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await this.db.storage.from(BUCKET).list(folder, { limit: 1000, offset });
+      if (error) throw new Error(`list guest files: ${error.message}`);
+      keys.push(...(data ?? []).filter((f) => f.id !== null).map((f) => `${folder}/${f.name}`));
+      if (!data || data.length < 1000) return keys;
+    }
+  }
+
+  async overdueCount(expiredBeforeIso: string) {
+    const { count, error } = await this.db.from("guest_sessions").select("id", { count: "exact", head: true }).lt("expires_at", expiredBeforeIso);
+    if (error) throw new Error(`count overdue guests: ${error.message}`);
+    return count ?? 0;
   }
 
   async deleteStorage(keys: string[]) {

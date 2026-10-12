@@ -50,6 +50,15 @@ export function deletionBilling(): DeletionBilling | null {
         return unreachable(err);
       }
     },
+    async removeCredit(customer, key) {
+      try {
+        const cents = await stripe.customerCredit(customer);
+        if (cents > 0) await stripe.removeCustomerCredit(customer, cents, key);
+        return cents;
+      } catch (err) {
+        return unreachable(err);
+      }
+    },
   };
 }
 

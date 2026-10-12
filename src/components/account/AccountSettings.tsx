@@ -108,7 +108,7 @@ export function AccountSettings({ name, email, blockers }: { name: string; email
         <p>What stays:</p>
         <ul className="list-disc pl-6">
           <li>stories already made in your voice for other families stay available to them, as the Voice Recording Agreement explains,</li>
-          <li>payment, credit and other records we must keep by law. Unspent purchased credits are never forfeited automatically; we review them before closing the records.</li>
+          <li>payment, credit and other records we must keep by law. Unused credits and account credit aren&apos;t refunded or kept for later use, except where the law requires it.</li>
         </ul>
         {blockers.length > 0 ? (
           <div role="status" className="flex flex-col gap-2 rounded-2xl bg-sunshine/50 p-3" data-testid="deletion-blockers">

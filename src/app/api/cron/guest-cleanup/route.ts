@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { cleanupExpiredGuests, guestDemoDeps } from "@/lib/server/guest-demo";
+import { createClient } from "@supabase/supabase-js";
+import { queueOpsAlert } from "@/lib/email/ops-alert";
+import { cleanupAlert, cleanupExpiredGuests, guestDemoDeps, type CleanupResult } from "@/lib/server/guest-demo";
 import { serverConfig } from "@/lib/server/config";
 import { sameHash } from "@/lib/server/guest-token";
 import { accountVoiceDeps, cleanupStaleCandidates } from "@/lib/voice/account-voices";
@@ -8,8 +10,10 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * TTL deletion of guest audio, provider voices and rows, plus account voice recordings nobody kept
- * or discarded within a day. Vercel Cron calls this with CRON_SECRET.
+ * Deletes expired guest demos (their recordings, preview audio, provider voices and rows), plus account
+ * voice recordings nobody kept or discarded within a day. Vercel Cron calls this daily with CRON_SECRET;
+ * with the 24-hour demo session that keeps every demo within the public 48-hour promise. Failures, a
+ * backlog or anything past 48 hours emails the admins and returns 500 so the cron run shows as failed.
  */
 export async function GET(req: Request) {
   const config = serverConfig();
@@ -20,7 +24,30 @@ export async function GET(req: Request) {
   const effective = config.mode === "off" && config.supabaseUrl ? { ...config, mode: "live" as const } : config;
   const deps = guestDemoDeps(effective);
   const accounts = accountVoiceDeps(effective);
-  const candidates = accounts ? await cleanupStaleCandidates(accounts).catch((err) => (console.error("candidate cleanup failed", err), null)) : null;
-  if (!deps) return NextResponse.json({ deleted: 0, failed: 0, skipped: "not configured", candidates });
-  return NextResponse.json({ ...(await cleanupExpiredGuests(deps)), candidates });
+  let candidatesError = false;
+  const candidates = accounts ? await cleanupStaleCandidates(accounts).catch((err) => (console.error("candidate cleanup failed", err), (candidatesError = true), null)) : null;
+  let guests: CleanupResult | null = null;
+  let guestsError: string | null = null;
+  if (deps) {
+    try {
+      guests = await cleanupExpiredGuests(deps);
+    } catch (err) {
+      guestsError = err instanceof Error ? err.message : String(err);
+      console.error("guest cleanup run failed", err);
+    }
+  }
+  const problem = guestsError ? `Demo clean-up failed to run: ${guestsError.slice(0, 300)}` : cleanupAlert(guests, candidates, candidatesError);
+  if (problem) {
+    console.error("demo cleanup needs attention", problem);
+    if (config.supabaseUrl && config.supabaseServiceKey) {
+      const db = createClient(config.supabaseUrl, config.supabaseServiceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+      await queueOpsAlert(db, {
+        key: "demo_cleanup",
+        subject: "Readli demo clean-up needs attention",
+        body: `The daily demo clean-up reported a problem:\n\n${problem}\n\nReadli promises that demo recordings, demo voices and preview audio are deleted within 48 hours. Check the Vercel cron logs for /api/cron/guest-cleanup.`,
+      }).catch((err) => console.error("ops alert failed", err));
+    }
+  }
+  const body = { ...(guests ?? { deleted: 0, failed: 0, skipped: deps ? "error" : "not configured" }), candidates, ...(problem ? { alert: problem } : {}) };
+  return NextResponse.json(body, { status: problem ? 500 : 200 });
 }

@@ -463,7 +463,7 @@ function ConsentStep({
       </h1>
       <p>
         You&apos;ll read one short story script aloud for at least 1 minute, ideally 1 to 2. We use that recording only to make a
-        short private preview in your voice. It is never public and is deleted automatically within 24 hours unless you
+        short private preview in your voice. It is never public and is deleted automatically within 48 hours unless you
         choose to save it.
       </p>
       <label className="flex min-h-11 gap-3">

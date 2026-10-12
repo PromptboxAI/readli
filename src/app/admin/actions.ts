@@ -6,7 +6,7 @@ import { accountDb } from "@/lib/family/account-store";
 import { requireAdmin, type AdminUser } from "@/lib/admin/access";
 import { AdminActionError, endTesterPlan, grantTesterPlan, parseTesterDays } from "@/lib/admin/tester-plans";
 import { billingConfig } from "@/lib/billing/config";
-import { PackRefundError, refundPack } from "@/lib/billing/credit-refunds";
+import { forfeitHeldCredits, PackRefundError, refundPack, type RefundBasis } from "@/lib/billing/credit-refunds";
 import { StripeApi, StripeError } from "@/lib/billing/stripe-api";
 
 /** Runs an admin change after re-checking who is asking, then returns to /admin with the outcome. */
@@ -77,18 +77,22 @@ export async function refundCreditPackAction(form: FormData) {
   const db = accountDb();
   const config = billingConfig();
   const paymentRef = field(form, "payment_ref").trim();
-  const approvedPartial = field(form, "approved") === "on";
+  const basis = field(form, "basis") as RefundBasis;
+  const amount = field(form, "amount").trim();
+  const cents = amount ? Math.round(Number(amount) * 100) : null;
   const note = field(form, "note").trim().slice(0, 500);
   let outcome: string;
   if (gate.preview || !db) outcome = `err=${encodeURIComponent("Refunds need Supabase connected.")}`;
   else if (config.mode === "off") outcome = `err=${encodeURIComponent("Payments are switched off, so nothing can be refunded here.")}`;
   else if (!/^pi_[A-Za-z0-9]+$/.test(paymentRef)) outcome = `err=${encodeURIComponent("Enter the Stripe payment ID (pi_...) of the pack.")}`;
+  else if (cents !== null && !(Number.isFinite(cents) && cents > 0)) outcome = `err=${encodeURIComponent("Enter the amount in dollars, or leave it blank.")}`;
   else {
     const stripe = new StripeApi(config);
     try {
-      const done = await refundPack(db, (ref, cents, key) => stripe.refund(ref, cents, key, { readli_reason: approvedPartial ? "approved_partial" : "unused_within_window" }), {
+      const done = await refundPack(db, (ref, c, key) => stripe.refund(ref, c, key, { readli_reason: basis }), {
         paymentRef,
-        approvedPartial,
+        basis,
+        cents,
         note,
         admin: gate.admin.email,
         now: new Date(),
@@ -101,4 +105,21 @@ export async function refundCreditPackAction(form: FormData) {
     }
   }
   redirect(`/admin/finance?${outcome}#pack-refund`);
+}
+
+/** Removes a household's held purchased credits once an admin has found no law requiring them to be kept or refunded. */
+export async function forfeitHeldCreditsAction(form: FormData) {
+  const gate = await requireAdmin("/admin/finance");
+  const db = accountDb();
+  const householdId = field(form, "household_id").trim();
+  const note = field(form, "note").trim().slice(0, 500);
+  let outcome: string;
+  if (gate.preview || !db) outcome = `err=${encodeURIComponent("This needs Supabase connected.")}`;
+  else if (!/^[0-9a-f-]{36}$/i.test(householdId)) outcome = `err=${encodeURIComponent("Enter the household ID from the exception.")}`;
+  else if (note.length < 5) outcome = `err=${encodeURIComponent("Say what you checked, such as the customer's state.")}`;
+  else {
+    const removed = await forfeitHeldCredits(db, householdId, { admin: gate.admin.email, note, now: new Date() });
+    outcome = `ok=${encodeURIComponent(`Removed ${removed} held credits.`)}`;
+  }
+  redirect(`/admin/finance?${outcome}#held-credits`);
 }

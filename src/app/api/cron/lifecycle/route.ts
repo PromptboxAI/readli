@@ -15,7 +15,8 @@ export const maxDuration = 300;
  * The daily lifecycle run: recovery windows and their reminder emails, Day-30 household cleanup,
  * recording deletion requests, retiring clones no Readli Family household needs, and sending queued
  * emails through Resend. Vercel Cron calls this with CRON_SECRET. Every destructive step is a dry run
- * unless LIFECYCLE_DELETION=on, LIFECYCLE_CLONE_RETIREMENT=on or LIFECYCLE_RECORDING_DELETION=on.
+ * unless LIFECYCLE_DELETION=on, LIFECYCLE_CLONE_RETIREMENT=on or LIFECYCLE_RECORDING_DELETION=on;
+ * purchased credits and Stripe account credit are only removed at cleanup with LIFECYCLE_CREDIT_FORFEITURE=on.
  */
 export async function GET(req: Request) {
   const config = serverConfig();
@@ -32,6 +33,13 @@ export async function GET(req: Request) {
     db,
     ...lifecycleFlags(),
     subscriptionStatuses: stripe ? (customer) => stripe.subscriptionStatuses(customer) : null,
+    removeAccountCredit: stripe
+      ? async (customer, householdId) => {
+          const cents = await stripe.customerCredit(customer);
+          if (cents > 0) await stripe.removeCustomerCredit(customer, cents, `closure-credit:${householdId}:${customer}`);
+          return cents;
+        }
+      : null,
     retireClone: voices ? (voiceId) => retireUnusedClone(voices, voiceId) : null,
     billingUrl: `${new URL(req.url).origin}/family/billing`,
     sendEmails: () => deliverEmails(db),

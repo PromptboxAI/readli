@@ -341,6 +341,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     answer: [
       "From Narration Credits in Readli Family, choose Get More Narration Credits and pick a pack: 20 credits for $6.99, 50 for $14.99 or 100 for $24.99. If you were preparing a book, you'll go straight back to it afterwards.",
       "Credit packs are one-time purchases for Readli Family households. Your monthly credits are used first.",
+      "Credits aren't refundable, including when you cancel, unless the law requires it. If narration fails, its credits come back automatically, and we always fix duplicate charges or billing errors.",
     ],
     keywords: ["buy", "top up", "credit pack", "purchase"],
     related: ["monthly-narration-credits", "not-enough-credits"],
@@ -351,7 +352,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
     question: "How do I manage or cancel my subscription?",
     status: "draft",
     answer: [
-      "Go to Billing in Readli Family to update your payment details or cancel. If you cancel, your plan stays active until the end of the period you've paid for and won't renew.",
+      "Go to Billing in Readli Family to update your payment details or cancel. If you cancel, your plan stays active until the end of the period you've paid for and won't renew. Subscription payments aren't refunded and there's no prorated refund, unless the law requires it.",
+      "After your plan ends, your stories and any unused credits are kept for 30 days in case you come back. After that, they're removed.",
     ],
     keywords: ["cancel", "billing", "payment method", "stop subscription"],
     related: ["cancel-what-happens-to-voice", "family-plan-included"],

@@ -116,10 +116,11 @@ describe("deleting an account", () => {
     );
     await deleteAccount({ db, ...recordingProvider(), refs }, ME);
     expect(tables.narration_credit_lots).toHaveLength(1);
-    expect(tables.narration_credit_lots![0]!.expires_at).toBeTruthy();
+    // Purchased credits are held for an admin until credit forfeiture is switched on, never refunded automatically.
+    expect(tables.narration_credit_lots![0]!.expires_at ?? null).toBeNull();
     expect(tables.narration_credit_ledger).toHaveLength(1);
-    expect(tables.lifecycle_exceptions ?? []).toEqual([]);
-    expect(tables.lifecycle_audit_log![0]!.detail).toMatchObject({ credits_removed: 15 });
+    expect(tables.lifecycle_exceptions).toEqual([expect.objectContaining({ kind: "purchased_credits_held", household_id: "home" })]);
+    expect(tables.lifecycle_audit_log![0]!.detail).toMatchObject({ credits_removed: 0, credits_held: 15 });
   });
 
   it("won't leave a shared family's kids without a guardian, and deletes nothing", async () => {

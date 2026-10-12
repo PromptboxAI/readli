@@ -165,20 +165,28 @@ export class StripeApi {
     return this.call<StripeSchedule>("POST", `subscription_schedules/${encodeURIComponent(id)}/release`, {});
   }
 
-  /**
-   * Ends a subscription now (account deletion). With prorate, unused paid time becomes credit on the
-   * customer's balance, which Readli then reviews for a refund rather than letting it lapse.
-   */
+  /** Ends a subscription now (account deletion). Readli cancels without proration: no refund for unused time. */
   async cancelSubscription(id: string, opts: { prorate: boolean }): Promise<StripeSubscription> {
     return this.call<StripeSubscription>("DELETE", `subscriptions/${encodeURIComponent(id)}`, opts.prorate ? { prorate: true, invoice_now: true } : {});
   }
 
-  /** Stripe's hosted page where a parent updates their card, changes slots or cancels. */
+  /** Account credit on a customer (Stripe keeps credit as a negative balance), in cents. */
+  async customerCredit(customer: string): Promise<number> {
+    const c = await this.call<{ balance?: number }>("GET", `customers/${encodeURIComponent(customer)}`);
+    return Math.max(0, -(c.balance ?? 0));
+  }
+
+  /** Removes account credit at final closure with a recorded balance transaction, once per idempotency key. */
+  async removeCustomerCredit(customer: string, cents: number, idempotencyKey: string): Promise<void> {
+    await this.call("POST", `customers/${encodeURIComponent(customer)}/balance_transactions`, { amount: cents, currency: "usd", description: "Account credit removed at final account closure" }, idempotencyKey);
+  }
+
   /** Refunds part or all of a one-time payment, once per idempotency key. */
   async refund(paymentIntent: string, amountCents: number, idempotencyKey: string, metadata: Record<string, string>): Promise<{ id: string; status: string }> {
     return this.call("POST", "refunds", { payment_intent: paymentIntent, amount: amountCents, reason: "requested_by_customer", metadata }, idempotencyKey);
   }
 
+  /** Stripe's hosted page where a parent updates their card, changes slots or cancels. */
   async createPortalSession(customer: string, returnUrl: string): Promise<{ url: string }> {
     return this.call("POST", "billing_portal/sessions", { customer, return_url: returnUrl });
   }

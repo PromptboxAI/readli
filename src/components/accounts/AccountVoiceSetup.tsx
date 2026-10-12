@@ -261,7 +261,7 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
           {demoAvailable && (
             <div className="flex flex-col gap-2 rounded-2xl bg-mint/50 p-4" data-testid="use-demo-take">
               <p className="font-semibold">You recorded a story in the demo on this device.</p>
-              <p className="text-sm">Use that recording for your voice, or record a new one below for better quality. A demo recording is used only to make your voice, never for training, and the demo copy is deleted after 24 hours.</p>
+              <p className="text-sm">Use that recording for your voice, or record a new one below for better quality. A demo recording is used only to make your voice, never for training, and the demo copy is deleted within 48 hours.</p>
               <button type="button" className={`${buttonSecondary} w-fit`} onClick={chooseDemo}>
                 Use my demo recording
               </button>

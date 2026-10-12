@@ -19,7 +19,8 @@ export type EmailTemplate =
   | "recovery_day20"
   | "recovery_day28"
   | "household_deleted"
-  | "recordings_deleted";
+  | "recordings_deleted"
+  | "ops_alert";
 
 export interface QueuedEmail {
   dedupeKey: string;

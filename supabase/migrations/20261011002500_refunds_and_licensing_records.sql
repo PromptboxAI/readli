@@ -14,7 +14,7 @@ alter table public.lifecycle_audit_log add constraint lifecycle_audit_log_action
   'recovery_started', 'recovery_notice', 'recovery_restored', 'recovery_held', 'recovery_deleted',
   'safeguard_stopped', 'household_cleaned', 'recording_deletion_requested', 'recordings_deleted',
   'account_deleted', 'exception_opened', 'exception_resolved', 'run_started', 'run_finished', 'email_suppressed',
-  'plan_change_requested', 'credit_pack_refunded'
+  'plan_change_requested', 'credit_pack_refunded', 'credits_forfeited'
 ));
 
 alter table public.voice_rights_agreements add column if not exists jurisdiction text
