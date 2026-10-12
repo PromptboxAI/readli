@@ -37,6 +37,8 @@ export function DemoBookCard({ book, onHear, activeSlug, disabledReason, explore
   const headingId = `book-${book.slug}`;
   const active = activeSlug === book.slug;
   const heard = explored?.has(book.slug) ?? false;
+  // Greyed out only when the story can't be heard; while another story loads, buttons just wait in their colour.
+  const unavailable = !playable || !onHear || (Boolean(disabledReason) && !heard && !busy);
   const status = !playable
     ? "Preview coming soon."
     : !onHear
@@ -64,10 +66,10 @@ export function DemoBookCard({ book, onHear, activeSlug, disabledReason, explore
       {onHear || !playable ? (
         <button
           type="button"
-          disabled={!playable || !onHear || active || Boolean(busy) || (Boolean(disabledReason) && !heard)}
+          disabled={unavailable || active || Boolean(busy)}
           aria-describedby={`${headingId}-status`}
           onClick={() => onHear?.(book)}
-          className={`${hearButton} disabled:cursor-not-allowed disabled:bg-ivory disabled:text-muted ${active ? "!bg-mint !text-ink" : ""}`}
+          className={`${hearButton} disabled:cursor-not-allowed ${unavailable ? "disabled:bg-ivory disabled:text-muted" : ""} ${active ? "!bg-mint !text-ink" : ""}`}
         >
           {active ? "Now playing" : heard ? "Play again" : "Hear this passage"}
         </button>
