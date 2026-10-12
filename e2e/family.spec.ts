@@ -80,9 +80,9 @@ test("kids see only approved narrators and can switch without losing their place
   await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/);
   await expect(page.getByTestId("current-narrator")).toHaveText("Grandma June");
 
-  // Kids can't reach parent controls.
+  // Kids can't reach parent controls: the device is sent back to its bookshelf.
   await page.goto("/family/kids/maya/storytellers");
-  await expect(page.getByRole("heading", { name: "Ask a grown-up" })).toBeVisible();
+  await expect(page).toHaveURL(/\/kids$/);
 });
 
 test("an owner's revocation removes the voice from every child, and sharing again starts off", async ({ page }) => {
