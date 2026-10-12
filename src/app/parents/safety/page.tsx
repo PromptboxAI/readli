@@ -4,11 +4,13 @@ import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
+import { publicPageMetadata } from "@/lib/seo/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicPageMetadata({
   title: "Family privacy & safety | Readli",
   description: "How family voices stay private and how parents choose which storytellers each child can hear.",
-};
+  path: "/parents/safety",
+});
 
 /** Plain-language summary of the Privacy Policy's family and child sections (§3, §5, §6). The policy is the source of truth. */
 const TOPICS = [

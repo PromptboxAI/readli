@@ -6,7 +6,7 @@ import { RewardsTracker } from "@/components/rewards/RewardsTracker";
 import { rewardsPage } from "@/lib/rewards/page-data";
 import { rewardsConfig, rewardsVisible } from "@/lib/rewards/rewards";
 
-export const metadata: Metadata = { title: "Readli Rewards | Readli", robots: { index: false } };
+export const metadata: Metadata = { title: "Readli Rewards", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 export default async function RewardsPage() {
