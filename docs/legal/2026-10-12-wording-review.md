@@ -50,7 +50,9 @@ These were drafting problems: contradictions, circular references, vague terms a
    - Arbitration, class waiver and venue (Terms §20).
    - The effective dates to set at publication.
 
-## Part 3. For Kevin: business decisions, wording left as is
+## Part 3. Business decisions (Kevin answered these on 2026-10-12)
+
+Kevin's "Final Business Policy Decisions" settle items 1 to 7 below, and the drafts now reflect them (Voice Agreement version `voice-agreement-2026-10-12.3`). Item 8 is still open. The original questions are kept here for counsel's context.
 
 These are flagged rather than changed, because each one sets policy.
 
@@ -67,3 +69,25 @@ These are flagged rather than changed, because each one sets policy.
 8. **Placeholders still in the Privacy Policy:**
    - `[VERIFIED PERIOD]`, `[BACKUPS]` and the other retention placeholders;
    - `[PROVIDER-LIST URL]`.
+
+## Part 4. Added with Kevin's policy decisions: please review
+
+- **Terms §9.** New "Refunds" paragraph, plus the trial reminder, price-increase notice and purchased-credit reconciliation wording.
+- **Terms §4.** "No payment" paragraph and the licensing conditions.
+- **Voice Agreement.**
+  - §3: licensing needs a separate authorization; the conditions every license must include; jurisdiction limits; no licensing before a launch decision.
+  - §3: "Authorized uses" paragraph.
+  - §4: guest demos and generated narration are excluded from licensed datasets.
+  - §5: location and dataset records.
+  - §6: "Ownership and compensation".
+  - A new required line where the contributor confirms they aren't paid.
+- **Privacy §1 and §4.**
+  - Approximate location is recorded with consent.
+  - Licensing may be a "sale or sharing" under some state laws.
+  - The license terms, and records of each license and dataset.
+
+**Open legal questions for counsel:**
+- **Location.** Licensing eligibility uses the request's IP location. Is that enough, or should contributors declare their state of residence?
+- **California.** Is a "Do Not Sell or Share" link and notice at collection needed before licensing launches?
+- **Other states.** Should anywhere beyond Illinois, Texas and Washington be excluded?
+- **New York digital replica law.** Does it apply to licensed recordings?

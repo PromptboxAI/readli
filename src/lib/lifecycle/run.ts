@@ -4,7 +4,8 @@ import { effectivePlan } from "@/lib/billing/price-settings";
 import { queueEmails, type SendReport } from "@/lib/email/outbox";
 import { recordingsDeletedEmail } from "@/lib/email/templates";
 import type { PlanConfig } from "@/lib/family/plan";
-import { cleanHousehold, openException, purchasedBalance } from "./cleanup";
+import { purchasedPacks, reconciliation } from "@/lib/billing/credit-refunds";
+import { cleanHousehold, openException } from "./cleanup";
 import { all, allIn, rows, run, writeAudit, type AuditEntry, type Row } from "./db";
 import { deletedEmail, recoveryEmail } from "./notices";
 import { carryOutRecordingDeletion, pendingRecordingDeletions, requestRecordingDeletion } from "./recordings";
@@ -374,13 +375,16 @@ export async function runLifecycle(deps: LifecycleDeps): Promise<LifecycleReport
           if (typeof v.owner_id !== "string") continue;
           await requestRecordingDeletion(db, { ownerId: v.owner_id, voiceId: v.id as string, reason: "household_cleanup", at: now, detail: { household_id: action.householdId } });
         }
-        const balance = await purchasedBalance(db, action.householdId);
+        // Purchased credits are reconciled, never forfeited (Kevin, 2026-10-12, decision 1): the queue gets
+        // each pack's unused share of what was actually paid, and the lots and ledger stay on record.
+        const owed = reconciliation(await purchasedPacks(db, action.householdId));
+        const balance = owed.credits;
         if (balance > 0) {
           await openException(db, {
             kind: "purchased_credits_unreconciled",
             householdId: action.householdId,
-            reason: `${balance} purchased credits remain after cleanup; they are kept and must be reconciled, never forfeited automatically`,
-            detail: { credits: balance },
+            reason: `${balance} purchased credits (unused value $${(owed.unusedValueCents / 100).toFixed(2)}) remain after the recovery window; reconcile any refund owed, never forfeit them automatically`,
+            detail: { credits: balance, unused_value_cents: owed.unusedValueCents, packs: owed.packs },
           });
         }
         await run(db.from("household_recovery").update({ status: "deleted", deleted_at: at }).eq("household_id", action.householdId), "mark cleaned");

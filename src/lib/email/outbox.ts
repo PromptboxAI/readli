@@ -14,6 +14,7 @@ export type EmailTemplate =
   | "gift_delivery"
   | "gift_redeemed"
   | "payment_failed"
+  | "trial_ending"
   | "recovery_day0"
   | "recovery_day20"
   | "recovery_day28"

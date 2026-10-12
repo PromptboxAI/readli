@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { REQUIRED_AGREEMENT_STATEMENTS } from "@/lib/content/voice-agreement";
 import { ProviderRefCipher } from "@/lib/server/provider-ref";
-import { acceptVoiceAgreement, MemoryVoiceAgreementStore, setThirdPartyLicensing } from "./agreements";
+import { acceptVoiceAgreement, MemoryVoiceAgreementStore, requestJurisdiction, setThirdPartyLicensing } from "./agreements";
 import { VoiceProviderError } from "./provider";
 import { StubVoiceProvider } from "./stub";
 import {
@@ -46,7 +46,7 @@ class RecordingProvider extends StubVoiceProvider {
   }
 }
 
-const contributor = { id: owner.id, name: owner.name, email: "june@example.com" };
+const contributor = { id: owner.id, name: owner.name, email: "june@example.com", jurisdiction: "US-NY" };
 
 async function setup(thirdPartyLicensing = false) {
   const store = new MemoryAccountVoiceStore();
@@ -194,6 +194,20 @@ describe("voice recording agreement", () => {
     expect(agreements.rows[1]).toMatchObject({ event: "updated", source: "settings", supersedesId: first.id });
     const history = await agreements.history(contributor.id);
     expect(history.map((h) => h.rights.thirdPartyLicensing)).toEqual([false, true]);
+  });
+
+  it("offers licensing to other companies only in eligible US locations, and records where", async () => {
+    const agreements = new MemoryVoiceAgreementStore();
+    const illinois = { ...contributor, jurisdiction: "US-IL" };
+    await expect(acceptVoiceAgreement(agreements, illinois, { statements: REQUIRED_AGREEMENT_STATEMENTS, thirdPartyLicensing: true, userAgent: null })).rejects.toMatchObject({ code: "licensing_unavailable" });
+    await acceptVoiceAgreement(agreements, illinois, { statements: REQUIRED_AGREEMENT_STATEMENTS, thirdPartyLicensing: false, userAgent: null });
+    await expect(setThirdPartyLicensing(agreements, { ...contributor, jurisdiction: null }, true, null)).rejects.toMatchObject({ code: "licensing_unavailable" });
+    await expect(setThirdPartyLicensing(agreements, { ...contributor, jurisdiction: "GB" }, true, null)).rejects.toMatchObject({ code: "licensing_unavailable" });
+    const on = await setThirdPartyLicensing(agreements, contributor, true, null);
+    expect(on.rights.thirdPartyLicensing).toBe(true);
+    expect(agreements.rows.map((r) => r.jurisdiction)).toEqual(["US-IL", "US-NY"]);
+    expect(requestJurisdiction(new Headers({ "x-vercel-ip-country": "US", "x-vercel-ip-country-region": "ny" }))).toBe("US-NY");
+    expect(requestJurisdiction(new Headers())).toBeNull();
   });
 
   it("can't turn licensing on before agreeing to record", async () => {

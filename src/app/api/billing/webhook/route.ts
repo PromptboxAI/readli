@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { applyBillingChange, recordRevenue } from "@/lib/billing/apply";
 import { billingConfig } from "@/lib/billing/config";
 import { billingChange } from "@/lib/billing/events";
-import { queuePaymentFailed, reviewCreditOnCancel } from "@/lib/billing/notify";
+import { queuePaymentFailed, queueTrialReminder, reviewCreditOnCancel } from "@/lib/billing/notify";
 import { revenueRows } from "@/lib/billing/revenue";
 import { verifyStripeSignature } from "@/lib/billing/stripe-signature";
 import { StripeApi } from "@/lib/billing/stripe-api";
@@ -76,6 +76,7 @@ export async function POST(req: Request) {
     await recordRevenue(db, revenueRows(event));
     if (event.type === "invoice.payment_failed") await queuePaymentFailed(db, event, `${new URL(req.url).origin}/family/billing`);
     await reviewCreditOnCancel(db, event, (customer) => stripe.customerBalance(customer));
+    await queueTrialReminder(db, event, `${new URL(req.url).origin}/family/billing`, async (customer, subscription) => (await stripe.previewInvoice({ customer, subscription })).amount_due);
   } catch (err) {
     await db.from("payment_events").update({ error: String(err instanceof Error ? err.message : err).slice(0, 500) }).eq("id", stored.id);
     return fail(500, "apply_failed", "Couldn't apply the event.");

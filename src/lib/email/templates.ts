@@ -1,3 +1,4 @@
+import { formatPrice } from "@/lib/family/plan";
 import { longDate } from "@/lib/lifecycle/notices";
 
 /**
@@ -38,5 +39,18 @@ export function recordingsDeletedEmail(f: { name: string; deletedAt: string; fil
   return {
     subject: "Your Readli voice recordings have been deleted",
     body: `Hi ${f.name},\n\nAs you asked, we deleted your original voice recordings (${f.files} ${f.files === 1 ? "file" : "files"}) from Readli's storage on ${longDate(f.deletedAt)}. Stories already made for your family stay available as described in the Voice Recording & AI Training Agreement.\n\nThe Readli team`,
+  };
+}
+
+/**
+ * The one reminder before a Readli Family trial turns into a paid plan (Kevin, 2026-10-12, decision 4):
+ * when the trial ends, when the first charge is, exactly how much, monthly or yearly, and a direct link
+ * to cancel or manage billing. Nothing promotional.
+ */
+export function trialEndingEmail(f: { familyName: string; trialEndsAt: string; amountCents: number; interval: "month" | "year"; billingUrl: string }): Email {
+  const every = f.interval === "year" ? "yearly" : "monthly";
+  return {
+    subject: `Your Readli free trial ends on ${longDate(f.trialEndsAt)}`,
+    body: `Hi ${f.familyName},\n\nYour Readli Family free trial ends on ${longDate(f.trialEndsAt)}.\n\nUnless you cancel before then, your ${every} Readli Family plan starts that day and we'll charge ${formatPrice(f.amountCents)} to the card you gave us on ${longDate(f.trialEndsAt)}, your next billing date. After that the plan renews ${every} until you cancel.\n\nTo cancel or change your plan, go to ${f.billingUrl}. Cancelling during the trial costs nothing.\n\nThe Readli team`,
   };
 }

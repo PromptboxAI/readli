@@ -4,7 +4,8 @@
  * The draft's internal "Required publication details" checklist is intentionally not published.
  * 2026-10-11: voice-rights amendment (Kevin): what voice data is kept, why, who receives it, model training,
  * retention and how to exercise rights. New section 4; later sections renumbered.
- * 2026-10-12: the three voice actions (Kevin's answer 5) and when the voice clone is retired.
+ * 2026-10-12: the three voice actions (Kevin's answer 5) and when the voice clone is retired; then the conditions for
+ * third-party licensing, recorded location and no contributor payment (Kevin's final policy decisions).
  */
 
 export type PolicyParagraph = { lead?: string; text: string };
@@ -34,7 +35,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Voice and audio",
-        text: "raw audio recordings made for a temporary demo or for voice enrollment; recording details such as length, quality checks, language, the script read (its expected transcript), format and device type; voice characteristics, embeddings, identifiers or models derived from a recording; generated narrations; permission settings, verification results, and records of consent, including the agreement version, the permissions granted, when, and any later changes. Voice data can be sensitive and may be biometric data under applicable law.",
+        text: "raw audio recordings made for a temporary demo or for voice enrollment; recording details such as length, quality checks, language, the script read (its expected transcript), format and device type; voice characteristics, embeddings, identifiers or models derived from a recording; generated narrations; permission settings, verification results, and records of consent, including the agreement version, the permissions granted, when, your approximate location (state or country, from your IP address) at the time, and any later changes. Voice data can be sensitive and may be biometric data under applicable law.",
       },
       {
         lead: "Reading and activity data",
@@ -73,7 +74,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
         text: "Only an individual’s own voice may be submitted for cloning through ordinary self-service enrollment, unless a separately reviewed and lawful authorization process expressly permits otherwise. Invitations do not authorize anyone to upload or clone another person’s voice. A voice owner must affirmatively approve permitted listeners or family circles.",
       },
       {
-        text: "Private family voices are not made public or offered for general discovery. Participation in any future public narrator program would require a separate application, explicit license, and distinct permissions. We do not sell or license family voice recordings or voice models to other companies unless the adult contributor has separately opted in to independent commercial licensing, and never children’s voices or data.",
+        text: "Private family voices are not made public or offered for general discovery. Participation in any future public narrator program would require a separate application, explicit license, and distinct permissions. We do not sell or license family voice recordings or voice models to other companies unless the adult contributor has separately opted in to independent commercial licensing, and never children’s voices or data, guest demo recordings or generated narration. Readli has not started any such licensing.",
       },
       {
         text: "A cloned voice can generate new speech that the individual did not personally say. Family members should understand this distinction before recording and before authorizing others to use a voice.",
@@ -105,11 +106,11 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Who receives it",
-        text: "ElevenLabs receives recordings to create voices and receives story text to generate narration. Hosting and storage providers (Supabase and Vercel) store and serve data. Other technology providers or contractors may process recordings on Readli’s behalf to develop Readli’s own technology, under contract. Other companies receive an adult contributor’s original recordings only if that contributor opted in to independent commercial licensing, and never children’s voices or data.",
+        text: "ElevenLabs receives recordings to create voices and receives story text to generate narration. Hosting and storage providers (Supabase and Vercel) store and serve data. Other technology providers or contractors may process recordings on Readli’s behalf to develop Readli’s own technology, under contract. Independent AI companies may receive an adult contributor’s original recordings only if that contributor gave the separate licensing authorization, the authorization is still valid for that use, and licensing is allowed where the contributor was when they gave it; Readli doesn’t offer it where biometric privacy laws restrict it. Each such company must sign a written license that limits the uses, requires security, sets how long it may keep the recordings, controls onward transfer and sublicensing, and forbids impersonating the contributor. Under some state privacy laws this licensing may count as a sale or sharing of personal information; it happens only with the contributor’s opt-in, which they can turn off at any time for future licensing. Readli keeps a record of each license and of which recordings each licensed dataset included and when that was disclosed. Readli has not started licensing recordings and will not without a separate launch decision. Children’s voices and data, guest demo recordings and generated narration are never licensed.",
       },
       {
         lead: "Model training",
-        text: "original recordings from adult contributors may be used to train and evaluate Readli-owned voice systems. They may be used to train another company’s models only with the contributor’s separate, specific opt-in, which is off by default. Guest demo recordings, children’s voices and children’s personal information are never used for training.",
+        text: "original recordings from adult contributors may be used to train and evaluate Readli-owned voice systems. They may be used to train another company’s models only with the contributor’s separate, specific opt-in, which is off by default and offered only where the law allows it. Contributors aren’t paid for their recordings or for licensing. Guest demo recordings, children’s voices and children’s personal information are never used for training.",
       },
       {
         lead: "Your choices",

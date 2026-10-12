@@ -37,6 +37,8 @@ export interface NewAgreement {
   source: "pre_recording" | "settings" | "support";
   userAgent: string | null;
   supersedesId: string | null;
+  /** Where the contributor was (US-NY, GB, ...), from the request; null when unknown. */
+  jurisdiction?: string | null;
 }
 
 export interface VoiceAgreementStore {
@@ -59,7 +61,31 @@ export interface Contributor {
   id: string;
   name: string | null;
   email: string | null;
+  jurisdiction?: string | null;
 }
+
+/**
+ * Jurisdictions where independent third-party licensing isn't offered (Kevin, 2026-10-12, decision 6:
+ * biometric privacy laws). Mirrors licensing_restricted_jurisdictions, which is what the database checks
+ * before any recording enters a licensed dataset; this list only decides whether the opt-in is offered.
+ * Only US locations are eligible, and an unknown location never is.
+ */
+export const LICENSING_RESTRICTED_JURISDICTIONS = ["US-IL", "US-TX", "US-WA"] as const;
+
+export function licensingAvailable(jurisdiction: string | null | undefined): boolean {
+  return Boolean(jurisdiction && /^US-[A-Z0-9]{1,3}$/.test(jurisdiction) && !(LICENSING_RESTRICTED_JURISDICTIONS as readonly string[]).includes(jurisdiction));
+}
+
+/** The request's location from Vercel's geolocation headers, as COUNTRY or COUNTRY-REGION. */
+export function requestJurisdiction(headers: Headers): string | null {
+  const country = headers.get("x-vercel-ip-country")?.toUpperCase() ?? "";
+  if (!/^[A-Z]{2}$/.test(country)) return null;
+  const region = headers.get("x-vercel-ip-country-region")?.toUpperCase() ?? "";
+  return /^[A-Z0-9]{1,3}$/.test(region) ? `${country}-${region}` : country;
+}
+
+const licensingUnavailable = () =>
+  new VoiceAgreementError(409, "licensing_unavailable", "Licensing your recordings to other companies isn't offered where you are. Untick that option to continue.");
 
 /** Records acceptance before recording. Every required line must be ticked; licensing is up to them. */
 export async function acceptVoiceAgreement(
@@ -70,6 +96,7 @@ export async function acceptVoiceAgreement(
   if (!REQUIRED_AGREEMENT_STATEMENTS.every((s) => input.statements.includes(s))) {
     throw new VoiceAgreementError(400, "agreement_required", "Please agree to each required point before you record.");
   }
+  if (input.thirdPartyLicensing && !licensingAvailable(contributor.jurisdiction)) throw licensingUnavailable();
   const current = (await store.history(contributor.id))[0] ?? null;
   const statements = [...REQUIRED_AGREEMENT_STATEMENTS, ...(input.thirdPartyLicensing ? [THIRD_PARTY_LICENSING_STATEMENT] : [])];
   return store.record(contributor.id, {
@@ -83,6 +110,7 @@ export async function acceptVoiceAgreement(
     source: "pre_recording",
     userAgent: input.userAgent,
     supersedesId: current?.id ?? null,
+    jurisdiction: contributor.jurisdiction ?? null,
   });
 }
 
@@ -103,6 +131,7 @@ export async function setThirdPartyLicensing(
   if (on && current.version !== VOICE_AGREEMENT_VERSION) {
     throw new VoiceAgreementError(409, "agreement_outdated", "Please record again under the current Voice Recording Agreement first.");
   }
+  if (on && !licensingAvailable(contributor.jurisdiction)) throw licensingUnavailable();
   if (current.rights.thirdPartyLicensing === on) return current;
   return store.record(contributor.id, {
     version: current.version,
@@ -115,6 +144,7 @@ export async function setThirdPartyLicensing(
     source: "settings",
     userAgent,
     supersedesId: current.id,
+    jurisdiction: contributor.jurisdiction ?? null,
   });
 }
 
@@ -139,6 +169,7 @@ export async function withdrawTrainingRights(store: VoiceAgreementStore, contrib
     source: "settings",
     userAgent,
     supersedesId: current.id,
+    jurisdiction: contributor.jurisdiction ?? null,
   });
 }
 
@@ -215,6 +246,7 @@ export class SupabaseVoiceAgreementStore implements VoiceAgreementStore {
         source: a.source,
         user_agent: a.userAgent,
         supersedes_id: a.supersedesId,
+        jurisdiction: a.jurisdiction ?? null,
       })
       .select(COLUMNS)
       .single();

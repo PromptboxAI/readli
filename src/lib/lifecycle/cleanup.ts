@@ -40,18 +40,6 @@ export async function cleanHousehold(db: SupabaseClient, householdId: string, li
   return { audioFiles, kids: kidIds.length, libraries: libraryKeys.length };
 }
 
-/**
- * Purchased credits not yet spent. These are never forfeited automatically: a household with a
- * balance goes to the admin exception queue to be reconciled.
- */
-export async function purchasedBalance(db: SupabaseClient, householdId: string): Promise<number> {
-  const lots = await rows(db.from("narration_credit_lots").select("id, credits").eq("household_id", householdId).eq("source", "purchased"), "read purchased credits");
-  if (!lots.length) return 0;
-  const ledger = await allIn(db, "narration_credit_ledger", "lot_id, kind, credits", "lot_id", lots.map((l) => l.id as string), "read credit ledger");
-  const used = ledger.reduce((n, e) => n + (e.kind === "reserve" ? (e.credits as number) : e.kind === "refund" ? -(e.credits as number) : 0), 0);
-  return Math.max(0, lots.reduce((n, l) => n + (l.credits as number), 0) - used);
-}
-
 export async function openException(
   db: SupabaseClient,
   e: { kind: string; reason: string; householdId?: string | null; voiceId?: string | null; detail?: Record<string, unknown> },

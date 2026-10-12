@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { checkoutRequest } from "@/lib/billing/checkout";
+import { checkoutNotice } from "@/lib/content/billing-policy";
 import { accountEmail, loadTrialFacts, trialDecision } from "@/lib/billing/trial";
 import { billingConfig } from "@/lib/billing/config";
 import { StripeApi, StripeError } from "@/lib/billing/stripe-api";
@@ -89,6 +90,8 @@ export async function POST(req: Request) {
               },
             }
           : { payment_intent_data: { metadata } }),
+        // The refund and renewal terms, shown above the pay button (Kevin, 2026-10-12: disclosed before purchase).
+        custom_text: { submit: { message: checkoutNotice(request.mode, request.mode === "subscription" ? (request.trialDays ?? 0) : 0) } },
         success_url: `${origin}/family/billing?checkout=success`,
         cancel_url: `${origin}/family/billing?checkout=canceled`,
       });

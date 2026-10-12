@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { serverConfig } from "@/lib/server/config";
 import { fail } from "@/lib/server/http";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
-import { acceptVoiceAgreement, setThirdPartyLicensing, VoiceAgreementError, withdrawTrainingRights } from "@/lib/voice/agreements";
+import { acceptVoiceAgreement, licensingAvailable, requestJurisdiction, setThirdPartyLicensing, VoiceAgreementError, withdrawTrainingRights } from "@/lib/voice/agreements";
 import { voiceOwner } from "@/lib/voice/owner";
 
 export const dynamic = "force-dynamic";
@@ -10,13 +10,13 @@ export const dynamic = "force-dynamic";
 const VOICES_OFF = "Readli voices aren't switched on here yet.";
 const SIGN_IN = "Please sign in to make your Readli voice.";
 
-async function context() {
+async function context(req: Request) {
   const deps = accountVoiceDeps(serverConfig());
   if (!deps) return { error: fail(503, "voices_off", VOICES_OFF) };
   const owner = await voiceOwner(SIGN_IN);
   if ("error" in owner) return { error: owner.error };
   const user = owner.user;
-  return { deps, contributor: { id: user.id, name: user.name, email: user.email } };
+  return { deps, contributor: { id: user.id, name: user.name, email: user.email, jurisdiction: requestJurisdiction(req.headers) } };
 }
 
 function handle(err: unknown) {
@@ -24,17 +24,17 @@ function handle(err: unknown) {
   throw err;
 }
 
-/** The grown-up's Voice Recording Agreement history, newest first. */
-export async function GET() {
-  const ctx = await context();
+/** The grown-up's Voice Recording Agreement history, newest first, and whether licensing is offered where they are. */
+export async function GET(req: Request) {
+  const ctx = await context(req);
   if ("error" in ctx) return ctx.error;
   const history = await ctx.deps.agreements.history(ctx.contributor.id);
-  return NextResponse.json({ current: history[0] ?? null, history }, { headers: { "cache-control": "no-store" } });
+  return NextResponse.json({ current: history[0] ?? null, history, licensingAvailable: licensingAvailable(ctx.contributor.jurisdiction) }, { headers: { "cache-control": "no-store" } });
 }
 
 /** Accepts the agreement before the microphone starts. Body: { statements: string[], thirdPartyLicensing: boolean }. */
 export async function POST(req: Request) {
-  const ctx = await context();
+  const ctx = await context(req);
   if ("error" in ctx) return ctx.error;
   const body = (await req.json().catch(() => null)) as { statements?: unknown; thirdPartyLicensing?: unknown } | null;
   const statements = Array.isArray(body?.statements) ? body.statements.filter((s): s is string => typeof s === "string") : [];
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
  * and licensing) without deleting recordings or changing family sharing.
  */
 export async function PATCH(req: Request) {
-  const ctx = await context();
+  const ctx = await context(req);
   if ("error" in ctx) return ctx.error;
   const body = (await req.json().catch(() => null)) as { thirdPartyLicensing?: unknown; aiTraining?: unknown } | null;
   const ua = req.headers.get("user-agent")?.slice(0, 500) ?? null;

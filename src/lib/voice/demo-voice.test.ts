@@ -19,7 +19,7 @@ async function setup(durationMs: number | null, agree = true) {
   const store = new MemoryAccountVoiceStore();
   const agreements = new MemoryVoiceAgreementStore();
   const agreementId = agree
-    ? (await acceptVoiceAgreement(agreements, { ...owner, email: "sara@example.com" }, { statements: REQUIRED_AGREEMENT_STATEMENTS, thirdPartyLicensing: true, userAgent: null })).id
+    ? (await acceptVoiceAgreement(agreements, { ...owner, email: "sara@example.com", jurisdiction: "US-NY" }, { statements: REQUIRED_AGREEMENT_STATEMENTS, thirdPartyLicensing: true, userAgent: null })).id
     : null;
   const input = { agreementId, removeBackgroundNoise: false, userAgent: null };
   return { guests, guestId: guest.id, store, input, deps: { store, agreements, provider: new StubVoiceProvider(), limits } };

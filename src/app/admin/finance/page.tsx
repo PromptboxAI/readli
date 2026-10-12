@@ -5,7 +5,8 @@ import { requireAdmin } from "@/lib/admin/access";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { loadFinance, type CostConfig, type FinanceReport } from "@/lib/admin/finance";
 import { accountDb } from "@/lib/family/account-store";
-import { updateCostSettingsAction } from "../actions";
+import { PACK_REFUND_DAYS, REFUND_START_BUSINESS_DAYS } from "@/lib/content/billing-policy";
+import { refundCreditPackAction, updateCostSettingsAction } from "../actions";
 
 export const metadata: Metadata = { title: "Finances | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -157,6 +158,7 @@ function Report({ r, test }: { r: FinanceReport; test: boolean }) {
         )}
       </section>
 
+      <PackRefund />
       <CostSettings costs={costs} />
     </>
   );
@@ -188,6 +190,35 @@ function CostSettings({ costs }: { costs: CostConfig }) {
         <CostField name="storage_usd_per_gb_month" label="Audio storage per GB-month (USD)" value={costs.storageUsdPerGbMonth} step="0.0001" />
         <CostField name="delivery_usd_per_gb" label="Audio delivery per GB (USD)" value={costs.deliveryUsdPerGb} step="0.0001" />
         <button className={`${buttonPrimary} self-start`}>Save cost settings</button>
+      </form>
+    </section>
+  );
+}
+
+/** Refunds one credit pack by its Stripe payment ID; the eligibility rules are checked on the server. */
+function PackRefund() {
+  return (
+    <section id="pack-refund" className="flex flex-col gap-3" aria-labelledby="pack-refund-h">
+      <h2 id="pack-refund-h" className="font-display text-2xl font-semibold">Refund a credit pack</h2>
+      <p className="text-sm">
+        A pack with no credits used can be refunded in full within {PACK_REFUND_DAYS} days of purchase. A partly used or older pack is refunded only
+        where the law requires it or it&apos;s approved, for the unused share of what was paid. Start approved refunds within {REFUND_START_BUSINESS_DAYS} business
+        days. The refunded pack is closed so its credits can&apos;t be spent.
+      </p>
+      <form action={refundCreditPackAction} className="grid gap-3 sm:grid-cols-2" data-testid="pack-refund">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-semibold">Stripe payment ID</span>
+          <input name="payment_ref" placeholder="pi_..." required pattern="pi_[A-Za-z0-9]+" className="rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/15" />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-semibold">Why (needed for an approved refund)</span>
+          <input name="note" maxLength={500} className="rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/15" />
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="approved" className="size-5 accent-coral-deep" />
+          <span>Approved or legally required refund of the unused share</span>
+        </label>
+        <button className={`${buttonPrimary} self-start`}>Refund the pack</button>
       </form>
     </section>
   );

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { cleanHousehold, openException, purchasedBalance } from "@/lib/lifecycle/cleanup";
+import { purchasedPacks, reconciliation } from "@/lib/billing/credit-refunds";
+import { cleanHousehold, openException } from "@/lib/lifecycle/cleanup";
 import { writeAudit } from "@/lib/lifecycle/db";
 import type { ProviderRefCipher } from "@/lib/server/provider-ref";
 import type { VoiceProvider } from "@/lib/voice/provider";
@@ -279,13 +280,13 @@ export async function deleteAccount(
   for (const home of solo) {
     await run(db.rpc("stop_household_narration", { p_household: home }), "stop family narration");
     audioFilesRemoved += (await cleanHousehold(db, home, await soloLibraries(db, home), at)).audioFiles;
-    const balance = await purchasedBalance(db, home);
-    if (balance > 0) {
+    const owed = reconciliation(await purchasedPacks(db, home));
+    if (owed.credits > 0) {
       await openException(db, {
         kind: "purchased_credits_unreconciled",
         householdId: home,
-        reason: `Account deleted with ${balance} purchased credits unspent; kept until reconciled`,
-        detail: { credits: balance },
+        reason: `Account deleted with ${owed.credits} purchased credits unspent (unused value $${(owed.unusedValueCents / 100).toFixed(2)}); reconcile any refund owed`,
+        detail: { credits: owed.credits, unused_value_cents: owed.unusedValueCents, packs: owed.packs },
       });
     }
   }

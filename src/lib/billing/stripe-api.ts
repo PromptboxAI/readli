@@ -180,6 +180,11 @@ export class StripeApi {
   }
 
   /** Stripe's hosted page where a parent updates their card, changes slots or cancels. */
+  /** Refunds part or all of a one-time payment, once per idempotency key. */
+  async refund(paymentIntent: string, amountCents: number, idempotencyKey: string, metadata: Record<string, string>): Promise<{ id: string; status: string }> {
+    return this.call("POST", "refunds", { payment_intent: paymentIntent, amount: amountCents, reason: "requested_by_customer", metadata }, idempotencyKey);
+  }
+
   async createPortalSession(customer: string, returnUrl: string): Promise<{ url: string }> {
     return this.call("POST", "billing_portal/sessions", { customer, return_url: returnUrl });
   }

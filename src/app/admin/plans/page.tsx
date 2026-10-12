@@ -4,6 +4,7 @@ import { CONTRIBUTOR_HOUSEHOLD_MAX_ADULTS } from "@/lib/accounts/accounts";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { effectivePlan, LIMIT_FIELDS, MAX_CREDIT_PACKS } from "@/lib/billing/price-settings";
 import { accountDb } from "@/lib/family/account-store";
+import { PRICE_INCREASE_NOTICE_DAYS } from "@/lib/content/billing-policy";
 import { formatPrice, type PlanConfig } from "@/lib/family/plan";
 import { rewardsConfig } from "@/lib/rewards/rewards";
 import { requireAdmin } from "@/lib/admin/access";
@@ -135,7 +136,7 @@ function PriceSettings({ plan, editable }: { plan: PlanConfig; editable: boolean
     <section className="flex flex-col gap-3" aria-labelledby="price-settings-h">
       <h2 id="price-settings-h" className="font-display text-2xl font-semibold">Prices</h2>
       <p className="text-sm">
-        Prices in US dollars. A change applies to new purchases only: families already paying keep their price. Gift prices follow the Family prices.
+        Prices in US dollars. A change applies to new purchases only: families already paying, and prepaid gift terms, keep their price. Moving existing subscribers to a higher price isn&apos;t done from here: it needs at least {PRICE_INCREASE_NOTICE_DAYS} days&apos; notice naming the old and new price, the date and how to cancel, and any consent the law requires. Gift prices follow the Family prices.
         Payments stay off until they&apos;re switched on.
       </p>
       {!editable && <PreviewNote>Prices can be changed once sign-in and Supabase are connected.</PreviewNote>}

@@ -6,7 +6,7 @@
 
 import type { PolicySection } from "@/lib/content/privacy-policy";
 
-export const VOICE_AGREEMENT_VERSION = "voice-agreement-2026-10-12.2";
+export const VOICE_AGREEMENT_VERSION = "voice-agreement-2026-10-12.3";
 export const VOICE_AGREEMENT_EFFECTIVE_DATE = "October 12, 2026";
 export const VOICE_AGREEMENT_PATH = "/voice-agreement";
 
@@ -25,6 +25,10 @@ export interface PermissionStatement {
 }
 
 export const ADULT_OWNER_STATEMENT = "I'm 18 or older, this is my own voice, and I'm the only person speaking.";
+
+/** Kevin, 2026-10-12, decision 5: free contributors aren't paid, and the agreement says so expressly. */
+export const COMPENSATION_STATEMENT =
+  "I'm volunteering my voice. Readli doesn't pay me any fee, royalty, residual or share of revenue for my recordings or the rights I grant here.";
 
 export const PERMISSION_STATEMENTS: readonly PermissionStatement[] = [
   {
@@ -46,7 +50,7 @@ export const PERMISSION_STATEMENTS: readonly PermissionStatement[] = [
     required: false,
     title: "Licensing to other companies (optional)",
     statement:
-      "Optional: Readli may license my original recording to other companies to train and develop their own AI models. I can turn this off later for future licensing.",
+      "Optional, and separate from the rest of this Agreement: Readli may license my original recordings to independent AI companies to train and develop their own voice models, under written licenses that limit how they may be used and forbid impersonating me. I'm not paid for this. I can turn it off later for future licensing; licenses already granted continue on their terms.",
   },
 ] as const;
 
@@ -54,6 +58,7 @@ export const PERMISSION_STATEMENTS: readonly PermissionStatement[] = [
 export const REQUIRED_AGREEMENT_STATEMENTS: readonly string[] = [
   ADULT_OWNER_STATEMENT,
   ...PERMISSION_STATEMENTS.filter((p) => p.required).map((p) => p.statement),
+  COMPENSATION_STATEMENT,
   "Families can only use my voice after I share it with them and their parents approve it for each child. I can stop sharing, replace or delete my voice at any time.",
 ];
 
@@ -135,10 +140,14 @@ export const VOICE_AGREEMENT_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Independent commercial licensing rights",
-        text: "license your original recordings to other companies for their own AI model development and training. This is optional, off unless you specifically turn it on, and is never a condition of using Readli. Any licensing of identifiable voice recordings to third parties for their independent model training or commercial development will be subject to a separate, clearly disclosed authorization where required.",
+        text: "license your eligible original recordings to independent AI companies for their own model development, training, evaluation and testing, with sublicensing only where the written license expressly allows it. This needs its own separate, affirmative authorization: accepting this Agreement or the Terms of Service is not enough. It is optional, off unless you specifically turn it on, and never a condition of using Readli. Readli includes a recording in a licensed dataset only while that authorization is recorded and still valid for the intended use. Each commercial license must define the approved uses, security obligations, how long the licensee may keep the recordings, any onward transfer or sublicensing, and a ban on using them to impersonate you. Licensing is offered only where the law allows it: Readli records where you are when you give or change this authorization and doesn’t offer it in places whose biometric privacy laws restrict it. Readli hasn’t started licensing recordings to other companies and will not do so before a separate launch decision.",
       },
       {
         text: "Readli records which of these rights you granted, for each recording, so that Readli and any successor know exactly what each recording may be used for. Each right lasts until you withdraw it as section 8 describes.",
+      },
+      {
+        lead: "Authorized uses",
+        text: "under the rights you grant, Readli may use your original recordings for Readli-owned AI model development; voice cloning and re-cloning; model training, evaluation, testing and improvement; and commercial development of voice-generation technology. With the separate licensing authorization only, Readli may also license eligible recordings to independent AI companies as described above. Readli may transfer recordings and the rights you granted in a business transaction as section 7 describes.",
       },
     ],
   },
@@ -147,7 +156,7 @@ export const VOICE_AGREEMENT_SECTIONS: PolicySection[] = [
     title: "4. Children’s voices and data",
     paragraphs: [
       {
-        text: "Readli never includes children’s voices or children’s personal information in any dataset licensed to, or used by, a third party for its own model training. Child profile data is used only to run the parent-approved Readli Kids experience, as the Privacy Policy describes.",
+        text: "Readli never includes children’s voices or children’s personal information in any dataset licensed to, or used by, a third party for its own model training. Anonymous guest demo recordings and narration generated by Readli’s voice provider are never included either. Child profile data is used only to run the parent-approved Readli Kids experience, as the Privacy Policy describes.",
       },
     ],
   },
@@ -156,16 +165,20 @@ export const VOICE_AGREEMENT_SECTIONS: PolicySection[] = [
     title: "5. What Readli keeps with each recording",
     paragraphs: [
       {
-        text: "To document your rights and keep recordings useful, Readli keeps your original audio together with its length, quality checks, language, the script you read (as its expected transcript), technical capture details such as format and device type, and the version of this Agreement and the permissions you granted. Readli also keeps a history of every change you make to those permissions, with timestamps and your account identity.",
+        text: "To document your rights and keep recordings useful, Readli keeps your original audio together with its length, quality checks, language, the script you read (as its expected transcript), technical capture details such as format and device type, and the version of this Agreement and the permissions you granted. Readli also keeps a history of every change you make to those permissions, with timestamps, your account identity and your approximate location (state or country) at the time, along with your withdrawal and deletion requests, any license agreements that covered your recordings, and which licensed datasets included them and when that was disclosed.",
       },
     ],
   },
   {
     id: "ownership",
-    title: "6. Ownership",
+    title: "6. Ownership and compensation",
     paragraphs: [
       {
-        text: "Readli owns its independently developed software, systems, proprietary models, and intellectual property, together with any rights it lawfully acquires in recordings and generated content. Nothing in this agreement transfers ownership of your natural voice or personal identity as a whole.",
+        text: "Readli owns its independently developed software, systems, proprietary models, and intellectual property, together with the rights you grant in your submitted recordings under this Agreement and any rights it lawfully acquires in generated content. Nothing in this agreement transfers ownership of your natural voice or personal identity as a whole: you keep your voice, your name and your likeness.",
+      },
+      {
+        lead: "Compensation",
+        text: "Readli Voice is free and voluntary. You aren’t paid for recording or for any right you grant under this Agreement, including Readli development and, if you turn it on, licensing to other companies: there are no recording fees, royalties, residuals or automatic revenue-sharing payments, even if Readli earns money from its technology or from licenses. Readli may offer separate paid recording or dataset programs in the future under different agreements; none is offered now, and joining one would need a new agreement.",
       },
     ],
   },

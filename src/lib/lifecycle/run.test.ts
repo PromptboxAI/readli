@@ -71,7 +71,8 @@ function world() {
         { session_id: "rec-sara", storage_key: "sara/take.webm" },
         { session_id: "rec-gran", storage_key: "gran/take.webm" },
       ],
-      narration_credit_lots: [{ id: "lot1", household_id: "h1", source: "purchased", credits: 20 }],
+      narration_credit_lots: [{ id: "lot1", household_id: "h1", source: "purchased", credits: 20, granted_at: "2026-09-01T00:00:00Z", payment_ref: "pi_1" }],
+      revenue_events: [{ provider_ref: "pi_1", kind: "credit_pack", amount_cents: 699 }],
       narration_credit_ledger: [{ household_id: "h1", lot_id: "lot1", kind: "reserve", credits: 5 }],
       billing_customers: [{ household_id: "h1", customer_ref: "cus_1" }],
       adult_profiles: [],
@@ -125,7 +126,7 @@ describe("the daily lifecycle run", () => {
     expect(tables.households!.find((h) => h.id === "h1")!.cleaned_at).toBe(NOW.toISOString());
     expect(tables.household_entitlements).toHaveLength(2);
     expect(tables.narration_credit_lots).toHaveLength(1);
-    expect(tables.lifecycle_exceptions).toEqual([expect.objectContaining({ kind: "purchased_credits_unreconciled", household_id: "h1", detail: { credits: 15 } })]);
+    expect(tables.lifecycle_exceptions).toEqual([expect.objectContaining({ kind: "purchased_credits_unreconciled", household_id: "h1", detail: expect.objectContaining({ credits: 15, unused_value_cents: 524 }) })]);
     expect(tables.household_recovery![0]).toMatchObject({ status: "deleted" });
     expect(tables.email_outbox).toEqual([expect.objectContaining({ template: "household_deleted", recipient_user_id: "sara" })]);
     expect(sent).toBe(1);

@@ -109,13 +109,14 @@ describe("deleting an account", () => {
   it("keeps unspent purchased credits and sends them to the exception queue", async () => {
     const { db, tables } = fakeDb(
       sarasData({
-        narration_credit_lots: [{ id: "lot1", household_id: "home", source: "purchased", credits: 20 }],
+        narration_credit_lots: [{ id: "lot1", household_id: "home", source: "purchased", credits: 20, granted_at: "2026-09-01T00:00:00Z", payment_ref: "pi_1" }],
+        revenue_events: [{ provider_ref: "pi_1", kind: "credit_pack", amount_cents: 699 }],
         narration_credit_ledger: [{ household_id: "home", lot_id: "lot1", kind: "reserve", credits: 5 }],
       }),
     );
     await deleteAccount({ db, ...recordingProvider(), refs }, ME);
     expect(tables.narration_credit_lots).toHaveLength(1);
-    expect(tables.lifecycle_exceptions).toEqual([expect.objectContaining({ kind: "purchased_credits_unreconciled", household_id: "home", detail: { credits: 15 } })]);
+    expect(tables.lifecycle_exceptions).toEqual([expect.objectContaining({ kind: "purchased_credits_unreconciled", household_id: "home", detail: expect.objectContaining({ credits: 15, unused_value_cents: 524 }) })]);
   });
 
   it("won't leave a shared family's kids without a guardian, and deletes nothing", async () => {

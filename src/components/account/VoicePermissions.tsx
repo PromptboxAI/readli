@@ -18,6 +18,7 @@ const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyl
 export function VoicePermissions() {
   const id = useId();
   const [history, setHistory] = useState<Agreement[] | null>(null);
+  const [licensingOffered, setLicensingOffered] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletion, setDeletion] = useState<{ due_at: string; status: string } | null>(null);
@@ -37,8 +38,12 @@ export function VoicePermissions() {
   useEffect(() => {
     let live = true;
     fetch("/api/voice/agreement", { cache: "no-store" })
-      .then((res) => (res.ok ? (res.json() as Promise<{ history: Agreement[] }>) : null))
-      .then((body) => live && setHistory(body?.history ?? []))
+      .then((res) => (res.ok ? (res.json() as Promise<{ history: Agreement[]; licensingAvailable?: boolean }>) : null))
+      .then((body) => {
+        if (!live) return;
+        setHistory(body?.history ?? []);
+        setLicensingOffered(body?.licensingAvailable === true);
+      })
       .catch(() => live && setHistory([]));
     return () => {
       live = false;
@@ -88,12 +93,13 @@ export function VoicePermissions() {
           type="checkbox"
           className="mt-1 size-5 shrink-0 accent-coral-deep"
           checked={current.rights.thirdPartyLicensing}
-          disabled={busy || !current.rights.readliDevelopment}
+          disabled={busy || !current.rights.readliDevelopment || (!current.rights.thirdPartyLicensing && !licensingOffered)}
           onChange={(e) => void change({ thirdPartyLicensing: e.target.checked })}
         />
         <span className="flex flex-col gap-1">
           <span className="font-semibold">{licensing.title}</span>
           <span className="text-sm">{licensing.statement}</span>
+          {!licensingOffered && !current.rights.thirdPartyLicensing && <span className="text-sm text-muted">Not offered where you are.</span>}
         </span>
       </label>
       {error && (

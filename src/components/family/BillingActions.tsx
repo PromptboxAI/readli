@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { SUBSCRIPTION_REFUND_NOTICE, TRIAL_REMINDER_DAYS } from "@/lib/content/billing-policy";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { formatPrice } from "@/lib/family/plan";
 import { PlanChangeConfirm, ScheduledPlanChange, type PlanTarget } from "./PlanChange";
@@ -74,7 +75,7 @@ export function StartPlan(props: {
           <p className="font-display text-lg font-semibold">Free for {props.trialDays} days</p>
           <p className="text-sm">
             Your trial includes {props.trialCredits} narration credits. We ask for a card at checkout, and nothing is charged until the trial ends.
-            Cancel before then and you won&apos;t pay anything.
+            Cancel before then and you won&apos;t pay anything. We&apos;ll email you {TRIAL_REMINDER_DAYS} days before your trial ends.
           </p>
         </div>
       )}
@@ -82,6 +83,9 @@ export function StartPlan(props: {
         {props.trialDays > 0 ? "After your trial, " : ""}
         {formatPrice(base)} {choice === "family_monthly" ? "a month" : "a year"}
         {extra > 0 ? ` plus ${formatPrice(extra * props.slotCents)} a month for ${extra} extra ${extra === 1 ? "slot" : "slots"}` : ""}. Renews automatically until you cancel.
+      </p>
+      <p className="text-sm" data-testid="subscription-refund-policy">
+        {SUBSCRIPTION_REFUND_NOTICE}
       </p>
       {!props.paymentsOn && (
         <p data-testid="payments-off" className="rounded-2xl bg-surface/80 p-3 text-sm ring-2 ring-ink/10">
