@@ -124,6 +124,10 @@ export function KidsDevices({ kids, initialDevices, pinSet }: { kids: { id: stri
               />
             </label>
             <p className="text-sm text-muted">This signs you out on this device. {hasPin ? "" : "Set a PIN first so a grown-up can leave Readli Kids here."}</p>
+            <p className="text-sm text-muted">
+              On an iPad or phone, once the bookshelf opens, tap Share and then Add to Home Screen. The Readli Kids shortcut opens straight
+              to the bookshelf, and your kids pick who&apos;s listening.
+            </p>
             <button type="button" className={`${buttonSecondary} self-start`} disabled={busy || chosen.length === 0} onClick={setUp}>
               Start Readli Kids here
             </button>
