@@ -4,11 +4,11 @@ import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import { buttonPrimary } from "@/components/brand/buttons";
 
-/** A signed-in grown-up's first step: name the family they'll set up. */
-export function CreateFamily({ suggestion }: { suggestion: string }) {
+/** A signed-in grown-up's first step: name the family they'll set up. Starts blank: we don't know their last name. */
+export function CreateFamily() {
   const id = useId();
   const router = useRouter();
-  const [name, setName] = useState(suggestion);
+  const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submit = async (e: React.FormEvent) => {
@@ -41,6 +41,8 @@ export function CreateFamily({ suggestion }: { suggestion: string }) {
         id={`${id}-name`}
         className="min-h-12 w-full rounded-2xl border-[3px] border-ink/20 bg-surface px-4 text-lg focus:border-ink"
         value={name}
+        placeholder="The Godfrey Family"
+        autoComplete="off"
         maxLength={60}
         required
         onChange={(e) => setName(e.target.value)}

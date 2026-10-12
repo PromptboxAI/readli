@@ -34,7 +34,6 @@ export default async function ConnectInvitationPage({ params, searchParams }: { 
   const state = await store.read();
   const name = landing.contributorName;
   const householdId = await guardianHousehold(store, actor);
-  const me = state.adults.find((a) => a.id === actor.adultId);
   const header = (
     <header className="flex flex-col gap-2">
       <Eyebrow>Readli Family</Eyebrow>
@@ -71,7 +70,7 @@ export default async function ConnectInvitationPage({ params, searchParams }: { 
         ) : (
           <>
             <p className="text-lg">First, name your family. Then we&apos;ll add {name}.</p>
-            <CreateFamily suggestion={`The ${(me?.displayName ?? "").split(" ").pop() || "Readli"} family`} />
+            <CreateFamily />
           </>
         )}
       </AdultPage>
