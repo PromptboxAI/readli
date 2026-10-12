@@ -95,3 +95,18 @@ describe("family invitations", () => {
     expect(f).toMatchObject({ previewsGenerated: 2, books: [{ slug: "winnie-the-pooh", previews: 2 }], invitationsSent: 3, uniqueRecipients: 2, pagesOpened: 1, previewsPlayed: 1, accepted: 1, payingHouseholds: 1, attributedMrrCents: 1500, declined: 1 });
   });
 });
+
+describe("invitation email setup", () => {
+  it("use Readli's shared Resend key and sender, with an optional invites address", async () => {
+    const { invitationMailer, ResendMailer } = await import("./email");
+    expect(invitationMailer({ RESEND_API_KEY: "re_x" } as unknown as NodeJS.ProcessEnv)).toBeNull();
+    expect(invitationMailer({ RESEND_API_KEY: "re_x", EMAIL_FROM: "Readli <hello@readli.ai>" } as unknown as NodeJS.ProcessEnv)).toBeInstanceOf(ResendMailer);
+    const sent: { body: string }[] = [];
+    const mailer = new ResendMailer("re_x", "Readli <invites@readli.ai>", (async (_url: string, init: { body: string }) => {
+      sent.push(init);
+      return new Response(JSON.stringify({ id: "em_1" }), { status: 200 });
+    }) as unknown as typeof fetch);
+    expect(await mailer.send({ to: "a@b.co", subject: "s", html: "h", text: "t", headers: {} })).toEqual({ id: "em_1" });
+    expect(JSON.parse(sent[0]!.body)).toMatchObject({ from: "Readli <invites@readli.ai>", to: ["a@b.co"] });
+  });
+});

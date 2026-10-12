@@ -67,7 +67,7 @@ export default async function AdminInvitationsPage({ searchParams }: { searchPar
           Sending and limits
         </h2>
         <p className="text-sm">
-          Email provider: {mailer ? "Resend is configured." : "Resend isn't configured here (RESEND_API_KEY and INVITE_EMAIL_FROM)."} Switch sending on only after the sending domain is verified.
+          Email provider: {mailer ? "Resend is configured." : "Resend isn't configured here (RESEND_API_KEY and EMAIL_FROM)."} Switch sending on only after the sending domain is verified.
         </p>
         <form action={saveInvitationSettingsAction} className="grid gap-4 sm:grid-cols-2">
           <label className="flex items-center gap-3 sm:col-span-2">

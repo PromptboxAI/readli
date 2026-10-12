@@ -51,7 +51,9 @@ const g = globalThis as typeof globalThis & { __readliMailer?: MemoryMailer };
 
 /** The configured mailer, or null when invitation email isn't set up here. */
 export function invitationMailer(env: NodeJS.ProcessEnv = process.env): Mailer | null {
-  if (env.RESEND_API_KEY && env.INVITE_EMAIL_FROM) return new ResendMailer(env.RESEND_API_KEY, env.INVITE_EMAIL_FROM);
+  // One Resend key for all of Readli's email; invitations can use their own sender, else the shared one.
+  const from = env.INVITE_EMAIL_FROM || env.EMAIL_FROM;
+  if (env.RESEND_API_KEY && from) return new ResendMailer(env.RESEND_API_KEY, from);
   if (env.VOICE_PROVIDER === "stub") return (g.__readliMailer ??= new MemoryMailer());
   return null;
 }
