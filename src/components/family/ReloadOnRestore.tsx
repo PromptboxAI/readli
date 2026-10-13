@@ -1,11 +1,7 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-
-// Module-level, because each page renders its own copy of this component: the one that sees Back is
-// not the one mounted on the page Back lands on.
-let popped = false;
 
 /**
  * Family pages never show a stale copy after Back or Forward. A page restored from the browser's
@@ -15,26 +11,18 @@ let popped = false;
  */
 export function ReloadOnRestore() {
   const router = useRouter();
-  const path = usePathname();
 
   useEffect(() => {
     const onShow = (e: PageTransitionEvent) => e.persisted && window.location.reload();
-    const onPop = () => {
-      popped = true;
-    };
+    // The timeout lets the router finish restoring the page Back landed on before it is refreshed.
+    const onPop = () => window.setTimeout(() => router.refresh(), 0);
     window.addEventListener("pageshow", onShow);
     window.addEventListener("popstate", onPop);
     return () => {
       window.removeEventListener("pageshow", onShow);
       window.removeEventListener("popstate", onPop);
     };
-  }, []);
-
-  useEffect(() => {
-    if (!popped) return;
-    popped = false;
-    router.refresh();
-  }, [path, router]);
+  }, [router]);
 
   return null;
 }
