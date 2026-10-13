@@ -142,11 +142,15 @@ test("try your voice shows three steps on desktop and a short pitch on phones", 
   await expect(page).toHaveURL(/\/try$/);
 });
 
-test("the library section shows the six new books on a shelf and links to the library", async ({ page }) => {
+test("the library section shows six books on desktop and twelve on phones, and links to the library", async ({ page }, info) => {
   await page.goto("/");
   const section = page.locator("#stories");
   await expect(section.getByRole("heading", { level: 2 })).toHaveText("A Whole World of Stories Awaits");
-  await expect(section.getByRole("img")).toHaveCount(6);
+  const phone = info.project.name === "phone";
+  await expect(section.getByRole("img")).toHaveCount(phone ? 12 : 6);
+  const thumbelina = section.getByRole("link", { name: "Thumbelina" });
+  if (phone) await expect(thumbelina).toHaveAttribute("href", "/books/thumbelina");
+  else await expect(thumbelina).toBeHidden();
   await expect(section.getByRole("link", { name: "Goldilocks and the Three Bears" })).toHaveAttribute("href", "/books/goldilocks-and-the-three-bears");
   await expect(section.getByRole("link", { name: "Explore the Readli Library" })).toHaveAttribute("href", "/books");
 });
