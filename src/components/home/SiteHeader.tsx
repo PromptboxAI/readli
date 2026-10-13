@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/brand/Wordmark";
-import { buttonPrimary } from "@/components/brand/buttons";
-import { AccountNav } from "@/components/home/AccountNav";
+import { HeaderActions, MobileAccountItems } from "@/components/home/AccountNav";
 import { MobileMenu } from "@/components/home/MobileMenu";
 
 const NAV = [
@@ -25,10 +24,7 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
-          <AccountNav linkClass={desktopLink} buttonClass={`${desktopLink} cursor-pointer`} />
-          <Link href="/try" className={buttonPrimary}>
-            Try It Free
-          </Link>
+          <HeaderActions linkClass={desktopLink} />
         </nav>
         <MobileMenu>
           <nav
@@ -40,10 +36,7 @@ export function SiteHeader() {
                 {item.label}
               </Link>
             ))}
-            <AccountNav linkClass={mobileLink} buttonClass={`${mobileLink} cursor-pointer text-left`} />
-            <Link href="/try" className={`${buttonPrimary} mt-1`}>
-              Try It Free
-            </Link>
+            <MobileAccountItems linkClass={mobileLink} />
           </nav>
         </MobileMenu>
       </div>
