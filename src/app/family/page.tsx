@@ -210,8 +210,8 @@ export default async function FamilyHome() {
             </li>
           </ul>
           <p className="text-sm text-muted">
-            Opening Readli Kids sets up this device for your kids and signs you out on it. A grown-up PIN or signing in again gets you
-            back.
+            Opening Readli Kids puts this browser in Kids Mode for that child until you sign back in. Your other devices stay signed in.
+            To give the kids their own iPad or phone, <Link href="/family/devices" className="font-semibold underline underline-offset-4">set up a kids device</Link>.
           </p>
         </section>
       )}

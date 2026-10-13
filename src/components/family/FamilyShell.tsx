@@ -4,6 +4,8 @@ import { SiteFooter } from "@/components/home/sections";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { ParentNav } from "@/components/family/ParentNav";
 import { ReloadOnRestore } from "@/components/family/ReloadOnRestore";
+import { PreviewKidsExit } from "@/components/family/KidsDeviceControls";
+import { authConfigured } from "@/lib/auth/supabase";
 import { currentSession } from "@/lib/family/session";
 import { accountBadge, accountInitials, accountLinks, navState } from "@/lib/auth/nav-state";
 
@@ -64,9 +66,21 @@ export function NeedsGrownUp({ text }: { text: string }) {
     <FamilyShell portal={false}>
       <h1 className="font-display text-4xl font-semibold">Ask a grown-up</h1>
       <p className="text-lg">{text}</p>
-      <Link href="/family" className={`${buttonPrimary} self-start`}>
-        Grown-ups: sign in
-      </Link>
+      <GrownUpSignIn />
     </FamilyShell>
+  );
+}
+
+/**
+ * The way back to Readli Family from a kids screen. Signing in is the real exit (it ends Kids Mode on
+ * this browser); a link to /family would only bounce back to the bookshelf. The preview has no
+ * sign-in, so there it starts a fresh preview family instead.
+ */
+export function GrownUpSignIn() {
+  if (!authConfigured()) return <PreviewKidsExit />;
+  return (
+    <Link href="/login?next=/family" className={`${buttonPrimary} self-start`}>
+      Grown-ups: sign in
+    </Link>
   );
 }

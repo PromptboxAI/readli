@@ -59,6 +59,41 @@ export interface FamilySession {
    * who set it up, used only to read the family. With no `activeChildId` the kids pick who's listening.
    */
   device?: { id: string; childIds: string[]; householdId: string; label: string; activeChildId: string | null };
+  /**
+   * Set in temporary Kids Mode: a grown-up opened one child's bookshelf on their own browser. Nothing
+   * is registered as a kids device; the pass ends when it expires or a grown-up signs back in.
+   */
+  temporary?: { childId: string; expiresAt: string };
+}
+
+/** How long temporary Kids Mode lasts before a grown-up has to open it again. */
+export const TEMPORARY_KIDS_HOURS = 12;
+const TEMP_PREFIX = "t1~";
+
+export function isTemporaryKidsCookie(value: string | undefined): boolean {
+  return Boolean(value?.startsWith(TEMP_PREFIX));
+}
+
+/** A signed pass for temporary Kids Mode: which family (scope), which grown-up opened it, which child, until when. */
+export function encodeTemporaryKids(pass: { scope: string; openedBy: string; childId: string; expiresAt: number }, key = secret()): string {
+  const body = `${TEMP_PREFIX}${pass.scope}~${pass.openedBy}~${pass.childId}~${pass.expiresAt}`;
+  return `${body}.${createHmac("sha256", `${key}:kids-temp`).update(body).digest("base64url")}`;
+}
+
+export function decodeTemporaryKids(
+  value: string | undefined,
+  now = Date.now(),
+  key = secret(),
+): { scope: string; openedBy: string; childId: string; expiresAt: number } | null {
+  if (!isTemporaryKidsCookie(value)) return null;
+  const dot = value!.lastIndexOf(".");
+  if (dot < 0) return null;
+  const body = value!.slice(0, dot);
+  if (!sameHash(value!.slice(dot + 1), createHmac("sha256", `${key}:kids-temp`).update(body).digest("base64url"))) return null;
+  const [scope, openedBy, childId, expires] = body.slice(TEMP_PREFIX.length).split("~");
+  const expiresAt = Number(expires);
+  if (!scope || !openedBy || !childId || !Number.isFinite(expiresAt) || expiresAt <= now) return null;
+  return { scope, openedBy, childId, expiresAt };
 }
 
 export function encodeSession({ sandbox, actor }: FamilySession, key = secret()): string {
@@ -102,6 +137,8 @@ export const currentSession = cache(async (): Promise<FamilySession | null> => {
   const kids = jar.get(KIDS_COOKIE)?.value;
   // A kids device never falls through to a grown-up sign-in, even if one is somehow still present.
   if (isDeviceCookie(kids)) return deviceSession(kids);
+  // Temporary Kids Mode likewise never falls through: an expired or altered pass is simply no session.
+  if (isTemporaryKidsCookie(kids)) return temporarySession(kids);
   if (familyAccountsEnabled()) {
     const user = await currentUser();
     if (user) {
@@ -146,6 +183,34 @@ async function deviceSession(value: string | undefined): Promise<FamilySession |
     return { sandbox: ACCOUNT_SANDBOX, actor, account: { id: device.registeredBy, name: "Family member", email: null }, device: view };
   }
   return { sandbox: device.scope, actor, device: view };
+}
+
+function temporarySession(value: string | undefined): FamilySession | null {
+  const pass = decodeTemporaryKids(value);
+  if (!pass) return null;
+  const actor = { kind: "child" as const, childId: pass.childId };
+  const temporary = { childId: pass.childId, expiresAt: new Date(pass.expiresAt).toISOString() };
+  if (pass.scope === ACCOUNT_SCOPE) {
+    if (!familyAccountsEnabled()) return null;
+    return { sandbox: ACCOUNT_SANDBOX, actor, account: { id: pass.openedBy, name: "Family member", email: null }, temporary };
+  }
+  if (!familyPreviewEnabled()) return null;
+  return { sandbox: pass.scope, actor, temporary };
+}
+
+/**
+ * Temporary Kids Mode on a grown-up's own browser: this browser shows only one child's bookshelf
+ * until a grown-up signs back in. The grown-up is signed out here only (never on their other
+ * devices), so their sign-in isn't left open behind a child's screen, and nothing is registered as a
+ * kids device.
+ */
+export async function startTemporaryKids(session: FamilySession, childId: string, now = Date.now()): Promise<void> {
+  const jar = await cookies();
+  const scope = deviceScope(session);
+  const openedBy = session.account?.id ?? (session.actor.kind === "adult" ? session.actor.adultId : "");
+  if (session.account && authConfigured()) await (await supabaseServer()).auth.signOut({ scope: "local" }).catch(() => undefined);
+  jar.delete(FAMILY_COOKIE);
+  jar.set(KIDS_COOKIE, encodeTemporaryKids({ scope, openedBy, childId, expiresAt: now + TEMPORARY_KIDS_HOURS * 3_600_000 }), cookieOptions(TEMPORARY_KIDS_HOURS * 3600));
 }
 
 /** The scope a new kids device for this session belongs to. */
