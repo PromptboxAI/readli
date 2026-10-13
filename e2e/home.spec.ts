@@ -125,16 +125,15 @@ test("terms explain both voice approvals and accessibility gives a contact", asy
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
-test("try your voice shows the studio preview on desktop and a short pitch on phones", async ({ page }, info) => {
+test("try your voice shows the steps on desktop and a short pitch on phones", async ({ page }, info) => {
   await page.goto("/");
   const section = page.locator("#try-your-voice");
-  const preview = section.getByTestId("voice-studio-preview");
+  // The studio picture was removed: the hero already shows a highlighted story (Kevin, 2026-10-12).
+  await expect(section.getByTestId("voice-studio-preview")).toHaveCount(0);
   if (info.project.name === "desktop") {
-    await expect(preview).toBeVisible();
+    await expect(section.getByText("Pick a classic and hear it in your voice.")).toBeVisible();
     await expect(section.getByRole("link", { name: "Start recording" })).toHaveAttribute("href", "/try");
   } else {
-    await expect(preview).toBeHidden();
-    expect(await preview.evaluate((el) => el.getBoundingClientRect().height)).toBe(0);
     await expect(section.getByText("Read a short passage, then hear your voice bring a story to life.")).toBeVisible();
     await expect(section.getByText("No signup required")).toBeVisible();
     await section.getByRole("link", { name: "Try Your Voice Free" }).click();

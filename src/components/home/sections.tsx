@@ -137,15 +137,16 @@ export function TryYourVoice() {
   return (
     <section id="try-your-voice" aria-labelledby="try-heading" className="scroll-mt-20 bg-ivory">
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 md:gap-10 md:py-16">
-        <div className="grid items-center gap-8 rounded-[var(--radius-panel)] bg-surface p-6 sm:p-10 lg:grid-cols-[1fr_1.1fr]">
-          <div className="flex flex-col gap-4 text-center lg:text-left">
-            {/* Phones and tablets get Kevin's short pitch, centred; desktop keeps the steps beside the studio preview. */}
+        {/* No studio picture on desktop: the hero above already shows a highlighted story (Kevin, 2026-10-12). */}
+        <div className="rounded-[var(--radius-panel)] bg-surface p-6 sm:p-10">
+          <div className="flex flex-col gap-4 text-center lg:gap-6 lg:text-left">
+            {/* Phones and tablets get Kevin's short pitch, centred; desktop lays the three steps out in a row. */}
             <h2 id="try-heading" className="font-display text-3xl font-semibold sm:text-4xl">
               <span className="lg:hidden">Hear your voice tell a story.</span>
               <span className="hidden lg:inline">Try your voice. No signup.</span>
             </h2>
             <p className="text-lg lg:hidden">Read a short passage, then hear your voice bring a story to life.</p>
-            <ol className="hidden flex-col gap-3 lg:flex">
+            <ol className="hidden gap-6 lg:grid lg:grid-cols-3">
               {DEMO_STEPS.map((step, i) => (
                 <li key={step} className="flex items-start gap-3">
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-coral font-display font-semibold">
@@ -155,80 +156,21 @@ export function TryYourVoice() {
                 </li>
               ))}
             </ol>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-5">
               <Link href="/try" className={`${buttonPrimary} w-full sm:w-auto sm:self-center lg:self-start`}>
                 <span className="lg:hidden">Try Your Voice Free</span>
                 <span className="hidden lg:inline">Start recording</span>
               </Link>
               <p className="text-sm font-semibold text-muted lg:hidden">No signup required</p>
+              <p className="hidden text-sm text-muted lg:block">
+                Your recording stays private and is deleted within 24 hours unless you choose to save it.
+              </p>
             </div>
-            <p className="hidden text-sm text-muted lg:block">
-              Your recording stays private and is deleted within 24 hours unless you choose to save it.
-            </p>
           </div>
-          <VoiceStudioPreview />
         </div>
         <DemoBookShelf />
       </div>
     </section>
-  );
-}
-
-/**
- * Picture of the real recording screen on /try (teleprompter, mic level, progress), drawn with the
- * same styles. Desktop only: `hidden` removes it on smaller screens so it takes no space there.
- */
-function VoiceStudioPreview() {
-  return (
-    <div aria-hidden="true" data-testid="voice-studio-preview" className="hidden rounded-[2rem] bg-ivory p-4 lg:block">
-      <div className="grid grid-cols-[minmax(0,1fr)_12rem] gap-3">
-        <div className="relative h-72 overflow-hidden rounded-3xl bg-surface px-5 py-4 text-lg font-semibold leading-relaxed">
-          <p className="text-ink/45">Once upon a time, in a little house at the edge of a sleepy town,</p>
-          <p className="my-1">
-            <span className="rounded-md bg-sunshine/45 text-ink">there lived a family who loved stories more than anything.</span>
-          </p>
-          <p className="text-ink/45">Every night, just after the moon peeked over the rooftops, someone would pick up a book...</p>
-          <span className="absolute left-0 top-[38%] h-0 w-0 border-y-[10px] border-l-[14px] border-y-transparent border-l-coral-deep" />
-          <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-surface" />
-        </div>
-        <div className="flex flex-col gap-3 rounded-3xl bg-surface p-4">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 font-display font-semibold">
-              <span className="size-3 animate-pulse rounded-full bg-coral-deep" />
-              Recording
-            </span>
-            <span className="font-display text-xl tabular-nums">0:48</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <div className="relative h-3 overflow-hidden rounded-full bg-ivory">
-              <div className="h-full w-2/5 rounded-full bg-mint" />
-              <div className="absolute inset-y-0 left-1/2 w-0.5 bg-ink/40" />
-            </div>
-            <div className="flex justify-between text-xs text-muted">
-              <span>0:00</span>
-              <span>2:00</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <svg viewBox="0 0 24 24" className="size-5 shrink-0 text-coral-deep" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <rect x="9" y="3" width="6" height="11" rx="3" />
-              <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" />
-            </svg>
-            <div className="flex h-4 flex-1 items-end gap-0.5">
-              {[40, 70, 55, 90, 65, 80, 45, 60, 30, 20, 15, 10].map((h, i) => (
-                <span key={i} className={`flex-1 rounded-sm ${i < 8 ? "bg-mint-deep" : "bg-ink/15"}`} style={{ height: `${h}%` }} />
-              ))}
-            </div>
-          </div>
-          <div className="mt-auto grid grid-cols-2 gap-2">
-            <span className="flex min-h-10 items-center justify-center rounded-full border-[3px] border-ink font-display font-semibold">Pause</span>
-            <span className="flex min-h-10 items-center justify-center rounded-full bg-coral-deep font-display font-semibold text-white shadow-[0_3px_0_#8f2a1e]">
-              Finish
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
 
