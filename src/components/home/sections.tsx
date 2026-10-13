@@ -224,42 +224,62 @@ export function TryYourVoice() {
   );
 }
 
-// Both colour classes are spelled out so Tailwind generates them: the dot on phones, the card from sm up.
+// Kevin's reference (2026-10-13): numbered circles joined by a line, each step in a soft tinted box,
+// and a lock note at the bottom. Phones stack the steps; desktop lays them out in a row.
 const FAMILY_STEPS = [
-  { title: "Create", body: "Start your family circle and add the people you'd love to hear.", dot: "bg-coral/70", card: "sm:bg-coral/70" },
-  { title: "Invite", body: "Invite family members and loved ones to join Readli.", dot: "bg-sunshine", card: "sm:bg-sunshine" },
-  { title: "Record", body: "Each person records and approves their own voice, choosing who can use it.", dot: "bg-mint", card: "sm:bg-mint" },
-  { title: "Listen", body: "Choose a book and storyteller. Switch voices anytime without losing your place.", dot: "bg-sky", card: "sm:bg-sky" },
+  { title: "Create", body: "Start your family circle.", dot: "bg-[#ff9a8c]" },
+  { title: "Invite", body: "Invite the people you'd love to hear.", dot: "bg-sunshine" },
+  { title: "Record", body: "Each person records and approves their own voice.", dot: "bg-mint" },
+  { title: "Listen", body: "Choose a book and storyteller. Switch voices without losing your place.", dot: "bg-sky" },
 ];
 
 export function HowFamiliesWork() {
   return (
     <section id="how-it-works" aria-labelledby="how-heading" className="scroll-mt-20 bg-lavender/40">
-      <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-10 sm:gap-8 sm:px-6 sm:py-14">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 sm:gap-8 sm:px-6 sm:py-14">
         <h2 id="how-heading" className="font-display text-3xl font-semibold sm:text-4xl">
           How Readli Family Works
         </h2>
-        {/* Phones: a short numbered list. From sm up: coloured step cards. */}
-        <ol className="flex flex-col gap-4 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
-          {FAMILY_STEPS.map((step, i) => (
-            <li key={step.title} className={`flex items-start gap-3 sm:flex-col sm:gap-2 sm:rounded-[var(--radius-panel)] sm:p-6 ${step.card}`}>
-              <span
-                className={`flex size-8 shrink-0 items-center justify-center rounded-full font-display font-semibold sm:hidden ${step.dot}`}
-                aria-hidden="true"
-              >
-                {i + 1}
-              </span>
-              <span className="hidden font-display text-sm font-semibold sm:block">Step {i + 1}</span>
-              <div className="flex flex-col sm:gap-2">
-                <h3 className="font-display text-lg font-semibold sm:text-2xl">{step.title}</h3>
-                <p className="text-sm sm:text-base">{step.body}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-        <p className="text-sm">
-          Every voice belongs to the person who recorded it. Only they can share it, and they can take it back any time.
-        </p>
+        <div className="relative">
+          {/* Desktop: one line across the numbers, from the first circle to the last. */}
+          <span
+            aria-hidden="true"
+            className="absolute top-[22px] left-[22px] hidden border-t-2 border-plum/20 lg:block"
+            style={{ right: "calc((100% - 60px) / 4 - 22px)" }}
+          />
+          <ol className="flex flex-col gap-3.5 lg:grid lg:grid-cols-4 lg:gap-5">
+            {FAMILY_STEPS.map((step, i) => (
+              <li key={step.title} className="relative flex items-start gap-3 lg:flex-col lg:gap-3.5">
+                {/* Phones: a line from each circle down to the next. */}
+                {i < FAMILY_STEPS.length - 1 && (
+                  <span aria-hidden="true" className="absolute top-11 -bottom-4 left-5 border-l-2 border-plum/20 lg:hidden" />
+                )}
+                <span
+                  aria-hidden="true"
+                  className={`relative mt-0.5 flex size-[42px] shrink-0 items-center justify-center rounded-full font-display text-lg font-semibold lg:mt-0 lg:size-11 ${step.dot}`}
+                >
+                  {i + 1}
+                </span>
+                <div className="flex-1 self-stretch rounded-[18px] bg-surface/55 px-4 py-3 lg:rounded-[20px] lg:px-5 lg:py-4">
+                  <h3 className="font-display text-lg font-semibold lg:text-xl">{step.title}</h3>
+                  <p className="mt-0.5 text-[15px] text-ink/85 lg:text-base">{step.body}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div className="flex max-w-3xl items-center gap-3.5 rounded-[20px] bg-lavender/45 px-4 py-3 sm:px-5">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface/80" aria-hidden="true">
+            <svg viewBox="0 0 24 24" className="size-[22px]">
+              <rect x="5" y="11" width="14" height="10" rx="2.5" fill="#9b7fe0" />
+              <path d="M8 11V7.5a4 4 0 0 1 8 0V11" fill="none" stroke="#9b7fe0" strokeWidth="2.2" />
+              <circle cx="12" cy="16" r="1.4" fill="#fffef9" />
+            </svg>
+          </span>
+          <p className="text-sm text-ink/85 sm:text-[15px]">
+            Each voice belongs to the person who recorded it. Only they can share it, and they can turn sharing off anytime.
+          </p>
+        </div>
       </div>
     </section>
   );
