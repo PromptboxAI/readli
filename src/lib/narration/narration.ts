@@ -256,6 +256,8 @@ export interface PrepareVoiceView {
   unavailableReason: string | null;
   /** Where a parent fixes that reason, so Unavailable is never a dead end. */
   fix: { label: string; href: string } | null;
+  /** Some of this book is stored in this voice and a grown-up here may play it. */
+  canListen: boolean;
   /** Credits to prepare everything still missing in this book. */
   missingCredits: number;
   /** How many more credits the household needs to prepare the rest of the book. */
@@ -352,6 +354,7 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
     availabilityLabel: AVAILABILITY_LABELS[availability],
     unavailableReason: reason,
     fix: reason ? fixFor(state, plan, householdId, v.id, kids) : null,
+    canListen: status.ready > 0 && guardianVoiceAccess(state, plan, householdId, v.id),
     missingCredits,
     extraCreditsNeeded: Math.max(0, missingCredits - available),
     estimateSeconds: status.missingCharacters ? estimateSeconds(status.missingCharacters, library.modelId) : 0,
@@ -772,7 +775,10 @@ export async function kidsReadiness(store: FamilyStore, actor: Actor | null, chi
 interface PlaybackClaims {
   lk: string;
   sid: string;
+  /** The child listening; empty when a grown-up listens. */
   c: string;
+  /** The household a grown-up listens in, for grown-up playback. */
+  h?: string;
   v: string;
   exp: number;
 }
@@ -843,16 +849,111 @@ export async function readPlayback(store: FamilyStore, actor: Actor | null, toke
   const claims = verifyPlayback(token, key, at);
   if (!claims || !actor) throw NOT_AVAILABLE;
   const state = await store.read();
-  try {
-    requireChildAccess(state, actor, claims.c);
-  } catch {
-    throw NOT_AVAILABLE;
+  if (claims.h) {
+    try {
+      requireHouseholdGuardian(state, actor, claims.h);
+    } catch {
+      throw NOT_AVAILABLE;
+    }
+    if (!guardianVoiceAccess(state, store.plan, claims.h, claims.v)) throw NOT_AVAILABLE;
+  } else {
+    try {
+      requireChildAccess(state, actor, claims.c);
+    } catch {
+      throw NOT_AVAILABLE;
+    }
+    if (!childVoiceAccess(state, claims.c, claims.v, store.plan).allowed) throw NOT_AVAILABLE;
   }
-  if (!childVoiceAccess(state, claims.c, claims.v, store.plan).allowed) throw NOT_AVAILABLE;
   const seg = segmentsOf(state, claims.lk).get(claims.sid);
   const object = seg?.status === "ready" && seg.storageKey ? await store.audio.get(seg.storageKey) : null;
   if (!object) throw NOT_AVAILABLE;
   return object;
+}
+
+// ---------------------------------------------------------------------------
+// Grown-up listening
+// ---------------------------------------------------------------------------
+
+/**
+ * A grown-up in the household may listen to a voice the family can use: a live plan, the owner's
+ * share and a narrator slot. Unlike a child, no per-child approval is needed.
+ */
+function guardianVoiceAccess(state: FamilyState, plan: PlanConfig, householdId: string, voiceId: string): boolean {
+  return Boolean(activeEntitlement(state, householdId) && readyVoice(state, voiceId) && activeShare(state, voiceId, householdId) && activeSlot(state, voiceId, householdId, plan));
+}
+
+export interface ListenVoice {
+  voiceId: string;
+  name: string;
+  avatarUrl: string | null;
+  tint: string;
+  readySentenceIds: string[];
+  /** Every sentence of the book is stored in this voice. */
+  complete: boolean;
+}
+
+export interface ListenView {
+  householdId: string;
+  book: { slug: string; title: string; author: string; coverUrl: string | null; tint: string };
+  sentences: string[];
+  sentenceIds: string[];
+  /** Voices this grown-up may hear with at least some of the book prepared, finished books first. */
+  voices: ListenVoice[];
+}
+
+/** The grown-up player for one book: its text and the prepared audio the household may play. */
+export async function listenView(store: FamilyStore, actor: Actor | null, householdId: string, slug: string): Promise<ListenView> {
+  const state = await store.read();
+  requireHouseholdGuardian(state, actor, householdId);
+  const book = findCatalogBook(slug);
+  const text = bookText(slug);
+  if (!book || !text) throw new PermissionError(404, "not_found", "We couldn't find that book.");
+  const voices = householdVoiceIds(state, householdId)
+    .filter((id) => guardianVoiceAccess(state, store.plan, householdId, id))
+    .map((id): ListenVoice => {
+      const owner = state.adults.find((a) => a.id === voiceOwnerOf(state, id));
+      const segs = segmentsOf(state, libraryFor(state, store.plan, id, text, householdId).key);
+      const readySentenceIds = text.sentences.filter((x) => segs.get(x.id)?.status === "ready" && segs.get(x.id)?.storageKey).map((x) => x.id);
+      return { voiceId: id, name: owner?.displayName ?? "A storyteller", avatarUrl: owner?.avatarUrl ?? null, tint: owner?.tint ?? "bg-lavender", readySentenceIds, complete: readySentenceIds.length === text.sentences.length };
+    })
+    .filter((v) => v.readySentenceIds.length > 0)
+    .sort((a, b) => Number(b.complete) - Number(a.complete));
+  return {
+    householdId,
+    book: { slug: book.slug, title: book.title, author: book.author, coverUrl: book.coverUrl, tint: book.tint },
+    sentences: text.sentences.map((x) => x.text),
+    sentenceIds: text.sentences.map((x) => x.id),
+    voices,
+  };
+}
+
+function voiceOwnerOf(state: FamilyState, voiceId: string): string | undefined {
+  return state.voices.find((v) => v.id === voiceId)?.ownerId;
+}
+
+/**
+ * A short-lived URL for one prepared sentence, for a grown-up listening in the Parent Portal. Only
+ * stored audio is served; nothing is generated here.
+ */
+export async function authorizeGuardianPlayback(
+  store: FamilyStore,
+  actor: Actor | null,
+  input: { householdId: string; voiceId: string; bookSlug: string; sentence: number },
+  key: string,
+  clock: Clock = now,
+): Promise<{ url: string; expiresAt: string }> {
+  const state = await store.read();
+  requireHouseholdGuardian(state, actor, input.householdId);
+  if (!guardianVoiceAccess(state, store.plan, input.householdId, input.voiceId)) throw NOT_AVAILABLE;
+  const text = bookText(input.bookSlug);
+  const sentence = text?.sentences[input.sentence];
+  if (!text || !sentence) throw new PermissionError(400, "bad_sentence", "That page doesn't exist.");
+  const library = libraryFor(state, store.plan, input.voiceId, text, input.householdId);
+  const seg = segmentsOf(state, library.key).get(sentence.id);
+  if (seg?.status !== "ready" || !seg.storageKey) throw new PermissionError(409, "not_prepared", "This part isn't prepared in that voice yet.");
+  const exp = clock().getTime() + store.plan.playbackUrlTtlSeconds * 1000;
+  const token = signPlayback({ lk: library.key, sid: sentence.id, c: "", h: input.householdId, v: input.voiceId, exp }, key);
+  return { url: `/api/narration/audio/${token}`, expiresAt: new Date(exp).toISOString() };
 }
 
 // ---------------------------------------------------------------------------

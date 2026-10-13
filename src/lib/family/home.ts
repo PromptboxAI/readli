@@ -112,7 +112,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     }
     if (!owners.size) continue;
     const who = [...owners.values()].map((a) => a?.displayName ?? "a storyteller");
-    ready.push({ slug: book.slug, title: book.title, coverUrl: book.coverUrl, tint: book.tint, href: `/family/books/${book.slug}`, detail: `Ready with ${names(who)}`, percent: null, voices: [...owners.values()].map(person) });
+    ready.push({ slug: book.slug, title: book.title, coverUrl: book.coverUrl, tint: book.tint, href: `/family/books/${book.slug}/listen`, detail: `Ready with ${names(who)}`, percent: null, voices: [...owners.values()].map(person) });
   }
 
   const fresh: HomeBook[] = [...NEW_BOOKS, ...MORE_BOOKS_ON_PHONES]

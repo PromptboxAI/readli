@@ -16,12 +16,14 @@ import type { SynthesizedAudio, VoiceProvider } from "@/lib/voice/provider";
 import { toneWav } from "@/lib/voice/stub";
 import { ELEVENLABS_PLANS, modelCost, usdPerMinute } from "./costs";
 import {
+  authorizeGuardianPlayback,
   authorizePlayback,
   cancelGeneration,
   deleteVoiceNarrations,
   kidsReadiness,
   libraryFor,
   libraryStatus,
+  listenView,
   prepareView,
   readPlayback,
   requestGeneration,
@@ -347,3 +349,35 @@ describe("prepare page", () => {
     expect((await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-sara")!.fix?.href).toBe("/family/billing");
   });
 });
+
+describe("grown-up listening", () => {
+  it("a parent plays a prepared book from stored audio, with no child approval needed", async () => {
+    const { state, store } = family();
+    state.approvals = state.approvals.filter((a) => a.voiceId !== "voice-june");
+    const { provider } = await prepareJune(store);
+    const view = await listenView(store, mom, H, BOOK);
+    const june = view.voices.find((v) => v.voiceId === "voice-june")!;
+    expect(june.complete).toBe(true);
+    expect(view.sentences).toHaveLength(text.sentences.length);
+    const generated = provider.calls.length;
+    const { url } = await authorizeGuardianPlayback(store, mom, { householdId: H, voiceId: "voice-june", bookSlug: BOOK, sentence: 1 }, KEY, clock);
+    const token = url.split("/").pop()!;
+    expect((await readPlayback(store, mom, token, KEY, tick)).audio.byteLength).toBeGreaterThan(0);
+    // Playback only reads stored audio, and a child can't use a grown-up's link.
+    expect(provider.calls.length).toBe(generated);
+    await rejects(readPlayback(store, maya, token, KEY, tick), 403);
+  });
+
+  it("refuses unprepared sentences, voices the family can't use, and households without a plan", async () => {
+    const { state, store } = family();
+    await rejects(authorizeGuardianPlayback(store, mom, { householdId: H, voiceId: "voice-june", bookSlug: BOOK, sentence: 0 }, KEY, clock), 409, "not_prepared");
+    await rejects(authorizeGuardianPlayback(store, mom, { householdId: H, voiceId: "voice-lou", bookSlug: BOOK, sentence: 0 }, KEY, clock), 403);
+    await rejects(authorizeGuardianPlayback(store, maya, { householdId: H, voiceId: "voice-june", bookSlug: BOOK, sentence: 0 }, KEY, clock), 403);
+    await prepareJune(store);
+    const { url } = await authorizeGuardianPlayback(store, mom, { householdId: H, voiceId: "voice-june", bookSlug: BOOK, sentence: 0 }, KEY, clock);
+    for (const e of state.entitlements) e.endsAt = "2026-01-01T00:00:00Z";
+    await rejects(readPlayback(store, mom, url.split("/").pop()!, KEY, tick), 403);
+    expect((await listenView(store, mom, H, BOOK)).voices).toEqual([]);
+  });
+});
+

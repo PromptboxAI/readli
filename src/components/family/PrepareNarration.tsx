@@ -163,6 +163,11 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
                 <span className={`rounded-full px-3 py-1 text-sm font-bold ${BADGE[v.availability]}`} data-testid="availability">
                   {v.availabilityLabel}
                 </span>
+                {v.canListen && (
+                  <Link href={`/family/books/${view.book.slug}/listen?voice=${v.voiceId}`} className={buttonSecondary}>
+                    Listen
+                  </Link>
+                )}
               </div>
 
               <div className="flex flex-col gap-1">
