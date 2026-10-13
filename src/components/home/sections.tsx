@@ -127,46 +127,30 @@ function HeroPlayerScene() {
   );
 }
 
-const DEMO_STEPS = [
-  "Tick two boxes to confirm it's your voice.",
-  "Read one short story script as it scrolls, about 1 to 2 minutes.",
-  "Pick a classic and hear it in your voice.",
-];
-
 export function TryYourVoice() {
   return (
     <section id="try-your-voice" aria-labelledby="try-heading" className="scroll-mt-20 bg-ivory">
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 md:gap-10 md:py-16">
-        {/* No studio picture on desktop: the hero above already shows a highlighted story (Kevin, 2026-10-12). */}
-        <div className="rounded-[var(--radius-panel)] bg-surface p-6 sm:p-10">
-          <div className="flex flex-col gap-4 text-center lg:gap-6">
-            {/* Phones and tablets get Kevin's short pitch; desktop lays the three steps out in a row. Everything is centred. */}
-            <h2 id="try-heading" className="font-display text-3xl font-semibold sm:text-4xl">
-              <span className="lg:hidden">Hear your voice tell a story.</span>
-              <span className="hidden lg:inline">Try your voice. No signup.</span>
-            </h2>
-            <p className="text-lg lg:hidden">Read a short passage, then hear your voice bring a story to life.</p>
-            <ol className="hidden gap-6 text-left lg:grid lg:grid-cols-3">
-              {DEMO_STEPS.map((step, i) => (
-                <li key={step} className="flex items-start gap-3">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-coral font-display font-semibold">
-                    {i + 1}
-                  </span>
-                  <span className="pt-1">{step}</span>
-                </li>
-              ))}
-            </ol>
-            <div className="flex flex-col items-center gap-2">
-              <Link href="/try" className={`${buttonPrimary} w-full sm:w-auto`}>
-                <span className="lg:hidden">Try Your Voice Free</span>
-                <span className="hidden lg:inline">Start recording</span>
-              </Link>
-              <p className="text-sm font-semibold text-muted lg:hidden">No signup required</p>
-              <p className="hidden text-xs text-muted lg:block">
-                Your recording stays private and is deleted within 24 hours unless you choose to save it.
-              </p>
-            </div>
-          </div>
+        {/* No studio picture or steps: the hero above already shows a highlighted story, and desktop
+            matches the simple phone card with a little more text (Kevin, 2026-10-12/13). */}
+        <div className="flex flex-col items-center rounded-[var(--radius-panel)] bg-surface p-6 text-center sm:p-10 lg:py-11">
+          <h2 id="try-heading" className="font-display text-3xl font-semibold sm:text-4xl">
+            Hear your voice tell a story.
+          </h2>
+          <p className="mt-3 max-w-xl text-lg text-muted">
+            <span className="lg:hidden">Read a short passage, then hear your voice bring a story to life.</span>
+            <span className="hidden lg:inline">
+              Read a short passage for a minute or two, then pick a classic and hear your own voice bring it to life.
+            </span>
+          </p>
+          <Link href="/try" className={`${buttonPrimary} mt-6 w-full sm:w-auto lg:min-h-14 lg:px-8 lg:text-xl`}>
+            Try Your Voice Free
+          </Link>
+          <p className="mt-3 text-sm font-semibold text-muted lg:hidden">No signup required</p>
+          <p className="mt-3 hidden text-sm text-muted lg:block">
+            <strong className="font-bold text-ink">No signup required.</strong> Your recording stays private and is deleted
+            within 24 hours unless you save it.
+          </p>
         </div>
         <DemoBookShelf />
       </div>

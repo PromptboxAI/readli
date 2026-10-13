@@ -3,8 +3,7 @@ import { expect, test } from "@playwright/test";
 test("homepage follows the design brief order with six books under the demo", async ({ page }, info) => {
   await page.goto("/");
   const headings = await page.locator("main h2").allInnerTexts();
-  const tryHeading = info.project.name === "desktop" ? "Try your voice. No signup." : "Hear your voice tell a story.";
-  expect(headings.slice(0, 2)).toEqual([tryHeading, "Pick a story to hear in your voice"]);
+  expect(headings.slice(0, 2)).toEqual(["Hear your voice tell a story.", "Pick a story to hear in your voice"]);
   expect(headings).toEqual(
     expect.arrayContaining(["How Readli Family Works", "Every family has a story. Every voice makes it special.", "Start a family library"]),
   );
@@ -125,20 +124,20 @@ test("terms explain both voice approvals and accessibility gives a contact", asy
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
-test("try your voice shows the steps on desktop and a short pitch on phones", async ({ page }, info) => {
+test("try your voice is one simple card with the demo button", async ({ page }, info) => {
   await page.goto("/");
   const section = page.locator("#try-your-voice");
-  // The studio picture was removed: the hero already shows a highlighted story (Kevin, 2026-10-12).
+  // No studio picture or steps: the hero already shows a highlighted story (Kevin, 2026-10-12/13).
   await expect(section.getByTestId("voice-studio-preview")).toHaveCount(0);
-  if (info.project.name === "desktop") {
-    await expect(section.getByText("Pick a classic and hear it in your voice.")).toBeVisible();
-    await expect(section.getByRole("link", { name: "Start recording" })).toHaveAttribute("href", "/try");
-  } else {
-    await expect(section.getByText("Read a short passage, then hear your voice bring a story to life.")).toBeVisible();
-    await expect(section.getByText("No signup required")).toBeVisible();
-    await section.getByRole("link", { name: "Try Your Voice Free" }).click();
-    await expect(page).toHaveURL(/\/try$/);
-  }
+  await expect(section.getByRole("heading", { level: 2 })).toHaveText("Hear your voice tell a story.");
+  const pitch =
+    info.project.name === "desktop"
+      ? "Read a short passage for a minute or two, then pick a classic and hear your own voice bring it to life."
+      : "Read a short passage, then hear your voice bring a story to life.";
+  await expect(section.getByText(pitch)).toBeVisible();
+  await expect(section.getByText("No signup required").filter({ visible: true })).toHaveCount(1);
+  await section.getByRole("link", { name: "Try Your Voice Free" }).click();
+  await expect(page).toHaveURL(/\/try$/);
 });
 
 test("the library section shows the six new books on a shelf and links to the library", async ({ page }) => {
