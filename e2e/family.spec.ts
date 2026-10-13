@@ -114,7 +114,7 @@ test("a friendly empty state when no storytellers are approved", async ({ page }
   await expect(page.getByTestId("no-storytellers")).toContainText("No storytellers yet");
 });
 
-test("direct API requests can't reach unapproved voices or change approvals", async ({ page, playwright }) => {
+test("direct API requests can't reach unapproved voices or change approvals", async ({ page, context, browser, playwright }) => {
   const anon = await playwright.request.newContext({ baseURL: "http://localhost:3100" });
   expect((await anon.get("/api/kids/maya/narrators")).status()).toBe(401);
   expect((await approve(anon, "maya", "voice-lou", true)).status()).toBe(401);
@@ -123,6 +123,9 @@ test("direct API requests can't reach unapproved voices or change approvals", as
   await signIn(page, "adult:sara");
   // A parent can't approve a voice its owner never shared.
   expect((await approve(page.request, "maya", "voice-lou", true)).status()).toBe(409);
+  // The same grown-up on another browser, which stays signed in while this one is in Kids Mode.
+  const phone = await browser.newContext();
+  await phone.addCookies(await context.cookies());
   // A child can't open a profile alone, or change anything once inside one.
   await signIn(page, "child:maya");
   expect((await page.request.post("/api/family/session", { data: { as: "child:leo" } })).status()).toBe(403);
@@ -142,10 +145,9 @@ test("direct API requests can't reach unapproved voices or change approvals", as
   expect(ok.status()).toBe(200);
   const { url } = (await ok.json()) as { url: string };
   expect((await page.request.get(url)).status()).toBe(200);
-  await signIn(page, "adult:sara");
-  expect((await approve(page.request, "maya", "voice-june", false)).status()).toBe(200);
-  await signIn(page, "child:maya");
+  expect((await approve(phone.request, "maya", "voice-june", false)).status()).toBe(200);
   expect((await page.request.get(url)).status()).toBe(403);
+  await phone.close();
 });
 
 test("a fourth child can be added at no extra charge, up to six", async ({ page }) => {
@@ -163,15 +165,19 @@ test("a fourth child can be added at no extra charge, up to six", async ({ page 
   expect((await page.request.post("/api/family/children", { data: { nickname: "Eli" } })).status()).toBe(409);
 });
 
-test("only three children can listen at once", async ({ page }) => {
+test("only three children can listen at once", async ({ page, context, browser }) => {
   await signIn(page, "adult:sara");
   for (const name of ["Ava", "Ben"]) await page.request.post("/api/family/children", { data: { nickname: name } });
   const kids = ((await (await page.request.get("/api/family/children")).json()) as { children: { id: string }[] }).children.map((c) => c.id);
   expect(kids).toHaveLength(4);
+  // Each child listens on their own browser, opened by the same grown-up.
+  const parent = await context.cookies();
   for (const [i, id] of kids.entries()) {
-    await signIn(page, "adult:sara");
-    await signIn(page, `child:${id}`);
-    expect((await page.request.post(`/api/kids/${id}/listening`)).status(), id).toBe(i < 3 ? 200 : 429);
+    const tablet = await browser.newContext();
+    await tablet.addCookies(parent);
+    const res = await tablet.request.post("/api/family/session", { data: { as: `child:${id}` } });
+    expect(res.status(), id).toBe(200);
+    expect((await tablet.request.post(`/api/kids/${id}/listening`)).status(), id).toBe(i < 3 ? 200 : 429);
   }
 });
 
