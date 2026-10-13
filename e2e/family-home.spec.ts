@@ -53,3 +53,32 @@ test("a kids profile can't open parent controls", async ({ page }) => {
   await page.goto("/family/controls");
   await expect(page).toHaveURL(/\/kids$/);
 });
+
+test("every Readli Family page has a way back up", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  const pages: [string, string][] = [
+    ["/family/narrators", "/family"],
+    ["/family/my-voice", "/family"],
+    ["/family/kids", "/family"],
+    ["/family/books", "/family"],
+    ["/family/controls", "/family"],
+    ["/family/billing", "/family/controls"],
+    ["/family/credits", "/family/controls"],
+    ["/family/devices", "/family/controls"],
+    ["/family/kids/maya/storytellers", "/family/kids"],
+  ];
+  for (const [path, up] of pages) {
+    await page.goto(path);
+    await expect(page.getByTestId("back-link"), path).toHaveAttribute("href", up);
+  }
+  await page.goto("/family/narrators");
+  await page.getByTestId("back-link").click();
+  await expect(page).toHaveURL(/\/family$/);
+});
+
+test("a storyteller in a slot leads straight to choosing which kids hear them", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/narrators");
+  await expect(page.getByTestId("slot-voice-sara").getByRole("link", { name: "Choose kids" })).toHaveAttribute("href", "/family/kids");
+});
+
