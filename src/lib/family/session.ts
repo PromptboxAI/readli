@@ -159,7 +159,8 @@ export function deviceScope(session: FamilySession): string {
  */
 export async function startKidsDevice(device: KidsDevice, token: string): Promise<void> {
   const jar = await cookies();
-  if (device.scope === ACCOUNT_SCOPE && authConfigured()) await (await supabaseServer()).auth.signOut().catch(() => undefined);
+  // Local scope: only this browser signs out; the grown-up stays signed in on their other devices.
+  if (device.scope === ACCOUNT_SCOPE && authConfigured()) await (await supabaseServer()).auth.signOut({ scope: "local" }).catch(() => undefined);
   jar.delete(FAMILY_COOKIE);
   jar.set(KIDS_COOKIE, deviceCookieValue(device, token), cookieOptions(60 * 60 * 24 * 400));
 }
@@ -192,7 +193,7 @@ export async function setSession(session: FamilySession | null): Promise<void> {
   if (!session) {
     jar.delete(FAMILY_COOKIE);
     jar.delete(KIDS_COOKIE);
-    if (authConfigured()) await (await supabaseServer()).auth.signOut().catch(() => undefined);
+    if (authConfigured()) await (await supabaseServer()).auth.signOut({ scope: "local" }).catch(() => undefined);
     return;
   }
   if (session.account) {
