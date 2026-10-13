@@ -139,14 +139,14 @@ export function TryYourVoice() {
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 md:gap-10 md:py-16">
         {/* No studio picture on desktop: the hero above already shows a highlighted story (Kevin, 2026-10-12). */}
         <div className="rounded-[var(--radius-panel)] bg-surface p-6 sm:p-10">
-          <div className="flex flex-col gap-4 text-center lg:gap-6 lg:text-left">
-            {/* Phones and tablets get Kevin's short pitch, centred; desktop lays the three steps out in a row. */}
+          <div className="flex flex-col gap-4 text-center lg:gap-6">
+            {/* Phones and tablets get Kevin's short pitch; desktop lays the three steps out in a row. Everything is centred. */}
             <h2 id="try-heading" className="font-display text-3xl font-semibold sm:text-4xl">
               <span className="lg:hidden">Hear your voice tell a story.</span>
               <span className="hidden lg:inline">Try your voice. No signup.</span>
             </h2>
             <p className="text-lg lg:hidden">Read a short passage, then hear your voice bring a story to life.</p>
-            <ol className="hidden gap-6 lg:grid lg:grid-cols-3">
+            <ol className="hidden gap-6 text-left lg:grid lg:grid-cols-3">
               {DEMO_STEPS.map((step, i) => (
                 <li key={step} className="flex items-start gap-3">
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-coral font-display font-semibold">
@@ -156,13 +156,13 @@ export function TryYourVoice() {
                 </li>
               ))}
             </ol>
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-5">
-              <Link href="/try" className={`${buttonPrimary} w-full sm:w-auto sm:self-center lg:self-start`}>
+            <div className="flex flex-col items-center gap-2">
+              <Link href="/try" className={`${buttonPrimary} w-full sm:w-auto`}>
                 <span className="lg:hidden">Try Your Voice Free</span>
                 <span className="hidden lg:inline">Start recording</span>
               </Link>
               <p className="text-sm font-semibold text-muted lg:hidden">No signup required</p>
-              <p className="hidden text-sm text-muted lg:block">
+              <p className="hidden text-xs text-muted lg:block">
                 Your recording stays private and is deleted within 24 hours unless you choose to save it.
               </p>
             </div>
