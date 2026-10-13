@@ -85,6 +85,28 @@ test("kids see only approved narrators and can switch without losing their place
   await expect(page).toHaveURL(/\/kids$/);
 });
 
+test("the kids player buffers the next sentence so the story reads straight through", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family");
+  await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
+  await expect(page.getByTestId("current-narrator")).toHaveText("Mom");
+  await expect(page.getByText(/Preview family: narration here is a stand-in sound/)).toBeVisible();
+
+  const asked: number[] = [];
+  page.on("request", (r) => {
+    if (r.url().endsWith("/api/kids/narrations") && r.method() === "POST") asked.push((r.postDataJSON() as { sentence: number }).sentence);
+  });
+  await page.getByRole("button", { name: "Play" }).click();
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  // The second sentence is fetched while the first is still playing.
+  await expect.poll(() => asked).toEqual([0, 1]);
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 2 of/, { timeout: 15_000 });
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await expect.poll(() => asked.includes(2)).toBe(true);
+  await page.getByRole("button", { name: "Pause" }).click();
+});
+
 test("an owner's revocation removes the voice from every child, and sharing again starts off", async ({ page }) => {
   await signIn(page, "adult:sara");
   expect((await page.request.post("/api/family/narrators/slots")).status()).toBe(200);
