@@ -162,6 +162,16 @@ test("phone menu closes after tapping a section link", async ({ page }, info) =>
   await expect(menu).toBeHidden();
 });
 
+test("phone menu closes when tapping outside it", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "phone menu only");
+  await page.goto("/");
+  await page.getByText("Menu", { exact: true }).click();
+  const menu = page.locator("header details nav");
+  await expect(menu).toBeVisible();
+  await page.mouse.click(5, 500);
+  await expect(menu).toBeHidden();
+});
+
 test("the closing section offers the 14-day Readli Family trial", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("family-trial-line")).toContainText("Try Readli Family free for 14 days. Card required, cancel any time.");
