@@ -83,7 +83,7 @@ test("header and page links never lead to a missing page", async ({ page, reques
 test("family voices section shows the parent controls illustration and links to safety", async ({ page }, info) => {
   await page.goto("/");
   const section = page.locator("#family-privacy");
-  await expect(page.locator("#try-heading")).toHaveText("Your family. Your voices. Your rules.");
+  await expect(section.getByRole("heading", { level: 2 })).toHaveText("Your family. Your voices. Your rules.");
   await expect(section.getByRole("img", { name: /Manage voices for Milly/ })).toBeVisible();
   for (const name of ["Mom", "Grandpa", "Aunt Pook", "Uncle Kevin"]) await expect(section.getByText(name, { exact: true })).toBeVisible();
   await expect(section.getByText("Awaiting voice-owner permission")).toBeVisible();
@@ -145,7 +145,7 @@ test("try your voice shows three steps on desktop and a short pitch on phones", 
 test("the library section shows the six new books on a shelf and links to the library", async ({ page }) => {
   await page.goto("/");
   const section = page.locator("#stories");
-  await expect(page.locator("#try-heading")).toHaveText("A Whole World of Stories Awaits");
+  await expect(section.getByRole("heading", { level: 2 })).toHaveText("A Whole World of Stories Awaits");
   await expect(section.getByRole("img")).toHaveCount(6);
   await expect(section.getByRole("link", { name: "Goldilocks and the Three Bears" })).toHaveAttribute("href", "/books/goldilocks-and-the-three-bears");
   await expect(section.getByRole("link", { name: "Explore the Readli Library" })).toHaveAttribute("href", "/books");
