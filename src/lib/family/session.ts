@@ -7,6 +7,7 @@ import { sameHash } from "@/lib/server/guest-token";
 import { StubVoiceProvider } from "@/lib/voice/stub";
 import { demoFamilyState } from "./demo-family";
 import { KIDS_COOKIE } from "./kids-mode";
+import { ACCOUNT_SCOPE, deviceCookieValue, deviceForCookie, isDeviceCookie, MemoryDeviceRegistry, parseDeviceCookie, SupabaseDeviceRegistry, type DeviceRegistry, type KidsDevice } from "./devices";
 import type { Actor } from "./model";
 import { MemoryFamilyStore, type FamilyStore } from "./service";
 import { planConfig } from "./plan";
@@ -53,6 +54,11 @@ export interface FamilySession {
   actor: Actor;
   /** Set when a real grown-up is signed in; their families come from Supabase. */
   account?: { id: string; name: string; email: string | null };
+  /**
+   * Set on a Readli Kids device. The device holds no grown-up sign-in; `account` is then the guardian
+   * who set it up, used only to read the family. With no `activeChildId` the kids pick who's listening.
+   */
+  device?: { id: string; childIds: string[]; householdId: string; label: string; activeChildId: string | null };
 }
 
 export function encodeSession({ sandbox, actor }: FamilySession, key = secret()): string {
@@ -93,6 +99,9 @@ export function decodeKidsProfile(value: string | undefined, userId: string, key
 
 export const currentSession = cache(async (): Promise<FamilySession | null> => {
   const jar = await cookies();
+  const kids = jar.get(KIDS_COOKIE)?.value;
+  // A kids device never falls through to a grown-up sign-in, even if one is somehow still present.
+  if (isDeviceCookie(kids)) return deviceSession(kids);
   if (familyAccountsEnabled()) {
     const user = await currentUser();
     if (user) {
@@ -107,6 +116,64 @@ export const currentSession = cache(async (): Promise<FamilySession | null> => {
   if (!familyPreviewEnabled()) return null;
   return decodeSession(jar.get(FAMILY_COOKIE)?.value);
 });
+
+/** Where a kids device is kept: Supabase for a signed-in family, memory for the preview. */
+export function deviceRegistry(account: boolean): DeviceRegistry | null {
+  if (account) {
+    const db = familyAccountsEnabled() ? accountDb() : null;
+    return db ? new SupabaseDeviceRegistry(db) : null;
+  }
+  if (!familyPreviewEnabled()) return null;
+  g.__readliDevices ??= new MemoryDeviceRegistry();
+  return g.__readliDevices;
+}
+
+export async function currentDevice(): Promise<{ registry: DeviceRegistry; device: KidsDevice } | null> {
+  const value = (await cookies()).get(KIDS_COOKIE)?.value;
+  const parsed = parseDeviceCookie(value);
+  const registry = parsed ? deviceRegistry(parsed.account) : null;
+  const device = registry ? await deviceForCookie(registry, value, secret()) : null;
+  return registry && device ? { registry, device } : null;
+}
+
+async function deviceSession(value: string | undefined): Promise<FamilySession | null> {
+  const found = await currentDevice();
+  if (!found || parseDeviceCookie(value)?.id !== found.device.id) return null;
+  const { device } = found;
+  const actor = { kind: "child" as const, childId: device.activeChildId ?? "" };
+  const view = { id: device.id, childIds: device.childIds, householdId: device.householdId, label: device.label, activeChildId: device.activeChildId };
+  if (device.scope === ACCOUNT_SCOPE) {
+    return { sandbox: ACCOUNT_SANDBOX, actor, account: { id: device.registeredBy, name: "Family member", email: null }, device: view };
+  }
+  return { sandbox: device.scope, actor, device: view };
+}
+
+/** The scope a new kids device for this session belongs to. */
+export function deviceScope(session: FamilySession): string {
+  return session.account ? ACCOUNT_SCOPE : session.sandbox;
+}
+
+/**
+ * Turns this device into a Readli Kids device: it keeps only the device key. A signed-in grown-up is
+ * signed out here, so their sign-in is never left on a device a child uses.
+ */
+export async function startKidsDevice(device: KidsDevice, token: string): Promise<void> {
+  const jar = await cookies();
+  if (device.scope === ACCOUNT_SCOPE && authConfigured()) await (await supabaseServer()).auth.signOut().catch(() => undefined);
+  jar.delete(FAMILY_COOKIE);
+  jar.set(KIDS_COOKIE, deviceCookieValue(device, token), cookieOptions(60 * 60 * 24 * 400));
+}
+
+export async function endKidsDevice(): Promise<void> {
+  const jar = await cookies();
+  jar.delete(KIDS_COOKIE);
+  jar.delete(FAMILY_COOKIE);
+}
+
+/** The secret for device keys. */
+export function deviceSecret(): string {
+  return secret();
+}
 
 const cookieOptions = (maxAge: number) => ({
   httpOnly: true,
@@ -133,6 +200,7 @@ export async function setSession(session: FamilySession | null): Promise<void> {
     else jar.delete(KIDS_COOKIE);
     return;
   }
+  if (session.actor.kind === "adult") jar.delete(KIDS_COOKIE);
   jar.set(FAMILY_COOKIE, encodeSession(session), cookieOptions(60 * 60 * 8));
 }
 
@@ -143,6 +211,7 @@ export function newSandbox(): string {
 const MAX_SANDBOXES = 500;
 const g = globalThis as typeof globalThis & {
   __readliFamily?: { sandboxes: Map<string, MemoryFamilyStore>; provider: StubVoiceProvider };
+  __readliDevices?: MemoryDeviceRegistry;
 };
 
 const accountStores = new WeakMap<FamilySession, FamilyStore>();

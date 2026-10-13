@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { FavoriteButton } from "@/components/family/FavoriteButton";
-import { FamilyOff, NeedsGrownUp } from "@/components/family/FamilyShell";
+import { FamilyOff, FamilyShell, NeedsGrownUp } from "@/components/family/FamilyShell";
+import { KidsDeviceFooter, ListenerPicker } from "@/components/family/KidsDeviceControls";
+import { cookies } from "next/headers";
+import { KIDS_COOKIE } from "@/lib/family/kids-mode";
+import { buttonPrimary } from "@/components/brand/buttons";
 import { CATALOG } from "@/lib/library/catalog";
 import { familyStore } from "@/lib/family/session";
 import { kidsReadiness } from "@/lib/narration/narration";
@@ -17,7 +21,22 @@ export default async function KidsHome() {
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   const actor = page.session?.actor;
+  const device = page.session?.device;
+  if (!page.session && (await cookies()).get(KIDS_COOKIE)?.value) return <DeviceEnded />;
+  const deviceKids = device && page.state ? device.childIds.map((id) => activeChild(page.state!, id)).filter((c): c is NonNullable<typeof c> => c !== null) : [];
   const child = actor?.kind === "child" && page.state ? activeChild(page.state, actor.childId) : null;
+  if (device && !child) {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-5xl flex-col gap-8 px-4 py-10 sm:px-6">
+        <div className="flex items-center gap-4">
+          <ReadiMascot size={110} decorative />
+          <h1 className="font-display text-4xl font-semibold">Who&apos;s listening?</h1>
+        </div>
+        <ListenerPicker kids={deviceKids.map((c) => ({ id: c.id, nickname: c.nickname, tint: c.tint }))} />
+        <KidsDeviceFooter canSwitch={false} />
+      </main>
+    );
+  }
   if (!child) return <NeedsGrownUp text="A grown-up opens your Readli Kids bookshelf for you." />;
   const favorites = new Set(page.state!.favorites.filter((f) => f.childId === child.id).map((f) => f.bookSlug));
   // Kids browse the family's books and listen to what's already prepared; they can't start generation.
@@ -46,9 +65,26 @@ export default async function KidsHome() {
           </li>
         ))}
       </ul>
-      <Link href="/family" className="self-start text-sm font-semibold underline underline-offset-4">
-        Grown-ups
-      </Link>
+      {device ? (
+        <KidsDeviceFooter canSwitch={deviceKids.length > 1} />
+      ) : (
+        <Link href="/family" className="self-start text-sm font-semibold underline underline-offset-4">
+          Grown-ups
+        </Link>
+      )}
     </main>
+  );
+}
+
+/** A device whose Readli Kids was ended by a parent, or unused for 90 days. */
+function DeviceEnded() {
+  return (
+    <FamilyShell portal={false}>
+      <h1 className="font-display text-4xl font-semibold">Ask a grown-up</h1>
+      <p className="text-lg">Readli Kids has ended on this device. A grown-up can sign in and set it up again.</p>
+      <Link href="/login" className={`${buttonPrimary} self-start`}>
+        Grown-ups: sign in
+      </Link>
+    </FamilyShell>
   );
 }

@@ -38,7 +38,7 @@ test.describe("Kids Mode on a device", () => {
   }
 
   test("sends grown-up pages back to the bookshelf", async ({ page }) => {
-    for (const path of ["/family/billing", "/family/my-voice", "/voice/record", "/admin", "/try"]) {
+    for (const path of ["/", "/books", "/family", "/family/billing", "/family/my-voice", "/voice/record", "/admin", "/try"]) {
       await page.goto(path);
       await expect(page, path).toHaveURL(/\/kids$/);
     }

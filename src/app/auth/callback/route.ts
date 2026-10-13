@@ -2,6 +2,7 @@ import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { authConfigured, safeNext, supabaseServer } from "@/lib/auth/supabase";
 import { KIDS_COOKIE } from "@/lib/family/kids-mode";
+import { currentDevice } from "@/lib/family/session";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,13 @@ export async function GET(req: Request) {
     console.error("sign-in callback failed", error.message);
     return NextResponse.redirect(new URL(`/login?error=link&next=${encodeURIComponent(next)}`, url.origin));
   }
-  // Signing in again is how a grown-up leaves Kids Mode on a device, so this sign-in ends it.
+  // Signing in again is how a grown-up leaves Kids Mode on a device, so this sign-in ends it, and
+  // ends the kids device record too so it no longer shows as active.
+  const kidsDevice = await currentDevice().catch(() => null);
+  if (kidsDevice) {
+    const { registry, device } = kidsDevice;
+    await registry.update(device.id, { revokedAt: new Date().toISOString(), revokedBy: device.registeredBy, activeChildId: null }).catch(() => undefined);
+  }
   const res = NextResponse.redirect(new URL(next, url.origin));
   res.cookies.delete(KIDS_COOKIE);
   return res;

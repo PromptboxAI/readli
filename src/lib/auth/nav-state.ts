@@ -49,11 +49,13 @@ function previewNav(state: FamilyState, adultId: string): NavState {
 /** Who the header is for: a visitor, a kids device, or a grown-up and what their account includes. */
 export async function navState(): Promise<NavState> {
   const jar = await cookies();
+  // A kids device holds only its device key (the grown-up was signed out on it), so check it first.
+  if (jar.get(KIDS_COOKIE)?.value) return { kind: "kids" };
   if (familyAccountsEnabled()) {
     // No Supabase cookie means nobody is signed in, so most visitors cost no request.
     if (jar.getAll().some((c) => c.name.startsWith("sb-"))) {
       const user = await currentUser();
-      if (user) return jar.get(KIDS_COOKIE)?.value ? { kind: "kids" } : accountNav(user);
+      if (user) return accountNav(user);
     }
   }
   const session = await currentSession();

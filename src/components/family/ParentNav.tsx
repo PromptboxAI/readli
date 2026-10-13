@@ -11,7 +11,7 @@ type Tab = { label: string; icon: string; href: string; match: string[] } | { la
 
 /**
  * Parent Portal sections: Home | Books | Family | Kids | More. Only pages that exist today are linked;
- * Devices, Parent controls and Privacy join More (and Kids moves to devices) as those pages land.
+ * Parent controls and Privacy join More as those pages land. Kids sets up Readli Kids devices.
  */
 const NAV: Tab[] = [
   { label: "Home", icon: "⌂", href: "/family", match: ["/family"] },
@@ -19,13 +19,14 @@ const NAV: Tab[] = [
   {
     label: "Family",
     icon: "♥",
-    match: ["/family/narrators", "/family/my-voice"],
+    match: ["/family/kids", "/family/narrators", "/family/my-voice"],
     items: [
+      { href: "/family/kids", label: "Child profiles" },
       { href: "/family/narrators", label: "Family Circle and storytellers" },
       { href: "/family/my-voice", label: "My Voice" },
     ],
   },
-  { label: "Kids", icon: "☺", href: "/family/kids", match: ["/family/kids"] },
+  { label: "Kids", icon: "☺", href: "/family/devices", match: ["/family/devices"] },
   {
     label: "More",
     icon: "≡",
@@ -33,6 +34,7 @@ const NAV: Tab[] = [
     items: [
       { href: "/family/billing", label: "Plan and billing" },
       { href: "/family/credits", label: "Credits" },
+      { href: "/family/devices", label: "Devices" },
       { href: "/family/account", label: "Account settings" },
     ],
   },
