@@ -11,7 +11,7 @@ type Tab = { label: string; icon: string; href: string; match: string[] } | { la
 
 /**
  * Parent Portal sections: Home | Books | Family | Kids | More. Only pages that exist today are linked;
- * Parent controls and Privacy join More as those pages land. Kids sets up Readli Kids devices.
+ * Privacy joins More when that page lands. Kids sets up Readli Kids devices.
  */
 const NAV: Tab[] = [
   { label: "Home", icon: "⌂", href: "/family", match: ["/family"] },
@@ -30,8 +30,9 @@ const NAV: Tab[] = [
   {
     label: "More",
     icon: "≡",
-    match: ["/family/billing", "/family/credits", "/family/account"],
+    match: ["/family/controls", "/family/billing", "/family/credits", "/family/account"],
     items: [
+      { href: "/family/controls", label: "All parent controls" },
       { href: "/family/billing", label: "Plan and billing" },
       { href: "/family/credits", label: "Credits" },
       { href: "/family/devices", label: "Devices" },

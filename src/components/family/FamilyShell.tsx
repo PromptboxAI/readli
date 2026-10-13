@@ -3,6 +3,7 @@ import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { ParentNav } from "@/components/family/ParentNav";
+import { ReloadOnRestore } from "@/components/family/ReloadOnRestore";
 import { currentSession } from "@/lib/family/session";
 import { accountBadge, accountInitials, accountLinks, navState } from "@/lib/auth/nav-state";
 
@@ -17,6 +18,7 @@ export async function FamilyShell({ children, portal = true }: { children: React
     const account = { name: nav.name, email: nav.email, initials: accountInitials(nav.name), badge: accountBadge(nav), links: accountLinks(nav) };
     return (
       <>
+        <ReloadOnRestore />
         <ParentNav account={account} />
         <main className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-12 sm:px-6">{children}</main>
         <SiteFooter />
@@ -27,6 +29,7 @@ export async function FamilyShell({ children, portal = true }: { children: React
   }
   return (
     <>
+      {portal && <ReloadOnRestore />}
       <SiteHeader />
       <main className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-12 sm:px-6">{children}</main>
       <SiteFooter />

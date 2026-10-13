@@ -11,10 +11,10 @@ export function StorytellerAvatar({
   name: string;
   avatarUrl: string | null;
   tint: string;
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   muted?: boolean;
 }) {
-  const dims = { sm: "size-10 text-base", md: "size-14 text-xl", lg: "size-24 text-3xl", xl: "size-36 text-5xl sm:size-44" }[size];
+  const dims = { xs: "size-8 text-xs", sm: "size-10 text-base", md: "size-14 text-xl", lg: "size-24 text-3xl", xl: "size-36 text-5xl sm:size-44" }[size];
   const ring = muted ? "border-dashed border-ink/40 opacity-70" : "border-ink";
   if (avatarUrl) {
     // eslint-disable-next-line @next/next/no-img-element -- user selfies come from signed storage URLs

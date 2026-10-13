@@ -128,3 +128,15 @@ test("Readli Kids saves to the home screen as an app that opens on the bookshelf
   const manifest = await (await page.request.get(href!)).json();
   expect(manifest).toMatchObject({ name: "Readli Kids", start_url: "/kids", scope: "/kids", display: "standalone" });
 });
+
+test("Back on a kids profile stays on the kids bookshelf instead of returning to parent pages", async ({ page }) => {
+  expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
+  await page.goto("/family/kids");
+  await page.goto("/family");
+  await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await expect(page.getByRole("heading", { name: "Hi Maya! Pick a story." })).toBeVisible();
+  // Opening the profile replaced /family in history; Back reaches the earlier parent page, which sends the device to its bookshelf.
+  await page.goBack();
+  await expect(page).toHaveURL(/\/kids$/);
+  await expect(page.getByRole("heading", { name: "Hi Maya! Pick a story." })).toBeVisible();
+});

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { buttonPrimary, buttonQuiet, buttonSecondary } from "@/components/brand/buttons";
 import type { DeviceView } from "@/lib/family/devices";
@@ -10,7 +9,6 @@ const STATUS: Record<DeviceView["status"], string> = { active: "Active", revoked
 
 /** Readli Family → Kids devices: set up this device, see and end the others, and set the grown-up PIN. */
 export function KidsDevices({ kids, initialDevices, pinSet }: { kids: { id: string; nickname: string }[]; initialDevices: DeviceView[]; pinSet: boolean }) {
-  const router = useRouter();
   const [devices, setDevices] = useState(initialDevices);
   const [hasPin, setHasPin] = useState(pinSet);
   const [pin, setPin] = useState("");
@@ -45,8 +43,8 @@ export function KidsDevices({ kids, initialDevices, pinSet }: { kids: { id: stri
   };
   const setUp = async () => {
     if (await call("/api/family/devices", { method: "POST", body: JSON.stringify({ childIds: chosen, label }) })) {
-      router.push("/kids");
-      router.refresh();
+      // A full load that replaces this page, so Back on the kids device never shows a cached parent page.
+      window.location.replace("/kids");
     }
   };
 
