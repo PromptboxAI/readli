@@ -182,8 +182,8 @@ export function TryYourVoice() {
         {/* No studio picture: the hero above already shows a highlighted story (Kevin, 2026-10-12).
             Phones and tablets keep the simple card; desktop follows Kevin's step-card reference (2026-10-13). */}
         <div className="flex flex-col items-center rounded-[var(--radius-panel)] bg-surface p-6 text-center sm:p-10">
-          <p className="hidden font-display text-sm font-semibold tracking-[0.12em] text-mint-deep uppercase lg:block">Try your voice</p>
-          <h2 id="try-heading" className="font-display text-3xl font-semibold sm:text-4xl lg:mt-1 lg:text-5xl">
+          <p className="font-display text-sm font-semibold tracking-[0.12em] text-mint-deep uppercase">Try your voice</p>
+          <h2 id="try-heading" className="mt-1 font-display text-3xl font-semibold sm:text-4xl lg:text-5xl">
             Hear your voice tell a story.
           </h2>
           <p className="mt-3 max-w-xl text-lg text-muted">
