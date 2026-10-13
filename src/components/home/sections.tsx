@@ -127,29 +127,96 @@ function HeroPlayerScene() {
   );
 }
 
+const ICON = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+
+// Desktop demo steps (Kevin's reference, 2026-10-13). Colour classes are spelled out so Tailwind generates them.
+const DEMO_STEPS = [
+  {
+    title: "Confirm it's your voice",
+    body: "Tick two quick boxes to confirm the voice you record is yours.",
+    card: "bg-coral/10",
+    badge: "bg-coral/25 text-coral-deep",
+    icon: "bg-coral/20 text-coral-deep",
+    svg: (
+      <svg viewBox="0 0 24 24" className="size-6" {...ICON}>
+        <rect x="9" y="3" width="6" height="11" rx="3" />
+        <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+      </svg>
+    ),
+  },
+  {
+    title: "Read a short story",
+    body: "Read a fun 1 to 2 minute script as it scrolls on screen.",
+    card: "bg-mint/25",
+    badge: "bg-mint text-mint-deep",
+    icon: "bg-mint/50 text-mint-deep",
+    svg: (
+      <svg viewBox="0 0 24 24" className="size-6" {...ICON}>
+        <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+        <path d="M14 3v5h5M9 13h6M9 17h4" />
+      </svg>
+    ),
+  },
+  {
+    title: "Hear it in a story",
+    body: (
+      <>
+        Pick a classic children&apos;s book and listen to it in <strong className="font-bold text-ink">your voice</strong>.
+      </>
+    ),
+    card: "bg-lavender/25",
+    badge: "bg-lavender/70 text-plum",
+    icon: "bg-lavender/50 text-plum",
+    svg: (
+      <svg viewBox="0 0 24 24" className="size-6" {...ICON}>
+        <path d="M2 5h6a4 4 0 0 1 4 4v11a3 3 0 0 0-3-3H2zM22 5h-6a4 4 0 0 0-4 4v11a3 3 0 0 1 3-3h7z" />
+      </svg>
+    ),
+  },
+];
+
 export function TryYourVoice() {
   return (
     <section id="try-your-voice" aria-labelledby="try-heading" className="scroll-mt-20 bg-ivory">
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 md:gap-10 md:py-16">
-        {/* No studio picture or steps: the hero above already shows a highlighted story, and desktop
-            matches the simple phone card with a little more text (Kevin, 2026-10-12/13). */}
-        <div className="flex flex-col items-center rounded-[var(--radius-panel)] bg-surface p-6 text-center sm:p-10 lg:py-11">
-          <h2 id="try-heading" className="font-display text-3xl font-semibold sm:text-4xl">
-            Hear your voice tell a story.
+        {/* No studio picture: the hero above already shows a highlighted story (Kevin, 2026-10-12).
+            Phones and tablets keep the simple card; desktop follows Kevin's step-card reference (2026-10-13). */}
+        <div className="flex flex-col items-center rounded-[var(--radius-panel)] bg-surface p-6 text-center sm:p-10">
+          <p className="hidden font-display text-sm font-semibold tracking-[0.12em] text-mint-deep uppercase lg:block">Try your voice</p>
+          <h2 id="try-heading" className="font-display text-3xl font-semibold sm:text-4xl lg:mt-1 lg:text-5xl">
+            <span className="lg:hidden">Hear your voice tell a story.</span>
+            <span className="hidden lg:inline">Try your voice. No signup.</span>
           </h2>
           <p className="mt-3 max-w-xl text-lg text-muted">
             <span className="lg:hidden">Read a short passage, then hear your voice bring a story to life.</span>
-            <span className="hidden lg:inline">
-              Read a short passage for a minute or two, then pick a classic and hear your own voice bring it to life.
-            </span>
+            <span className="hidden lg:inline">See how Readli brings stories to life with your voice in just a few minutes.</span>
           </p>
-          <Link href="/try" className={`${buttonPrimary} mt-6 w-full sm:w-auto lg:min-h-14 lg:px-8 lg:text-xl`}>
-            Try Your Voice Free
+          <ol className="mt-8 hidden w-full grid-cols-3 gap-10 lg:grid">
+            {DEMO_STEPS.map((step, i) => (
+              <li key={step.title} className={`relative flex flex-col items-center gap-3 rounded-3xl px-6 pt-5 pb-7 ${step.card}`}>
+                <span className={`flex size-8 items-center justify-center self-start rounded-full font-display font-semibold ${step.badge}`}>
+                  {i + 1}
+                </span>
+                <span className={`-mt-4 flex size-12 items-center justify-center rounded-full ${step.icon}`}>{step.svg}</span>
+                <h3 className="font-display text-lg font-semibold">{step.title}</h3>
+                <p className="text-muted">{step.body}</p>
+                {i < DEMO_STEPS.length - 1 && (
+                  <span aria-hidden="true" className="absolute top-1/2 -right-9 w-8 border-t-2 border-dashed border-ink/25" />
+                )}
+              </li>
+            ))}
+          </ol>
+          <Link href="/try" className={`${buttonPrimary} mt-6 w-full sm:w-auto lg:mt-8 lg:min-h-14 lg:px-10 lg:text-xl`}>
+            <span className="lg:hidden">Try Your Voice Free</span>
+            <span className="hidden lg:inline">Start recording &rarr;</span>
           </Link>
           <p className="mt-3 text-sm font-semibold text-muted lg:hidden">No signup required</p>
-          <p className="mt-3 hidden text-sm text-muted lg:block">
-            <strong className="font-bold text-ink">No signup required.</strong> Your recording stays private and is deleted
-            within 24 hours unless you save it.
+          <p className="mt-4 hidden items-center gap-1.5 text-sm text-muted lg:flex">
+            <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true" {...ICON}>
+              <rect x="5" y="11" width="14" height="10" rx="2" />
+              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+            </svg>
+            Your recording stays private and is deleted within 24 hours unless you choose to save it.
           </p>
         </div>
         <DemoBookShelf />
