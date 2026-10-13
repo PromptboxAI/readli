@@ -254,6 +254,8 @@ export interface PrepareVoiceView {
   availabilityLabel: string;
   /** Why this narrator can't be prepared or played, when Unavailable. */
   unavailableReason: string | null;
+  /** Where a parent fixes that reason, so Unavailable is never a dead end. */
+  fix: { label: string; href: string } | null;
   /** Credits to prepare everything still missing in this book. */
   missingCredits: number;
   /** How many more credits the household needs to prepare the rest of the book. */
@@ -293,6 +295,16 @@ function missingByChapter(state: FamilyState, plan: PlanConfig, library: Narrati
     const readiness: Readiness = ready === total ? "ready" : preparing > 0 ? "preparing" : ready > 0 ? "partial" : "not_prepared";
     return { number: c.number, title: c.title, readiness, sentences: total, ready, credits };
   });
+}
+
+/** The page where a parent clears the reason a narrator is unavailable. */
+function fixFor(state: FamilyState, plan: PlanConfig, householdId: string, voiceId: string, kids: { id: string }[]): { label: string; href: string } | null {
+  if (!activeEntitlement(state, householdId)) return { label: "See Readli Family plans", href: "/family/billing" };
+  if (!readyVoice(state, voiceId) || !activeShare(state, voiceId, householdId)) return null;
+  if (!activeSlot(state, voiceId, householdId, plan)) return { label: "Manage narrator slots", href: "/family/narrators" };
+  if (kids.length === 0) return { label: "Add a child", href: "/family/kids" };
+  if (kids.length === 1) return { label: "Approve for your child", href: `/family/kids/${kids[0]!.id}/storytellers` };
+  return { label: "Approve for a child", href: "/family/kids" };
 }
 
 /** Why a household can't prepare (or a child can't hear) this narrator, or null. */
@@ -339,6 +351,7 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
     availability,
     availabilityLabel: AVAILABILITY_LABELS[availability],
     unavailableReason: reason,
+    fix: reason ? fixFor(state, plan, householdId, v.id, kids) : null,
     missingCredits,
     extraCreditsNeeded: Math.max(0, missingCredits - available),
     estimateSeconds: status.missingCharacters ? estimateSeconds(status.missingCharacters, library.modelId) : 0,

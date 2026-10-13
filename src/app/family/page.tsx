@@ -123,7 +123,7 @@ export default async function FamilyHome() {
   // A voice made on an older reading model can be heard on the newest one and switched, by its owner.
   const ownVoice = state.voices.find((v) => v.ownerId === adult.id && v.status === "ready" && v.deletedAt === null);
   const newerModel = Boolean(account && ownVoice?.modelId && ownVoice.modelId !== serverConfig().elevenLabsModel);
-  const view = home ? familyHome(state, home, planConfig()) : null;
+  const view = home ? familyHome(state, home, planConfig(), adult.id) : null;
   const familyName = account && home ? state.households.find((h) => h.id === home)?.name : null;
   return (
     <FamilyShell>

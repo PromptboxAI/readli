@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { formatPrice } from "@/lib/family/plan";
@@ -158,8 +159,19 @@ export function NarratorSlots({ initial, canBuy = true }: { initial: NarratorSlo
       {view.waiting.length > 0 && (
         <section className="flex flex-col gap-3" aria-label="Waiting for permission">
           <h2 className="font-display text-2xl font-semibold">Waiting for permission</h2>
-          <p className="text-muted">These family members haven&apos;t shared their voice with your family. Only they can.</p>
-          <ul className="flex flex-col gap-3">{view.waiting.map((n) => row(n, <span className="rounded-full bg-sunshine px-3 py-1 text-sm font-bold">Waiting for permission</span>, true))}</ul>
+          <p className="text-muted">These voices aren&apos;t shared with your family yet. Only the person whose voice it is can share it.</p>
+          <ul className="flex flex-col gap-3">
+            {view.waiting.map((n) =>
+              n.yours
+                ? row(
+                    n,
+                    <Link href="/family/my-voice" className={buttonPrimary}>
+                      Share my voice
+                    </Link>,
+                  )
+                : row(n, <span className="rounded-full bg-sunshine px-3 py-1 text-sm font-bold">Waiting for permission</span>, true),
+            )}
+          </ul>
         </section>
       )}
     </div>

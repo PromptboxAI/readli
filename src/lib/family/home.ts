@@ -2,7 +2,7 @@ import { CATALOG, NEW_BOOKS, MORE_BOOKS_ON_PHONES, findCatalogBook } from "@/lib
 import { libraryStatus } from "@/lib/narration/narration";
 import { bookText } from "@/lib/narration/text";
 import type { Adult, FamilyState } from "./model";
-import { activeApproval, activeChild, activeShare, isActiveMember } from "./permissions";
+import { activeApproval, activeChild, activeShare, childVoiceAccess, isActiveMember } from "./permissions";
 import { DEFAULT_PLAN, type PlanConfig } from "./plan";
 
 /** Who a card shows: a selfie when there is one, else tinted initials. */
@@ -40,6 +40,8 @@ export interface HomeStoryteller {
   person: HomePerson;
   tone: StorytellerTone;
   detail: string;
+  /** Where the card leads: your own unshared voice goes to My voice, anyone else's to narrators. */
+  href: string;
 }
 
 export interface FamilyHomeView {
@@ -61,9 +63,10 @@ function names(list: string[]): string {
 
 /**
  * Family home for one household: the kids, what each is part way through, stories already prepared
- * in a voice the family can use, the newest books, and the family's storytellers with who may hear them.
+ * in a voice one of the kids may hear now, the newest books, and the family's storytellers with who may hear them.
+ * `viewerId` is the signed-in adult, so their own voice reads as theirs rather than someone else's.
  */
-export function familyHome(state: FamilyState, householdId: string, plan: PlanConfig = DEFAULT_PLAN): FamilyHomeView {
+export function familyHome(state: FamilyState, householdId: string, plan: PlanConfig = DEFAULT_PLAN, viewerId?: string): FamilyHomeView {
   const kids = state.children.filter((c) => c.householdId === householdId && activeChild(state, c.id));
   const kidIds = new Set(kids.map((k) => k.id));
   const adultById = new Map(state.adults.map((a) => [a.id, a]));
@@ -103,6 +106,8 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       if (lib.bookSlug !== book.slug || !activeShare(state, lib.voiceId, householdId)) continue;
       const voice = state.voices.find((v) => v.id === lib.voiceId && v.deletedAt === null && v.status === "ready" && v.version === lib.voiceVersion);
       if (!voice || owners.has(voice.id)) continue;
+      // Ready means a child can play it now: shared, in a slot, on a live plan and approved for someone.
+      if (!kids.some((k) => childVoiceAccess(state, k.id, voice.id, plan).allowed)) continue;
       if (libraryStatus(state, lib, text).readiness === "ready") owners.set(voice.id, adultById.get(voice.ownerId));
     }
     if (!owners.size) continue;
@@ -123,11 +128,17 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     .filter((v) => v.deletedAt === null && v.status === "ready" && isActiveMember(state, v.ownerId, householdId))
     .map((v) => {
       const owner = adultById.get(v.ownerId);
-      if (!activeShare(state, v.id, householdId)) return { voiceId: v.id, person: person(owner), tone: "waiting" as const, detail: "Waiting for their permission to share" };
+      const card = { voiceId: v.id, person: person(owner), href: "/family/narrators" };
+      if (!activeShare(state, v.id, householdId)) {
+        // Only the owner can share a voice, so your own unshared voice gets a way to do it.
+        return v.ownerId === viewerId
+          ? { ...card, tone: "waiting" as const, detail: "Your voice: share it with your family", href: "/family/my-voice" }
+          : { ...card, tone: "waiting" as const, detail: "Waiting for their permission to share" };
+      }
       const approved = kids.filter((k) => activeApproval(state, v.id, k.id, plan)).map((k) => k.nickname);
-      if (approved.length && approved.length === kids.length) return { voiceId: v.id, person: person(owner), tone: "family" as const, detail: "Approved for every child" };
-      if (approved.length) return { voiceId: v.id, person: person(owner), tone: "some" as const, detail: `Approved for ${names(approved)}` };
-      return { voiceId: v.id, person: person(owner), tone: "none" as const, detail: "Not approved for a child yet" };
+      if (approved.length && approved.length === kids.length) return { ...card, tone: "family" as const, detail: "Approved for every child" };
+      if (approved.length) return { ...card, tone: "some" as const, detail: `Approved for ${names(approved)}` };
+      return { ...card, tone: "none" as const, detail: "Not approved for a child yet" };
     })
     .sort((a, b) => ["family", "some", "none", "waiting"].indexOf(a.tone) - ["family", "some", "none", "waiting"].indexOf(b.tone));
 

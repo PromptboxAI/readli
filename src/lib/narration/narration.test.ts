@@ -22,6 +22,7 @@ import {
   kidsReadiness,
   libraryFor,
   libraryStatus,
+  prepareView,
   readPlayback,
   requestGeneration,
   runJob,
@@ -326,5 +327,23 @@ describe("each voice keeps its own reading model", () => {
     await prepareJune(store, new CountingProvider((t) => t === text.sentences.at(-1)!.text));
     june(state).modelId = "eleven_v5";
     expect(library(state).modelId).toBe("eleven_v5");
+  });
+});
+
+describe("prepare page", () => {
+  it("links an unapproved narrator in a slot to where a parent approves them", async () => {
+    const { state, store } = family();
+    state.approvals = state.approvals.filter((a) => a.voiceId !== "voice-ben");
+    const ben = (await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-ben")!;
+    expect(ben.inSlot).toBe(true);
+    expect(ben.availability).toBe("unavailable");
+    expect(ben.fix).toEqual({ label: "Approve for a child", href: "/family/kids" });
+  });
+
+  it("points an approved narrator nowhere, and a household with no plan to the plans", async () => {
+    const { state, store } = family();
+    expect((await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-sara")!.fix).toBeNull();
+    for (const e of state.entitlements) e.endsAt = "2026-01-01T00:00:00Z";
+    expect((await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-sara")!.fix?.href).toBe("/family/billing");
   });
 });

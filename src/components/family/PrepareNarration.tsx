@@ -178,9 +178,9 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
               {v.availability === "unavailable" ? (
                 <p className="text-sm font-semibold">
                   {v.unavailableReason}.{" "}
-                  {!v.inSlot && (
-                    <Link href="/family/narrators" className="underline underline-offset-4">
-                      Manage narrator slots
+                  {v.fix && (
+                    <Link href={v.fix.href} className="underline underline-offset-4">
+                      {v.fix.label}
                     </Link>
                   )}
                 </p>
