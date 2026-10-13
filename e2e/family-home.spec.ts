@@ -82,3 +82,17 @@ test("a storyteller in a slot leads straight to choosing which kids hear them", 
   await expect(page.getByTestId("slot-voice-sara").getByRole("link", { name: "Choose kids" })).toHaveAttribute("href", "/family/kids");
 });
 
+test("Back after approving a storyteller shows the change, not a stale page", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family");
+  const dad = page.getByTestId("home-storytellers").getByRole("link", { name: /Dad/ });
+  await expect(dad).toContainText("Approved for Leo");
+  await page.getByRole("link", { name: "Manage storytellers" }).first().click();
+  await expect(page.getByRole("heading", { name: "Manage storytellers for Maya" })).toBeVisible();
+  await page.getByRole("switch", { name: "Dad for Maya" }).click();
+  await expect(page.getByTestId("storyteller-voice-ben")).toContainText("Approved for Maya");
+  await page.goBack();
+  await expect(page).toHaveURL(/\/family$/);
+  await expect(page.getByTestId("home-storytellers").getByRole("link", { name: /Dad/ })).toContainText("Approved for every child");
+});
+
