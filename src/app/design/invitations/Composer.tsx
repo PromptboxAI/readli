@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { buttonPrimary, buttonQuiet, buttonSecondary } from "@/components/brand/buttons";
-import { SamplePlayer } from "./DesignFrame";
+import { SamplePlayer } from "./SamplePlayer";
 
 const RELATIONSHIPS = ["Son or daughter", "Grandchild's parent", "Sibling", "Niece or nephew", "Friend of the family", "Other"];
 const MAX_PER_SEND = 10;
