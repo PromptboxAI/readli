@@ -107,3 +107,26 @@ export function KidsDeviceFooter({ canSwitch }: { canSwitch: boolean }) {
     </div>
   );
 }
+
+/** Temporary Kids Mode on a grown-up's own browser: a grown-up leaves it by signing back in. */
+export function TemporaryKidsExit({ childName }: { childName: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="flex flex-col gap-3">
+      <button type="button" className={`${buttonSecondary} min-h-11 self-start px-4 text-sm`} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <span aria-hidden="true">🔒</span> Grown-ups: exit Kids Mode
+      </button>
+      {open && (
+        <div className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10" data-testid="temporary-kids-exit">
+          <p className="font-semibold">
+            This browser is showing only {childName}&apos;s stories. Sign in to leave Kids Mode and go back to Readli Family. Your other devices
+            stay signed in.
+          </p>
+          <a href="/login?next=/family" className={`${buttonPrimary} self-start`}>
+            Sign in to exit Kids Mode
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}

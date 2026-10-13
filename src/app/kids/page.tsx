@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { FavoriteButton } from "@/components/family/FavoriteButton";
 import { FamilyOff, FamilyShell, NeedsGrownUp } from "@/components/family/FamilyShell";
-import { KidsDeviceFooter, ListenerPicker } from "@/components/family/KidsDeviceControls";
+import { KidsDeviceFooter, ListenerPicker, TemporaryKidsExit } from "@/components/family/KidsDeviceControls";
 import { cookies } from "next/headers";
 import { KIDS_COOKIE } from "@/lib/family/kids-mode";
 import { buttonPrimary } from "@/components/brand/buttons";
@@ -67,6 +67,8 @@ export default async function KidsHome() {
       </ul>
       {device ? (
         <KidsDeviceFooter canSwitch={deviceKids.length > 1} />
+      ) : page.session?.temporary ? (
+        <TemporaryKidsExit childName={child.nickname} />
       ) : (
         <Link href="/family" className="self-start text-sm font-semibold underline underline-offset-4">
           Grown-ups
@@ -81,7 +83,7 @@ function DeviceEnded() {
   return (
     <FamilyShell portal={false}>
       <h1 className="font-display text-4xl font-semibold">Ask a grown-up</h1>
-      <p className="text-lg">Readli Kids has ended on this device. A grown-up can sign in and set it up again.</p>
+      <p className="text-lg">Readli Kids has ended on this browser. A grown-up can sign in and open it again.</p>
       <Link href="/login" className={`${buttonPrimary} self-start`}>
         Grown-ups: sign in
       </Link>

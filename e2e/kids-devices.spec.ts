@@ -115,7 +115,7 @@ test("a parent sees and revokes a device, and it loses access on its next reques
 
   expect((await page.request.get("/api/kids/maya/narrators")).status()).toBe(401);
   await page.goto("/kids");
-  await expect(page.getByText("Readli Kids has ended on this device.")).toBeVisible();
+  await expect(page.getByText("Readli Kids has ended on this browser.")).toBeVisible();
   await phone.close();
 });
 
@@ -139,4 +139,30 @@ test("Back on a kids profile stays on the kids bookshelf instead of returning to
   await page.goBack();
   await expect(page).toHaveURL(/\/kids$/);
   await expect(page.getByRole("heading", { name: "Hi Maya! Pick a story." })).toBeVisible();
+});
+
+test("opening a child's Readli Kids is temporary Kids Mode on this browser, not a kids device", async ({ page, context }) => {
+  expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
+  await page.goto("/family");
+  await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await expect(page.getByRole("heading", { name: "Hi Maya! Pick a story." })).toBeVisible();
+  const pass = (await context.cookies()).find((c) => c.name === "readli_kids_profile");
+  expect(pass?.value.startsWith("t1~")).toBe(true);
+  expect((await context.cookies()).map((c) => c.name)).not.toContain("readli_family_demo");
+
+  // Restricted to this child on the server: other kids and grown-up pages and APIs are out of reach.
+  expect((await page.request.get("/api/kids/maya/narrators")).status()).toBe(200);
+  expect((await page.request.get("/api/kids/leo/narrators")).status()).toBe(403);
+  expect((await page.request.get("/api/family/devices")).status()).toBe(403);
+  await page.goto("/family/billing");
+  await expect(page).toHaveURL(/\/kids$/);
+
+  // A clearly labelled way out for a grown-up: signing back in.
+  await page.getByRole("button", { name: "Grown-ups: exit Kids Mode" }).click();
+  await expect(page.getByTestId("temporary-kids-exit").getByRole("link", { name: "Sign in to exit Kids Mode" })).toHaveAttribute("href", "/login?next=/family");
+
+  // Nothing was registered as a kids device.
+  expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
+  const devices = (await (await page.request.get("/api/family/devices")).json()) as { devices: { label: string }[] };
+  expect(devices.devices.map((d) => d.label)).not.toContain("This device");
 });
