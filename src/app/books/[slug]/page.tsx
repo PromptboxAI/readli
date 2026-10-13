@@ -6,7 +6,8 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { authConfigured } from "@/lib/auth/supabase";
-import { publicBook, publicLibrary } from "@/lib/library/public";
+import { type PublicBook, publicBook, publicLibrary } from "@/lib/library/public";
+import { absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
 
 export function generateStaticParams() {
   return publicLibrary().map((b) => ({ slug: b.slug }));
@@ -14,7 +15,22 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const book = publicBook((await params).slug);
-  return book ? { title: `${book.title} | Readli Library`, description: `${book.title} by ${book.author}, in the Readli library.` } : {};
+  if (!book) return {};
+  return publicPageMetadata({
+    title: `${book.title} by ${book.author} | Readli Library`,
+    description: bookDescription(book),
+    path: `/books/${book.slug}`,
+    type: "book",
+    images: book.coverUrl ? [{ url: book.coverUrl, alt: `${book.title} cover`, width: 900, height: 1200 }] : undefined,
+  });
+}
+
+function bookDescription(book: PublicBook): string {
+  const published = book.firstPublished ? `, first published in ${book.firstPublished}` : "";
+  if (book.comingSoon) return `${book.title} by ${book.author}${published}. Coming soon to the Readli library, read aloud in your family's own voices.`;
+  const length = book.minutes < 1 ? "Under a minute" : `About ${Math.round(book.minutes)} minutes`;
+  const chapters = book.chapters.length > 1 ? ` in ${book.chapters.length} chapters` : "";
+  return `${book.title} by ${book.author}${published}. ${length} read aloud${chapters}. Hear it in the voices of the people your kids love with Readli.`;
 }
 
 /**
@@ -25,10 +41,22 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
   const book = publicBook((await params).slug);
   if (!book) notFound();
   const prepare = `/family/books/${book.slug}`;
+  const bookLd = {
+    "@context": "https://schema.org",
+    "@type": "Book",
+    name: book.title,
+    author: { "@type": "Person", name: book.author },
+    ...(book.firstPublished ? { datePublished: String(book.firstPublished) } : {}),
+    ...(book.coverUrl ? { image: absoluteUrl(book.coverUrl) } : {}),
+    url: absoluteUrl(`/books/${book.slug}`),
+    inLanguage: "en",
+    audience: { "@type": "PeopleAudience", audienceType: "Children" },
+  };
   return (
     <>
       <SiteHeader />
       <main className="mx-auto grid max-w-5xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(bookLd)} />
         {book.coverUrl ? (
           <Image src={book.coverUrl} alt="" width={450} height={600} priority className="aspect-[3/4] w-full max-w-sm rounded-3xl object-cover" />
         ) : (

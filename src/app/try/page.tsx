@@ -3,10 +3,13 @@ import Link from "next/link";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { TeleprompterRecorder } from "@/components/teleprompter/TeleprompterRecorder";
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
+import { publicPageMetadata } from "@/lib/seo/site";
 
-export const metadata: Metadata = {
-  title: "Record your voice | Readli",
-};
+export const metadata: Metadata = publicPageMetadata({
+  title: "Hear a story in your voice, free | Readli",
+  description: "Record about a minute of your natural storytime voice and hear a classic storybook read aloud the way only you can. Free to try.",
+  path: "/try",
+});
 
 /** Dedicated recording screen (Amendment 001 §A): one continuous take, no page changes. */
 export default function TryPage() {

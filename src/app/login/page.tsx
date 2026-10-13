@@ -9,7 +9,7 @@ import { SiteFooter } from "@/components/home/sections";
 import { authConfigured, safeNext } from "@/lib/auth/supabase";
 import { currentAdult } from "@/lib/auth/adult";
 
-export const metadata: Metadata = { title: "Log in | Readli" };
+export const metadata: Metadata = { title: "Log in | Readli", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

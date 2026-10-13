@@ -10,7 +10,7 @@ import { activeChild } from "@/lib/family/permissions";
 import { familyPage } from "@/lib/family/page-data";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Readli Kids | Readli" };
+export const metadata: Metadata = { title: "Readli Kids" };
 
 /** A child's bookshelf. Kids never sign in: a guardian opens this profile from Readli Family. */
 export default async function KidsHome() {

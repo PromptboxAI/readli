@@ -3,11 +3,13 @@ import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { LibrarySearch } from "@/components/library/LibrarySearch";
 import { publicLibrary } from "@/lib/library/public";
+import { publicPageMetadata } from "@/lib/seo/site";
 
-export const metadata: Metadata = {
-  title: "The Readli Library | Readli",
+export const metadata: Metadata = publicPageMetadata({
+  title: "The Readli Library",
   description: "Browse every story in the Readli library. Hear them read in your family's own voices.",
-};
+  path: "/books",
+});
 
 /** The public library: anyone can browse and search, no account needed. */
 export default function BooksPage() {

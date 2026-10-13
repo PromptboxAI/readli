@@ -4,6 +4,7 @@ import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { ArticleList, Breadcrumbs, DraftBadge, HelpText, StillNeedHelp, plainAnswer } from "@/components/help/HelpParts";
 import { articleHref, getArticle, getCategory, relatedArticles, visibleArticles } from "@/lib/help/search";
+import { absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
 
 // Drafts are left out of the static params, so they 404 on the production site.
 export const dynamicParams = false;
@@ -20,9 +21,12 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   if (!a) return {};
   const text = plainAnswer(a);
   return {
-    title: `${a.question} | Readli Help Center`,
-    description: text.length > 155 ? `${text.slice(0, 152).trimEnd()}…` : text,
-    alternates: { canonical: articleHref(a) },
+    ...publicPageMetadata({
+      title: `${a.question} | Readli Help Center`,
+      description: text.length > 155 ? `${text.slice(0, 152).trimEnd()}…` : text,
+      path: articleHref(a),
+      type: "article",
+    }),
     robots: a.status === "draft" ? { index: false } : undefined,
   };
 }
@@ -38,8 +42,8 @@ export default async function HelpArticlePage({ params }: { params: Params }) {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Help Center", item: "https://readli.ai/help" },
-      { "@type": "ListItem", position: 2, name: category.title, item: `https://readli.ai/help/${category.slug}` },
+      { "@type": "ListItem", position: 1, name: "Help Center", item: absoluteUrl("/help") },
+      { "@type": "ListItem", position: 2, name: category.title, item: absoluteUrl(`/help/${category.slug}`) },
       { "@type": "ListItem", position: 3, name: article.question },
     ],
   };
@@ -48,7 +52,7 @@ export default async function HelpArticlePage({ params }: { params: Params }) {
     <>
       <SiteHeader />
       <main className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-12 sm:px-6">
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(breadcrumbLd)} />
         <Breadcrumbs
           items={[
             { href: "/help", label: "Help Center" },
