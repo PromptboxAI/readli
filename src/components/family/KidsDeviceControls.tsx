@@ -70,13 +70,13 @@ export function KidsDeviceFooter({ canSwitch }: { canSwitch: boolean }) {
             Switch listener
           </button>
         )}
-        <button type="button" className={`${buttonQuiet} px-0 text-sm`} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-          Grown-ups
+        <button type="button" className={`${buttonSecondary} min-h-11 px-4 text-sm`} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          <span aria-hidden="true">🔒</span> Grown-ups
         </button>
       </div>
       {open && (
         <div className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10" data-testid="grown-up-pin">
-          <p className="font-semibold">Grown-ups: enter your family PIN to leave Readli Kids on this device.</p>
+          <p className="font-semibold">Grown-ups: enter your family PIN to leave Readli Kids on this device. No PIN yet? Sign in instead.</p>
           <div className="flex flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1 text-sm font-semibold">
               PIN
