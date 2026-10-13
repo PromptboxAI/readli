@@ -269,19 +269,19 @@ const WAYS = [
   {
     title: "Hear the people you love",
     body: "From parents and grandparents to aunts, uncles, and family friends. Their voices make every story special.",
-    bg: "bg-sunshine",
+    bg: "bg-sunshine/35",
     Art: HearLovedOnes,
   },
   {
     title: "Bring your family together",
     body: "Invite loved ones to record their voices and create your own family of storytellers. Near or far, everyone's just a story away.",
-    bg: "bg-mint",
+    bg: "bg-mint/45",
     Art: FamilyOfStorytellers,
   },
   {
     title: "Make storytime your own",
     body: "Follow along as the words come to life. Switch storytellers anytime without losing your place.",
-    bg: "bg-sky",
+    bg: "bg-sky/40",
     Art: MakeStorytimeYourOwn,
   },
 ];
@@ -294,15 +294,16 @@ export function ThreeWaysToListen() {
           Every family has a story. Every voice makes it special.
         </h2>
         <ul className="grid gap-6 md:grid-cols-3">
-          {WAYS.map(({ title, body, bg, Art }, i) => (
-            <li key={title} className="group flex flex-col gap-3">
-              <div
-                className={`aspect-[4/3] overflow-hidden rounded-[var(--radius-panel)] transition-transform group-hover:-translate-y-1 motion-reduce:transform-none ${bg} ${["md:-rotate-1", "md:rotate-1", "md:-rotate-1"][i]}`}
-              >
+          {/* v2 (Kevin, 2026-10-13): soft tinted tiles with the text inside, no tilt. */}
+          {WAYS.map(({ title, body, bg, Art }) => (
+            <li key={title} className={`flex flex-col overflow-hidden rounded-[var(--radius-panel)] ring-1 ring-ink/5 ring-inset ${bg}`}>
+              <div className="h-[250px] md:h-[260px]">
                 <Art />
               </div>
-              <h3 className="mt-2 font-display text-xl font-semibold">{title}</h3>
-              <p>{body}</p>
+              <div className="flex flex-col gap-2 px-7 pt-1 pb-7">
+                <h3 className="font-display text-xl font-semibold">{title}</h3>
+                <p className="text-ink/80">{body}</p>
+              </div>
             </li>
           ))}
         </ul>
