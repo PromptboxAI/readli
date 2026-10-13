@@ -109,7 +109,7 @@ export function KidsDeviceFooter({ canSwitch }: { canSwitch: boolean }) {
 }
 
 /** Temporary Kids Mode on a grown-up's own browser: a grown-up leaves it by signing back in. */
-export function TemporaryKidsExit({ childName }: { childName: string }) {
+export function TemporaryKidsExit({ childName, preview = false }: { childName: string; preview?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="flex flex-col gap-3">
@@ -118,15 +118,45 @@ export function TemporaryKidsExit({ childName }: { childName: string }) {
       </button>
       {open && (
         <div className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10" data-testid="temporary-kids-exit">
-          <p className="font-semibold">
-            This browser is showing only {childName}&apos;s stories. Sign in to leave Kids Mode and go back to Readli Family. Your other devices
-            stay signed in.
-          </p>
-          <a href="/login?next=/family" className={`${buttonPrimary} self-start`}>
-            Sign in to exit Kids Mode
-          </a>
+          {preview ? (
+            <>
+              <p className="font-semibold">This browser is showing only {childName}&apos;s stories. Leaving Kids Mode in the preview starts a fresh preview family.</p>
+              <PreviewKidsExit />
+            </>
+          ) : (
+            <>
+              <p className="font-semibold">
+                This browser is showing only {childName}&apos;s stories. Sign in to leave Kids Mode and go back to Readli Family. Your other
+                devices stay signed in.
+              </p>
+              <a href="/login?next=/family" className={`${buttonPrimary} self-start`}>
+                Sign in to exit Kids Mode
+              </a>
+            </>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** The preview's way out of Kids Mode: clears this browser's preview and starts a new one. */
+export function PreviewKidsExit() {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const leave = async () => {
+    setBusy(true);
+    const res = await fetch("/api/family/session", { method: "DELETE" });
+    if (res.ok) return window.location.replace("/family");
+    setBusy(false);
+    setMessage(res.status === 403 ? "Use the grown-up PIN to leave Readli Kids on this device." : "That didn't work. Please try again.");
+  };
+  return (
+    <div className="flex flex-col gap-2">
+      <button type="button" className={`${buttonPrimary} self-start`} disabled={busy} onClick={leave}>
+        Grown-ups: start the preview over
+      </button>
+      {message && <p role="alert" className="font-semibold">{message}</p>}
     </div>
   );
 }

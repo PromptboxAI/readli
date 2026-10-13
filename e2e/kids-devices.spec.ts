@@ -141,8 +141,11 @@ test("Back on a kids profile stays on the kids bookshelf instead of returning to
   await expect(page.getByRole("heading", { name: "Hi Maya! Pick a story." })).toBeVisible();
 });
 
-test("opening a child's Readli Kids is temporary Kids Mode on this browser, not a kids device", async ({ page, context }) => {
+test("opening a child's Readli Kids is temporary Kids Mode on this browser, not a kids device", async ({ page, context, browser }) => {
   expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
+  // The same grown-up on their phone, signed in with the same family.
+  const phone = await browser.newContext();
+  await phone.addCookies(await context.cookies());
   await page.goto("/family");
   await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
   await expect(page.getByRole("heading", { name: "Hi Maya! Pick a story." })).toBeVisible();
@@ -154,15 +157,51 @@ test("opening a child's Readli Kids is temporary Kids Mode on this browser, not 
   expect((await page.request.get("/api/kids/maya/narrators")).status()).toBe(200);
   expect((await page.request.get("/api/kids/leo/narrators")).status()).toBe(403);
   expect((await page.request.get("/api/family/devices")).status()).toBe(403);
+  for (const as of ["adult:sara", "adult:ben", "child:leo"]) {
+    expect((await page.request.post("/api/family/session", { data: { as } })).status(), as).toBe(403);
+  }
+  expect((await context.cookies()).find((c) => c.name === "readli_kids_profile")?.value).toBe(pass?.value);
+
+  // Direct URLs, refresh and Back all stay on Maya's bookshelf.
   await page.goto("/family/billing");
   await expect(page).toHaveURL(/\/kids$/);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Hi Maya! Pick a story." })).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/kids$/);
+  await expect(page.getByRole("heading", { name: "Hi Maya! Pick a story." })).toBeVisible();
 
-  // A clearly labelled way out for a grown-up: signing back in.
+  // The phone is still signed in, and nothing was registered as a kids device.
+  const devices = await phone.request.get("/api/family/devices");
+  expect(devices.status()).toBe(200);
+  expect(((await devices.json()) as { devices: { label: string }[] }).devices.map((d) => d.label)).not.toContain("This device");
+  await phone.close();
+
+  // A clearly labelled way out for a grown-up. The preview has no sign-in, so it starts a fresh preview.
   await page.getByRole("button", { name: "Grown-ups: exit Kids Mode" }).click();
-  await expect(page.getByTestId("temporary-kids-exit").getByRole("link", { name: "Sign in to exit Kids Mode" })).toHaveAttribute("href", "/login?next=/family");
+  await page.getByTestId("temporary-kids-exit").getByRole("button", { name: "Grown-ups: start the preview over" }).click();
+  await expect(page).toHaveURL(/\/family$/);
+  expect((await context.cookies()).map((c) => c.name)).not.toContain("readli_kids_profile");
+});
 
-  // Nothing was registered as a kids device.
-  expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
-  const devices = (await (await page.request.get("/api/family/devices")).json()) as { devices: { label: string }[] };
-  expect(devices.devices.map((d) => d.label)).not.toContain("This device");
+test("signing out from a kids browser doesn't leave Kids Mode", async ({ page, context }) => {
+  await parentSetsUpDevice(page, context);
+  const key = (await context.cookies()).find((c) => c.name === "readli_kids_profile")!.value;
+  const res = await page.request.post("/auth/signout", { maxRedirects: 0 });
+  expect(res.status()).toBe(303);
+  expect(res.headers()["location"]).toMatch(/\/kids$/);
+  expect((await context.cookies()).find((c) => c.name === "readli_kids_profile")?.value).toBe(key);
+});
+
+test("a kids device can't switch to a grown-up through the session route", async ({ page, context }) => {
+  await parentSetsUpDevice(page, context);
+  const res = await page.request.post("/api/family/session", { data: { as: "adult:sara" } });
+  expect(res.status()).toBe(403);
+  expect((await res.json()).error.code).toBe("kids_mode");
+  await page.goto("/family");
+  await expect(page).toHaveURL(/\/kids$/);
+  // A story link with nobody picked goes to "Who's listening?", never to a grown-up page.
+  await page.goto("/kids/listen/the-lion-and-the-mouse");
+  await expect(page).toHaveURL(/\/kids$/);
+  await expect(page.getByRole("heading", { name: "Who's listening?" })).toBeVisible();
 });

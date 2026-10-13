@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { FavoriteButton } from "@/components/family/FavoriteButton";
-import { FamilyOff, FamilyShell, NeedsGrownUp } from "@/components/family/FamilyShell";
+import { FamilyOff, FamilyShell, GrownUpSignIn, NeedsGrownUp } from "@/components/family/FamilyShell";
 import { KidsDeviceFooter, ListenerPicker, TemporaryKidsExit } from "@/components/family/KidsDeviceControls";
 import { cookies } from "next/headers";
 import { KIDS_COOKIE } from "@/lib/family/kids-mode";
-import { buttonPrimary } from "@/components/brand/buttons";
 import { CATALOG } from "@/lib/library/catalog";
 import { familyStore } from "@/lib/family/session";
 import { kidsReadiness } from "@/lib/narration/narration";
@@ -68,11 +67,9 @@ export default async function KidsHome() {
       {device ? (
         <KidsDeviceFooter canSwitch={deviceKids.length > 1} />
       ) : page.session?.temporary ? (
-        <TemporaryKidsExit childName={child.nickname} />
+        <TemporaryKidsExit childName={child.nickname} preview={!page.session.account} />
       ) : (
-        <Link href="/family" className="self-start text-sm font-semibold underline underline-offset-4">
-          Grown-ups
-        </Link>
+        <GrownUpSignIn />
       )}
     </main>
   );
@@ -84,9 +81,7 @@ function DeviceEnded() {
     <FamilyShell portal={false}>
       <h1 className="font-display text-4xl font-semibold">Ask a grown-up</h1>
       <p className="text-lg">Readli Kids has ended on this browser. A grown-up can sign in and open it again.</p>
-      <Link href="/login" className={`${buttonPrimary} self-start`}>
-        Grown-ups: sign in
-      </Link>
+      <GrownUpSignIn />
     </FamilyShell>
   );
 }
