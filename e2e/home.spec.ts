@@ -3,8 +3,7 @@ import { expect, test } from "@playwright/test";
 test("homepage follows the design brief order with six books under the demo", async ({ page }, info) => {
   await page.goto("/");
   const headings = await page.locator("main h2").allInnerTexts();
-  const tryHeading = info.project.name === "desktop" ? "Try your voice. No signup." : "Hear your voice tell a story.";
-  expect(headings.slice(0, 2)).toEqual([tryHeading, "Pick a story to hear in your voice"]);
+  expect(headings.slice(0, 2)).toEqual(["Hear your voice tell a story.", "Pick a story to hear in your voice"]);
   expect(headings).toEqual(
     expect.arrayContaining(["How Readli Family Works", "Every family has a story. Every voice makes it special.", "Start a family library"]),
   );
@@ -130,13 +129,12 @@ test("try your voice shows three steps on desktop and a short pitch on phones", 
   const section = page.locator("#try-your-voice");
   // No studio picture: the hero already shows a highlighted story (Kevin, 2026-10-12).
   await expect(section.getByTestId("voice-studio-preview")).toHaveCount(0);
+  await expect(page.locator("#try-heading")).toHaveText("Hear your voice tell a story.");
   if (info.project.name === "desktop") {
-    await expect(page.locator("#try-heading")).toHaveText("Try your voice. No signup.", { useInnerText: true });
     await expect(section.getByTestId("demo-steps").getByRole("heading", { level: 3 })).toHaveText(["Confirm it's your voice", "Read a short story", "Hear it in a story"]);
     await expect(section.getByText("deleted within 24 hours")).toBeVisible();
     await section.getByRole("link", { name: /Start recording/ }).click();
   } else {
-    await expect(page.locator("#try-heading")).toHaveText("Hear your voice tell a story.", { useInnerText: true });
     await expect(section.getByText("Read a short passage, then hear your voice bring a story to life.")).toBeVisible();
     await expect(section.getByText("No signup required")).toBeVisible();
     await section.getByRole("link", { name: "Try Your Voice Free" }).click();

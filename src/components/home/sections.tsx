@@ -184,8 +184,7 @@ export function TryYourVoice() {
         <div className="flex flex-col items-center rounded-[var(--radius-panel)] bg-surface p-6 text-center sm:p-10">
           <p className="hidden font-display text-sm font-semibold tracking-[0.12em] text-mint-deep uppercase lg:block">Try your voice</p>
           <h2 id="try-heading" className="font-display text-3xl font-semibold sm:text-4xl lg:mt-1 lg:text-5xl">
-            <span className="lg:hidden">Hear your voice tell a story.</span>
-            <span className="hidden lg:inline">Try your voice. No signup.</span>
+            Hear your voice tell a story.
           </h2>
           <p className="mt-3 max-w-xl text-lg text-muted">
             <span className="lg:hidden">Read a short passage, then hear your voice bring a story to life.</span>
