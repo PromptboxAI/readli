@@ -6,12 +6,13 @@ import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { annualSavingsPercent, monthlyTotalCents, pricing, type Pricing } from "@/lib/content/pricing";
 import { formatPrice as dollars } from "@/lib/family/plan";
+import { publicPageMetadata } from "@/lib/seo/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicPageMetadata({
   title: "Pricing | Readli",
   description: "Readli Family is $19.99 a month with two family storytellers and 40 narration credits. Readli Voice is always free.",
-  alternates: { canonical: "/pricing" },
-};
+  path: "/pricing",
+});
 
 // Shows the prices an admin saved, so it renders per request.
 export const dynamic = "force-dynamic";

@@ -5,12 +5,13 @@ import { SiteFooter } from "@/components/home/sections";
 import { ArticleList, CategoryIcon, SearchBox, StillNeedHelp } from "@/components/help/HelpParts";
 import { HELP_CATEGORIES } from "@/lib/help/articles";
 import { getCategory, searchHelp } from "@/lib/help/search";
+import { publicPageMetadata } from "@/lib/seo/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicPageMetadata({
   title: "Help Center | Readli",
   description: "Find answers about family stories, voices, subscriptions, privacy and more.",
-  alternates: { canonical: "/help" },
-};
+  path: "/help",
+});
 
 export default async function HelpPage({ searchParams }: { searchParams: Promise<{ q?: string | string[] }> }) {
   const raw = (await searchParams).q;

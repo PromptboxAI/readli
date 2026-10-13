@@ -3,11 +3,13 @@ import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { SocialIcon } from "@/components/brand/SocialIcon";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
+import { publicPageMetadata } from "@/lib/seo/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicPageMetadata({
   title: "Company | Readli",
   description: "About Readli and its official accounts.",
-};
+  path: "/company",
+});
 
 /** Company page: who Readli is and its official accounts, kept visible for press and investors. */
 export default function CompanyPage() {

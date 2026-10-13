@@ -42,7 +42,7 @@ const UPCOMING: readonly UpcomingBook[] = [
   { slug: "the-ugly-duckling", title: "The Ugly Duckling", author: "Hans Christian Andersen", firstPublished: 1843, approxMinutes: 30 },
 ].map((b) => ({ ...b, coverUrl: `/covers/${b.slug}.webp` }));
 
-/** Books added to the library after launch (Kevin, 2026-10-12). They stay off the homepage shelf. */
+/** Books added to the library after launch (Kevin, 2026-10-12). The first six join the homepage shelf on phones only (Kevin, 2026-10-13). */
 const ADDED: readonly UpcomingBook[] = [
   { slug: "cinderella", title: "Cinderella", author: "Charles Perrault", firstPublished: 1697, approxMinutes: 16 },
   { slug: "thumbelina", title: "Thumbelina", author: "Hans Christian Andersen", firstPublished: 1835, approxMinutes: 29 },
@@ -94,5 +94,8 @@ export function findCatalogBook(slug: string): CatalogBook | null {
 
 /** The six newest books, shown on the homepage shelf whether or not their full text is in yet. */
 export const NEW_BOOKS: readonly UpcomingBook[] = UPCOMING;
+
+/** Six more books the homepage shelf shows after NEW_BOOKS on phones only (Kevin, 2026-10-13). */
+export const MORE_BOOKS_ON_PHONES: readonly UpcomingBook[] = ADDED.slice(0, 6);
 
 export const UPCOMING_BOOKS: readonly UpcomingBook[] = [...UPCOMING, ...ADDED].filter((b) => !LIBRARY_TEXTS[b.slug]);

@@ -26,6 +26,9 @@ test("a set-up device holds no grown-up sign-in and kids pick who's listening", 
 
   await page.goto("/kids");
   await expect(page.getByRole("heading", { name: "Who's listening?" })).toBeVisible();
+  // The header has no account menu, sign-in or sign-up on a kids device.
+  await expect(page.getByRole("link", { name: "Try It Free" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Log in" })).toHaveCount(0);
   // Nobody is listening yet, so no bookshelf answers.
   expect((await page.request.get("/api/kids/maya/narrators")).status()).toBe(403);
   await page.getByTestId("listener-picker").getByRole("button", { name: "Maya" }).click();

@@ -3,7 +3,7 @@ import { RedeemForm } from "@/components/gifting/RedeemForm";
 import { AdultPage, Eyebrow } from "@/components/invites/AdultPage";
 import { GiftBoxArt } from "@/components/invites/illustrations";
 
-export const metadata: Metadata = { title: "Redeem a gift | Readli" };
+export const metadata: Metadata = { title: "Redeem a gift | Readli", robots: { index: false } };
 
 export default function RedeemGiftPage() {
   return (

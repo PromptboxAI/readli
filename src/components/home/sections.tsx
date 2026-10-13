@@ -3,104 +3,220 @@ import Link from "next/link";
 import { DemoBookShelf } from "@/components/books/DemoBookShelf";
 import { SocialIcon } from "@/components/brand/SocialIcon";
 import { FamilyTree } from "@/components/home/FamilyTree";
+import { HeroBedtimeScene } from "@/components/home/HeroBedtimeScene";
 import { FamilyOfStorytellers, HearLovedOnes, MakeStorytimeYourOwn } from "@/components/home/StoryIllustrations";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
 import { rewardsConfig } from "@/lib/rewards/rewards";
-import { NEW_BOOKS } from "@/lib/library/catalog";
+import { MORE_BOOKS_ON_PHONES, NEW_BOOKS } from "@/lib/library/catalog";
 
-function Cloud({ className }: { className: string }) {
-  return (
-    <svg viewBox="0 0 120 50" className={className} aria-hidden="true">
-      <path d="M20 45 C5 45 5 25 22 26 C22 10 45 6 52 20 C60 6 88 8 86 26 C104 22 112 45 96 45 Z" fill="#FFFEF9" />
-    </svg>
-  );
-}
+const GRANDPA = "/family-voices/grandpa.webp";
 
+/**
+ * Homepage hero, direction B (Kevin, 2026-10-12): adult-facing copy beside a bedtime family scene
+ * and a preview of the real Kids Mode player (plum storyteller bar, highlighted sentence, Back/Next).
+ * Readi stays a small accent here; he keeps his starring role in Kids Mode.
+ */
 export function Hero() {
   return (
-    <section className="relative overflow-hidden bg-sky/60">
-      <Cloud className="animate-drift absolute left-[6%] top-8 w-32 opacity-90" />
-      <Cloud className="animate-drift absolute right-[8%] top-3 w-44 opacity-80 [animation-delay:-6s] md:top-24" />
-      <div className="relative mx-auto grid max-w-6xl items-center gap-8 px-4 pb-12 pt-28 sm:px-6 md:grid-cols-[1.1fr_1fr] md:py-20">
-        {/* Phones: extra top padding keeps the eyebrow clear of the clouds. */}
-        <div className="flex flex-col gap-5">
-          <p className="font-display text-lg font-semibold text-coral-deep">Every Book. Every Voice.</p>
-          <h1 className="font-display text-4xl font-semibold leading-[1.05] sm:text-5xl lg:text-6xl">
-            Their favorite stories. Read by their favorite people.
+    <section className="relative overflow-hidden bg-ivory">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-[40%] top-[30%] h-[80%] w-[140%] rounded-full bg-[radial-gradient(closest-side,#dcf3e5_0%,#e9f6ec_55%,rgba(255,249,237,0)_100%)] lg:-right-[14%] lg:-top-[6%] lg:h-[112%] lg:w-[64%]"
+      />
+      <div className="relative mx-auto grid max-w-6xl items-center gap-7 px-4 pb-7 pt-9 text-center sm:px-6 lg:grid-cols-[1fr_1.05fr] lg:gap-10 lg:pb-9 lg:pt-16 lg:text-left">
+        <div className="flex flex-col items-center gap-[18px] lg:items-start lg:gap-[22px]">
+          <p className="text-[13px] font-extrabold uppercase tracking-[0.16em] text-coral-deep">Every Book. Every Voice.</p>
+          <h1 className="font-display text-4xl font-semibold leading-[1.08] tracking-[-0.012em] sm:text-5xl lg:text-[56px] lg:leading-[1.06]">
+            Their favorite stories. Read by their{" "}
+            <span className="relative whitespace-nowrap">
+              favorite people.
+              <svg viewBox="0 0 300 16" preserveAspectRatio="none" className="absolute -bottom-2.5 left-[-2%] h-4 w-[104%]" aria-hidden="true">
+                <path d="M4 11 C70 3 160 2 296 8" stroke="#9ce2bc" strokeWidth="7" fill="none" strokeLinecap="round" />
+              </svg>
+            </span>
           </h1>
-          <p className="max-w-xl text-lg">
-            Record a minute of your voice, and hear a classic storybook read the way only you can. Then invite the people
-            you love to become part of your family&apos;s storytelling library.
+          <p className="max-w-[33rem] text-[17px] leading-relaxed text-ink/85 sm:text-[19px]">
+            Record your voice and bring classic stories to life. Share your voice with the people you love, so family storytime feels
+            close, even when you&apos;re miles apart.
           </p>
-          {/* CTA sits above the illustration on mobile so it can't be missed. */}
-          <div className="flex flex-wrap gap-3">
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
             <Link href="/try" className={buttonPrimary}>
-              Hear a story in your voice, free
+              Try Your Voice Free
             </Link>
-            <Link href="/#stories" className={buttonSecondary}>
-              Browse storybooks
+            <Link href="/#how-it-works" className={buttonSecondary}>
+              Explore Readli Family
             </Link>
           </div>
+          <p className="flex items-center gap-2 text-sm font-bold text-muted">
+            <svg viewBox="0 0 24 24" className="size-[18px] shrink-0 text-mint-deep" aria-hidden="true">
+              <circle cx="12" cy="12" r="11" fill="currentColor" opacity="0.16" />
+              <path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Free to try. No signup needed.
+          </p>
         </div>
-        {/* Phones: the art is 25% smaller (Kevin, 2026-10-11). */}
-        <div className="relative mx-auto flex aspect-square w-full max-w-[18rem] items-center justify-center md:max-w-sm" aria-hidden="true">
-          <div className="absolute inset-6 rounded-[40%_60%_55%_45%] bg-mint" />
-          <div className="absolute bottom-8 left-3 size-16 rounded-3xl bg-sunshine md:bottom-10 md:left-4 md:size-20" />
-          <div className="absolute right-5 top-6 size-12 rounded-full bg-lavender md:right-6 md:top-8 md:size-16" />
-          <div className="animate-bob relative">
-            <ReadiMascot size={280} priority className="h-auto w-[210px] md:w-[280px]" />
-          </div>
-        </div>
+        <HeroPlayerScene />
       </div>
-      <svg viewBox="0 0 1440 60" className="block w-full text-ivory" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M0 40 C240 0 480 60 720 30 C960 0 1200 50 1440 20 L1440 60 L0 60 Z" fill="currentColor" />
-      </svg>
     </section>
   );
 }
 
+/** Marketing picture only: the bedtime scene plus a drawing of the Kids Mode player. Not interactive. */
+function HeroPlayerScene() {
+  return (
+    <div
+      role="img"
+      aria-label="A parent and child in bed listening to The Velveteen Rabbit, read by Grandpa in the Readli player, with the current sentence highlighted."
+      className="relative mx-auto w-full max-w-lg lg:h-[580px] lg:max-w-none"
+    >
+      <div className="relative overflow-hidden rounded-3xl shadow-[0_24px_50px_-22px_rgba(40,53,72,0.45)] lg:absolute lg:left-0 lg:top-6 lg:w-[72%] lg:rounded-[28px]">
+        <HeroBedtimeScene className="block h-[250px] w-full lg:h-auto" />
+      </div>
+      <div className="absolute right-[18px] top-0 hidden items-center gap-2.5 rounded-[18px] bg-surface py-2.5 pl-2.5 pr-3.5 text-left shadow-[0_14px_30px_-12px_rgba(40,53,72,0.35)] ring-1 ring-ink/5 lg:flex">
+        <Image src={GRANDPA} alt="" width={36} height={36} className="rounded-full" />
+        <span>
+          <span className="block text-xs font-bold text-muted">Grandpa added a new story</span>
+          <span className="block font-display text-[15px] font-semibold">Ready for tonight</span>
+        </span>
+        <svg viewBox="0 0 16 16" className="size-[18px] text-coral" aria-hidden="true">
+          <path d="M0 4 C0 -2 8 -3 8 3 C8 -3 16 -2 16 4 C16 10 8 14 8 16 C8 14 0 10 0 4Z" fill="currentColor" />
+        </svg>
+      </div>
+      <div className="relative mx-3 -mt-14 rounded-[28px] bg-surface p-4 text-left shadow-[0_30px_60px_-20px_rgba(40,53,72,0.4)] ring-1 ring-ink/5 lg:absolute lg:-right-2 lg:bottom-0 lg:mx-0 lg:mt-0 lg:w-[330px] lg:p-5">
+        <div className="flex gap-3.5">
+          <Image
+            src="/covers/the-velveteen-rabbit.webp"
+            alt=""
+            width={78}
+            height={104}
+            className="h-auto w-16 rounded-l-[4px] rounded-r-[10px] shadow-[3px_4px_0_rgba(40,53,72,0.16)] lg:w-[78px]"
+          />
+          <div>
+            <p className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-muted">
+              <span className="size-2 rounded-full bg-coral-deep" />
+              Now reading
+            </p>
+            <p className="mt-1 font-display text-[19px] font-semibold leading-tight lg:text-[21px]">The Velveteen Rabbit</p>
+            <p className="mt-0.5 text-[13px] text-muted">Margery Williams, 1922</p>
+          </div>
+        </div>
+        <div className="mt-3.5 flex items-center gap-2.5 rounded-[22px] bg-plum py-2 pl-2 pr-2.5 text-white">
+          <span className="flex items-center gap-2.5 rounded-full bg-white/10 py-1 pl-1 pr-4">
+            <Image src={GRANDPA} alt="" width={44} height={44} className="rounded-full" />
+            <span>
+              <span className="block text-[11px] text-white/80">Read by</span>
+              <span className="block font-display text-lg font-semibold leading-tight">Grandpa</span>
+              <span className="block text-[11px] font-bold text-sunshine">Change storyteller</span>
+            </span>
+          </span>
+          <span className="ml-auto flex min-h-11 items-center rounded-full bg-sunshine px-[18px] font-display text-[17px] font-semibold text-ink">Pause</span>
+        </div>
+        <p className="mt-3 rounded-[18px] bg-surface px-4 py-3.5 text-[15px] leading-relaxed ring-2 ring-inset ring-ink/10 lg:text-base">
+          There was once a velveteen rabbit, and in the beginning he was really splendid.{" "}
+          <span className="rounded bg-sunshine/70">He was fat and bunchy, as a rabbit should be;</span> his coat was spotted brown and white.
+        </p>
+        <div className="mt-3 hidden items-center justify-between lg:flex">
+          <span className="flex min-h-[38px] items-center rounded-full border-[3px] border-ink px-4 font-display text-[15px] font-semibold">Back</span>
+          <span className="text-[13px] text-muted">Sentence 2 of 214</span>
+          <span className="flex min-h-[38px] items-center rounded-full border-[3px] border-ink px-4 font-display text-[15px] font-semibold">Next</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const ICON = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+
+// Desktop demo steps (Kevin's reference, 2026-10-13). Colour classes are spelled out so Tailwind generates them.
 const DEMO_STEPS = [
-  "Tick two boxes to confirm it's your voice.",
-  "Read one short story script as it scrolls, about 1 to 2 minutes.",
-  "Pick a classic and hear it in your voice.",
+  {
+    title: "Confirm it's your voice",
+    body: "Tick two quick boxes to confirm the voice you record is yours.",
+    card: "bg-coral/10",
+    badge: "bg-coral/25 text-coral-deep",
+    icon: "bg-coral/20 text-coral-deep",
+    svg: (
+      <svg viewBox="0 0 24 24" className="size-6" {...ICON}>
+        <rect x="9" y="3" width="6" height="11" rx="3" />
+        <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+      </svg>
+    ),
+  },
+  {
+    title: "Read a short story",
+    body: "Read a fun 1 to 2 minute script as it scrolls on screen.",
+    card: "bg-mint/25",
+    badge: "bg-mint text-mint-deep",
+    icon: "bg-mint/50 text-mint-deep",
+    svg: (
+      <svg viewBox="0 0 24 24" className="size-6" {...ICON}>
+        <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+        <path d="M14 3v5h5M9 13h6M9 17h4" />
+      </svg>
+    ),
+  },
+  {
+    title: "Hear it in a story",
+    body: (
+      <>
+        Pick a classic children&apos;s book and listen to it in <strong className="font-bold text-ink">your voice</strong>.
+      </>
+    ),
+    card: "bg-lavender/25",
+    badge: "bg-lavender/70 text-plum",
+    icon: "bg-lavender/50 text-plum",
+    svg: (
+      <svg viewBox="0 0 24 24" className="size-6" {...ICON}>
+        <path d="M2 5h6a4 4 0 0 1 4 4v11a3 3 0 0 0-3-3H2zM22 5h-6a4 4 0 0 0-4 4v11a3 3 0 0 1 3-3h7z" />
+      </svg>
+    ),
+  },
 ];
 
 export function TryYourVoice() {
   return (
     <section id="try-your-voice" aria-labelledby="try-heading" className="scroll-mt-20 bg-ivory">
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 md:gap-10 md:py-16">
-        <div className="grid items-center gap-8 rounded-[var(--radius-panel)] bg-surface p-6 sm:p-10 lg:grid-cols-[1fr_1.1fr]">
-          <div className="flex flex-col gap-4 text-center lg:text-left">
-            {/* Phones and tablets get Kevin's short pitch, centred; desktop keeps the steps beside the studio preview. */}
-            <h2 id="try-heading" className="font-display text-3xl font-semibold sm:text-4xl">
-              <span className="lg:hidden">Hear your voice tell a story.</span>
-              <span className="hidden lg:inline">Try your voice. No signup.</span>
-            </h2>
-            <p className="text-lg lg:hidden">Read a short passage, then hear your voice bring a story to life.</p>
-            <ol className="hidden flex-col gap-3 lg:flex">
-              {DEMO_STEPS.map((step, i) => (
-                <li key={step} className="flex items-start gap-3">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-coral font-display font-semibold">
-                    {i + 1}
-                  </span>
-                  <span className="pt-1">{step}</span>
-                </li>
-              ))}
-            </ol>
-            <div className="flex flex-col gap-2">
-              <Link href="/try" className={`${buttonPrimary} w-full sm:w-auto sm:self-center lg:self-start`}>
-                <span className="lg:hidden">Try Your Voice Free</span>
-                <span className="hidden lg:inline">Start recording</span>
-              </Link>
-              <p className="text-sm font-semibold text-muted lg:hidden">No signup required</p>
-            </div>
-            <p className="hidden text-sm text-muted lg:block">
-              Your recording stays private and is deleted within 24 hours unless you choose to save it.
-            </p>
-          </div>
-          <VoiceStudioPreview />
+        {/* No studio picture: the hero above already shows a highlighted story (Kevin, 2026-10-12).
+            Phones and tablets keep the simple card; desktop follows Kevin's step-card reference (2026-10-13). */}
+        <div className="flex flex-col items-center rounded-[var(--radius-panel)] bg-surface p-6 text-center sm:p-10">
+          <p className="font-display text-sm font-semibold tracking-[0.12em] text-mint-deep uppercase">Try your voice</p>
+          <h2 id="try-heading" className="mt-1 font-display text-3xl font-semibold sm:text-4xl lg:text-5xl">
+            Hear your voice tell a story.
+          </h2>
+          <p className="mt-3 max-w-xl text-lg text-muted">
+            <span className="lg:hidden">Read a short passage, then hear your voice bring a story to life.</span>
+            <span className="hidden lg:inline">See how Readli brings stories to life with your voice in just a few minutes.</span>
+          </p>
+          <ol data-testid="demo-steps" className="mt-8 hidden w-full grid-cols-3 gap-10 lg:grid">
+            {DEMO_STEPS.map((step, i) => (
+              <li key={step.title} className={`relative flex flex-col items-center gap-3 rounded-3xl px-6 pt-5 pb-7 ${step.card}`}>
+                <span className={`flex size-8 items-center justify-center self-start rounded-full font-display font-semibold ${step.badge}`}>
+                  {i + 1}
+                </span>
+                <span className={`-mt-4 flex size-12 items-center justify-center rounded-full ${step.icon}`}>{step.svg}</span>
+                <h3 className="font-display text-lg font-semibold">{step.title}</h3>
+                <p className="text-muted">{step.body}</p>
+                {i < DEMO_STEPS.length - 1 && (
+                  <span aria-hidden="true" className="absolute top-1/2 -right-9 w-8 border-t-2 border-dashed border-ink/25" />
+                )}
+              </li>
+            ))}
+          </ol>
+          <Link href="/try" className={`${buttonPrimary} mt-6 w-full sm:w-auto lg:mt-8 lg:min-h-14 lg:px-10 lg:text-xl`}>
+            <span className="lg:hidden">Try Your Voice Free</span>
+            <span className="hidden lg:inline">Start recording &rarr;</span>
+          </Link>
+          <p className="mt-3 text-sm font-semibold text-muted lg:hidden">No signup required</p>
+          <p className="mt-4 hidden items-center gap-1.5 text-sm text-muted lg:flex">
+            <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true" {...ICON}>
+              <rect x="5" y="11" width="14" height="10" rx="2" />
+              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+            </svg>
+            Your recording stays private and is deleted within 24 hours unless you choose to save it.
+          </p>
         </div>
         <DemoBookShelf />
       </div>
@@ -108,100 +224,62 @@ export function TryYourVoice() {
   );
 }
 
-/**
- * Picture of the real recording screen on /try (teleprompter, mic level, progress), drawn with the
- * same styles. Desktop only: `hidden` removes it on smaller screens so it takes no space there.
- */
-function VoiceStudioPreview() {
-  return (
-    <div aria-hidden="true" data-testid="voice-studio-preview" className="hidden rounded-[2rem] bg-ivory p-4 lg:block">
-      <div className="grid grid-cols-[minmax(0,1fr)_12rem] gap-3">
-        <div className="relative h-72 overflow-hidden rounded-3xl bg-surface px-5 py-4 text-lg font-semibold leading-relaxed">
-          <p className="text-ink/45">Once upon a time, in a little house at the edge of a sleepy town,</p>
-          <p className="my-1">
-            <span className="rounded-md bg-sunshine/45 text-ink">there lived a family who loved stories more than anything.</span>
-          </p>
-          <p className="text-ink/45">Every night, just after the moon peeked over the rooftops, someone would pick up a book...</p>
-          <span className="absolute left-0 top-[38%] h-0 w-0 border-y-[10px] border-l-[14px] border-y-transparent border-l-coral-deep" />
-          <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-surface" />
-        </div>
-        <div className="flex flex-col gap-3 rounded-3xl bg-surface p-4">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 font-display font-semibold">
-              <span className="size-3 animate-pulse rounded-full bg-coral-deep" />
-              Recording
-            </span>
-            <span className="font-display text-xl tabular-nums">0:48</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <div className="relative h-3 overflow-hidden rounded-full bg-ivory">
-              <div className="h-full w-2/5 rounded-full bg-mint" />
-              <div className="absolute inset-y-0 left-1/2 w-0.5 bg-ink/40" />
-            </div>
-            <div className="flex justify-between text-xs text-muted">
-              <span>0:00</span>
-              <span>2:00</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <svg viewBox="0 0 24 24" className="size-5 shrink-0 text-coral-deep" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <rect x="9" y="3" width="6" height="11" rx="3" />
-              <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" />
-            </svg>
-            <div className="flex h-4 flex-1 items-end gap-0.5">
-              {[40, 70, 55, 90, 65, 80, 45, 60, 30, 20, 15, 10].map((h, i) => (
-                <span key={i} className={`flex-1 rounded-sm ${i < 8 ? "bg-mint-deep" : "bg-ink/15"}`} style={{ height: `${h}%` }} />
-              ))}
-            </div>
-          </div>
-          <div className="mt-auto grid grid-cols-2 gap-2">
-            <span className="flex min-h-10 items-center justify-center rounded-full border-[3px] border-ink font-display font-semibold">Pause</span>
-            <span className="flex min-h-10 items-center justify-center rounded-full bg-coral-deep font-display font-semibold text-white shadow-[0_3px_0_#8f2a1e]">
-              Finish
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Both colour classes are spelled out so Tailwind generates them: the dot on phones, the card from sm up.
+// Kevin's reference (2026-10-13): numbered circles joined by a line, each step in a soft tinted box,
+// and a lock note at the bottom. Phones stack the steps; desktop lays them out in a row.
 const FAMILY_STEPS = [
-  { title: "Create", body: "Start your family circle and add the people you'd love to hear.", dot: "bg-coral/70", card: "sm:bg-coral/70" },
-  { title: "Invite", body: "Invite family members and loved ones to join Readli.", dot: "bg-sunshine", card: "sm:bg-sunshine" },
-  { title: "Record", body: "Each person records and approves their own voice, choosing who can use it.", dot: "bg-mint", card: "sm:bg-mint" },
-  { title: "Listen", body: "Choose a book and storyteller. Switch voices anytime without losing your place.", dot: "bg-sky", card: "sm:bg-sky" },
+  { title: "Create", body: "Start your family circle.", dot: "bg-[#ff9a8c]" },
+  { title: "Invite", body: "Invite the people you'd love to hear.", dot: "bg-sunshine" },
+  { title: "Record", body: "Each person records and approves their own voice.", dot: "bg-mint" },
+  { title: "Listen", body: "Choose a book and storyteller. Switch voices without losing your place.", dot: "bg-sky" },
 ];
 
 export function HowFamiliesWork() {
   return (
     <section id="how-it-works" aria-labelledby="how-heading" className="scroll-mt-20 bg-lavender/40">
-      <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-10 sm:gap-8 sm:px-6 sm:py-14">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 sm:gap-8 sm:px-6 sm:py-14">
         <h2 id="how-heading" className="font-display text-3xl font-semibold sm:text-4xl">
           How Readli Family Works
         </h2>
-        {/* Phones: a short numbered list. From sm up: coloured step cards. */}
-        <ol className="flex flex-col gap-4 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
-          {FAMILY_STEPS.map((step, i) => (
-            <li key={step.title} className={`flex items-start gap-3 sm:flex-col sm:gap-2 sm:rounded-[var(--radius-panel)] sm:p-6 ${step.card}`}>
-              <span
-                className={`flex size-8 shrink-0 items-center justify-center rounded-full font-display font-semibold sm:hidden ${step.dot}`}
-                aria-hidden="true"
-              >
-                {i + 1}
-              </span>
-              <span className="hidden font-display text-sm font-semibold sm:block">Step {i + 1}</span>
-              <div className="flex flex-col sm:gap-2">
-                <h3 className="font-display text-lg font-semibold sm:text-2xl">{step.title}</h3>
-                <p className="text-sm sm:text-base">{step.body}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-        <p className="text-sm">
-          Every voice belongs to the person who recorded it. Only they can share it, and they can take it back any time.
-        </p>
+        <div className="relative">
+          {/* Desktop: one line across the numbers, from the first circle to the last. */}
+          <span
+            aria-hidden="true"
+            className="absolute top-[22px] left-[22px] hidden border-t-2 border-plum/20 lg:block"
+            style={{ right: "calc((100% - 60px) / 4 - 22px)" }}
+          />
+          <ol className="flex flex-col gap-3.5 lg:grid lg:grid-cols-4 lg:gap-5">
+            {FAMILY_STEPS.map((step, i) => (
+              <li key={step.title} className="relative flex items-start gap-3 lg:flex-col lg:gap-3.5">
+                {/* Phones: a line from each circle down to the next. */}
+                {i < FAMILY_STEPS.length - 1 && (
+                  <span aria-hidden="true" className="absolute top-11 -bottom-4 left-5 border-l-2 border-plum/20 lg:hidden" />
+                )}
+                <span
+                  aria-hidden="true"
+                  className={`relative mt-0.5 flex size-[42px] shrink-0 items-center justify-center rounded-full font-display text-lg font-semibold lg:mt-0 lg:size-11 ${step.dot}`}
+                >
+                  {i + 1}
+                </span>
+                <div className="flex-1 self-stretch rounded-[18px] bg-surface/55 px-4 py-3 lg:rounded-[20px] lg:px-5 lg:py-4">
+                  <h3 className="font-display text-lg font-semibold lg:text-xl">{step.title}</h3>
+                  <p className="mt-0.5 text-[15px] text-ink/85 lg:text-base">{step.body}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div className="flex max-w-3xl items-center gap-3.5 rounded-[20px] bg-lavender/45 px-4 py-3 sm:px-5">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface/80" aria-hidden="true">
+            <svg viewBox="0 0 24 24" className="size-[22px]">
+              <rect x="5" y="11" width="14" height="10" rx="2.5" fill="#9b7fe0" />
+              <path d="M8 11V7.5a4 4 0 0 1 8 0V11" fill="none" stroke="#9b7fe0" strokeWidth="2.2" />
+              <circle cx="12" cy="16" r="1.4" fill="#fffef9" />
+            </svg>
+          </span>
+          <p className="text-sm text-ink/85 sm:text-[15px]">
+            Each voice belongs to the person who recorded it. Only they can share it, and they can turn sharing off anytime.
+          </p>
+        </div>
       </div>
     </section>
   );
@@ -211,19 +289,19 @@ const WAYS = [
   {
     title: "Hear the people you love",
     body: "From parents and grandparents to aunts, uncles, and family friends. Their voices make every story special.",
-    bg: "bg-sunshine",
+    bg: "bg-sunshine/35",
     Art: HearLovedOnes,
   },
   {
     title: "Bring your family together",
     body: "Invite loved ones to record their voices and create your own family of storytellers. Near or far, everyone's just a story away.",
-    bg: "bg-mint",
+    bg: "bg-mint/45",
     Art: FamilyOfStorytellers,
   },
   {
     title: "Make storytime your own",
     body: "Follow along as the words come to life. Switch storytellers anytime without losing your place.",
-    bg: "bg-sky",
+    bg: "bg-sky/40",
     Art: MakeStorytimeYourOwn,
   },
 ];
@@ -236,15 +314,16 @@ export function ThreeWaysToListen() {
           Every family has a story. Every voice makes it special.
         </h2>
         <ul className="grid gap-6 md:grid-cols-3">
-          {WAYS.map(({ title, body, bg, Art }, i) => (
-            <li key={title} className="group flex flex-col gap-3">
-              <div
-                className={`aspect-[4/3] overflow-hidden rounded-[var(--radius-panel)] transition-transform group-hover:-translate-y-1 motion-reduce:transform-none ${bg} ${["md:-rotate-1", "md:rotate-1", "md:-rotate-1"][i]}`}
-              >
+          {/* v2 (Kevin, 2026-10-13): soft tinted tiles with the text inside, no tilt. */}
+          {WAYS.map(({ title, body, bg, Art }) => (
+            <li key={title} className={`flex flex-col overflow-hidden rounded-[var(--radius-panel)] ring-1 ring-ink/5 ring-inset ${bg}`}>
+              <div className="h-[250px] md:h-[260px]">
                 <Art />
               </div>
-              <h3 className="mt-2 font-display text-xl font-semibold">{title}</h3>
-              <p>{body}</p>
+              <div className="flex flex-col gap-2 px-7 pt-1 pb-7">
+                <h3 className="font-display text-xl font-semibold">{title}</h3>
+                <p className="text-ink/80">{body}</p>
+              </div>
             </li>
           ))}
         </ul>
@@ -266,8 +345,9 @@ export function KidsShelf() {
         </div>
         <div>
           <ul className="flex snap-x gap-4 overflow-x-auto pb-2 sm:justify-center">
-            {NEW_BOOKS.map((book) => (
-              <li key={book.slug} className="w-28 shrink-0 snap-start sm:w-32">
+            {/* Phones scroll through six more books; desktop keeps the six (Kevin, 2026-10-13). */}
+            {[...NEW_BOOKS, ...MORE_BOOKS_ON_PHONES].map((book, i) => (
+              <li key={book.slug} className={`w-28 shrink-0 snap-start sm:w-32 ${i >= NEW_BOOKS.length ? "sm:hidden" : ""}`}>
                 <Link href={`/books/${book.slug}`} className="block rounded-xl transition-transform hover:-translate-y-1">
                   <Image
                     src={book.coverUrl}

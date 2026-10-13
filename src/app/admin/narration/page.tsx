@@ -11,7 +11,7 @@ import { narrationMetrics } from "@/lib/narration/admin";
 import { requireAdmin } from "@/lib/admin/access";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Narration admin | Readli", robots: { index: false } };
+export const metadata: Metadata = { title: "Narration | Readli admin", robots: { index: false } };
 
 const n = (x: number) => x.toLocaleString("en-US");
 const c = (units: number) => displayCredits(units).toLocaleString("en-US");

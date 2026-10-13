@@ -9,7 +9,7 @@ import { ACCOUNT_TYPES, signupPath, signupStart } from "@/lib/accounts/accounts"
 import { DEFAULT_PLAN, formatPrice } from "@/lib/family/plan";
 import { currentAdult } from "@/lib/auth/adult";
 
-export const metadata: Metadata = { title: "Join Readli" };
+export const metadata: Metadata = { title: "Join Readli", robots: { index: false } };
 
 /** Two entry points only. Readli Kids is the child side of Readli Family, never its own account. */
 export default async function SignupPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

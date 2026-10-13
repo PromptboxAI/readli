@@ -14,7 +14,7 @@ import { activeChild } from "@/lib/family/permissions";
 import { familyPage } from "@/lib/family/page-data";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Readli Kids | Readli" };
+export const metadata: Metadata = { title: "Readli Kids" };
 
 /** A child's bookshelf. Kids never sign in: a guardian opens this profile from Readli Family. */
 export default async function KidsHome() {
@@ -79,7 +79,7 @@ export default async function KidsHome() {
 /** A device whose Readli Kids was ended by a parent, or unused for 90 days. */
 function DeviceEnded() {
   return (
-    <FamilyShell>
+    <FamilyShell portal={false}>
       <h1 className="font-display text-4xl font-semibold">Ask a grown-up</h1>
       <p className="text-lg">Readli Kids has ended on this device. A grown-up can sign in and set it up again.</p>
       <Link href="/login" className={`${buttonPrimary} self-start`}>

@@ -27,7 +27,7 @@ function SignOutButton() {
 }
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Readli Family | Readli" };
+export const metadata: Metadata = { title: "Readli Family" };
 
 export default async function FamilyHome() {
   const page = await familyPage();

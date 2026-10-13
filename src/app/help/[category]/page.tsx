@@ -6,6 +6,7 @@ import { SiteFooter } from "@/components/home/sections";
 import { ArticleList, Breadcrumbs, CategoryIcon, SearchBox, StillNeedHelp } from "@/components/help/HelpParts";
 import { HELP_CATEGORIES } from "@/lib/help/articles";
 import { articlesIn, getCategory } from "@/lib/help/search";
+import { publicPageMetadata } from "@/lib/seo/site";
 
 export const dynamicParams = false;
 
@@ -19,9 +20,13 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const c = getCategory((await params).category);
   if (!c) return {};
   return {
-    title: `${c.title} | Readli Help Center`,
-    description: `${c.blurb}. Answers from the Readli Help Center.`,
-    alternates: { canonical: `/help/${c.slug}` },
+    ...publicPageMetadata({
+      title: `${c.title} | Readli Help Center`,
+      description: `${c.blurb}. Answers from the Readli Help Center.`,
+      path: `/help/${c.slug}`,
+    }),
+    // A category with nothing live in it yet is an empty page, so it stays out of search until it fills.
+    robots: articlesIn(c.slug).length === 0 ? { index: false } : undefined,
   };
 }
 
