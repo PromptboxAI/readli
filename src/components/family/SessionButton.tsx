@@ -29,6 +29,11 @@ export function SessionButton({
       setError(body?.error?.message ?? "Something went wrong. Please try again.");
       return;
     }
+    if (as?.startsWith("child:")) {
+      // Opening a kids profile: a full load that replaces this page, so Back never shows a cached parent page.
+      window.location.replace(next);
+      return;
+    }
     router.push(next);
     router.refresh();
   };

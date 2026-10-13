@@ -53,8 +53,7 @@ export function KidsDeviceFooter({ canSwitch }: { canSwitch: boolean }) {
     setBusy(false);
     setPin("");
     if (!res.ok) return setMessage(json?.error?.message ?? "That didn't work. Please try again.");
-    router.push("/login");
-    router.refresh();
+    window.location.replace("/login");
   };
 
   return (
