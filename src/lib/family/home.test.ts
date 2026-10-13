@@ -77,4 +77,12 @@ describe("family home", () => {
     state.approvals = state.approvals.filter((a) => a.voiceId !== "voice-sara");
     expect(familyHome(state, DEMO_HOUSEHOLD_ID).ready).toEqual([]);
   });
+
+  it("sends a storyteller nobody is approved to hear to the next step: a slot, then approvals", () => {
+    const state = demoFamilyState();
+    state.approvals = state.approvals.filter((a) => a.voiceId !== "voice-ben");
+    const cards = familyHome(state, DEMO_HOUSEHOLD_ID).storytellers;
+    expect(cards.find((s) => s.voiceId === "voice-priya")).toMatchObject({ tone: "none", href: "/family/narrators" });
+    expect(cards.find((s) => s.voiceId === "voice-ben")).toMatchObject({ tone: "none", href: "/family/kids" });
+  });
 });
