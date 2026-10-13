@@ -191,7 +191,7 @@ export function TryYourVoice() {
             <span className="lg:hidden">Read a short passage, then hear your voice bring a story to life.</span>
             <span className="hidden lg:inline">See how Readli brings stories to life with your voice in just a few minutes.</span>
           </p>
-          <ol className="mt-8 hidden w-full grid-cols-3 gap-10 lg:grid">
+          <ol data-testid="demo-steps" className="mt-8 hidden w-full grid-cols-3 gap-10 lg:grid">
             {DEMO_STEPS.map((step, i) => (
               <li key={step.title} className={`relative flex flex-col items-center gap-3 rounded-3xl px-6 pt-5 pb-7 ${step.card}`}>
                 <span className={`flex size-8 items-center justify-center self-start rounded-full font-display font-semibold ${step.badge}`}>
