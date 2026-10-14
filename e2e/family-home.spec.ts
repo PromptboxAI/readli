@@ -78,3 +78,26 @@ test("a kids profile can't use the grown-up player", async ({ page }) => {
   await expect(page).toHaveURL(/\/kids$/);
 });
 
+
+test("a book page sets up a storyteller in place, prepares the audiobook and plays it", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  // Free one narrator slot, so Aunt Priya (shared, not in a slot) can use it.
+  expect((await page.request.post("/api/family/narrators", { data: { voiceId: "voice-rose", action: "release" } })).status()).toBe(200);
+  await page.goto("/family/books/the-princess-and-the-pea");
+  const priya = page.getByTestId("prepare-voice-priya");
+  const setup = priya.getByTestId("setup");
+  await expect(setup).toContainText("Shared with your family");
+  await setup.getByRole("button", { name: "Use a narrator slot" }).click();
+  await expect(setup).toContainText("In a narrator slot");
+  await setup.getByRole("switch", { name: "Aunt Priya for Maya" }).click();
+  await expect(setup.getByRole("switch", { name: "Aunt Priya for Maya" })).toHaveAttribute("aria-checked", "true");
+
+  await priya.getByRole("button", { name: /Prepare Audiobook/ }).click();
+  await priya.getByTestId("confirm-generation").getByRole("button", { name: "Prepare now" }).click();
+  const ready = priya.getByTestId("ready-to-play");
+  await expect(ready).toBeVisible({ timeout: 20_000 });
+  await expect(ready).toContainText("It's on Maya's bookshelf");
+  await ready.getByRole("link", { name: "Play now" }).click();
+  await expect(page).toHaveURL(/\/family\/books\/the-princess-and-the-pea\/listen\?voice=voice-priya/);
+  await expect(page.getByTestId("grown-up-player")).toBeVisible();
+});

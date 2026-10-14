@@ -3,7 +3,7 @@ import { sameHash } from "@/lib/server/guest-token";
 import { voiceSettings } from "@/lib/voice/elevenlabs";
 import type { VoiceProvider } from "@/lib/voice/provider";
 import type { Actor, CreditLot, FamilyState, NarrationJob, NarrationLibrary, NarrationSegment } from "@/lib/family/model";
-import { activeChild, activeEntitlement, activeShare, activeSlot, childVoiceAccess, readyVoice } from "@/lib/family/permissions";
+import { activeChild, activeEntitlement, activeShare, activeSlot, childVoiceAccess, isActiveMember, liveSlots, narratorSlotCount, readyVoice } from "@/lib/family/permissions";
 import type { PlanConfig } from "@/lib/family/plan";
 import {
   actorLabel,
@@ -258,6 +258,12 @@ export interface PrepareVoiceView {
   fix: { label: string; href: string } | null;
   /** Some of this book is stored in this voice and a grown-up here may play it. */
   canListen: boolean;
+  /** The grown-up looking at the page owns this voice, so they can share it with the family right here. */
+  yours: boolean;
+  /** Each child in the family and whether they may hear this storyteller. */
+  kids: { id: string; name: string; approved: boolean }[];
+  /** Why the last preparation of this book in this voice stopped, when it did. */
+  lastFailure: string | null;
   /** Credits to prepare everything still missing in this book. */
   missingCredits: number;
   /** How many more credits the household needs to prepare the rest of the book. */
@@ -269,13 +275,15 @@ export interface PrepareVoiceView {
 
 export interface PrepareBookView {
   householdId: string;
-  book: { slug: string; title: string; author: string; sentences: number; minutes: number; chapters: number };
+  book: { slug: string; title: string; author: string; sentences: number; minutes: number; chapters: number; coverUrl: string | null; tint: string };
   voices: PrepareVoiceView[];
   credits: CreditBalance;
   /** A parent can buy credits here: real checkout once approved, or the preview's simulated one. */
   canBuyCredits: boolean;
   simulatedCheckout: boolean;
   chapterGenerationEnabled: boolean;
+  /** Narrator slots the family has free, so a storyteller can go into one right here. */
+  freeSlots: number;
   /** Shorter books one of this family's narrators can prepare with the current balance. */
   shorterThatFit: { slug: string; title: string; credits: number; narrator: string }[];
 }
@@ -310,15 +318,17 @@ function fixFor(state: FamilyState, plan: PlanConfig, householdId: string, voice
 }
 
 /** Why a household can't prepare (or a child can't hear) this narrator, or null. */
-function unavailableReason(state: FamilyState, plan: PlanConfig, householdId: string, voiceId: string, approvedFor: string[]): string | null {
+function unavailableReason(state: FamilyState, plan: PlanConfig, householdId: string, voiceId: string, approvedFor: string[], yours = false): string | null {
   if (!activeEntitlement(state, householdId)) return "Needs Readli Family";
-  if (!readyVoice(state, voiceId) || !activeShare(state, voiceId, householdId)) return "This storyteller hasn't shared their voice with your family";
+  if (!readyVoice(state, voiceId) || !activeShare(state, voiceId, householdId)) {
+    return yours ? "Share your voice with this family first" : "This storyteller hasn't shared their voice with your family";
+  }
   if (!activeSlot(state, voiceId, householdId, plan)) return "Add this storyteller to a narrator slot first";
   if (approvedFor.length === 0) return "Not approved for any child yet";
   return null;
 }
 
-function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, text: BookText, voiceId: string, available: number): PrepareVoiceView {
+function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, text: BookText, voiceId: string, available: number, viewerId?: string): PrepareVoiceView {
   const v = state.voices.find((x) => x.id === voiceId)!;
   const owner = state.adults.find((a) => a.id === v.ownerId)!;
   const kids = state.children.filter((c) => c.householdId === householdId && c.deletedAt === null);
@@ -327,8 +337,14 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
   const chapters = missingByChapter(state, plan, library, text);
   const missingCredits = chapters.reduce((n, c) => n + c.credits, 0);
   const job = state.jobs.find((j) => j.libraryKey === library.key && j.householdId === householdId && (j.status === "queued" || j.status === "running"));
-  const approvedFor = kids.filter((c) => childVoiceAccess(state, c.id, v.id, plan).allowed).map((c) => c.nickname);
-  const reason = unavailableReason(state, plan, householdId, v.id, approvedFor);
+  const approved = new Set(kids.filter((c) => childVoiceAccess(state, c.id, v.id, plan).allowed).map((c) => c.id));
+  const approvedFor = kids.filter((c) => approved.has(c.id)).map((c) => c.nickname);
+  const yours = viewerId !== undefined && v.ownerId === viewerId;
+  const reason = unavailableReason(state, plan, householdId, v.id, approvedFor, yours);
+  const last = state.jobs
+    .filter((j) => j.libraryKey === library.key && j.householdId === householdId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  const failedSeg = last?.status === "failed" ? state.segments.find((x) => x.libraryKey === library.key && x.status === "failed" && x.error) : undefined;
   const availability: Availability = reason
     ? "unavailable"
     : status.readiness === "ready"
@@ -355,6 +371,12 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
     unavailableReason: reason,
     fix: reason ? fixFor(state, plan, householdId, v.id, kids) : null,
     canListen: status.ready > 0 && guardianVoiceAccess(state, plan, householdId, v.id),
+    yours,
+    kids: kids.map((c) => ({ id: c.id, name: c.nickname, approved: approved.has(c.id) })),
+    lastFailure:
+      last?.status === "failed" && status.readiness !== "ready"
+        ? `We couldn't finish preparing this, and unused credits were returned.${failedSeg?.error ? ` (${failedSeg.error})` : ""}`
+        : null,
     missingCredits,
     extraCreditsNeeded: Math.max(0, missingCredits - available),
     estimateSeconds: status.missingCharacters ? estimateSeconds(status.missingCharacters, library.modelId) : 0,
@@ -363,9 +385,20 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
   };
 }
 
-/** Narrators this household could use: every ready voice shared with it. */
-function householdVoiceIds(state: FamilyState, householdId: string): string[] {
-  return state.voices.filter((v) => v.status === "ready" && v.deletedAt === null && activeShare(state, v.id, householdId)).map((v) => v.id);
+/**
+ * Narrators this household could use: every ready voice shared with it, plus (on the prepare page)
+ * the viewer's own ready voice, which they can share with the family in place.
+ */
+function householdVoiceIds(state: FamilyState, householdId: string, viewerId?: string): string[] {
+  return state.voices
+    .filter(
+      (v) =>
+        v.status === "ready" &&
+        v.deletedAt === null &&
+        (activeShare(state, v.id, householdId) || (viewerId !== undefined && v.ownerId === viewerId && isActiveMember(state, viewerId, householdId))),
+    )
+    .sort((a, b) => Number(b.ownerId === viewerId) - Number(a.ownerId === viewerId))
+    .map((v) => v.id);
 }
 
 /** Full-book narration length estimate, in minutes. */
@@ -375,13 +408,13 @@ export function bookMinutes(text: BookText, plan: PlanConfig): number {
 
 export async function prepareView(store: FamilyStore, actor: Actor | null, householdId: string, slug: string, clock: Clock = now): Promise<PrepareBookView> {
   const state = await store.read();
-  requireHouseholdGuardian(state, actor, householdId);
+  const viewerId = requireHouseholdGuardian(state, actor, householdId);
   const text = bookText(slug);
   if (!text) throw new PermissionError(404, "unknown_book", "That book isn't in the library yet.");
   const plan = store.plan;
   const book = findCatalogBook(slug)!;
   const credits = creditBalance(state, plan, householdId, clock().toISOString());
-  const voices = householdVoiceIds(state, householdId).map((id) => voiceView(state, plan, householdId, text, id, credits.available));
+  const voices = householdVoiceIds(state, householdId, viewerId).map((id) => voiceView(state, plan, householdId, text, id, credits.available, viewerId));
   const needsMore = voices.some((v) => v.availability === "needs_credits" || (v.availability === "partial" && v.extraCreditsNeeded > 0));
   const shorterThatFit: PrepareBookView["shorterThatFit"] = [];
   if (needsMore) {
@@ -397,12 +430,22 @@ export async function prepareView(store: FamilyStore, actor: Actor | null, house
   }
   return {
     householdId,
-    book: { slug, title: text.title, author: book.author, sentences: text.sentences.length, minutes: bookMinutes(text, plan), chapters: text.chapters.length },
+    book: {
+      slug,
+      title: text.title,
+      author: book.author,
+      sentences: text.sentences.length,
+      minutes: bookMinutes(text, plan),
+      chapters: text.chapters.length,
+      coverUrl: book.coverUrl,
+      tint: book.tint,
+    },
     voices,
     credits,
     canBuyCredits: plan.narrationPurchasesEnabled || plan.simulatedCheckout,
     simulatedCheckout: !plan.narrationPurchasesEnabled && plan.simulatedCheckout,
     chapterGenerationEnabled: plan.chapterGenerationEnabled && text.chapters.length > 1,
+    freeSlots: Math.max(0, narratorSlotCount(state, householdId, plan) - liveSlots(state, householdId, plan).length),
     shorterThatFit: shorterThatFit.slice(0, 3),
   };
 }

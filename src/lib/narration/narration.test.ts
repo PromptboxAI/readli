@@ -350,6 +350,42 @@ describe("prepare page", () => {
   });
 });
 
+describe("guided preparation", () => {
+  it("offers your own unshared voice on the book page, so you can share it there", async () => {
+    const { state, store } = family();
+    state.shares = state.shares.filter((x) => x.voiceId !== "voice-sara");
+    const view = await prepareView(store, mom, H, BOOK, clock);
+    const sara = view.voices.find((v) => v.voiceId === "voice-sara")!;
+    expect(view.voices[0]!.voiceId).toBe("voice-sara");
+    expect(sara.yours).toBe(true);
+    expect(sara.shared).toBe(false);
+    expect(sara.unavailableReason).toBe("Share your voice with this family first");
+    // Another grown-up's unshared voice never appears: only its owner can share it.
+    expect(view.voices.some((v) => v.voiceId === "voice-lou")).toBe(false);
+    const dad = await prepareView(store, { kind: "adult", adultId: "ben" }, H, BOOK, clock);
+    expect(dad.voices.some((v) => v.voiceId === "voice-sara")).toBe(false);
+  });
+
+  it("lists each child's approval and the family's free narrator slots", async () => {
+    const { state, store } = family();
+    const view = await prepareView(store, mom, H, BOOK, clock);
+    expect(view.freeSlots).toBe(0);
+    expect(view.voices.find((v) => v.voiceId === "voice-june")!.kids).toEqual([
+      { id: "maya", name: "Maya", approved: true },
+      { id: "leo", name: "Leo", approved: false },
+    ]);
+    state.slots = state.slots.filter((x) => x.voiceId !== "voice-rose");
+    expect((await prepareView(store, mom, H, BOOK, clock)).freeSlots).toBe(1);
+  });
+
+  it("explains a stopped preparation, with credits returned", async () => {
+    const { store } = family();
+    await prepareJune(store, new CountingProvider(() => true));
+    const june = (await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-june")!;
+    expect(june.lastFailure).toMatch(/couldn't finish preparing this, and unused credits were returned/);
+  });
+});
+
 describe("grown-up listening", () => {
   it("a parent plays a prepared book from stored audio, with no child approval needed", async () => {
     const { state, store } = family();

@@ -250,7 +250,7 @@ test("short on credits: prepare a chapter, or buy credits and come straight back
   await page.goto("/family/books/aesops-fables-retold");
   const june = page.getByTestId("prepare-voice-june");
   await expect(june.getByTestId("availability")).toHaveText("More credits needed");
-  await expect(june.getByRole("button", { name: /Prepare the whole book/ })).toBeDisabled();
+  await expect(june.getByRole("button", { name: /Prepare Audiobook/ })).toBeDisabled();
   await expect(june.getByTestId("credits-needed")).toContainText("more credits for the whole book");
   await expect(page.getByTestId("shorter-books")).toBeVisible();
 
