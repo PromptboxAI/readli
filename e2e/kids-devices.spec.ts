@@ -186,10 +186,14 @@ test("opening a child's Readli Kids is temporary Kids Mode on this browser, not 
 
 test("a grown-up leaves temporary Kids Mode with the family PIN and is back in the same family", async ({ page, context }) => {
   expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
-  expect((await page.request.put("/api/family/kids-pin", { data: { pin: PIN } })).status()).toBe(200);
   // Something the family changed before Kids Mode, to show the same family comes back.
   expect((await page.request.post("/api/family/children", { data: { nickname: "Ava" } })).status()).toBe(200);
+  // With no PIN yet, the family home asks for one right above the kids.
   await page.goto("/family");
+  const setPin = page.getByTestId("set-kids-pin");
+  await setPin.getByLabel("New PIN").fill(PIN);
+  await setPin.getByRole("button", { name: "Save PIN" }).click();
+  await expect(setPin).toContainText("PIN saved");
   await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
   await expect(page.getByRole("heading", { name: "Hi Maya! Pick a story." })).toBeVisible();
   // The grown-up's sign-in is set aside in a cookie the page can't read.

@@ -39,7 +39,7 @@ test("parent controls gather the admin pages", async ({ page }, info) => {
   await page.getByRole("link", { name: "All parent controls" }).click();
   await expect(page.getByRole("heading", { name: "Parent controls" })).toBeVisible();
   const controls = page.getByTestId("parent-controls");
-  for (const name of ["Kids profiles", "Family storytellers", "Readli credits", "Plan and billing", "Kids devices and PIN", "Account settings"]) {
+  for (const name of ["Kids profiles", "Family storytellers", "Readli credits", "Plan and billing", "Kids Mode PIN and devices", "Account settings"]) {
     await expect(controls.getByRole("link", { name: new RegExp(name) })).toBeVisible();
   }
   await expect(controls.getByRole("link", { name: /Kids profiles/ })).toContainText("2 of 6");

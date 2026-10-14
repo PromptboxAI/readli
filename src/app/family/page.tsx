@@ -7,6 +7,7 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { FamilyOff, FamilyShell, PreviewNote } from "@/components/family/FamilyShell";
 import { ResetButton } from "@/components/family/ResetButton";
 import { SessionButton } from "@/components/family/SessionButton";
+import { SetKidsPin } from "@/components/family/SetKidsPin";
 import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
 import { BookShelf, StorytellerRow } from "@/components/family/HomeShelf";
 import { demoFamilyState } from "@/lib/family/demo-family";
@@ -14,7 +15,7 @@ import { familyHome } from "@/lib/family/home";
 import { planConfig } from "@/lib/family/plan";
 import { familyPage, guardianChildren } from "@/lib/family/page-data";
 import { activeEntitlement } from "@/lib/family/permissions";
-import { familyPreviewEnabled } from "@/lib/family/session";
+import { deviceRegistry, familyPreviewEnabled } from "@/lib/family/session";
 import { authConfigured } from "@/lib/auth/supabase";
 import { carriedInvitationToken } from "@/lib/invitations/context";
 import { serverConfig } from "@/lib/server/config";
@@ -125,6 +126,8 @@ export default async function FamilyHome() {
   const newerModel = Boolean(account && ownVoice?.modelId && ownVoice.modelId !== serverConfig().elevenLabsModel);
   const view = home ? familyHome(state, home, planConfig()) : null;
   const familyName = account && home ? state.households.find((h) => h.id === home)?.name : null;
+  const pinRegistry = isGuardian && home ? deviceRegistry(Boolean(account)) : null;
+  const needsPin = Boolean(pinRegistry && kids.length > 0 && !(await pinRegistry.pinHash(home!)));
   return (
     <FamilyShell>
       <div className="flex items-center gap-4">
@@ -166,7 +169,7 @@ export default async function FamilyHome() {
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <h2 id="kids-h" className="font-display text-2xl font-semibold">Your kids</h2>
             <Link href="/family/devices" className="font-display font-semibold text-coral-deep underline-offset-4 hover:underline">
-              Kids devices and PIN
+              Kids Mode PIN and devices
             </Link>
           </div>
           {account && !hasPlan && (
@@ -174,6 +177,7 @@ export default async function FamilyHome() {
               Kids profiles come with Readli Family. Checkout isn&apos;t switched on yet, so this unlocks when it is.
             </p>
           )}
+          {needsPin && <SetKidsPin />}
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="home-kids">
             {kids.map((c) => {
               const playing = view?.kids.find((k) => k.id === c.id)?.nowPlaying;
