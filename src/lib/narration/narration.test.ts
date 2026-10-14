@@ -16,12 +16,15 @@ import type { SynthesizedAudio, VoiceProvider } from "@/lib/voice/provider";
 import { toneWav } from "@/lib/voice/stub";
 import { ELEVENLABS_PLANS, modelCost, usdPerMinute } from "./costs";
 import {
+  authorizeGuardianPlayback,
   authorizePlayback,
   cancelGeneration,
   deleteVoiceNarrations,
   kidsReadiness,
   libraryFor,
   libraryStatus,
+  listenView,
+  prepareView,
   readPlayback,
   requestGeneration,
   runJob,
@@ -328,3 +331,89 @@ describe("each voice keeps its own reading model", () => {
     expect(library(state).modelId).toBe("eleven_v5");
   });
 });
+
+describe("prepare page", () => {
+  it("links an unapproved narrator in a slot to where a parent approves them", async () => {
+    const { state, store } = family();
+    state.approvals = state.approvals.filter((a) => a.voiceId !== "voice-ben");
+    const ben = (await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-ben")!;
+    expect(ben.inSlot).toBe(true);
+    expect(ben.availability).toBe("unavailable");
+    expect(ben.fix).toEqual({ label: "Approve for a child", href: "/family/kids" });
+  });
+
+  it("points an approved narrator nowhere, and a household with no plan to the plans", async () => {
+    const { state, store } = family();
+    expect((await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-sara")!.fix).toBeNull();
+    for (const e of state.entitlements) e.endsAt = "2026-01-01T00:00:00Z";
+    expect((await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-sara")!.fix?.href).toBe("/family/billing");
+  });
+});
+
+describe("guided preparation", () => {
+  it("offers your own unshared voice on the book page, so you can share it there", async () => {
+    const { state, store } = family();
+    state.shares = state.shares.filter((x) => x.voiceId !== "voice-sara");
+    const view = await prepareView(store, mom, H, BOOK, clock);
+    const sara = view.voices.find((v) => v.voiceId === "voice-sara")!;
+    expect(view.voices[0]!.voiceId).toBe("voice-sara");
+    expect(sara.yours).toBe(true);
+    expect(sara.shared).toBe(false);
+    expect(sara.unavailableReason).toBe("Share your voice with this family first");
+    // Another grown-up's unshared voice never appears: only its owner can share it.
+    expect(view.voices.some((v) => v.voiceId === "voice-lou")).toBe(false);
+    const dad = await prepareView(store, { kind: "adult", adultId: "ben" }, H, BOOK, clock);
+    expect(dad.voices.some((v) => v.voiceId === "voice-sara")).toBe(false);
+  });
+
+  it("lists each child's approval and the family's free narrator slots", async () => {
+    const { state, store } = family();
+    const view = await prepareView(store, mom, H, BOOK, clock);
+    expect(view.freeSlots).toBe(0);
+    expect(view.voices.find((v) => v.voiceId === "voice-june")!.kids).toEqual([
+      { id: "maya", name: "Maya", approved: true },
+      { id: "leo", name: "Leo", approved: false },
+    ]);
+    state.slots = state.slots.filter((x) => x.voiceId !== "voice-rose");
+    expect((await prepareView(store, mom, H, BOOK, clock)).freeSlots).toBe(1);
+  });
+
+  it("explains a stopped preparation, with credits returned", async () => {
+    const { store } = family();
+    await prepareJune(store, new CountingProvider(() => true));
+    const june = (await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-june")!;
+    expect(june.lastFailure).toMatch(/couldn't finish preparing this, and unused credits were returned/);
+  });
+});
+
+describe("grown-up listening", () => {
+  it("a parent plays a prepared book from stored audio, with no child approval needed", async () => {
+    const { state, store } = family();
+    state.approvals = state.approvals.filter((a) => a.voiceId !== "voice-june");
+    const { provider } = await prepareJune(store);
+    const view = await listenView(store, mom, H, BOOK);
+    const june = view.voices.find((v) => v.voiceId === "voice-june")!;
+    expect(june.complete).toBe(true);
+    expect(view.sentences).toHaveLength(text.sentences.length);
+    const generated = provider.calls.length;
+    const { url } = await authorizeGuardianPlayback(store, mom, { householdId: H, voiceId: "voice-june", bookSlug: BOOK, sentence: 1 }, KEY, clock);
+    const token = url.split("/").pop()!;
+    expect((await readPlayback(store, mom, token, KEY, tick)).audio.byteLength).toBeGreaterThan(0);
+    // Playback only reads stored audio, and a child can't use a grown-up's link.
+    expect(provider.calls.length).toBe(generated);
+    await rejects(readPlayback(store, maya, token, KEY, tick), 403);
+  });
+
+  it("refuses unprepared sentences, voices the family can't use, and households without a plan", async () => {
+    const { state, store } = family();
+    await rejects(authorizeGuardianPlayback(store, mom, { householdId: H, voiceId: "voice-june", bookSlug: BOOK, sentence: 0 }, KEY, clock), 409, "not_prepared");
+    await rejects(authorizeGuardianPlayback(store, mom, { householdId: H, voiceId: "voice-lou", bookSlug: BOOK, sentence: 0 }, KEY, clock), 403);
+    await rejects(authorizeGuardianPlayback(store, maya, { householdId: H, voiceId: "voice-june", bookSlug: BOOK, sentence: 0 }, KEY, clock), 403);
+    await prepareJune(store);
+    const { url } = await authorizeGuardianPlayback(store, mom, { householdId: H, voiceId: "voice-june", bookSlug: BOOK, sentence: 0 }, KEY, clock);
+    for (const e of state.entitlements) e.endsAt = "2026-01-01T00:00:00Z";
+    await rejects(readPlayback(store, mom, url.split("/").pop()!, KEY, tick), 403);
+    expect((await listenView(store, mom, H, BOOK)).voices).toEqual([]);
+  });
+});
+

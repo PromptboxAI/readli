@@ -178,10 +178,65 @@ test("opening a child's Readli Kids is temporary Kids Mode on this browser, not 
   await phone.close();
 
   // A clearly labelled way out for a grown-up. The preview has no sign-in, so it starts a fresh preview.
-  await page.getByRole("button", { name: "Grown-ups: exit Kids Mode" }).click();
+  await page.getByRole("button", { name: "Grown-ups", exact: true }).click();
   await page.getByTestId("temporary-kids-exit").getByRole("button", { name: "Grown-ups: start the preview over" }).click();
   await expect(page).toHaveURL(/\/family$/);
   expect((await context.cookies()).map((c) => c.name)).not.toContain("readli_kids_profile");
+});
+
+test("a grown-up leaves temporary Kids Mode with the family PIN and is back in the same family", async ({ page, context }) => {
+  expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
+  // Something the family changed before Kids Mode, to show the same family comes back.
+  expect((await page.request.post("/api/family/children", { data: { nickname: "Ava" } })).status()).toBe(200);
+  // The preview's device registry is shared by every test, so another test may have set the PIN
+  // already. When it hasn't, the family home asks for one right above the kids.
+  await page.goto("/family");
+  const setPin = page.getByTestId("set-kids-pin");
+  if (await setPin.isVisible()) {
+    await setPin.getByLabel("New PIN").fill(PIN);
+    await setPin.getByRole("button", { name: "Save PIN" }).click();
+    await expect(setPin).toContainText("PIN saved");
+  } else {
+    expect((await page.request.put("/api/family/kids-pin", { data: { pin: PIN } })).status()).toBe(200);
+  }
+  await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await expect(page.getByRole("heading", { name: "Hi Maya! Pick a story." })).toBeVisible();
+  // The grown-up's sign-in is set aside in a cookie the page can't read.
+  const stash = (await context.cookies()).find((c) => c.name === "readli_grownup");
+  expect(stash?.httpOnly).toBe(true);
+
+  await page.getByRole("button", { name: "Grown-ups", exact: true }).click();
+  const exit = page.getByTestId("temporary-kids-exit");
+  await exit.getByLabel("Family PIN").fill("1111");
+  await exit.getByRole("button", { name: "Back to Readli Family" }).click();
+  await expect(exit.getByRole("alert")).toHaveText("That PIN isn't right.");
+  await expect(page).toHaveURL(/\/kids$/);
+
+  await exit.getByLabel("Family PIN").fill(PIN);
+  await exit.getByRole("button", { name: "Back to Readli Family" }).click();
+  await expect(page).toHaveURL(/\/family$/);
+  expect((await context.cookies()).map((c) => c.name)).not.toContain("readli_kids_profile");
+  expect((await context.cookies()).map((c) => c.name)).not.toContain("readli_grownup");
+  await page.goto("/family/kids");
+  await expect(page.getByTestId("profiles-count")).toHaveText("3 of 6 profiles");
+});
+
+test("the Kids Mode PIN locks after five wrong tries, and nothing else gets a grown-up back", async ({ page, context }) => {
+  expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
+  expect((await page.request.put("/api/family/kids-pin", { data: { pin: PIN } })).status()).toBe(200);
+  expect((await page.request.post("/api/family/session", { data: { as: "child:maya" } })).status()).toBe(200);
+  const exit = (pin: string) => page.request.post("/api/kids/temporary/exit", { data: { pin } });
+  for (let i = 0; i < 4; i++) expect((await exit("0000")).status()).toBe(403);
+  expect((await exit("0000")).status()).toBe(429);
+  // Locked: even the right PIN waits.
+  expect((await exit(PIN)).status()).toBe(429);
+  expect((await page.request.get("/api/family/devices")).status()).toBe(403);
+
+  // Without the set-aside sign-in there is nothing to bring back: a grown-up signs in instead.
+  await context.clearCookies({ name: "readli_grownup" });
+  const res = await exit(PIN);
+  expect(res.status()).toBe(409);
+  expect((await res.json()).error.code).toBe("sign_in_required");
 });
 
 test("signing out from a kids browser doesn't leave Kids Mode", async ({ page, context }) => {

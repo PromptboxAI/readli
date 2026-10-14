@@ -4,6 +4,7 @@ import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/
 import { familyPage } from "@/lib/family/page-data";
 import { childProfiles, guardianHousehold } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
+import { BackLink } from "@/components/family/BackLink";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Kids profiles | Readli" };
@@ -18,6 +19,7 @@ export default async function ChildProfilesPage() {
   return (
     <FamilyShell>
       <PreviewNote />
+      <BackLink href="/family" label="Family" />
       <ChildProfiles initial={await childProfiles(store, page.session.actor, householdId)} />
     </FamilyShell>
   );

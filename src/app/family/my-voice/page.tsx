@@ -11,6 +11,7 @@ import { accountVoiceDeps, voiceModelStatus } from "@/lib/voice/account-voices";
 import { familyPage } from "@/lib/family/page-data";
 import { myVoices } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
+import { BackLink } from "@/components/family/BackLink";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "My voice | Readli" };
@@ -28,6 +29,7 @@ export default async function MyVoicePage() {
   return (
     <FamilyShell>
       <PreviewNote />
+      <BackLink href="/family" label="Family" />
       <h1 className="font-display text-4xl font-semibold">My voice</h1>
       {model?.canUpgrade && <VoiceModelUpgrade />}
       {user && <AccountVoiceControls voice={recording && { status: recording.status, version: recording.version, updatedAt: recording.updatedAt }} />}

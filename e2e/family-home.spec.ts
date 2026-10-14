@@ -39,7 +39,7 @@ test("parent controls gather the admin pages", async ({ page }, info) => {
   await page.getByRole("link", { name: "All parent controls" }).click();
   await expect(page.getByRole("heading", { name: "Parent controls" })).toBeVisible();
   const controls = page.getByTestId("parent-controls");
-  for (const name of ["Kids profiles", "Family storytellers", "Readli credits", "Plan and billing", "Kids devices and PIN", "Account settings"]) {
+  for (const name of ["Kids profiles", "Family storytellers", "Readli credits", "Plan and billing", "Kids Mode PIN and devices", "Account settings"]) {
     await expect(controls.getByRole("link", { name: new RegExp(name) })).toBeVisible();
   }
   await expect(controls.getByRole("link", { name: /Kids profiles/ })).toContainText("2 of 6");
@@ -52,4 +52,102 @@ test("a kids profile can't open parent controls", async ({ page }) => {
   await signIn(page, "child:maya");
   await page.goto("/family/controls");
   await expect(page).toHaveURL(/\/kids$/);
+});
+
+test("every Readli Family page has a way back up", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  const pages: [string, string][] = [
+    ["/family/narrators", "/family"],
+    ["/family/my-voice", "/family"],
+    ["/family/kids", "/family"],
+    ["/family/books", "/family"],
+    ["/family/controls", "/family"],
+    ["/family/billing", "/family/controls"],
+    ["/family/credits", "/family/controls"],
+    ["/family/devices", "/family/controls"],
+    ["/family/kids/maya/storytellers", "/family/kids"],
+  ];
+  for (const [path, up] of pages) {
+    await page.goto(path);
+    await expect(page.getByTestId("back-link"), path).toHaveAttribute("href", up);
+  }
+  await page.goto("/family/narrators");
+  await page.getByTestId("back-link").click();
+  await expect(page).toHaveURL(/\/family$/);
+});
+
+test("a storyteller in a slot leads straight to choosing which kids hear them", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/narrators");
+  await expect(page.getByTestId("slot-voice-sara").getByRole("link", { name: "Choose kids" })).toHaveAttribute("href", "/family/kids");
+});
+
+test("Back after approving a storyteller shows the change, not a stale page", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family");
+  const dad = page.getByTestId("home-storytellers").getByRole("link", { name: /Dad/ });
+  await expect(dad).toContainText("Approved for Leo");
+  await page.getByRole("link", { name: "Manage storytellers" }).first().click();
+  await expect(page.getByRole("heading", { name: "Manage storytellers for Maya" })).toBeVisible();
+  await page.getByRole("switch", { name: "Dad for Maya" }).click();
+  await expect(page.getByTestId("storyteller-voice-ben")).toContainText("Approved for Maya");
+  await page.goBack();
+  await expect(page).toHaveURL(/\/family$/);
+  await expect(page.getByTestId("home-storytellers").getByRole("link", { name: /Dad/ })).toContainText("Approved for every child");
+});
+
+test("a ready story opens the grown-up player and plays stored audio", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family");
+  await page.getByTestId("shelf-ready").getByTestId("home-book-the-lion-and-the-mouse").click();
+  await expect(page).toHaveURL(/\/family\/books\/the-lion-and-the-mouse\/listen$/);
+  const player = page.getByTestId("grown-up-player");
+  await expect(player.getByRole("heading", { name: "The Lion and the Mouse" })).toBeVisible();
+  await expect(player.getByRole("button", { name: /Mom/ })).toHaveAttribute("aria-pressed", "true");
+  const asked: number[] = [];
+  page.on("request", (r) => {
+    if (r.url().endsWith("/api/family/books/the-lion-and-the-mouse/listen") && r.method() === "POST") asked.push((r.postDataJSON() as { sentence: number }).sentence);
+  });
+  const listen = page.waitForResponse((r) => r.url().endsWith("/api/family/books/the-lion-and-the-mouse/listen"));
+  await player.getByRole("button", { name: "Play" }).click();
+  expect((await listen).status()).toBe(200);
+  await expect(player.getByRole("button", { name: "Pause" })).toBeVisible();
+  // The next sentence is buffered while this one plays, so the story reads straight through.
+  await expect.poll(() => asked).toEqual([0, 1]);
+  await expect(player.getByTestId("sentence-position")).toHaveText(/Sentence 2 of/, { timeout: 15_000 });
+  await expect(player.getByRole("button", { name: "Pause" })).toBeVisible();
+  await noOverflow(page);
+});
+
+test("a kids profile can't use the grown-up player", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await signIn(page, "child:maya");
+  const res = await page.request.post("/api/family/books/the-lion-and-the-mouse/listen", { data: { voiceId: "voice-sara", sentence: 0 } });
+  expect(res.status()).toBe(403);
+  await page.goto("/family/books/the-lion-and-the-mouse/listen");
+  await expect(page).toHaveURL(/\/kids$/);
+});
+
+
+test("a book page sets up a storyteller in place, prepares the audiobook and plays it", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  // Free one narrator slot, so Aunt Priya (shared, not in a slot) can use it.
+  expect((await page.request.post("/api/family/narrators", { data: { voiceId: "voice-rose", action: "release" } })).status()).toBe(200);
+  await page.goto("/family/books/the-princess-and-the-pea");
+  const priya = page.getByTestId("prepare-voice-priya");
+  const setup = priya.getByTestId("setup");
+  await expect(setup).toContainText("Shared with your family");
+  await setup.getByRole("button", { name: "Use a narrator slot" }).click();
+  await expect(setup).toContainText("In a narrator slot");
+  await setup.getByRole("switch", { name: "Aunt Priya for Maya" }).click();
+  await expect(setup.getByRole("switch", { name: "Aunt Priya for Maya" })).toHaveAttribute("aria-checked", "true");
+
+  await priya.getByRole("button", { name: /Prepare Audiobook/ }).click();
+  await priya.getByTestId("confirm-generation").getByRole("button", { name: "Prepare now" }).click();
+  const ready = priya.getByTestId("ready-to-play");
+  await expect(ready).toBeVisible({ timeout: 20_000 });
+  await expect(ready).toContainText("It's on Maya's bookshelf");
+  await ready.getByRole("link", { name: "Play now" }).click();
+  await expect(page).toHaveURL(/\/family\/books\/the-princess-and-the-pea\/listen\?voice=voice-priya/);
+  await expect(page.getByTestId("grown-up-player")).toBeVisible();
 });
