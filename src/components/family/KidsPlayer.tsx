@@ -5,6 +5,7 @@ import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import type { NarratorView } from "@/lib/family/service";
 import type { KidsNarratorReadiness } from "@/lib/narration/narration";
 import { StorytellerAvatar } from "./StorytellerAvatar";
+import { useGaplessAudio } from "./useGaplessAudio";
 
 const REFRESH_MS = 10_000;
 
@@ -22,6 +23,7 @@ export function KidsPlayer({
   initialNarrators,
   initialReadiness,
   resume,
+  preview = false,
 }: {
   childId: string;
   childName: string;
@@ -32,6 +34,8 @@ export function KidsPlayer({
   initialReadiness: KidsNarratorReadiness[];
   /** This child's saved place and narrator in this book. */
   resume: { sentence: number; voiceId: string | null };
+  /** The preview family, whose narration is a stand-in sound. */
+  preview?: boolean;
 }) {
   const [narrators, setNarrators] = useState(initialNarrators);
   const [readiness, setReadiness] = useState(initialReadiness);
@@ -43,10 +47,12 @@ export function KidsPlayer({
   const [loading, setLoading] = useState(false);
   const [picker, setPicker] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const audio = useRef<HTMLAudioElement>(null);
   const voiceRef = useRef(voiceId);
   voiceRef.current = voiceId;
+  const sentenceRef = useRef(sentence);
+  sentenceRef.current = sentence;
   const listening = useRef(false);
+  const audio = useGaplessAudio({ ended: () => onEnded(), error: () => void onAudioError() });
 
   const readyAt = (id: string | null, at: number) =>
     Boolean(id && readiness.find((r) => r.voiceId === id)?.readySentenceIds.includes(sentenceIds[at] ?? ""));
@@ -59,11 +65,12 @@ export function KidsPlayer({
   }, [childId]);
 
   const halt = useCallback(() => {
-    audio.current?.pause();
+    audio.pause();
+    audio.clear();
     setPlaying(false);
     setLoading(false);
     endSession();
-  }, [endSession]);
+  }, [audio, endSession]);
 
   useEffect(() => endSession, [endSession]);
 
@@ -106,45 +113,64 @@ export function KidsPlayer({
 
   const nameOf = (id: string | null) => narrators.find((n) => n.voiceId === id)?.name ?? "This storyteller";
 
-  const play = async (at: number, voice: string) => {
-    setNotice(null);
-    setLoading(true);
-    // Counts against the family's concurrent stories; refreshed by each sentence request.
-    const session = await fetch(`/api/kids/${childId}/listening`, { method: "POST" });
-    if (!session.ok) {
-      const body = (await session.json().catch(() => null)) as { error?: { message?: string } } | null;
-      halt();
-      setNotice(body?.error?.message ?? "Story time isn't available right now.");
-      return;
-    }
-    listening.current = true;
-    const res = await fetch("/api/kids/narrations", {
+  /** A signed URL for one prepared sentence; every permission gate is checked on the server. */
+  const fetchUrl = (at: number, voice: string) =>
+    fetch("/api/kids/narrations", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ childId, voiceId: voice, bookSlug: book.slug, sentence: at }),
     });
-    if (voiceRef.current !== voice) return; // switched again while waiting
-    if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as { error?: { code?: string } } | null;
-      halt();
-      if (body?.error?.code === "not_prepared") {
-        setNotice(`${nameOf(voice)}'s reading stops here for now. Pick another storyteller, or ask a grown-up to prepare more.`);
-      } else {
-        await refresh();
-        setNotice("That storyteller isn't available right now. Pick another one.");
-      }
-      return;
-    }
+
+  /** Buffers the next sentence while this one plays, so the story flows without a pause. */
+  const prefetch = async (at: number, voice: string) => {
+    if (at >= sentences.length || !readyAt(voice, at)) return;
+    const res = await fetchUrl(at, voice).catch(() => null);
+    if (!res?.ok || voiceRef.current !== voice) return;
     const { url } = (await res.json()) as { url: string };
-    const el = audio.current!;
-    el.src = url;
+    audio.preload(`${voice}:${at}`, url);
+  };
+
+  const play = async (at: number, voice: string) => {
+    setNotice(null);
+    const key = `${voice}:${at}`;
+    let url: string | null = null;
+    if (!audio.buffered(key) || !listening.current) {
+      audio.clear();
+      setLoading(true);
+      if (!listening.current) {
+        // Counts against the family's concurrent stories; refreshed by each sentence request.
+        const session = await fetch(`/api/kids/${childId}/listening`, { method: "POST" });
+        if (!session.ok) {
+          const body = (await session.json().catch(() => null)) as { error?: { message?: string } } | null;
+          halt();
+          setNotice(body?.error?.message ?? "Story time isn't available right now.");
+          return;
+        }
+        listening.current = true;
+      }
+      const res = await fetchUrl(at, voice);
+      if (voiceRef.current !== voice) return; // switched again while waiting
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: { code?: string } } | null;
+        halt();
+        if (body?.error?.code === "not_prepared") {
+          setNotice(`${nameOf(voice)}'s reading stops here for now. Pick another storyteller, or ask a grown-up to prepare more.`);
+        } else {
+          await refresh();
+          setNotice("That storyteller isn't available right now. Pick another one.");
+        }
+        return;
+      }
+      url = ((await res.json()) as { url: string }).url;
+    }
     try {
-      await el.play();
+      await audio.play(key, url);
       setPlaying(true);
+      setLoading(false);
+      void prefetch(at + 1, voice);
     } catch {
       halt();
     }
-    setLoading(false);
   };
 
   const onAudioError = async () => {
@@ -154,16 +180,19 @@ export function KidsPlayer({
   };
 
   const onEnded = () => {
+    const at = sentenceRef.current;
+    const voice = voiceRef.current;
     // Only continue into audio that is already prepared; never promise more than exists.
-    if (sentence + 1 < sentences.length && voiceId && !readyAt(voiceId, sentence + 1)) {
-      setSentence(sentence + 1);
+    if (at + 1 < sentences.length && voice && !readyAt(voice, at + 1)) {
+      setSentence(at + 1);
       halt();
-      setNotice(`${nameOf(voiceId)}'s reading stops here for now. Pick another storyteller, or ask a grown-up to prepare more.`);
+      setNotice(`${nameOf(voice)}'s reading stops here for now. Pick another storyteller, or ask a grown-up to prepare more.`);
       return;
     }
-    if (sentence + 1 < sentences.length && voiceId) {
-      setSentence(sentence + 1);
-      void play(sentence + 1, voiceId);
+    if (at + 1 < sentences.length && voice) {
+      setSentence(at + 1);
+      sentenceRef.current = at + 1;
+      void play(at + 1, voice);
     } else {
       setPlaying(false);
       endSession();
@@ -174,11 +203,14 @@ export function KidsPlayer({
     setPicker(false);
     setVoiceId(id);
     voiceRef.current = id;
+    audio.clear();
     if (playing || loading) void play(sentence, id);
   };
 
   const goTo = (at: number) => {
     setSentence(at);
+    sentenceRef.current = at;
+    audio.clear();
     if ((playing || loading) && voiceId) void play(at, voiceId);
   };
 
@@ -216,7 +248,7 @@ export function KidsPlayer({
           </span>
         </button>
         <div className="ml-auto flex items-center gap-2">
-          {loading && <ReadiMascot state="listening" size={72} decorative className="motion-safe:animate-bob" />}
+          {loading && !playing && <ReadiMascot state="listening" size={72} decorative className="motion-safe:animate-bob" />}
           <button
             type="button"
             disabled={!voiceId || (!playing && !currentReady)}
@@ -282,9 +314,7 @@ export function KidsPlayer({
         </button>
       </div>
 
-      <p className="text-sm text-muted">Preview family: narration here is a stand-in sound, not a real voice.</p>
-      {/* The full text is on screen as the reading page. */}
-      <audio ref={audio} onEnded={onEnded} onError={onAudioError} className="hidden" />
+      {preview && <p className="text-sm text-muted">Preview family: narration here is a stand-in sound, not a real voice.</p>}
     </div>
   );
 }

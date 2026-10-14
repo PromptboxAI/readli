@@ -63,7 +63,7 @@ export function StorytellerRow({ storytellers }: { storytellers: HomeStoryteller
     <ul className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6" data-testid="home-storytellers">
       {storytellers.map((s) => (
         <li key={s.voiceId} className="shrink-0">
-          <Link href="/family/narrators" className={`flex w-60 items-center gap-3 rounded-3xl p-3 ${TONE[s.tone]}`}>
+          <Link href={s.href} className={`flex w-60 items-center gap-3 rounded-3xl p-3 ${TONE[s.tone]}`}>
             <StorytellerAvatar name={s.person.name} avatarUrl={s.person.avatarUrl} tint={s.person.tint} muted={s.tone === "waiting"} />
             <span className="flex min-w-0 flex-col">
               <span className="font-display text-lg font-semibold">{s.person.name}</span>

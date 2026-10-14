@@ -58,4 +58,31 @@ describe("family home", () => {
   it("never shows another household's kids", () => {
     expect(familyHome(demoFamilyState(), "some-other-home").kids).toEqual([]);
   });
+
+  it("gives your own unshared voice a way to share it, instead of waiting on yourself", () => {
+    const own = familyHome(demoFamilyState(), DEMO_HOUSEHOLD_ID, undefined, "lou").storytellers.find((s) => s.voiceId === "voice-lou");
+    expect(own).toMatchObject({ tone: "waiting", detail: "Your voice: share it with your family", href: "/family/my-voice" });
+    const theirs = familyHome(demoFamilyState(), DEMO_HOUSEHOLD_ID, undefined, "sara").storytellers.find((s) => s.voiceId === "voice-lou");
+    expect(theirs).toMatchObject({ detail: "Waiting for their permission to share", href: "/family/narrators" });
+  });
+
+  it("stops calling a story ready when no child can play it, such as after the plan ends", () => {
+    const state = withReadyBook(demoFamilyState());
+    for (const e of state.entitlements) e.endsAt = "2026-01-01T00:00:00Z";
+    expect(familyHome(state, DEMO_HOUSEHOLD_ID).ready).toEqual([]);
+  });
+
+  it("stops calling a story ready when its storyteller isn't approved for any child", () => {
+    const state = withReadyBook(demoFamilyState());
+    state.approvals = state.approvals.filter((a) => a.voiceId !== "voice-sara");
+    expect(familyHome(state, DEMO_HOUSEHOLD_ID).ready).toEqual([]);
+  });
+
+  it("sends a storyteller nobody is approved to hear to the next step: a slot, then approvals", () => {
+    const state = demoFamilyState();
+    state.approvals = state.approvals.filter((a) => a.voiceId !== "voice-ben");
+    const cards = familyHome(state, DEMO_HOUSEHOLD_ID).storytellers;
+    expect(cards.find((s) => s.voiceId === "voice-priya")).toMatchObject({ tone: "none", href: "/family/narrators" });
+    expect(cards.find((s) => s.voiceId === "voice-ben")).toMatchObject({ tone: "none", href: "/family/kids" });
+  });
 });
