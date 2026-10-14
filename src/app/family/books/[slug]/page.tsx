@@ -8,7 +8,7 @@ import { prepareView } from "@/lib/narration/narration";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Prepare narration | Readli" };
+export const metadata: Metadata = { title: "Prepare audiobook | Readli" };
 
 type Search = { voice?: string; scope?: string; chapter?: string };
 
@@ -24,7 +24,7 @@ export default async function PrepareNarrationPage({ params, searchParams }: { p
   try {
     const view = await prepareView(store, page.session.actor, householdId, slug);
     return (
-      <FamilyShell>
+      <FamilyShell wide>
         <PreviewNote />
         <PrepareNarration initial={view} resume={resumeTarget(q, view.voices.map((v) => v.voiceId))} />
       </FamilyShell>

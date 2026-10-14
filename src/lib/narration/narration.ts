@@ -285,7 +285,7 @@ export interface PrepareBookView {
   /** Narrator slots the family has free, so a storyteller can go into one right here. */
   freeSlots: number;
   /** Shorter books one of this family's narrators can prepare with the current balance. */
-  shorterThatFit: { slug: string; title: string; credits: number; narrator: string }[];
+  shorterThatFit: { slug: string; title: string; coverUrl: string | null; credits: number; narrator: string }[];
 }
 
 function missingByChapter(state: FamilyState, plan: PlanConfig, library: NarrationLibrary, text: BookText): ChapterView[] {
@@ -425,7 +425,7 @@ export async function prepareView(store: FamilyStore, actor: Actor | null, house
       const fit = householdVoiceIds(state, householdId)
         .map((id) => voiceView(state, plan, householdId, t, id, credits.available))
         .find((v) => v.availability === "available");
-      if (fit) shorterThatFit.push({ slug: other.slug, title: other.title, credits: fit.missingCredits, narrator: fit.name });
+      if (fit) shorterThatFit.push({ slug: other.slug, title: other.title, coverUrl: other.coverUrl, credits: fit.missingCredits, narrator: fit.name });
     }
   }
   return {
