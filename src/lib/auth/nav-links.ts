@@ -8,7 +8,7 @@ export type NavState =
   | { kind: "visitor" }
   /** A kids profile is open on this device: no account menu, no sign-out. */
   | { kind: "kids" }
-  | { kind: "adult"; name: string; email: string | null; hasVoice: boolean; family: FamilyAccess; trialOffered: boolean };
+  | { kind: "adult"; name: string; email: string | null; hasVoice: boolean; family: FamilyAccess; trialOffered: boolean; avatarUrl?: string | null };
 
 export interface NavLink {
   href: string;
