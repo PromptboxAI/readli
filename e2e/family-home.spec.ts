@@ -139,6 +139,7 @@ test("a book page sets up a storyteller in place, prepares the audiobook and pla
   // Free one narrator slot, so Aunt Priya (shared, not in a slot) can use it.
   expect((await page.request.post("/api/family/narrators", { data: { voiceId: "voice-rose", action: "release" } })).status()).toBe(200);
   await page.goto("/family/books/the-princess-and-the-pea");
+  await page.getByTestId("narrator-voice-priya").click();
   const priya = page.getByTestId("prepare-voice-priya");
   const setup = priya.getByTestId("setup");
   await expect(setup).toContainText("Shared with your family");
@@ -147,7 +148,7 @@ test("a book page sets up a storyteller in place, prepares the audiobook and pla
   await setup.getByRole("switch", { name: "Aunt Priya for Maya" }).click();
   await expect(setup.getByRole("switch", { name: "Aunt Priya for Maya" })).toHaveAttribute("aria-checked", "true");
 
-  await priya.getByRole("button", { name: /Prepare Audiobook/ }).click();
+  await priya.getByRole("button", { name: "Prepare whole book" }).click();
   await priya.getByTestId("confirm-generation").getByRole("button", { name: "Prepare now" }).click();
   const ready = priya.getByTestId("ready-to-play");
   await expect(ready).toBeVisible({ timeout: 20_000 });
