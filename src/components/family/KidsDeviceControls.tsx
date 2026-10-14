@@ -108,31 +108,69 @@ export function KidsDeviceFooter({ canSwitch }: { canSwitch: boolean }) {
   );
 }
 
-/** Temporary Kids Mode on a grown-up's own browser: a grown-up leaves it by signing back in. */
+/**
+ * Temporary Kids Mode on a grown-up's own browser: the grown-up enters the family PIN (checked on the
+ * server) and is back in Readli Family, or signs in instead.
+ */
 export function TemporaryKidsExit({ childName, preview = false }: { childName: string; preview?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [pin, setPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const leave = async () => {
+    setBusy(true);
+    setMessage(null);
+    const res = await fetch("/api/kids/temporary/exit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pin }) });
+    const json = await res.json().catch(() => null);
+    setPin("");
+    if (res.ok) return window.location.replace("/family");
+    setBusy(false);
+    setMessage(json?.error?.message ?? "That didn't work. Please try again.");
+  };
+
   return (
     <div className="flex flex-col gap-3">
       <button type="button" className={`${buttonSecondary} min-h-11 self-start px-4 text-sm`} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        <span aria-hidden="true">🔒</span> Grown-ups: exit Kids Mode
+        <span aria-hidden="true">🔒</span> Grown-ups
       </button>
       {open && (
         <div className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10" data-testid="temporary-kids-exit">
+          <p className="font-semibold">This browser is showing only {childName}&apos;s stories. Enter your family PIN to go back to Readli Family.</p>
+          <form
+            className="flex flex-wrap items-end gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (pin.length === 4) void leave();
+            }}
+          >
+            <label className="flex flex-col gap-1 text-sm font-semibold">
+              Family PIN
+              <input
+                type="password"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={4}
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                className="w-32 rounded-2xl border-2 border-ink/20 bg-ivory px-3 py-2 text-center text-2xl tracking-[0.4em]"
+              />
+            </label>
+            <button type="submit" className={buttonPrimary} disabled={busy || pin.length !== 4}>
+              Back to Readli Family
+            </button>
+          </form>
+          {message && (
+            <p role="alert" className="text-sm font-semibold text-coral-deep">
+              {message}
+            </p>
+          )}
           {preview ? (
-            <>
-              <p className="font-semibold">This browser is showing only {childName}&apos;s stories. Leaving Kids Mode in the preview starts a fresh preview family.</p>
-              <PreviewKidsExit />
-            </>
+            <PreviewKidsExit />
           ) : (
-            <>
-              <p className="font-semibold">
-                This browser is showing only {childName}&apos;s stories. Sign in to leave Kids Mode and go back to Readli Family. Your other
-                devices stay signed in.
-              </p>
-              <a href="/login?next=/family" className={`${buttonPrimary} self-start`}>
-                Sign in to exit Kids Mode
-              </a>
-            </>
+            <a href="/login?next=/family" className="self-start text-sm font-semibold underline underline-offset-4">
+              Forgot the PIN? Sign in instead
+            </a>
           )}
         </div>
       )}

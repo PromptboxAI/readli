@@ -5,6 +5,7 @@ import { listDevices } from "@/lib/family/devices";
 import { familyPage, guardianChildren } from "@/lib/family/page-data";
 import { guardianHousehold } from "@/lib/family/service";
 import { deviceRegistry, familyStore } from "@/lib/family/session";
+import { BackLink } from "@/components/family/BackLink";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Kids devices | Readli" };
@@ -24,6 +25,7 @@ export default async function KidsDevicesPage() {
   return (
     <FamilyShell>
       <PreviewNote />
+      <BackLink href="/family/controls" label="Parent controls" />
       <KidsDevices
         kids={kids}
         initialDevices={await listDevices(registry, page.state, session.actor, householdId)}
