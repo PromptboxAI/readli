@@ -104,9 +104,17 @@ test("a ready story opens the grown-up player and plays stored audio", async ({ 
   const player = page.getByTestId("grown-up-player");
   await expect(player.getByRole("heading", { name: "The Lion and the Mouse" })).toBeVisible();
   await expect(player.getByRole("button", { name: /Mom/ })).toHaveAttribute("aria-pressed", "true");
+  const asked: number[] = [];
+  page.on("request", (r) => {
+    if (r.url().endsWith("/api/family/books/the-lion-and-the-mouse/listen") && r.method() === "POST") asked.push((r.postDataJSON() as { sentence: number }).sentence);
+  });
   const listen = page.waitForResponse((r) => r.url().endsWith("/api/family/books/the-lion-and-the-mouse/listen"));
   await player.getByRole("button", { name: "Play" }).click();
   expect((await listen).status()).toBe(200);
+  await expect(player.getByRole("button", { name: "Pause" })).toBeVisible();
+  // The next sentence is buffered while this one plays, so the story reads straight through.
+  await expect.poll(() => asked).toEqual([0, 1]);
+  await expect(player.getByTestId("sentence-position")).toHaveText(/Sentence 2 of/, { timeout: 15_000 });
   await expect(player.getByRole("button", { name: "Pause" })).toBeVisible();
   await noOverflow(page);
 });
