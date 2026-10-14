@@ -40,7 +40,7 @@ export default async function ParentControls() {
     { href: "/family/books", title: "Family library", text: "Prepare stories in a storyteller's voice", tone: "bg-sky/30" },
     { href: "/family/credits", title: "Readli credits", text: "Your monthly allowance and history", value: `${displayCredits(credits.available, credits.unitsPerCredit).toLocaleString("en-US")} left`, tone: "bg-sunshine/40" },
     { href: "/family/billing", title: "Plan and billing", text: "Your Readli Family plan and storyteller slots", tone: "bg-lavender/40" },
-    { href: "/family/devices", title: "Kids devices and PIN", text: "Readli Kids iPads and phones, and the grown-up PIN", value: devices === null ? undefined : `${devices} ${devices === 1 ? "device" : "devices"}`, tone: "bg-sky/30" },
+    { href: "/family/devices", title: "Kids Mode PIN and devices", text: "The PIN for leaving Kids Mode, and Readli Kids iPads and phones", value: devices === null ? undefined : `${devices} ${devices === 1 ? "device" : "devices"}`, tone: "bg-sky/30" },
     { href: "/family/my-voice", title: "My Voice", text: "Your own voice and which families can use it", tone: "bg-coral/20" },
     { href: "/family/account", title: "Account settings", text: "Name, photo, email and sign-in", tone: "bg-ink/5" },
   ];
