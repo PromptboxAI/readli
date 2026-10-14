@@ -1,26 +1,28 @@
 import { NextResponse } from "next/server";
 import { jsonBody, withFamily, FAMILY_OFF } from "@/lib/family/http";
-import { registerDevice } from "@/lib/family/devices";
-import { guardianChildren } from "@/lib/family/page-data";
 import { activeChild, isGuardianOf } from "@/lib/family/permissions";
-import { currentSession, deviceRegistry, deviceScope, deviceSecret, familyStore, newSandbox, setSession, startKidsDevice } from "@/lib/family/session";
+import { currentSession, familyStore, newSandbox, setSession, startTemporaryKids } from "@/lib/family/session";
 import { fail } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Who is using this device. "adult:<id>" signs in as a preview family member (preview only; real
- * grown-ups sign in at /login). "child:<id>" turns this device into a Readli Kids device for that
- * child (and their brothers and sisters, who can pick themselves), and needs a signed-in guardian of
- * that child. The grown-up's own sign-in doesn't stay on the device. DELETE signs a grown-up out;
- * a kids device leaves Readli Kids only with the family PIN (/api/kids/device/exit).
+ * Who is using this browser. "adult:<id>" signs in as a preview family member (preview only; real
+ * grown-ups sign in at /login). "child:<id>" opens temporary Kids Mode for that child on this browser
+ * only, and needs a signed-in guardian of that child; it ends when a grown-up signs back in. Dedicated
+ * kids devices are set up separately (/api/family/devices) and leave with the family PIN. A browser in
+ * Kids Mode can't use this route to become a grown-up or another child.
  */
 export async function POST(req: Request) {
   const { as } = await jsonBody(req);
   const [kind, id] = typeof as === "string" ? as.split(":") : [];
   const existing = await currentSession();
-  if (existing?.device && kind === "child") return fail(403, "not_guardian", "Only this child's parent or guardian can open their profile.");
-  if (existing?.account && !existing.device) {
+  // Nothing here leaves Kids Mode: a child's browser can't switch to a grown-up or to another child.
+  // Grown-ups leave by signing in (or with the family PIN on a kids device).
+  if (existing?.device || existing?.temporary || existing?.actor.kind === "child") {
+    return fail(403, "kids_mode", "A grown-up signs in to leave Readli Kids.");
+  }
+  if (existing?.account) {
     if (kind !== "child" || !id) return fail(400, "bad_request", "Choose a kids profile.");
     return openKids(id);
   }
@@ -40,28 +42,21 @@ export async function POST(req: Request) {
 function openKids(childId: string) {
   return withFamily(async ({ actor, store, session }) => {
     const state = await store.read();
-    if (actor.kind !== "adult" || !isGuardianOf(state, actor.adultId, childId)) {
+    if (actor.kind !== "adult" || !isGuardianOf(state, actor.adultId, childId) || !activeChild(state, childId)) {
       return fail(403, "not_guardian", "Only this child's parent or guardian can open their profile.");
     }
-    const registry = deviceRegistry(Boolean(session.account));
-    if (!registry) return fail(404, "family_off", FAMILY_OFF);
-    const home = activeChild(state, childId)!.householdId;
-    const kids = guardianChildren(state, actor.adultId).filter((c) => c.householdId === home).map((c) => c.id);
-    const { device, token } = await registerDevice(
-      registry,
-      state,
-      actor,
-      { scope: deviceScope(session), childIds: kids, activeChildId: childId, label: "This device" },
-      deviceSecret(),
-    );
-    await startKidsDevice(device, token);
-    return NextResponse.json({ ok: true, deviceId: device.id });
+    // Temporary Kids Mode on this browser only. Dedicated kids devices are set up at /family/devices.
+    await startTemporaryKids(session, childId);
+    return NextResponse.json({ ok: true });
   });
 }
 
 export async function DELETE() {
   const session = await currentSession();
   if (session?.device) return fail(403, "pin_required", "A grown-up's PIN is needed to leave Readli Kids.");
+  if (session?.temporary && session.account) return fail(403, "sign_in_required", "A grown-up signs in to leave Kids Mode.");
+  // A preview's temporary Kids Mode ends by starting a fresh preview: its family lived only in the kids
+  // pass, so clearing it never opens the earlier family's grown-up side.
   await setSession(null);
   return NextResponse.json({ ok: true });
 }

@@ -85,6 +85,28 @@ test("kids see only approved narrators and can switch without losing their place
   await expect(page).toHaveURL(/\/kids$/);
 });
 
+test("the kids player buffers the next sentence so the story reads straight through", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family");
+  await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
+  await expect(page.getByTestId("current-narrator")).toHaveText("Mom");
+  await expect(page.getByText(/Preview family: narration here is a stand-in sound/)).toBeVisible();
+
+  const asked: number[] = [];
+  page.on("request", (r) => {
+    if (r.url().endsWith("/api/kids/narrations") && r.method() === "POST") asked.push((r.postDataJSON() as { sentence: number }).sentence);
+  });
+  await page.getByRole("button", { name: "Play" }).click();
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  // The second sentence is fetched while the first is still playing.
+  await expect.poll(() => asked).toEqual([0, 1]);
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 2 of/, { timeout: 15_000 });
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await expect.poll(() => asked.includes(2)).toBe(true);
+  await page.getByRole("button", { name: "Pause" }).click();
+});
+
 test("an owner's revocation removes the voice from every child, and sharing again starts off", async ({ page }) => {
   await signIn(page, "adult:sara");
   expect((await page.request.post("/api/family/narrators/slots")).status()).toBe(200);
@@ -114,7 +136,7 @@ test("a friendly empty state when no storytellers are approved", async ({ page }
   await expect(page.getByTestId("no-storytellers")).toContainText("No storytellers yet");
 });
 
-test("direct API requests can't reach unapproved voices or change approvals", async ({ page, playwright }) => {
+test("direct API requests can't reach unapproved voices or change approvals", async ({ page, context, browser, playwright }) => {
   const anon = await playwright.request.newContext({ baseURL: "http://localhost:3100" });
   expect((await anon.get("/api/kids/maya/narrators")).status()).toBe(401);
   expect((await approve(anon, "maya", "voice-lou", true)).status()).toBe(401);
@@ -123,6 +145,9 @@ test("direct API requests can't reach unapproved voices or change approvals", as
   await signIn(page, "adult:sara");
   // A parent can't approve a voice its owner never shared.
   expect((await approve(page.request, "maya", "voice-lou", true)).status()).toBe(409);
+  // The same grown-up on another browser, which stays signed in while this one is in Kids Mode.
+  const phone = await browser.newContext();
+  await phone.addCookies(await context.cookies());
   // A child can't open a profile alone, or change anything once inside one.
   await signIn(page, "child:maya");
   expect((await page.request.post("/api/family/session", { data: { as: "child:leo" } })).status()).toBe(403);
@@ -142,10 +167,9 @@ test("direct API requests can't reach unapproved voices or change approvals", as
   expect(ok.status()).toBe(200);
   const { url } = (await ok.json()) as { url: string };
   expect((await page.request.get(url)).status()).toBe(200);
-  await signIn(page, "adult:sara");
-  expect((await approve(page.request, "maya", "voice-june", false)).status()).toBe(200);
-  await signIn(page, "child:maya");
+  expect((await approve(phone.request, "maya", "voice-june", false)).status()).toBe(200);
   expect((await page.request.get(url)).status()).toBe(403);
+  await phone.close();
 });
 
 test("a fourth child can be added at no extra charge, up to six", async ({ page }) => {
@@ -163,15 +187,19 @@ test("a fourth child can be added at no extra charge, up to six", async ({ page 
   expect((await page.request.post("/api/family/children", { data: { nickname: "Eli" } })).status()).toBe(409);
 });
 
-test("only three children can listen at once", async ({ page }) => {
+test("only three children can listen at once", async ({ page, context, browser }) => {
   await signIn(page, "adult:sara");
   for (const name of ["Ava", "Ben"]) await page.request.post("/api/family/children", { data: { nickname: name } });
   const kids = ((await (await page.request.get("/api/family/children")).json()) as { children: { id: string }[] }).children.map((c) => c.id);
   expect(kids).toHaveLength(4);
+  // Each child listens on their own browser, opened by the same grown-up.
+  const parent = await context.cookies();
   for (const [i, id] of kids.entries()) {
-    await signIn(page, "adult:sara");
-    await signIn(page, `child:${id}`);
-    expect((await page.request.post(`/api/kids/${id}/listening`)).status(), id).toBe(i < 3 ? 200 : 429);
+    const tablet = await browser.newContext();
+    await tablet.addCookies(parent);
+    const res = await tablet.request.post("/api/family/session", { data: { as: `child:${id}` } });
+    expect(res.status(), id).toBe(200);
+    expect((await tablet.request.post(`/api/kids/${id}/listening`)).status(), id).toBe(i < 3 ? 200 : 429);
   }
 });
 
@@ -278,5 +306,6 @@ test("kids can't buy credits or start narration", async ({ page }) => {
   expect((await page.request.post("/api/family/narration-credits", { data: { packId: "pack-small" } })).status()).toBe(403);
   expect((await page.request.post("/api/family/books/aesops-fables-retold/narration", { data: { voiceId: "voice-june", scope: "chapter", chapter: 2, confirm: true } })).status()).toBe(403);
   await page.goto("/kids");
-  await expect(page.getByRole("link", { name: /Aesop's Fables/ })).toContainText("Ask a grown-up to prepare it");
+  await expect(page.getByTestId("kids-discover")).toContainText("Aesop's Fables");
+  await expect(page.getByRole("link", { name: /Aesop's Fables/ })).toHaveCount(0);
 });

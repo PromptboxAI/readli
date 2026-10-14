@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { FavoriteButton } from "@/components/family/FavoriteButton";
-import { FamilyOff, FamilyShell, NeedsGrownUp } from "@/components/family/FamilyShell";
-import { KidsDeviceFooter, ListenerPicker } from "@/components/family/KidsDeviceControls";
+import { FamilyOff, FamilyShell, GrownUpSignIn, NeedsGrownUp } from "@/components/family/FamilyShell";
+import { KidsDeviceFooter, ListenerPicker, TemporaryKidsExit } from "@/components/family/KidsDeviceControls";
 import { cookies } from "next/headers";
 import { KIDS_COOKIE } from "@/lib/family/kids-mode";
-import { buttonPrimary } from "@/components/brand/buttons";
 import { CATALOG } from "@/lib/library/catalog";
 import { familyStore } from "@/lib/family/session";
 import { narratorsFor } from "@/lib/family/service";
@@ -50,7 +49,8 @@ export default async function KidsHome() {
   const books = await Promise.all(
     CATALOG.map(async (b) => {
       const readiness = await kidsReadiness(store, actor!, child.id, b.slug);
-      const voices = readiness.filter((r) => r.readySentenceIds.length > 0).map((r) => nameOf.get(r.voiceId)?.name).filter((n): n is string => Boolean(n));
+      // Ready only when a voice this child may hear has every sentence of the book stored.
+      const voices = readiness.filter((r) => r.readiness === "ready").map((r) => nameOf.get(r.voiceId)?.name).filter((n): n is string => Boolean(n));
       return { book: b, voices };
     }),
   );
@@ -86,7 +86,7 @@ export default async function KidsHome() {
             </span>
           </span>
           <span className="flex flex-col gap-2">
-            <span className="text-xs font-bold tracking-wider text-night-muted uppercase">Keep listening</span>
+            <span className="text-xs font-bold tracking-wider text-night-muted uppercase">Continue listening</span>
             <span className="font-display text-2xl font-semibold sm:text-3xl">{resume.title}</span>
             <span className="flex items-center gap-2 font-semibold text-night-muted">
               {reader && <StorytellerAvatar name={reader.name} avatarUrl={reader.avatarUrl} tint={reader.tint} size="sm" />}
@@ -97,9 +97,15 @@ export default async function KidsHome() {
         </Link>
       )}
 
-      <section className="flex flex-col gap-4" aria-labelledby="my-stories-h">
-        <h2 id="my-stories-h" className="font-display text-2xl font-semibold">My stories</h2>
-        {ready.length === 0 && <p className="text-lg">No stories are ready yet. Ask a grown-up to prepare one for you.</p>}
+      <section className="flex flex-col gap-4" aria-labelledby="my-stories-h" data-testid="kids-ready">
+        <h2 id="my-stories-h" className="font-display text-2xl font-semibold">Ready to listen</h2>
+        {ready.length === 0 && (
+          <div className="flex flex-col items-center gap-3 rounded-[28px] bg-surface p-8 text-center ring-2 ring-ink/10" data-testid="kids-empty">
+            <ReadiMascot size={120} decorative />
+            <p className="font-display text-2xl font-semibold">No stories ready yet</p>
+            <p className="max-w-md text-lg">Ask a grown-up to get a story ready for you. It will be right here when it&apos;s done.</p>
+          </div>
+        )}
         <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
           {ready.map(({ book: b, voices }) => (
             <li key={b.slug} className="relative">
@@ -119,17 +125,15 @@ export default async function KidsHome() {
       </section>
 
       {waiting.length > 0 && (
-        <section className="flex flex-col gap-4" aria-labelledby="ask-h">
-          <h2 id="ask-h" className="font-display text-2xl font-semibold">Ask a grown-up</h2>
-          <p className="text-muted">These stories aren&apos;t ready yet. A grown-up can prepare them for you.</p>
+        <section className="flex flex-col gap-4" aria-labelledby="ask-h" data-testid="kids-discover">
+          <h2 id="ask-h" className="font-display text-2xl font-semibold">Discover more stories</h2>
+          <p className="text-muted">These aren&apos;t ready yet. A grown-up can get them ready for you.</p>
           <ul className="grid grid-cols-3 gap-4 sm:grid-cols-4 lg:grid-cols-6">
             {waiting.map(({ book: b }) => (
-              <li key={b.slug}>
-                <Link href={`/kids/listen/${b.slug}`} className="flex flex-col gap-1.5 opacity-75 hover:opacity-100">
-                  <Cover url={b.coverUrl} tint={b.tint} title={b.title} />
-                  <span className="font-display text-sm leading-tight font-semibold">{b.title}</span>
-                  <span className="text-xs text-muted">Ask a grown-up to prepare it</span>
-                </Link>
+              <li key={b.slug} className="flex flex-col gap-1.5 opacity-75" aria-label={`${b.title}: a grown-up can get this one ready`}>
+                <Cover url={b.coverUrl} tint={b.tint} title={b.title} />
+                <span className="font-display text-sm leading-tight font-semibold">{b.title}</span>
+                <span className="text-xs text-muted">Not ready yet</span>
               </li>
             ))}
           </ul>
@@ -138,10 +142,10 @@ export default async function KidsHome() {
 
       {device ? (
         <KidsDeviceFooter canSwitch={deviceKids.length > 1} />
+      ) : page.session?.temporary ? (
+        <TemporaryKidsExit childName={child.nickname} preview={!page.session.account} />
       ) : (
-        <Link href="/family" className="self-start text-sm font-semibold underline underline-offset-4">
-          Grown-ups
-        </Link>
+        <GrownUpSignIn />
       )}
     </main>
   );
@@ -165,10 +169,8 @@ function DeviceEnded() {
   return (
     <FamilyShell portal={false}>
       <h1 className="font-display text-4xl font-semibold">Ask a grown-up</h1>
-      <p className="text-lg">Readli Kids has ended on this device. A grown-up can sign in and set it up again.</p>
-      <Link href="/login" className={`${buttonPrimary} self-start`}>
-        Grown-ups: sign in
-      </Link>
+      <p className="text-lg">Readli Kids has ended on this browser. A grown-up can sign in and open it again.</p>
+      <GrownUpSignIn />
     </FamilyShell>
   );
 }

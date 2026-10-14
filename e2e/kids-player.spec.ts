@@ -15,10 +15,12 @@ test("the kids bookshelf shows ready stories first and keeps the rest for a grow
   await signIn(page, "child:maya");
   await page.goto("/kids");
   await expect(page.getByRole("heading", { name: "Hi Maya! Pick a story." })).toBeVisible();
-  const mine = page.getByRole("region", { name: "My stories" });
+  const mine = page.getByRole("region", { name: "Ready to listen" });
   await expect(mine.getByRole("link", { name: /The Lion and the Mouse/ })).toContainText("with Mom");
-  const ask = page.getByRole("region", { name: "Ask a grown-up" });
-  await expect(ask.getByRole("link", { name: /Aesop's Fables/ })).toContainText("Ask a grown-up to prepare it");
+  // A book nobody has prepared is never offered as playable: no link, no controls.
+  const later = page.getByRole("region", { name: "Discover more stories" });
+  await expect(later).toContainText("Aesop's Fables");
+  await expect(later.getByRole("link")).toHaveCount(0);
   await expect(page.getByTestId("kids-continue")).toHaveCount(0);
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/kids-home-${info.project.name}.png`, fullPage: true });
@@ -60,7 +62,7 @@ test("the player opens in Listen mode, switches to Read-along at the same place,
   await page.getByRole("button", { name: "Just listen" }).first().click();
   await expect(player).toHaveAttribute("data-mode", "listen");
 
-  // Back on the bookshelf, the story waits in Keep listening.
+  // Back on the bookshelf, the story waits in Continue listening.
   await page.getByRole("link", { name: "My stories" }).click();
   const resume = page.getByTestId("kids-continue");
   await expect(resume).toContainText("The Lion and the Mouse");
