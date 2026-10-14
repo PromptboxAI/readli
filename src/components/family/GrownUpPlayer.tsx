@@ -102,6 +102,14 @@ export function GrownUpPlayer({ view, initialVoice }: { view: ListenView; initia
     if ((playing || loading) && voiceId) void play(at, voiceId);
   };
 
+  /** Back to the first sentence and reading again, whether paused or playing. */
+  const startOver = () => {
+    audio.clear();
+    setSentence(0);
+    sentenceRef.current = 0;
+    if (voiceId) void play(0, voiceId);
+  };
+
   const choose = (id: string) => {
     audio.clear();
     setVoiceId(id);
@@ -154,6 +162,9 @@ export function GrownUpPlayer({ view, initialVoice }: { view: ListenView; initia
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <button type="button" className={buttonSecondary} disabled={sentence === 0 || !voiceId || !readyAt(voiceId, 0)} onClick={startOver}>
+              Start over
+            </button>
             <button type="button" className={buttonSecondary} disabled={sentence === 0} onClick={() => goTo(sentence - 1)}>
               Back
             </button>
