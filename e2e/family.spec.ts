@@ -105,6 +105,11 @@ test("the kids player buffers the next sentence so the story reads straight thro
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   await expect.poll(() => asked.includes(2)).toBe(true);
   await page.getByRole("button", { name: "Pause" }).click();
+  // Paused partway, the story can start again from the beginning.
+  await page.getByRole("button", { name: "Start over" }).click();
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 1 of/);
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await page.getByRole("button", { name: "Pause" }).click();
 });
 
 test("an owner's revocation removes the voice from every child, and sharing again starts off", async ({ page }) => {

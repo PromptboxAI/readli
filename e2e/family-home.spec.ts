@@ -116,6 +116,11 @@ test("a ready story opens the grown-up player and plays stored audio", async ({ 
   await expect.poll(() => asked).toEqual([0, 1]);
   await expect(player.getByTestId("sentence-position")).toHaveText(/Sentence 2 of/, { timeout: 15_000 });
   await expect(player.getByRole("button", { name: "Pause" })).toBeVisible();
+  // Paused partway, the story can start again from the beginning.
+  await player.getByRole("button", { name: "Pause" }).click();
+  await player.getByRole("button", { name: "Start over" }).click();
+  await expect(player.getByTestId("sentence-position")).toHaveText(/Sentence 1 of/);
+  await expect(player.getByRole("button", { name: "Pause" })).toBeVisible();
   await noOverflow(page);
 });
 

@@ -214,6 +214,14 @@ export function KidsPlayer({
     if ((playing || loading) && voiceId) void play(at, voiceId);
   };
 
+  /** Back to the first sentence and reading again, whether paused or playing. */
+  const startOver = () => {
+    setSentence(0);
+    sentenceRef.current = 0;
+    audio.clear();
+    if (voiceId) void play(0, voiceId);
+  };
+
   const current = narrators.find((n) => n.voiceId === voiceId) ?? null;
 
   if (narrators.length === 0) {
@@ -249,6 +257,16 @@ export function KidsPlayer({
         </button>
         <div className="ml-auto flex items-center gap-2">
           {loading && !playing && <ReadiMascot state="listening" size={72} decorative className="motion-safe:animate-bob" />}
+          {sentence > 0 && (
+            <button
+              type="button"
+              disabled={!voiceId || !readyAt(voiceId, 0)}
+              onClick={startOver}
+              className="min-h-14 rounded-full border-[3px] border-white/70 px-5 font-display text-lg font-semibold text-white hover:bg-white/10 disabled:opacity-50"
+            >
+              Start over
+            </button>
+          )}
           <button
             type="button"
             disabled={!voiceId || (!playing && !currentReady)}
