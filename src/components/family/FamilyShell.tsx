@@ -14,7 +14,8 @@ import { accountBadge, accountInitials, accountLinks, navState } from "@/lib/aut
  * everyone else (no plan yet, a kids device, a visitor) keeps the public site header. Pages a kids
  * device can reach pass portal={false}, so the Parent Portal never shows there.
  */
-export async function FamilyShell({ children, portal = true }: { children: React.ReactNode; portal?: boolean }) {
+export async function FamilyShell({ children, portal = true, wide = false }: { children: React.ReactNode; portal?: boolean; wide?: boolean }) {
+  const width = wide ? "max-w-6xl" : "max-w-4xl";
   const nav = portal ? await navState() : null;
   if (nav?.kind === "adult" && nav.family.plan !== "none") {
     const account = { name: nav.name, email: nav.email, initials: accountInitials(nav.name), badge: accountBadge(nav), links: accountLinks(nav) };
@@ -22,7 +23,7 @@ export async function FamilyShell({ children, portal = true }: { children: React
       <>
         <ReloadOnRestore />
         <ParentNav account={account} />
-        <main className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-12 sm:px-6">{children}</main>
+        <main className={`mx-auto flex ${width} flex-col gap-8 px-4 py-12 sm:px-6`}>{children}</main>
         <SiteFooter />
         {/* Room for the phone bottom bar, so it never covers the footer. */}
         <div aria-hidden="true" className="h-20 md:hidden" />
@@ -33,7 +34,7 @@ export async function FamilyShell({ children, portal = true }: { children: React
     <>
       {portal && <ReloadOnRestore />}
       <SiteHeader />
-      <main className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-12 sm:px-6">{children}</main>
+      <main className={`mx-auto flex ${width} flex-col gap-8 px-4 py-12 sm:px-6`}>{children}</main>
       <SiteFooter />
     </>
   );
