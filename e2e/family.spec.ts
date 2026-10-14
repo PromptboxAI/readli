@@ -107,6 +107,27 @@ test("the kids player buffers the next sentence so the story reads straight thro
   await page.getByRole("button", { name: "Pause" }).click();
 });
 
+test("the kids player keeps reading when its listening session lapses", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family");
+  await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
+  await expect(page.getByTestId("current-narrator")).toHaveText("Mom");
+
+  const asked: number[] = [];
+  page.on("request", (r) => {
+    if (r.url().endsWith("/api/kids/narrations") && r.method() === "POST") asked.push((r.postDataJSON() as { sentence: number }).sentence);
+  });
+  await page.getByRole("button", { name: "Play" }).click();
+  await expect.poll(() => asked).toEqual([0, 1]);
+  // The server forgets the session, as it does after the page sits idle.
+  expect((await page.request.delete("/api/kids/maya/listening")).status()).toBeLessThan(300);
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/, { timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await expect(page.getByText("That storyteller isn't available right now")).toHaveCount(0);
+  await page.getByRole("button", { name: "Pause" }).click();
+});
+
 test("an owner's revocation removes the voice from every child, and sharing again starts off", async ({ page }) => {
   await signIn(page, "adult:sara");
   expect((await page.request.post("/api/family/narrators/slots")).status()).toBe(200);
