@@ -96,3 +96,27 @@ test("Back after approving a storyteller shows the change, not a stale page", as
   await expect(page.getByTestId("home-storytellers").getByRole("link", { name: /Dad/ })).toContainText("Approved for every child");
 });
 
+test("a ready story opens the grown-up player and plays stored audio", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family");
+  await page.getByTestId("shelf-ready").getByTestId("home-book-the-lion-and-the-mouse").click();
+  await expect(page).toHaveURL(/\/family\/books\/the-lion-and-the-mouse\/listen$/);
+  const player = page.getByTestId("grown-up-player");
+  await expect(player.getByRole("heading", { name: "The Lion and the Mouse" })).toBeVisible();
+  await expect(player.getByRole("button", { name: /Mom/ })).toHaveAttribute("aria-pressed", "true");
+  const listen = page.waitForResponse((r) => r.url().endsWith("/api/family/books/the-lion-and-the-mouse/listen"));
+  await player.getByRole("button", { name: "Play" }).click();
+  expect((await listen).status()).toBe(200);
+  await expect(player.getByRole("button", { name: "Pause" })).toBeVisible();
+  await noOverflow(page);
+});
+
+test("a kids profile can't use the grown-up player", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await signIn(page, "child:maya");
+  const res = await page.request.post("/api/family/books/the-lion-and-the-mouse/listen", { data: { voiceId: "voice-sara", sentence: 0 } });
+  expect(res.status()).toBe(403);
+  await page.goto("/family/books/the-lion-and-the-mouse/listen");
+  await expect(page).toHaveURL(/\/kids$/);
+});
+

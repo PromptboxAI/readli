@@ -45,6 +45,7 @@ export default async function KidsListen({ params }: { params: Promise<{ slug: s
         initialReadiness={readiness}
         initialNarrators={narrators}
         resume={resume}
+        preview={!session.account}
       />
     </main>
   );
