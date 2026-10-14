@@ -284,5 +284,31 @@ test("kids can't buy credits or start narration", async ({ page }) => {
   expect((await page.request.post("/api/family/narration-credits", { data: { packId: "pack-small" } })).status()).toBe(403);
   expect((await page.request.post("/api/family/books/aesops-fables-retold/narration", { data: { voiceId: "voice-june", scope: "chapter", chapter: 2, confirm: true } })).status()).toBe(403);
   await page.goto("/kids");
-  await expect(page.getByRole("link", { name: /Aesop's Fables/ })).toContainText("Ask a grown-up to prepare it");
+  // A book nobody has prepared isn't offered as playable: it waits under More stories, with no controls.
+  await expect(page.getByTestId("kids-discover")).toContainText("Aesop's Fables");
+  await expect(page.getByTestId("kids-discover")).toContainText("A grown-up can get these ready for you.");
+  await expect(page.getByRole("link", { name: /Aesop's Fables/ })).toHaveCount(0);
+  await expect(page.getByTestId("kids-ready").getByRole("link", { name: /The Lion and the Mouse/ })).toBeVisible();
+  await expect(page.getByTestId("kids-ready").locator("img").first()).toBeVisible();
+});
+
+test("the kids bookshelf leads with stories in progress, then stories ready to play", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await signIn(page, "child:maya");
+  expect((await page.request.put("/api/kids/maya/progress", { data: { bookSlug: "the-lion-and-the-mouse", sentence: 2, voiceId: "voice-june" } })).status()).toBe(200);
+  await page.goto("/kids");
+  await expect(page.getByTestId("kids-continue").getByRole("link", { name: /The Lion and the Mouse/ })).toBeVisible();
+  await expect(page.getByTestId("kids-ready").getByRole("link", { name: /The Lion and the Mouse/ })).toHaveCount(0);
+});
+
+test("a child with no prepared stories sees a friendly empty bookshelf", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  const off = await page.request.put("/api/family/kids/maya/storytellers", {
+    data: { changes: [{ voiceId: "voice-sara", approved: false }, { voiceId: "voice-june", approved: false }] },
+  });
+  expect(off.status()).toBe(200);
+  await signIn(page, "child:maya");
+  await page.goto("/kids");
+  await expect(page.getByTestId("kids-empty")).toContainText("No stories ready yet");
+  await expect(page.getByTestId("kids-ready")).toHaveCount(0);
 });
