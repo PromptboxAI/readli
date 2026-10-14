@@ -4,12 +4,14 @@ import { cache } from "react";
 import { authConfigured, currentUser, supabaseServer } from "@/lib/auth/supabase";
 import { accountDb, AccountFamilyStore } from "./account-store";
 import { sameHash } from "@/lib/server/guest-token";
+import { failedTry, GROWNUP_COOKIE, isPinResumed, lockedNow, openStash, PIN_RESUMED_COOKIE, pinResumedValue, sealStash, type GrownUpStash } from "./grownup-stash";
+import { activeChild } from "./permissions";
 import { StubVoiceProvider } from "@/lib/voice/stub";
 import { demoFamilyState } from "./demo-family";
 import { KIDS_COOKIE } from "./kids-mode";
-import { ACCOUNT_SCOPE, deviceCookieValue, deviceForCookie, isDeviceCookie, MemoryDeviceRegistry, parseDeviceCookie, SupabaseDeviceRegistry, type DeviceRegistry, type KidsDevice } from "./devices";
+import { ACCOUNT_SCOPE, deviceCookieValue, deviceForCookie, isDeviceCookie, MemoryDeviceRegistry, parseDeviceCookie, pinMatches, SupabaseDeviceRegistry, type DeviceRegistry, type KidsDevice } from "./devices";
 import type { Actor } from "./model";
-import { MemoryFamilyStore, type FamilyStore } from "./service";
+import { MemoryFamilyStore, PermissionError, type FamilyStore } from "./service";
 import { planConfig } from "./plan";
 import { DEMO_HOUSEHOLD_ID } from "./demo-family";
 import { seedDemoNarrations } from "@/lib/narration/demo-seed";
@@ -200,17 +202,85 @@ function temporarySession(value: string | undefined): FamilySession | null {
 
 /**
  * Temporary Kids Mode on a grown-up's own browser: this browser shows only one child's bookshelf
- * until a grown-up signs back in. The grown-up is signed out here only (never on their other
- * devices), so their sign-in isn't left open behind a child's screen, and nothing is registered as a
- * kids device.
+ * until a grown-up comes back with the family PIN or signs in. The grown-up's sign-in is set aside
+ * here only (never on their other devices): its Supabase cookies are removed without ending the
+ * session, and its refresh token is kept encrypted in an httpOnly cookie only the server can open.
+ * Nothing is registered as a kids device.
  */
 export async function startTemporaryKids(session: FamilySession, childId: string, now = Date.now()): Promise<void> {
   const jar = await cookies();
   const scope = deviceScope(session);
   const openedBy = session.account?.id ?? (session.actor.kind === "adult" ? session.actor.adultId : "");
-  if (session.account && authConfigured()) await (await supabaseServer()).auth.signOut({ scope: "local" }).catch(() => undefined);
+  const expiresAt = now + TEMPORARY_KIDS_HOURS * 3_600_000;
+  let stash: GrownUpStash | null = null;
+  if (session.account && authConfigured()) {
+    const supabase = await supabaseServer();
+    const refresh = (await supabase.auth.getSession().catch(() => null))?.data.session?.refresh_token;
+    if (refresh) {
+      stash = { user: openedBy, token: refresh, kind: "account", failures: 0, lockedUntil: null, expiresAt };
+      for (const c of jar.getAll()) if (/^sb-.+-auth-token/.test(c.name)) jar.delete(c.name);
+    } else {
+      await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+    }
+  } else {
+    const preview = jar.get(FAMILY_COOKIE)?.value;
+    if (preview && decodeSession(preview)?.actor.kind === "adult") stash = { user: openedBy, token: preview, kind: "preview", failures: 0, lockedUntil: null, expiresAt };
+  }
   jar.delete(FAMILY_COOKIE);
-  jar.set(KIDS_COOKIE, encodeTemporaryKids({ scope, openedBy, childId, expiresAt: now + TEMPORARY_KIDS_HOURS * 3_600_000 }), cookieOptions(TEMPORARY_KIDS_HOURS * 3600));
+  jar.delete(PIN_RESUMED_COOKIE);
+  if (stash) jar.set(GROWNUP_COOKIE, sealStash(stash, secret()), cookieOptions(TEMPORARY_KIDS_HOURS * 3600));
+  else jar.delete(GROWNUP_COOKIE);
+  jar.set(KIDS_COOKIE, encodeTemporaryKids({ scope, openedBy, childId, expiresAt }), cookieOptions(TEMPORARY_KIDS_HOURS * 3600));
+}
+
+/**
+ * Leaves temporary Kids Mode with the family PIN, checked on the server: the grown-up who opened it
+ * gets their set-aside sign-in back on this browser. Five wrong tries lock it for 15 minutes. The
+ * PIN only brings that sign-in back; sensitive actions still ask for a full sign-in afterwards.
+ */
+export async function resumeGrownUp(session: FamilySession, pin: unknown, now = Date.now()): Promise<void> {
+  if (!session.temporary) throw new PermissionError(409, "not_temporary", "This browser isn't in temporary Kids Mode.");
+  const jar = await cookies();
+  const stash = openStash(jar.get(GROWNUP_COOKIE)?.value, secret(), now);
+  const pass = decodeTemporaryKids(jar.get(KIDS_COOKIE)?.value, now);
+  if (!stash || !pass || stash.user !== pass.openedBy) {
+    throw new PermissionError(409, "sign_in_required", "A grown-up signs in to leave Kids Mode on this browser.");
+  }
+  if (lockedNow(stash, now)) throw new PermissionError(429, "pin_locked", "Too many tries. Try again in a few minutes, or sign in instead.");
+  const store = await familyStore(session);
+  const child = store ? activeChild(await store.read(), session.temporary.childId) : null;
+  const stored = child ? await deviceRegistry(Boolean(session.account))?.pinHash(child.householdId) : null;
+  if (!stored) throw new PermissionError(409, "no_pin", "Your family hasn't set a grown-up PIN yet. Sign in instead, then set one in Parent controls.");
+  if (typeof pin !== "string" || !/^\d{4}$/.test(pin) || !(await pinMatches(pin, stored))) {
+    const next = failedTry(stash, now);
+    jar.set(GROWNUP_COOKIE, sealStash(next, secret()), cookieOptions(Math.max(1, Math.floor((stash.expiresAt - now) / 1000))));
+    if (lockedNow(next, now)) throw new PermissionError(429, "pin_locked", "Too many tries. Try again in a few minutes, or sign in instead.");
+    throw new PermissionError(403, "wrong_pin", "That PIN isn't right.", { triesLeft: 5 - next.failures });
+  }
+  if (stash.kind === "account") {
+    const { data, error } = await (await supabaseServer()).auth.refreshSession({ refresh_token: stash.token });
+    if (error || data.user?.id !== stash.user) {
+      jar.delete(GROWNUP_COOKIE);
+      throw new PermissionError(409, "sign_in_required", "Your sign-in has ended. Sign in to leave Kids Mode.");
+    }
+    jar.set(PIN_RESUMED_COOKIE, pinResumedValue(stash.user, secret()), cookieOptions(60 * 60 * 24 * 30));
+  } else {
+    jar.set(FAMILY_COOKIE, stash.token, cookieOptions(60 * 60 * 8));
+  }
+  jar.delete(GROWNUP_COOKIE);
+  jar.delete(KIDS_COOKIE);
+}
+
+/**
+ * Sensitive account actions (billing, deleting a voice or the account, changing who a voice is shared
+ * with) need a grown-up who signed in fully on this browser: a sign-in brought back with the family
+ * PIN isn't enough until they sign in again.
+ */
+export async function requireFullSignIn(session: FamilySession | null): Promise<void> {
+  if (!session?.account || session.temporary || session.device) return;
+  if (isPinResumed((await cookies()).get(PIN_RESUMED_COOKIE)?.value, session.account.id, secret())) {
+    throw new PermissionError(403, "reauth_required", "For your security, sign in again to do this.");
+  }
 }
 
 /** The scope a new kids device for this session belongs to. */

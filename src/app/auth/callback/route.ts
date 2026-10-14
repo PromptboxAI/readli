@@ -1,6 +1,7 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { authConfigured, safeNext, supabaseServer } from "@/lib/auth/supabase";
+import { GROWNUP_COOKIE, PIN_RESUMED_COOKIE } from "@/lib/family/grownup-stash";
 import { KIDS_COOKIE } from "@/lib/family/kids-mode";
 import { currentDevice } from "@/lib/family/session";
 
@@ -33,5 +34,8 @@ export async function GET(req: Request) {
   }
   const res = NextResponse.redirect(new URL(next, url.origin));
   res.cookies.delete(KIDS_COOKIE);
+  // A full sign-in replaces any sign-in set aside for Kids Mode or brought back with the PIN.
+  res.cookies.delete(GROWNUP_COOKIE);
+  res.cookies.delete(PIN_RESUMED_COOKIE);
   return res;
 }
