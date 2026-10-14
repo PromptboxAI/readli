@@ -7,6 +7,7 @@ import { activeEntitlement, liveSlots, narratorSlotCount } from "@/lib/family/pe
 import { guardianHousehold } from "@/lib/family/service";
 import { deviceRegistry, familyStore } from "@/lib/family/session";
 import { creditBalance, displayCredits } from "@/lib/narration/credits";
+import { BackLink } from "@/components/family/BackLink";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Parent controls | Readli" };
@@ -47,6 +48,7 @@ export default async function ParentControls() {
   return (
     <FamilyShell>
       <PreviewNote />
+      <BackLink href="/family" label="Family" />
       <div className="flex flex-col gap-2">
         <h1 className="font-display text-4xl font-semibold">Parent controls</h1>
         <p className="text-lg text-muted">Manage your family, storytellers, credits and account.</p>
