@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { formatPrice } from "@/lib/family/plan";
@@ -9,6 +10,7 @@ import { StorytellerAvatar } from "./StorytellerAvatar";
 
 /** Readli Family → Narrator slots: choose which shared voices the household uses, and add slots. */
 export function NarratorSlots({ initial, canBuy = true, approveHref = "/family/kids" }: { initial: NarratorSlotsView; canBuy?: boolean; approveHref?: string }) {
+  const router = useRouter();
   const [view, setView] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -25,6 +27,8 @@ export function NarratorSlots({ initial, canBuy = true, approveHref = "/family/k
     if (!res.ok) return setMessage(json?.error?.message ?? "We couldn't save that. Please try again.");
     setView(json as NarratorSlotsView);
     setMessage(done);
+    // Drops the app's cached copies of other family pages, so Back shows this change.
+    router.refresh();
   };
 
   const row = (n: NarratorCard, action: React.ReactNode, muted = false) => (
