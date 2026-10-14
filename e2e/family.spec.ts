@@ -246,6 +246,11 @@ test("a parent prepares narration ahead of time and is told when it's ready", as
   await expect(status("voice-priya")).toHaveText("Needs setup");
   await page.getByTestId("narrator-voice-priya").click();
   await expect(page.getByTestId("prepare-voice-priya")).toContainText("narrator slot");
+  // Narration that is already prepared plays straight away and asks for nothing more.
+  await page.getByTestId("narrator-voice-sara").click();
+  const sara = page.getByTestId("prepare-voice-sara");
+  await expect(sara.getByTestId("ready-to-play")).toBeVisible();
+  await expect(sara.getByRole("button", { name: /Prepare whole book|Prepare the rest/ })).toHaveCount(0);
 
   await page.getByTestId("narrator-voice-june").click();
   const june = page.getByTestId("prepare-voice-june");
