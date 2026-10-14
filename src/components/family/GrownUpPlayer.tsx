@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import type { ListenView } from "@/lib/narration/narration";
 import { StorytellerAvatar } from "./StorytellerAvatar";
+import { useGaplessAudio } from "./useGaplessAudio";
 
 /**
  * The Parent Portal player: plays a prepared book sentence by sentence from stored audio, in any
@@ -18,17 +19,36 @@ export function GrownUpPlayer({ view, initialVoice }: { view: ListenView; initia
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const audio = useRef<HTMLAudioElement>(null);
   const voiceRef = useRef(voiceId);
   voiceRef.current = voiceId;
+  const sentenceRef = useRef(sentence);
+  sentenceRef.current = sentence;
+  const audio = useGaplessAudio({ ended: () => onEnded(), error: () => stop() });
 
   const voice = voices.find((v) => v.voiceId === voiceId) ?? null;
   const readyAt = (id: string | null, at: number) => Boolean(id && voices.find((v) => v.voiceId === id)?.readySentenceIds.includes(sentenceIds[at] ?? ""));
 
   const stop = () => {
-    audio.current?.pause();
+    audio.pause();
     setPlaying(false);
     setLoading(false);
+  };
+
+  /** A signed URL for one prepared sentence; the server re-checks plan, share and slot each time. */
+  const fetchUrl = (at: number, id: string) =>
+    fetch(`/api/family/books/${book.slug}/listen`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ voiceId: id, sentence: at }),
+    });
+
+  /** Buffers the next sentence while this one plays, so the story flows without a pause. */
+  const prefetch = async (at: number, id: string) => {
+    if (at >= sentences.length || !readyAt(id, at)) return;
+    const res = await fetchUrl(at, id).catch(() => null);
+    if (!res?.ok || voiceRef.current !== id) return;
+    const { url } = (await res.json()) as { url: string };
+    audio.preload(`${id}:${at}`, url);
   };
 
   const play = async (at: number, id: string) => {
@@ -38,48 +58,52 @@ export function GrownUpPlayer({ view, initialVoice }: { view: ListenView; initia
       setNotice(`${voices.find((v) => v.voiceId === id)?.name ?? "This storyteller"}'s reading isn't prepared here yet.`);
       return;
     }
-    setLoading(true);
-    const res = await fetch(`/api/family/books/${book.slug}/listen`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ voiceId: id, sentence: at }),
-    });
-    if (voiceRef.current !== id) return;
-    if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-      stop();
-      setNotice(body?.error?.message ?? "This story isn't available right now.");
-      return;
+    const key = `${id}:${at}`;
+    let url: string | null = null;
+    if (!audio.buffered(key)) {
+      audio.clear();
+      setLoading(true);
+      const res = await fetchUrl(at, id);
+      if (voiceRef.current !== id) return;
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        stop();
+        setNotice(body?.error?.message ?? "This story isn't available right now.");
+        return;
+      }
+      url = ((await res.json()) as { url: string }).url;
     }
-    const { url } = (await res.json()) as { url: string };
-    const el = audio.current!;
-    el.src = url;
     try {
-      await el.play();
+      await audio.play(key, url);
       setPlaying(true);
+      setLoading(false);
+      void prefetch(at + 1, id);
     } catch {
       stop();
     }
-    setLoading(false);
   };
 
   const onEnded = () => {
-    const next = sentence + 1;
-    if (next >= sentences.length || !voiceId) return stop();
+    const next = sentenceRef.current + 1;
+    const id = voiceRef.current;
+    if (next >= sentences.length || !id) return stop();
     setSentence(next);
-    if (readyAt(voiceId, next)) void play(next, voiceId);
+    sentenceRef.current = next;
+    if (readyAt(id, next)) void play(next, id);
     else {
       stop();
-      setNotice(`${voice?.name ?? "This storyteller"}'s reading stops here for now. Prepare the rest of the book to keep listening.`);
+      setNotice(`${voices.find((v) => v.voiceId === id)?.name ?? "This storyteller"}'s reading stops here for now. Prepare the rest of the book to keep listening.`);
     }
   };
 
   const goTo = (at: number) => {
+    audio.clear();
     setSentence(at);
     if ((playing || loading) && voiceId) void play(at, voiceId);
   };
 
   const choose = (id: string) => {
+    audio.clear();
     setVoiceId(id);
     voiceRef.current = id;
     if (playing || loading) void play(sentence, id);
@@ -172,7 +196,6 @@ export function GrownUpPlayer({ view, initialVoice }: { view: ListenView; initia
           </article>
         </>
       )}
-      <audio ref={audio} onEnded={onEnded} onError={stop} className="hidden" />
     </div>
   );
 }
