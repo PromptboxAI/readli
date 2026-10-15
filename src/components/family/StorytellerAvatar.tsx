@@ -18,11 +18,11 @@ export function StorytellerAvatar({
   name: string;
   avatarUrl: string | null;
   tint: string;
-  size?: "xs" | "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   muted?: boolean;
 }) {
   const [failed, setFailed] = useState<{ url: string; tries: number; at: number } | null>(null);
-  const dims = { xs: "size-8 text-xs", sm: "size-10 text-base", md: "size-14 text-xl", lg: "size-24 text-3xl" }[size];
+  const dims = { xs: "size-8 text-xs", sm: "size-10 text-base", md: "size-14 text-xl", lg: "size-24 text-3xl", xl: "size-36 text-5xl sm:size-44" }[size];
   const ring = muted ? "border-dashed border-ink/40 opacity-70" : "border-ink";
   const tries = failed?.url === avatarUrl ? failed.tries : 0;
   if (avatarUrl && tries < 2) {
