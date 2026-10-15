@@ -105,6 +105,32 @@ test("the kids player buffers the next sentence so the story reads straight thro
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   await expect.poll(() => asked.includes(2)).toBe(true);
   await page.getByRole("button", { name: "Pause" }).click();
+  // Paused partway, the story can start again from the beginning.
+  await page.getByRole("button", { name: "Start over" }).click();
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 1 of/);
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await page.getByRole("button", { name: "Pause" }).click();
+});
+
+test("the kids player keeps reading when its listening session lapses", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family");
+  await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
+  await expect(page.getByTestId("current-narrator")).toHaveText("Mom");
+
+  const asked: number[] = [];
+  page.on("request", (r) => {
+    if (r.url().endsWith("/api/kids/narrations") && r.method() === "POST") asked.push((r.postDataJSON() as { sentence: number }).sentence);
+  });
+  await page.getByRole("button", { name: "Play" }).click();
+  await expect.poll(() => asked).toEqual([0, 1]);
+  // The server forgets the session, as it does after the page sits idle.
+  expect((await page.request.delete("/api/kids/maya/listening")).status()).toBeLessThan(300);
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/, { timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await expect(page.getByText("That storyteller isn't available right now")).toHaveCount(0);
+  await page.getByRole("button", { name: "Pause" }).click();
 });
 
 test("an owner's revocation removes the voice from every child, and sharing again starts off", async ({ page }) => {
@@ -237,20 +263,30 @@ test("a parent prepares narration ahead of time and is told when it's ready", as
   await page.getByTestId("collection-all").getByTestId("book-the-princess-and-the-pea").click();
   await expect(page.getByRole("heading", { name: "The Princess and the Pea" })).toBeVisible();
 
-  const june = page.getByTestId("prepare-voice-june");
-  await expect(june.getByTestId("availability")).toHaveText("Partially ready");
-  await expect(page.getByTestId("prepare-voice-rose").getByTestId("availability")).toHaveText("Available to generate");
-  await expect(page.getByTestId("prepare-voice-sara").getByTestId("availability")).toHaveText("Ready");
+  // One status per narrator, in the narrator list.
+  const status = (voice: string) => page.getByTestId(`narrator-${voice}`).getByTestId("availability");
+  await expect(status("voice-june")).toHaveText("Partly ready");
+  await expect(status("voice-rose")).toHaveText("Not prepared");
+  await expect(status("voice-sara")).toHaveText("Ready");
   // Aunt Priya shared her voice but isn't in a narrator slot.
-  await expect(page.getByTestId("prepare-voice-priya").getByTestId("availability")).toHaveText("Unavailable");
+  await expect(status("voice-priya")).toHaveText("Needs setup");
+  await page.getByTestId("narrator-voice-priya").click();
   await expect(page.getByTestId("prepare-voice-priya")).toContainText("narrator slot");
+  // Narration that is already prepared plays straight away and asks for nothing more.
+  await page.getByTestId("narrator-voice-sara").click();
+  const sara = page.getByTestId("prepare-voice-sara");
+  await expect(sara.getByTestId("ready-to-play")).toBeVisible();
+  await expect(sara.getByRole("button", { name: /Prepare whole book|Prepare the rest/ })).toHaveCount(0);
 
+  await page.getByTestId("narrator-voice-june").click();
+  const june = page.getByTestId("prepare-voice-june");
+  await expect(page.getByTestId("book-status")).toHaveText("Partly ready");
   await june.getByRole("button", { name: /Prepare the rest/ }).click();
   const confirm = june.getByTestId("confirm-generation");
   await expect(confirm).toContainText("already prepared are free");
   await expect(confirm).toContainText("Your balance");
   await confirm.getByRole("button", { name: "Prepare now" }).click();
-  await expect(june.getByTestId("availability")).toHaveText("Ready", { timeout: 15_000 });
+  await expect(status("voice-june")).toHaveText("Ready", { timeout: 15_000 });
 
   await page.goto("/family");
   await expect(page.getByTestId("notifications")).toContainText("Grandma June's reading of The Princess and the Pea is ready.");
@@ -270,9 +306,11 @@ test("the library leads with short stories and keeps longer books visible", asyn
 test("short on credits: prepare a chapter, or buy credits and come straight back to confirm", async ({ page }) => {
   await signIn(page, "adult:sara");
   await page.goto("/family/books/aesops-fables-retold");
+  const status = (voice: string) => page.getByTestId(`narrator-${voice}`).getByTestId("availability");
+  await page.getByTestId("narrator-voice-june").click();
   const june = page.getByTestId("prepare-voice-june");
-  await expect(june.getByTestId("availability")).toHaveText("More credits needed");
-  await expect(june.getByRole("button", { name: /Prepare Audiobook/ })).toBeDisabled();
+  await expect(status("voice-june")).toHaveText("Needs credits");
+  await expect(june.getByRole("button", { name: "Prepare whole book" })).toBeDisabled();
   await expect(june.getByTestId("credits-needed")).toContainText("more credits for the whole book");
   await expect(page.getByTestId("shorter-books")).toBeVisible();
 
@@ -280,7 +318,7 @@ test("short on credits: prepare a chapter, or buy credits and come straight back
   await june.getByTestId("chapter-1").getByRole("button", { name: /Prepare/ }).click();
   await expect(june.getByTestId("confirm-generation")).toContainText("Chapter 1, The Tortoise and the Hare");
   await june.getByTestId("confirm-generation").getByRole("button", { name: "Prepare now" }).click();
-  await expect(june.getByTestId("availability")).toHaveText("Partially ready", { timeout: 15_000 });
+  await expect(status("voice-june")).toHaveText("Partly ready", { timeout: 15_000 });
   await expect(june.getByTestId("chapter-1")).toContainText("Ready");
 
   // Buying credits returns to this book and narrator with the confirmation already open.
@@ -293,7 +331,7 @@ test("short on credits: prepare a chapter, or buy credits and come straight back
   await expect(confirm).toBeVisible();
   await expect(confirm).toContainText("The whole book");
   await confirm.getByRole("button", { name: "Prepare now" }).click();
-  await expect(page.getByTestId("prepare-voice-june").getByTestId("availability")).toHaveText("Ready", { timeout: 20_000 });
+  await expect(status("voice-june")).toHaveText("Ready", { timeout: 20_000 });
 
   await page.goto("/family/credits");
   await expect(page.getByTestId("credit-history")).toContainText("Aesop's Fables read by Grandma June");

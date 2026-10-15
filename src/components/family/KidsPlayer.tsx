@@ -25,6 +25,12 @@ const ICONS = {
     </>
   ),
   moon: <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="currentColor" stroke="none" />,
+  restart: (
+    <>
+      <path d="M4 12a8 8 0 1 0 2.4-5.7" />
+      <path d="M4 4v4.5h4.5" />
+    </>
+  ),
 };
 
 function Icon({ name, className = "size-6" }: { name: keyof typeof ICONS; className?: string }) {
@@ -33,6 +39,13 @@ function Icon({ name, className = "size-6" }: { name: keyof typeof ICONS; classN
       {ICONS[name]}
     </svg>
   );
+}
+
+const PAUSED = "Story time paused. Press Play to keep listening.";
+
+async function errorCode(res: Response): Promise<string | undefined> {
+  const body = (await res.json().catch(() => null)) as { error?: { code?: string } } | null;
+  return body?.error?.code;
 }
 
 /**
@@ -157,8 +170,9 @@ export function KidsPlayer({
 
   /** Asks the server who this child may hear and what is prepared; drops a narrator no longer allowed. */
   const refresh = useCallback(async () => {
-    const res = await fetch(`/api/kids/${childId}/books/${book.slug}`, { cache: "no-store" });
-    if (!res.ok) return;
+    const res = await fetch(`/api/kids/${childId}/books/${book.slug}`, { cache: "no-store" }).catch(() => null);
+    if (!res) return true;
+    if (!res.ok) return true;
     const body = (await res.json()) as { narrators: NarratorView[]; readiness: KidsNarratorReadiness[] };
     setNarrators(body.narrators);
     setReadiness(body.readiness);
@@ -167,9 +181,10 @@ export function KidsPlayer({
       halt();
       setVoiceId(body.narrators[0]?.voiceId ?? null);
       setNotice(body.narrators.length ? "That storyteller isn't available right now. Pick another one." : null);
-    } else if (!current && body.narrators[0]) {
-      setVoiceId(body.narrators[0].voiceId);
+      return false;
     }
+    if (!current && body.narrators[0]) setVoiceId(body.narrators[0].voiceId);
+    return true;
   }, [childId, book.slug, halt]);
 
   useEffect(() => {
@@ -196,9 +211,24 @@ export function KidsPlayer({
   const prefetch = async (at: number, voice: string) => {
     if (at >= sentences.length || !readyAt(voice, at)) return;
     const res = await fetchUrl(at, voice).catch(() => null);
+    if (res && !res.ok && (await errorCode(res)) === "no_listening_session") listening.current = false;
     if (!res?.ok || voiceRef.current !== voice) return;
     const { url } = (await res.json()) as { url: string };
     audio.preload(`${voice}:${at}`, url);
+  };
+
+  /** Counts against the family's concurrent stories; refreshed by each sentence request. */
+  const startSession = async () => {
+    if (listening.current) return true;
+    const session = await fetch(`/api/kids/${childId}/listening`, { method: "POST" }).catch(() => null);
+    if (!session?.ok) {
+      const body = (await session?.json().catch(() => null)) as { error?: { message?: string } } | null;
+      halt();
+      setNotice(body?.error?.message ?? "Story time isn't available right now.");
+      return false;
+    }
+    listening.current = true;
+    return true;
   };
 
   const play = async (at: number, voice: string) => {
@@ -208,27 +238,26 @@ export function KidsPlayer({
     if (!audio.buffered(key) || !listening.current) {
       audio.clear();
       setLoading(true);
-      if (!listening.current) {
-        // Counts against the family's concurrent stories; refreshed by each sentence request.
-        const session = await fetch(`/api/kids/${childId}/listening`, { method: "POST" });
-        if (!session.ok) {
-          const body = (await session.json().catch(() => null)) as { error?: { message?: string } } | null;
-          halt();
-          setNotice(body?.error?.message ?? "Story time isn't available right now.");
-          return;
-        }
-        listening.current = true;
+      if (!(await startSession())) return;
+      let res = await fetchUrl(at, voice).catch(() => null);
+      let code = res && !res.ok ? await errorCode(res) : undefined;
+      if (code === "no_listening_session") {
+        // The listening session lapsed while the page sat idle; start a fresh one and try again.
+        listening.current = false;
+        if (!(await startSession())) return;
+        res = await fetchUrl(at, voice).catch(() => null);
+        code = res && !res.ok ? await errorCode(res) : undefined;
       }
-      const res = await fetchUrl(at, voice);
       if (voiceRef.current !== voice) return; // switched again while waiting
-      if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: { code?: string } } | null;
+      if (!res?.ok) {
         halt();
-        if (body?.error?.code === "not_prepared") {
+        if (code === "not_prepared") {
           setNotice(`${nameOf(voice)}'s reading stops here for now. Pick another storyteller, or ask a grown-up to prepare more.`);
+        } else if (code === "voice_not_available") {
+          // refresh() drops the narrator and explains if access really was removed.
+          if (await refresh()) setNotice(PAUSED);
         } else {
-          await refresh();
-          setNotice("That storyteller isn't available right now. Pick another one.");
+          setNotice(PAUSED);
         }
         return;
       }
@@ -283,6 +312,14 @@ export function KidsPlayer({
     sentenceRef.current = at;
     audio.clear();
     if ((playing || loading) && voiceId) void play(at, voiceId);
+  };
+
+  /** Back to the first sentence and reading again, whether paused or playing. */
+  const startOver = () => {
+    setSentence(0);
+    sentenceRef.current = 0;
+    audio.clear();
+    if (voiceId) void play(0, voiceId);
   };
 
   const current = narrators.find((n) => n.voiceId === voiceId) ?? null;
@@ -492,7 +529,19 @@ export function KidsPlayer({
           <button type="button" aria-label="Next" disabled={sentence + 1 >= sentences.length} onClick={() => goTo(sentence + 1)} className={round}>
             <Icon name="right" />
           </button>
-          <span />
+          {sentence > 0 ? (
+            <button
+              type="button"
+              disabled={!voiceId || !readyAt(voiceId, 0)}
+              onClick={startOver}
+              className={`flex min-h-11 items-center gap-1.5 justify-self-end font-display font-semibold disabled:opacity-40 ${listen ? "text-night-muted" : "text-muted"}`}
+            >
+              <Icon name="restart" className="size-5" />
+              Start over
+            </button>
+          ) : (
+            <span />
+          )}
         </div>
 
         <p className="sr-only" data-testid="sentence-position">

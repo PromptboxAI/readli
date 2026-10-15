@@ -11,7 +11,7 @@ const tones = { offer: "text-mint-deep", danger: "text-coral-deep" } as const;
  * The signed-in grown-up's account button and menu. Sign out lives here, never in the main nav.
  * On phones the menu also carries the public site links, since there is no separate Menu.
  */
-export function AccountMenu(props: { name: string; email: string | null; initials: string; badge: string | null; links: NavLink[]; explore?: NavLink[]; compact?: boolean }) {
+export function AccountMenu(props: { name: string; email: string | null; initials: string; avatarUrl?: string | null; badge: string | null; links: NavLink[]; explore?: NavLink[]; compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const id = useId();
@@ -37,9 +37,14 @@ export function AccountMenu(props: { name: string; email: string | null; initial
         onClick={() => setOpen((o) => !o)}
         className="flex min-h-12 cursor-pointer items-center gap-2 rounded-full border-[3px] border-ink bg-surface py-1 pr-3 pl-1 font-display font-semibold"
       >
-        <span aria-hidden="true" className="grid size-9 place-items-center rounded-full bg-mint text-sm">
-          {props.initials}
-        </span>
+        {props.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- a signed redirect, not a static asset
+          <img src={props.avatarUrl} alt="" aria-hidden="true" className="size-9 rounded-full object-cover" />
+        ) : (
+          <span aria-hidden="true" className="grid size-9 place-items-center rounded-full bg-mint text-sm">
+            {props.initials}
+          </span>
+        )}
         {!props.compact && <span className="max-w-32 truncate">{props.name.split(" ")[0]}</span>}
         <span aria-hidden="true" className={`text-xs transition-transform ${open ? "rotate-180" : ""}`}>
           ▼
