@@ -534,10 +534,10 @@ export function KidsPlayer({
               type="button"
               disabled={!voiceId || !readyAt(voiceId, 0)}
               onClick={startOver}
-              className={`flex min-h-11 items-center gap-1.5 justify-self-end font-display font-semibold disabled:opacity-40 ${listen ? "text-night-muted" : "text-muted"}`}
+              className={`flex min-h-11 min-w-11 items-center justify-center gap-1.5 justify-self-end font-display font-semibold disabled:opacity-40 ${listen ? "text-night-muted" : "text-muted"}`}
             >
               <Icon name="restart" className="size-5" />
-              Start over
+              <span className="sr-only sm:not-sr-only">Start over</span>
             </button>
           ) : (
             <span />
