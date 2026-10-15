@@ -30,6 +30,12 @@ export function useGaplessAudio(handlers: Handlers) {
   const next = useRef<{ key: string; el: HTMLAudioElement } | null>(null);
   const on = useRef(handlers);
   on.current = handlers;
+  const waiting = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stopWaiting = useCallback(() => {
+    if (waiting.current !== null) clearTimeout(waiting.current);
+    waiting.current = null;
+  }, []);
 
   const attach = useCallback((el: HTMLAudioElement) => {
     el.onended = () => on.current.ended();
@@ -69,21 +75,38 @@ export function useGaplessAudio(handlers: Handlers) {
 
   const buffered = useCallback((key: string) => next.current?.key === key, []);
 
-  const pause = useCallback(() => current.current?.pause(), []);
+  /** Runs `then` after a moment of silence, such as the pause before "The End.". Pausing or clearing cancels it. */
+  const after = useCallback(
+    (ms: number, then: () => void) => {
+      stopWaiting();
+      waiting.current = setTimeout(() => {
+        waiting.current = null;
+        then();
+      }, ms);
+    },
+    [stopWaiting],
+  );
+
+  const pause = useCallback(() => {
+    stopWaiting();
+    current.current?.pause();
+  }, [stopWaiting]);
 
   /** Forgets the buffered sentence, after a seek or a storyteller change. */
   const clear = useCallback(() => {
+    stopWaiting();
     drop(next.current?.el);
     next.current = null;
-  }, []);
+  }, [stopWaiting]);
 
   useEffect(
     () => () => {
+      stopWaiting();
       drop(current.current);
       drop(next.current?.el);
     },
-    [],
+    [stopWaiting],
   );
 
-  return useMemo(() => ({ play, preload, buffered, pause, clear }), [play, preload, buffered, pause, clear]);
+  return useMemo(() => ({ play, preload, buffered, after, pause, clear }), [play, preload, buffered, after, pause, clear]);
 }

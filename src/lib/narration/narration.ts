@@ -18,7 +18,7 @@ import {
 import { estimateSeconds, modelCost } from "./costs";
 import { creditBalance, creditsFor, creditUnits, draw, spendableLots, type CreditBalance } from "./credits";
 import { CATALOG, findCatalogBook } from "@/lib/library/catalog";
-import { bookCharacters, bookText, type BookText } from "./text";
+import { bookCharacters, bookText, type BookText, withoutTheEnd } from "./text";
 
 /**
  * Voice narration libraries (Voice Narration Libraries, Pre-Generation & Instant Narrator Switching
@@ -53,6 +53,7 @@ export function voiceModel(state: FamilyState, plan: PlanConfig, voiceId: string
  *
  * A book fully prepared under an earlier model or settings keeps playing that audio, so switching
  * a voice to a new model never makes finished books look unprepared. New books use the voice's model.
+ * A book finished before "The End." was added still counts, so only that sentence is left to prepare.
  */
 export function libraryFor(state: FamilyState, plan: PlanConfig, voiceId: string, text: BookText, householdId: string): NarrationLibrary {
   const voice = state.voices.find((v) => v.id === voiceId)!;
@@ -70,7 +71,7 @@ export function libraryFor(state: FamilyState, plan: PlanConfig, voiceId: string
       l.edition === text.edition &&
       l.textRevision === text.revision &&
       l.scope === scope &&
-      libraryStatus(state, l, text).readiness === "ready",
+      libraryStatus(state, l, withoutTheEnd(text)).readiness === "ready",
   );
   return (
     finished ?? {
