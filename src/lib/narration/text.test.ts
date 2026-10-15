@@ -18,7 +18,7 @@ describe("every story closes with The End", () => {
   });
 
   it("keeps the revision, so sentence ids and prepared audio are unchanged", () => {
-    const book = CATALOG[0];
+    const book = CATALOG[0]!;
     const revision = createHash("sha256").update(book.chapters.map((c) => c.text).join("\n\n")).digest("hex").slice(0, 12);
     expect(bookText(book.slug)!.revision).toBe(revision);
   });
@@ -31,7 +31,7 @@ describe("every story closes with The End", () => {
   });
 
   it("can set The End aside for audio prepared before it was added", () => {
-    const text = bookText(CATALOG[0].slug)!;
+    const text = bookText(CATALOG[0]!.slug)!;
     const story = withoutTheEnd(text);
     expect(story.sentences).toHaveLength(text.sentences.length - 1);
     expect(story.chapters.flatMap((c) => c.sentenceIds)).toEqual(story.sentences.map((s) => s.id));
