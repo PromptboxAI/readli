@@ -30,7 +30,7 @@ import {
   runJob,
 } from "./narration";
 import { creditBalance } from "./credits";
-import { bookText } from "./text";
+import { bookText, withoutTheEnd } from "./text";
 
 /** Voice Narration Libraries, Pre-Generation & Instant Narrator Switching amendment: required tests. */
 const mom: Actor = { kind: "adult", adultId: "sara" };
@@ -326,7 +326,7 @@ describe("each voice keeps its own reading model", () => {
   it("a book only partly prepared on the old model is finished on the new one", async () => {
     const { state, store } = family();
     june(state).modelId = "eleven_v4";
-    await prepareJune(store, new CountingProvider((t) => t === text.sentences.at(-1)!.text));
+    await prepareJune(store, new CountingProvider((t) => t === withoutTheEnd(text).sentences.at(-1)!.text));
     june(state).modelId = "eleven_v5";
     expect(library(state).modelId).toBe("eleven_v5");
   });
