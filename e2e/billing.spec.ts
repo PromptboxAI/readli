@@ -30,6 +30,8 @@ test("a parent sees their plan and slots, and billing stays switched off", async
 test("a child can't open plan and billing", async ({ page }) => {
   expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
   expect((await page.request.post("/api/family/session", { data: { as: "child:maya" } })).status()).toBe(200);
+  // A kids device is sent back to its bookshelf.
   await page.goto("/family/billing");
-  await expect(page.getByRole("heading", { name: "Ask a grown-up" })).toBeVisible();
+  await expect(page).toHaveURL(/\/kids$/);
+  await expect(page.getByRole("heading", { name: "Hi Maya! Pick a story." })).toBeVisible();
 });

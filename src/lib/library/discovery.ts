@@ -17,7 +17,7 @@ export interface LibraryCard {
   tint: string;
   minutes: number;
   chapters: number;
-  narrators: { voiceId: string; name: string; availability: Availability; label: string; missingCredits: number }[];
+  narrators: { voiceId: string; name: string; availability: Availability; label: string; missingCredits: number; yours: boolean }[];
 }
 
 export interface FamilyLibrary {
@@ -40,7 +40,7 @@ function card(view: PrepareBookView, coverUrl: string | null, tint: string): Lib
     chapters: view.book.chapters,
     narrators: view.voices
       .filter((v) => v.availability !== "unavailable")
-      .map((v) => ({ voiceId: v.voiceId, name: v.name, availability: v.availability, label: v.availabilityLabel, missingCredits: v.missingCredits })),
+      .map((v) => ({ voiceId: v.voiceId, name: v.name, availability: v.availability, label: v.availabilityLabel, missingCredits: v.missingCredits, yours: v.yours })),
   };
 }
 

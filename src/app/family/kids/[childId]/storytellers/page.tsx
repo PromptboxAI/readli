@@ -4,6 +4,7 @@ import { ManageStorytellers } from "@/components/family/ManageStorytellers";
 import { familyPage } from "@/lib/family/page-data";
 import { manageStorytellers, PermissionError } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
+import { BackLink } from "@/components/family/BackLink";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Manage storytellers | Readli" };
@@ -18,6 +19,7 @@ export default async function ManageStorytellersPage({ params }: { params: Promi
     return (
       <FamilyShell>
         <PreviewNote />
+        <BackLink href="/family/kids" label="Family" />
         <ManageStorytellers initial={view} />
       </FamilyShell>
     );

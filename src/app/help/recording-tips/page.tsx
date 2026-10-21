@@ -4,12 +4,13 @@ import { buttonPrimary } from "@/components/brand/buttons";
 import { SiteFooter } from "@/components/home/sections";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { RecordingTipsContent } from "@/components/teleprompter/RecordingTips";
+import { publicPageMetadata } from "@/lib/seo/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicPageMetadata({
   title: "Tips for a better voice recording | Readli Help Center",
   description: "How to record a Readli voice that sounds like you: about 1 to 2 minutes, your natural storytime voice, a quiet room and a steady mic.",
-  alternates: { canonical: "/help/recording-tips" },
-};
+  path: "/help/recording-tips",
+});
 
 type Search = Promise<{ from?: string }>;
 

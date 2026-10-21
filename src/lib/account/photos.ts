@@ -85,6 +85,9 @@ export async function signedPhotoUrl(db: SupabaseClient, viewer: string, owner: 
   const p = await profile(db, owner);
   if (!p?.avatar_path || !p.photo_consent_at) return null;
   const { data, error } = await db.storage.from(PHOTOS_BUCKET).createSignedUrl(p.avatar_path, 300);
-  if (error || !data) return null;
+  if (error || !data) {
+    console.warn(`photo link for ${owner}: ${error?.message ?? "no link"}`);
+    return null;
+  }
   return data.signedUrl;
 }

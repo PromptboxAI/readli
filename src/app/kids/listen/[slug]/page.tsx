@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { FamilyOff, NeedsGrownUp } from "@/components/family/FamilyShell";
 import { KidsPlayer } from "@/components/family/KidsPlayer";
 import { findCatalogBook } from "@/lib/library/catalog";
@@ -22,6 +22,8 @@ export default async function KidsListen({ params }: { params: Promise<{ slug: s
   if (!page.enabled) return <FamilyOff />;
   const session = page.session;
   const child = session?.actor.kind === "child" && page.state ? activeChild(page.state, session.actor.childId) : null;
+  // A kids device where nobody has picked who's listening goes back to the picker.
+  if (session?.device && !child) redirect("/kids");
   if (!session || !child) return <NeedsGrownUp text="A grown-up opens your Readli Kids bookshelf for you." />;
   const store = (await familyStore(session))!;
   const narrators = await narratorsFor(store, session.actor, child.id);
@@ -43,6 +45,7 @@ export default async function KidsListen({ params }: { params: Promise<{ slug: s
         initialReadiness={readiness}
         initialNarrators={narrators}
         resume={resume}
+        preview={!session.account}
       />
     </main>
   );

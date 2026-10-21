@@ -7,9 +7,10 @@ import { guardianHousehold } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
 import { creditBalance, displayCredits } from "@/lib/narration/credits";
 import { creditHistory } from "@/lib/narration/narration";
+import { BackLink } from "@/components/family/BackLink";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Readli credits | Readli" };
+export const metadata: Metadata = { title: "Readli credits" };
 
 const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
 
@@ -37,6 +38,7 @@ export default async function CreditsPage({ searchParams }: { searchParams: Prom
   return (
     <FamilyShell>
       <PreviewNote />
+      <BackLink href="/family/controls" label="Parent Controls" />
       <div className="flex flex-col gap-2">
         {returnTo && (
           <Link href={returnTo} className="font-semibold underline underline-offset-4">

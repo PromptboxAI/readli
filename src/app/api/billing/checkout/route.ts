@@ -11,6 +11,7 @@ import { jsonBody, withFamily } from "@/lib/family/http";
 import { activeEntitlement } from "@/lib/family/permissions";
 import { guardianHousehold } from "@/lib/family/service";
 import { rewardsConfig } from "@/lib/rewards/rewards";
+import { requireFullSignIn } from "@/lib/family/session";
 import { fail } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,7 @@ export async function POST(req: Request) {
   return withFamily(async ({ store, actor, session }) => {
     const householdId = await guardianHousehold(store, actor);
     if (!householdId || actor.kind !== "adult") return fail(403, "not_guardian", "Only a parent or guardian can buy Readli Family or credits.");
+    await requireFullSignIn(session);
     const db = accountDb();
     if (!db || !session.account) return fail(503, "no_account", "Sign in with a Readli account to check out.");
 

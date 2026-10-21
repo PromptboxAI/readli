@@ -13,6 +13,7 @@ import { formatPrice } from "@/lib/family/plan";
 import { guardianHousehold } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
 import { rewardsConfig } from "@/lib/rewards/rewards";
+import { BackLink } from "@/components/family/BackLink";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Plan and billing | Readli", robots: { index: false } };
@@ -72,9 +73,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     <FamilyShell>
       <PreviewNote />
       <header className="flex flex-col gap-2">
-        <Link href="/family" className="w-fit font-display font-semibold underline-offset-4 hover:underline">
-          ← Family
-        </Link>
+        <BackLink href="/family/controls" label="Parent Controls" />
         <h1 className="font-display text-4xl font-semibold">Plan and billing</h1>
       </header>
       {q.checkout === "success" && (

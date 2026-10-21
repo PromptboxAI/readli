@@ -7,14 +7,19 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { FamilyOff, FamilyShell, PreviewNote } from "@/components/family/FamilyShell";
 import { ResetButton } from "@/components/family/ResetButton";
 import { SessionButton } from "@/components/family/SessionButton";
+import { SetKidsPin } from "@/components/family/SetKidsPin";
 import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
+import { BookShelf, StorytellerRow } from "@/components/family/HomeShelf";
 import { demoFamilyState } from "@/lib/family/demo-family";
+import { familyHome } from "@/lib/family/home";
+import { planConfig } from "@/lib/family/plan";
 import { familyPage, guardianChildren } from "@/lib/family/page-data";
 import { activeEntitlement } from "@/lib/family/permissions";
-import { familyPreviewEnabled } from "@/lib/family/session";
+import { deviceRegistry, familyPreviewEnabled } from "@/lib/family/session";
 import { authConfigured } from "@/lib/auth/supabase";
 import { carriedInvitationToken } from "@/lib/invitations/context";
 import { serverConfig } from "@/lib/server/config";
+import { creditBalance, displayCredits } from "@/lib/narration/credits";
 
 function SignOutButton() {
   return (
@@ -27,7 +32,7 @@ function SignOutButton() {
 }
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Readli Family | Readli" };
+export const metadata: Metadata = { title: "Readli Family" };
 
 export default async function FamilyHome() {
   const page = await familyPage();
@@ -120,14 +125,20 @@ export default async function FamilyHome() {
   // A voice made on an older reading model can be heard on the newest one and switched, by its owner.
   const ownVoice = state.voices.find((v) => v.ownerId === adult.id && v.status === "ready" && v.deletedAt === null);
   const newerModel = Boolean(account && ownVoice?.modelId && ownVoice.modelId !== serverConfig().elevenLabsModel);
+  const view = home ? familyHome(state, home, planConfig(), adult.id) : null;
+  const familyName = account && home ? state.households.find((h) => h.id === home)?.name : null;
+  const pinRegistry = isGuardian && home ? deviceRegistry(Boolean(account)) : null;
+  const needsPin = Boolean(pinRegistry && kids.length > 0 && !(await pinRegistry.pinHash(home!)));
+  const balance = isGuardian && home ? creditBalance(state, planConfig(), home) : null;
+  const credits = balance ? displayCredits(balance.available, balance.unitsPerCredit).toLocaleString("en-US") : null;
   return (
     <FamilyShell>
       <div className="flex items-center gap-4">
         <StorytellerAvatar name={adult.displayName} avatarUrl={adult.avatarUrl} tint={adult.tint} size="lg" />
         <div>
-          <p className="text-muted">Signed in as</p>
-          <h1 className="font-display text-4xl font-semibold">{adult.displayName}</h1>
-          <p className="text-muted">{adult.relationship}</p>
+          {familyName && <p className="font-display text-lg text-muted">{familyName}</p>}
+          <h1 className="font-display text-4xl font-semibold">Welcome back, {adult.displayName}</h1>
+          <p className="text-lg text-muted">{isGuardian && kids.length ? "Who\u2019s listening tonight?" : adult.relationship}</p>
           {account && (
             <Link href="/family/account#photo" className="text-sm font-semibold underline underline-offset-4">
               {adult.avatarUrl ? "Change your photo" : "Add your photo"}
@@ -146,23 +157,6 @@ export default async function FamilyHome() {
           A new version of your Readli voice is ready to try. Hear it and choose →
         </Link>
       )}
-      {account && home && <p className="font-display text-xl">{state.households.find((h) => h.id === home)?.name}</p>}
-
-      <section className="flex flex-col gap-3" aria-labelledby="my-voice-h">
-        <h2 id="my-voice-h" className="font-display text-2xl font-semibold">Your voice</h2>
-        <p>Your voice is private until you share it. You decide which families can use it, and you can record it again at any time.</p>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/family/my-voice" className={buttonSecondary}>
-            My voice
-          </Link>
-          {account && (
-            <Link href="/voice/record" className="self-center font-semibold underline underline-offset-4">
-              Record or re-record my voice
-            </Link>
-          )}
-        </div>
-      </section>
-
       {isGuardian && notes.length > 0 && (
         <section className="flex flex-col gap-2 rounded-panel bg-mint/40 p-4" aria-label="Updates" data-testid="notifications">
           {notes.map((n) => (
@@ -174,34 +168,113 @@ export default async function FamilyHome() {
       )}
 
       {isGuardian && (
-        <section className="flex flex-col gap-3" aria-labelledby="books-h">
-          <h2 id="books-h" className="font-display text-2xl font-semibold">Books and narration</h2>
-          <p>Browse the library, prepare readings ahead of time, and manage your Readli credits.</p>
-          <div className="flex flex-wrap gap-2">
-            <Link href="/family/books" className={buttonSecondary}>
-              Family library
-            </Link>
-            <Link href="/family/billing" className={buttonSecondary}>
-              Plan and billing
-            </Link>
-            <Link href="/family/credits" className={buttonSecondary}>
-              Readli credits
+        <section className="flex flex-col gap-3" aria-labelledby="kids-h">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 id="kids-h" className="font-display text-2xl font-semibold">Your kids</h2>
+            <Link href="/family/devices" className="font-display font-semibold text-coral-deep underline-offset-4 hover:underline">
+              Kids Mode PIN and devices
             </Link>
           </div>
+          {account && !hasPlan && (
+            <p className="rounded-2xl bg-sunshine/50 p-3 text-sm">
+              Kids profiles come with Readli Family. Checkout isn&apos;t switched on yet, so this unlocks when it is.
+            </p>
+          )}
+          {needsPin && <SetKidsPin />}
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="home-kids">
+            {kids.map((c) => {
+              const playing = view?.kids.find((k) => k.id === c.id)?.nowPlaying;
+              return (
+                <li key={c.id} className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
+                  <div className="flex items-center gap-3">
+                    <StorytellerAvatar name={c.nickname} avatarUrl={null} tint={c.tint} />
+                    <div className="min-w-0">
+                      <p className="font-display text-2xl font-semibold">{c.nickname}</p>
+                      <p className="text-sm text-muted">{playing ? `Listening to ${playing}` : "No story started yet"}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <SessionButton as={`child:${c.id}`} next="/kids" className={buttonPrimary}>
+                      Open {c.nickname}&apos;s Readli Kids
+                    </SessionButton>
+                    <Link href={`/family/kids/${c.id}/storytellers`} className="font-semibold underline underline-offset-4">
+                      Manage storytellers
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
+            <li>
+              <Link
+                href="/family/kids"
+                className="flex h-full min-h-28 flex-col items-center justify-center gap-1 rounded-3xl border-[3px] border-dashed border-ink/20 p-4 text-center font-display text-lg font-semibold text-muted hover:border-ink/50"
+              >
+                <span aria-hidden="true" className="text-3xl leading-none">
+                  +
+                </span>
+                {kids.length ? "Add or remove kids" : "Add your first child"}
+              </Link>
+            </li>
+          </ul>
+          <p className="text-sm text-muted">
+            Opening Readli Kids puts this browser in Kids Mode for that child until you sign back in. Your other devices stay signed in.
+            To give the kids their own iPad or phone, <Link href="/family/devices" className="font-semibold underline underline-offset-4">set up a kids device</Link>.
+          </p>
         </section>
       )}
 
-      {isGuardian && (
-        <section className="flex flex-col gap-3" aria-labelledby="slots-h">
-          <h2 id="slots-h" className="font-display text-2xl font-semibold">Your family&apos;s narrators</h2>
-          <p>Choose which shared voices fill your narrator slots.</p>
-          <div className="flex flex-wrap gap-2">
-            <Link href="/family/narrators" className={buttonSecondary}>
-              Narrator slots
+      {isGuardian && view && view.continueListening.length > 0 && (
+        <BookShelf id="continue" title="Continue listening" books={view.continueListening} more={{ href: "/family/books", label: "All stories" }} />
+      )}
+      {isGuardian && view && (
+        view.ready.length > 0 ? (
+          <BookShelf id="ready" title="Ready to play" books={view.ready} more={{ href: "/family/books", label: "See all" }} />
+        ) : (
+          <section className="flex flex-col items-start gap-3 rounded-panel bg-surface p-5" data-testid="shelf-ready-empty">
+            <h2 className="font-display text-2xl font-semibold">Ready to play</h2>
+            <p>Pick a story and choose who reads it. Prepared stories show up here for the kids.</p>
+            <Link href="/family/books" className={buttonPrimary}>
+              Choose a story
             </Link>
-            {!account && (
-              <Link href="/billing/narrator-slots" className="self-center font-semibold underline underline-offset-4">
-                Add a narrator slot
+          </section>
+        )
+      )}
+      {isGuardian && view && view.fresh.length > 0 && (
+        <BookShelf id="new" title="New stories" books={view.fresh} more={{ href: "/family/books", label: "Browse stories" }} />
+      )}
+
+      {isGuardian && view && (
+        <section className="flex flex-col gap-3" aria-labelledby="storytellers-h">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 id="storytellers-h" className="font-display text-2xl font-semibold">Family storytellers</h2>
+            <Link href="/family/narrators" className="font-display font-semibold text-coral-deep underline-offset-4 hover:underline">
+              Family Circle
+            </Link>
+          </div>
+          {view.storytellers.length > 0 ? (
+            <StorytellerRow storytellers={view.storytellers} />
+          ) : (
+            <p className="text-muted">No storytellers yet. Invite a grandparent, aunt or uncle to record their voice.</p>
+          )}
+          {!account && (
+            <Link href="/billing/narrator-slots" className="self-start font-semibold underline underline-offset-4">
+              Add a narrator slot
+            </Link>
+          )}
+        </section>
+      )}
+
+      {!isGuardian && (
+        <section className="flex flex-col gap-3 rounded-panel bg-surface p-5" aria-labelledby="my-voice-h">
+          <h2 id="my-voice-h" className="font-display text-2xl font-semibold">Your voice</h2>
+          <p>Your voice is private until you share it. You decide which families can use it, and you can record it again at any time.</p>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/family/my-voice" className={buttonSecondary}>
+              My voice
+            </Link>
+            {account && (
+              <Link href="/voice/record" className="self-center font-semibold underline underline-offset-4">
+                Record or re-record my voice
               </Link>
             )}
           </div>
@@ -217,56 +290,37 @@ export default async function FamilyHome() {
       )}
 
       {isGuardian && (
-        <section className="flex flex-col gap-3" aria-labelledby="kids-h">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 id="kids-h" className="font-display text-2xl font-semibold">Kids profiles</h2>
-            <Link href="/family/kids" className="font-semibold underline underline-offset-4">
-              Add or remove kids
-            </Link>
-          </div>
-          {account && !hasPlan && (
-            <p className="rounded-2xl bg-sunshine/50 p-3 text-sm">
-              Kids profiles come with Readli Family. Checkout isn&apos;t switched on yet, so this unlocks when it is.
-            </p>
-          )}
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {kids.map((c) => (
-              <li key={c.id} className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
-                <div className="flex items-center gap-3">
-                  <StorytellerAvatar name={c.nickname} avatarUrl={null} tint={c.tint} />
-                  <p className="font-display text-2xl font-semibold">{c.nickname}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Link href={`/family/kids/${c.id}/storytellers`} className={buttonPrimary}>
-                    Manage storytellers
-                  </Link>
-                  <SessionButton as={`child:${c.id}`} next="/kids" className={buttonSecondary}>
-                    Open {c.nickname}&apos;s Readli Kids
-                  </SessionButton>
-                </div>
+        <section className="flex flex-col gap-3" aria-labelledby="controls-h">
+          <h2 id="controls-h" className="font-display text-2xl font-semibold">Parent controls</h2>
+          <ul className="divide-y-2 divide-ink/5 overflow-hidden rounded-3xl bg-surface ring-2 ring-ink/10 lg:max-w-2xl" data-testid="home-controls">
+            {[
+              { href: "/family/devices", label: "Kids Mode PIN and devices" },
+              { href: "/family/credits", label: "Readli credits", value: credits === null ? undefined : `${credits} left` },
+              { href: "/family/billing", label: "Plan and billing" },
+              { href: "/family/controls", label: "Open Parent Controls" },
+            ].map((c) => (
+              <li key={c.href}>
+                <Link href={c.href} className="flex min-h-14 items-center gap-4 px-4 py-3 font-display font-semibold hover:bg-ivory">
+                  <span className="flex-1">{c.label}</span>
+                  {c.value && <span className="text-muted">{c.value}</span>}
+                  <span aria-hidden="true" className="text-muted">
+                    ›
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>
         </section>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        {account ? (
-          <>
-            <Link href="/family/account" className={buttonSecondary}>
-              Account settings
-            </Link>
-            <SignOutButton />
-          </>
-        ) : (
-          <>
-            <SessionButton as={null} next="/family" className={buttonSecondary}>
-              Sign out
-            </SessionButton>
-            <ResetButton />
-          </>
-        )}
-      </div>
+      {!account && (
+        <div className="flex flex-wrap gap-2">
+          <SessionButton as={null} next="/family" className={buttonSecondary}>
+            Sign out
+          </SessionButton>
+          <ResetButton />
+        </div>
+      )}
     </FamilyShell>
   );
 }

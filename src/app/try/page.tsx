@@ -6,10 +6,13 @@ import { TeleprompterRecorder } from "@/components/teleprompter/TeleprompterReco
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
 import { DEFAULT_PLAN } from "@/lib/family/plan";
 import { rewardsConfig, rewardsVisible } from "@/lib/rewards/rewards";
+import { publicPageMetadata } from "@/lib/seo/site";
 
-export const metadata: Metadata = {
-  title: "Record your voice | Readli",
-};
+export const metadata: Metadata = publicPageMetadata({
+  title: "Hear a story in your voice, free | Readli",
+  description: "Record about a minute of your natural storytime voice and hear a classic storybook read aloud the way only you can. Free to try.",
+  path: "/try",
+});
 
 export const dynamic = "force-dynamic";
 

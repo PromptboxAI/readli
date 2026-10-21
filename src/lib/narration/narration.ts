@@ -3,7 +3,7 @@ import { sameHash } from "@/lib/server/guest-token";
 import { voiceSettings } from "@/lib/voice/elevenlabs";
 import type { VoiceProvider } from "@/lib/voice/provider";
 import type { Actor, CreditLot, FamilyState, NarrationJob, NarrationLibrary, NarrationSegment } from "@/lib/family/model";
-import { activeChild, activeEntitlement, activeShare, activeSlot, childVoiceAccess, familyEntitlement, readyVoice, storedNarrationAccess, storedShare } from "@/lib/family/permissions";
+import { activeChild, activeEntitlement, activeShare, activeSlot, childVoiceAccess, familyEntitlement, isActiveMember, liveSlots, narratorSlotCount, readyVoice, storedNarrationAccess, storedShare } from "@/lib/family/permissions";
 import type { GenerationLimits, PlanConfig } from "@/lib/family/plan";
 import {
   actorLabel,
@@ -18,7 +18,7 @@ import {
 import { estimateSeconds, modelCost } from "./costs";
 import { creditBalance, creditsFor, creditUnits, draw, inTrial, spendableLots, type CreditBalance } from "./credits";
 import { CATALOG, findCatalogBook } from "@/lib/library/catalog";
-import { bookCharacters, bookText, type BookText } from "./text";
+import { bookCharacters, bookText, type BookText, withoutTheEnd } from "./text";
 
 /**
  * Voice narration libraries (Voice Narration Libraries, Pre-Generation & Instant Narrator Switching
@@ -53,6 +53,7 @@ export function voiceModel(state: FamilyState, plan: PlanConfig, voiceId: string
  *
  * A book fully prepared under an earlier model or settings keeps playing that audio, so switching
  * a voice to a new model never makes finished books look unprepared. New books use the voice's model.
+ * A book finished before "The End." was added still counts, so only that sentence is left to prepare.
  */
 export function libraryFor(state: FamilyState, plan: PlanConfig, voiceId: string, text: BookText, householdId: string): NarrationLibrary {
   const voice = state.voices.find((v) => v.id === voiceId)!;
@@ -70,7 +71,7 @@ export function libraryFor(state: FamilyState, plan: PlanConfig, voiceId: string
       l.edition === text.edition &&
       l.textRevision === text.revision &&
       l.scope === scope &&
-      libraryStatus(state, l, text).readiness === "ready",
+      libraryStatus(state, l, withoutTheEnd(text)).readiness === "ready",
   );
   return (
     finished ?? {
@@ -295,13 +296,23 @@ export interface PrepareVoiceView {
   availabilityLabel: string;
   /** Why this narrator can't be prepared or played, when Unavailable. */
   unavailableReason: string | null;
-  /** Whether a narrator slot is what's missing, so the page can link to the slots. */
-  needsSlot: boolean;
   /**
    * Stories kids hear from an earlier recording (or earlier settings) of this voice, when that isn't
    * the library `status` describes: after the owner records again, finished books keep their audio.
    */
   stored: { version: number; ready: number; total: number } | null;
+  /** Why nothing new can be made in this voice here (plan ended, voice deleted, new stories paused), when that's the reason. */
+  noNewReason: string | null;
+  /** Where a parent fixes that reason, so Unavailable is never a dead end. */
+  fix: { label: string; href: string } | null;
+  /** Some of this book is stored in this voice and a grown-up here may play it. */
+  canListen: boolean;
+  /** The grown-up looking at the page owns this voice, so they can share it with the family right here. */
+  yours: boolean;
+  /** Each child in the family and whether they may hear this storyteller. */
+  kids: { id: string; name: string; approved: boolean }[];
+  /** Why the last preparation of this book in this voice stopped, when it did. */
+  lastFailure: string | null;
   /** Credits to prepare everything still missing in this book. */
   missingCredits: number;
   /** How many more credits the household needs to prepare the rest of the book. */
@@ -313,15 +324,17 @@ export interface PrepareVoiceView {
 
 export interface PrepareBookView {
   householdId: string;
-  book: { slug: string; title: string; author: string; sentences: number; minutes: number; chapters: number };
+  book: { slug: string; title: string; author: string; sentences: number; minutes: number; chapters: number; coverUrl: string | null; tint: string };
   voices: PrepareVoiceView[];
   credits: CreditBalance;
   /** A parent can buy credits here: real checkout once approved, or the preview's simulated one. */
   canBuyCredits: boolean;
   simulatedCheckout: boolean;
   chapterGenerationEnabled: boolean;
+  /** Narrator slots the family has free, so a storyteller can go into one right here. */
+  freeSlots: number;
   /** Shorter books one of this family's narrators can prepare with the current balance. */
-  shorterThatFit: { slug: string; title: string; credits: number; narrator: string }[];
+  shorterThatFit: { slug: string; title: string; coverUrl: string | null; credits: number; narrator: string }[];
 }
 
 function missingByChapter(state: FamilyState, plan: PlanConfig, library: NarrationLibrary, text: BookText): ChapterView[] {
@@ -343,18 +356,30 @@ function missingByChapter(state: FamilyState, plan: PlanConfig, library: Narrati
   });
 }
 
+/** The page where a parent clears the reason a narrator is unavailable. */
+function fixFor(state: FamilyState, plan: PlanConfig, householdId: string, voiceId: string, kids: { id: string }[]): { label: string; href: string } | null {
+  if (!activeEntitlement(state, householdId)) return { label: "See Readli Family plans", href: "/family/billing" };
+  if (!readyVoice(state, voiceId) || !activeShare(state, voiceId, householdId)) return null;
+  if (!activeSlot(state, voiceId, householdId, plan)) return { label: "Manage narrator slots", href: "/family/narrators" };
+  if (kids.length === 0) return { label: "Add a child", href: "/family/kids" };
+  if (kids.length === 1) return { label: "Approve for your child", href: `/family/kids/${kids[0]!.id}/storytellers` };
+  return { label: "Approve for a child", href: "/family/kids" };
+}
+
 /** Why a household can't prepare (or a child can't hear) this narrator, or null. */
-function unavailableReason(state: FamilyState, plan: PlanConfig, householdId: string, voiceId: string, approvedFor: string[]): string | null {
+function unavailableReason(state: FamilyState, plan: PlanConfig, householdId: string, voiceId: string, approvedFor: string[], yours = false): string | null {
   if (!familyEntitlement(state, householdId)) return activeEntitlement(state, householdId) ? ARCHIVE_NO_NEW : "Needs Readli Family";
   if (state.voices.some((v) => v.id === voiceId && v.status === "withdrawn")) return WITHDRAWN_NO_NEW;
   if (paused(state, voiceId)) return PAUSED_NO_NEW;
-  if (!readyVoice(state, voiceId) || !activeShare(state, voiceId, householdId)) return "This storyteller hasn't shared their voice with your family";
+  if (!readyVoice(state, voiceId) || !activeShare(state, voiceId, householdId)) {
+    return yours ? "Share your voice with this family first" : "This storyteller hasn't shared their voice with your family";
+  }
   if (!activeSlot(state, voiceId, householdId, plan)) return "Add this storyteller to a narrator slot first";
   if (approvedFor.length === 0) return "Not approved for any child yet";
   return null;
 }
 
-function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, text: BookText, voiceId: string, available: number): PrepareVoiceView {
+function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, text: BookText, voiceId: string, available: number, viewerId?: string): PrepareVoiceView {
   const v = state.voices.find((x) => x.id === voiceId)!;
   const owner = state.adults.find((a) => a.id === v.ownerId)!;
   const kids = state.children.filter((c) => c.householdId === householdId && c.deletedAt === null);
@@ -368,10 +393,16 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
   const chapters = missingByChapter(state, plan, library, text);
   const missingCredits = canPrepare ? chapters.reduce((n, c) => n + c.credits, 0) : 0;
   const job = state.jobs.find((j) => j.libraryKey === library.key && j.householdId === householdId && (j.status === "queued" || j.status === "running"));
-  const approvedFor = kids
-    .filter((c) => (canPrepare ? childVoiceAccess(state, c.id, v.id, plan) : storedNarrationAccess(state, c.id, v.id, plan)).allowed)
-    .map((c) => c.nickname);
-  const reason = unavailableReason(state, plan, householdId, v.id, approvedFor);
+  const approved = new Set(
+    kids.filter((c) => (canPrepare ? childVoiceAccess(state, c.id, v.id, plan) : storedNarrationAccess(state, c.id, v.id, plan)).allowed).map((c) => c.id),
+  );
+  const approvedFor = kids.filter((c) => approved.has(c.id)).map((c) => c.nickname);
+  const yours = viewerId !== undefined && v.ownerId === viewerId;
+  const reason = unavailableReason(state, plan, householdId, v.id, approvedFor, yours);
+  const last = state.jobs
+    .filter((j) => j.libraryKey === library.key && j.householdId === householdId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  const failedSeg = last?.status === "failed" ? state.segments.find((x) => x.libraryKey === library.key && x.status === "failed" && x.error) : undefined;
   const availability: Availability =
     !canPrepare && status.ready > 0
       ? status.readiness === "ready"
@@ -401,8 +432,16 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
     availability,
     availabilityLabel: AVAILABILITY_LABELS[availability],
     unavailableReason: reason,
-    needsSlot: canPrepare && activeShare(state, v.id, householdId) !== null && activeSlot(state, v.id, householdId, plan) === null,
+    noNewReason: reason === ARCHIVE_NO_NEW || reason === WITHDRAWN_NO_NEW || reason === PAUSED_NO_NEW ? reason : null,
     stored: playingStatus && playingStatus.ready > 0 ? { version: playing.voiceVersion, ready: playingStatus.ready, total: playingStatus.total } : null,
+    fix: reason ? fixFor(state, plan, householdId, v.id, kids) : null,
+    canListen: status.ready > 0 && guardianVoiceAccess(state, plan, householdId, v.id),
+    yours,
+    kids: kids.map((c) => ({ id: c.id, name: c.nickname, approved: approved.has(c.id) })),
+    lastFailure:
+      last?.status === "failed" && status.readiness !== "ready"
+        ? `We couldn't finish preparing this, and unused credits were returned.${failedSeg?.error ? ` (${failedSeg.error})` : ""}`
+        : null,
     missingCredits,
     extraCreditsNeeded: Math.max(0, missingCredits - available),
     estimateSeconds: status.missingCharacters ? estimateSeconds(status.missingCharacters, library.modelId) : 0,
@@ -412,12 +451,20 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
 }
 
 /**
- * Narrators this household could use: every ready voice shared with it, plus voices whose owners have
- * deleted them but whose stories this family keeps.
+ * Narrators this household could use: every ready voice shared with it, voices whose owners have
+ * deleted them but whose stories this family keeps, and (on the prepare page) the viewer's own ready
+ * voice, which they can share with the family in place.
  */
-function householdVoiceIds(state: FamilyState, householdId: string): string[] {
+function householdVoiceIds(state: FamilyState, householdId: string, viewerId?: string): string[] {
   return state.voices
-    .filter((v) => (v.status === "ready" ? activeShare(state, v.id, householdId) : v.status === "withdrawn" && storedShare(state, v.id, householdId)))
+    .filter((v) =>
+      v.status === "withdrawn"
+        ? storedShare(state, v.id, householdId) !== null
+        : v.status === "ready" &&
+          v.deletedAt === null &&
+          (activeShare(state, v.id, householdId) || (viewerId !== undefined && v.ownerId === viewerId && isActiveMember(state, viewerId, householdId))),
+    )
+    .sort((a, b) => Number(b.ownerId === viewerId) - Number(a.ownerId === viewerId))
     .map((v) => v.id);
 }
 
@@ -428,13 +475,13 @@ export function bookMinutes(text: BookText, plan: PlanConfig): number {
 
 export async function prepareView(store: FamilyStore, actor: Actor | null, householdId: string, slug: string, clock: Clock = now): Promise<PrepareBookView> {
   const state = await store.read();
-  requireHouseholdGuardian(state, actor, householdId);
+  const viewerId = requireHouseholdGuardian(state, actor, householdId);
   const text = bookText(slug);
   if (!text) throw new PermissionError(404, "unknown_book", "That book isn't in the library yet.");
   const plan = store.plan;
   const book = findCatalogBook(slug)!;
   const credits = creditBalance(state, plan, householdId, clock().toISOString());
-  const voices = householdVoiceIds(state, householdId).map((id) => voiceView(state, plan, householdId, text, id, credits.available));
+  const voices = householdVoiceIds(state, householdId, viewerId).map((id) => voiceView(state, plan, householdId, text, id, credits.available, viewerId));
   const needsMore = voices.some((v) => v.availability === "needs_credits" || (v.availability === "partial" && v.extraCreditsNeeded > 0));
   const shorterThatFit: PrepareBookView["shorterThatFit"] = [];
   if (needsMore) {
@@ -445,17 +492,27 @@ export async function prepareView(store: FamilyStore, actor: Actor | null, house
       const fit = householdVoiceIds(state, householdId)
         .map((id) => voiceView(state, plan, householdId, t, id, credits.available))
         .find((v) => v.availability === "available");
-      if (fit) shorterThatFit.push({ slug: other.slug, title: other.title, credits: fit.missingCredits, narrator: fit.name });
+      if (fit) shorterThatFit.push({ slug: other.slug, title: other.title, coverUrl: other.coverUrl, credits: fit.missingCredits, narrator: fit.name });
     }
   }
   return {
     householdId,
-    book: { slug, title: text.title, author: book.author, sentences: text.sentences.length, minutes: bookMinutes(text, plan), chapters: text.chapters.length },
+    book: {
+      slug,
+      title: text.title,
+      author: book.author,
+      sentences: text.sentences.length,
+      minutes: bookMinutes(text, plan),
+      chapters: text.chapters.length,
+      coverUrl: book.coverUrl,
+      tint: book.tint,
+    },
     voices,
     credits,
     canBuyCredits: plan.narrationPurchasesEnabled || plan.simulatedCheckout,
     simulatedCheckout: !plan.narrationPurchasesEnabled && plan.simulatedCheckout,
     chapterGenerationEnabled: plan.chapterGenerationEnabled && text.chapters.length > 1,
+    freeSlots: Math.max(0, narratorSlotCount(state, householdId, plan) - liveSlots(state, householdId, plan).length),
     shorterThatFit: shorterThatFit.slice(0, 3),
   };
 }
@@ -868,7 +925,10 @@ export async function kidsReadiness(store: FamilyStore, actor: Actor | null, chi
 interface PlaybackClaims {
   lk: string;
   sid: string;
+  /** The child listening; empty when a grown-up listens. */
   c: string;
+  /** The household a grown-up listens in, for grown-up playback. */
+  h?: string;
   v: string;
   exp: number;
 }
@@ -940,12 +1000,21 @@ export async function readPlayback(store: FamilyStore, actor: Actor | null, toke
   const claims = verifyPlayback(token, key, at);
   if (!claims || !actor) throw NOT_AVAILABLE;
   const state = await store.read();
-  try {
-    requireChildAccess(state, actor, claims.c);
-  } catch {
-    throw NOT_AVAILABLE;
+  if (claims.h) {
+    try {
+      requireHouseholdGuardian(state, actor, claims.h);
+    } catch {
+      throw NOT_AVAILABLE;
+    }
+    if (!guardianVoiceAccess(state, store.plan, claims.h, claims.v)) throw NOT_AVAILABLE;
+  } else {
+    try {
+      requireChildAccess(state, actor, claims.c);
+    } catch {
+      throw NOT_AVAILABLE;
+    }
+    if (!storedNarrationAccess(state, claims.c, claims.v, store.plan).allowed) throw NOT_AVAILABLE;
   }
-  if (!storedNarrationAccess(state, claims.c, claims.v, store.plan).allowed) throw NOT_AVAILABLE;
   if (state.libraries.find((l) => l.key === claims.lk)?.voiceId !== claims.v) throw NOT_AVAILABLE;
   const seg = segmentsOf(state, claims.lk).get(claims.sid);
   const object = seg?.status === "ready" && seg.storageKey ? await store.audio.get(seg.storageKey) : null;
@@ -954,7 +1023,93 @@ export async function readPlayback(store: FamilyStore, actor: Actor | null, toke
 }
 
 // ---------------------------------------------------------------------------
-// Stopping work
+// Grown-up listening
+// ---------------------------------------------------------------------------
+
+/**
+ * A grown-up in the household may listen to a voice the family can use: a live plan, the owner's
+ * share and a narrator slot. Unlike a child, no per-child approval is needed.
+ */
+function guardianVoiceAccess(state: FamilyState, plan: PlanConfig, householdId: string, voiceId: string): boolean {
+  return Boolean(activeEntitlement(state, householdId) && readyVoice(state, voiceId) && activeShare(state, voiceId, householdId) && activeSlot(state, voiceId, householdId, plan));
+}
+
+export interface ListenVoice {
+  voiceId: string;
+  name: string;
+  avatarUrl: string | null;
+  tint: string;
+  readySentenceIds: string[];
+  /** Every sentence of the book is stored in this voice. */
+  complete: boolean;
+}
+
+export interface ListenView {
+  householdId: string;
+  book: { slug: string; title: string; author: string; coverUrl: string | null; tint: string };
+  sentences: string[];
+  sentenceIds: string[];
+  /** Voices this grown-up may hear with at least some of the book prepared, finished books first. */
+  voices: ListenVoice[];
+}
+
+/** The grown-up player for one book: its text and the prepared audio the household may play. */
+export async function listenView(store: FamilyStore, actor: Actor | null, householdId: string, slug: string): Promise<ListenView> {
+  const state = await store.read();
+  requireHouseholdGuardian(state, actor, householdId);
+  const book = findCatalogBook(slug);
+  const text = bookText(slug);
+  if (!book || !text) throw new PermissionError(404, "not_found", "We couldn't find that book.");
+  const voices = householdVoiceIds(state, householdId)
+    .filter((id) => guardianVoiceAccess(state, store.plan, householdId, id))
+    .map((id): ListenVoice => {
+      const owner = state.adults.find((a) => a.id === voiceOwnerOf(state, id));
+      const segs = segmentsOf(state, libraryFor(state, store.plan, id, text, householdId).key);
+      const readySentenceIds = text.sentences.filter((x) => segs.get(x.id)?.status === "ready" && segs.get(x.id)?.storageKey).map((x) => x.id);
+      return { voiceId: id, name: owner?.displayName ?? "A storyteller", avatarUrl: owner?.avatarUrl ?? null, tint: owner?.tint ?? "bg-lavender", readySentenceIds, complete: readySentenceIds.length === text.sentences.length };
+    })
+    .filter((v) => v.readySentenceIds.length > 0)
+    .sort((a, b) => Number(b.complete) - Number(a.complete));
+  return {
+    householdId,
+    book: { slug: book.slug, title: book.title, author: book.author, coverUrl: book.coverUrl, tint: book.tint },
+    sentences: text.sentences.map((x) => x.text),
+    sentenceIds: text.sentences.map((x) => x.id),
+    voices,
+  };
+}
+
+function voiceOwnerOf(state: FamilyState, voiceId: string): string | undefined {
+  return state.voices.find((v) => v.id === voiceId)?.ownerId;
+}
+
+/**
+ * A short-lived URL for one prepared sentence, for a grown-up listening in the Parent Portal. Only
+ * stored audio is served; nothing is generated here.
+ */
+export async function authorizeGuardianPlayback(
+  store: FamilyStore,
+  actor: Actor | null,
+  input: { householdId: string; voiceId: string; bookSlug: string; sentence: number },
+  key: string,
+  clock: Clock = now,
+): Promise<{ url: string; expiresAt: string }> {
+  const state = await store.read();
+  requireHouseholdGuardian(state, actor, input.householdId);
+  if (!guardianVoiceAccess(state, store.plan, input.householdId, input.voiceId)) throw NOT_AVAILABLE;
+  const text = bookText(input.bookSlug);
+  const sentence = text?.sentences[input.sentence];
+  if (!text || !sentence) throw new PermissionError(400, "bad_sentence", "That page doesn't exist.");
+  const library = libraryFor(state, store.plan, input.voiceId, text, input.householdId);
+  const seg = segmentsOf(state, library.key).get(sentence.id);
+  if (seg?.status !== "ready" || !seg.storageKey) throw new PermissionError(409, "not_prepared", "This part isn't prepared in that voice yet.");
+  const exp = clock().getTime() + store.plan.playbackUrlTtlSeconds * 1000;
+  const token = signPlayback({ lk: library.key, sid: sentence.id, c: "", h: input.householdId, v: input.voiceId, exp }, key);
+  return { url: `/api/narration/audio/${token}`, expiresAt: new Date(exp).toISOString() };
+}
+
+// ---------------------------------------------------------------------------
+// Deletion
 // ---------------------------------------------------------------------------
 
 /**

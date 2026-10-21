@@ -4,6 +4,7 @@ import { StripeApi, StripeError } from "@/lib/billing/stripe-api";
 import { accountDb } from "@/lib/family/account-store";
 import { withFamily } from "@/lib/family/http";
 import { guardianHousehold } from "@/lib/family/service";
+import { requireFullSignIn } from "@/lib/family/session";
 import { fail } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
@@ -13,9 +14,10 @@ export const runtime = "nodejs";
 export async function POST(req: Request) {
   const config = billingConfig();
   if (config.mode === "off") return fail(404, "not_found", "Not found.");
-  return withFamily(async ({ store, actor }) => {
+  return withFamily(async ({ store, actor, session }) => {
     const householdId = await guardianHousehold(store, actor);
     if (!householdId) return fail(403, "not_guardian", "Only a parent or guardian can manage billing.");
+    await requireFullSignIn(session);
     const db = accountDb();
     if (!db) return fail(503, "no_account", "Sign in with a Readli account to manage billing.");
     const { data: customer } = await db.from("billing_customers").select("customer_ref").eq("household_id", householdId).maybeSingle();

@@ -1,14 +1,21 @@
 import type { Metadata, Viewport } from "next";
 import { Fredoka, Nunito_Sans } from "next/font/google";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL, baseOpenGraph, indexable } from "@/lib/seo/site";
 import "./globals.css";
 
 const fredoka = Fredoka({ subsets: ["latin"], variable: "--font-fredoka", display: "swap" });
 const nunitoSans = Nunito_Sans({ subsets: ["latin"], variable: "--font-nunito-sans", display: "swap" });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "Readli: Every Book. Every Voice.",
-  description: "Their favorite stories. Read by their favorite people.",
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  openGraph: baseOpenGraph,
+  twitter: { card: "summary_large_image" },
+  // Preview deployments stay out of search results; production pages opt out one by one.
+  robots: indexable() ? undefined : { index: false, follow: false },
 };
 
 export const viewport: Viewport = {

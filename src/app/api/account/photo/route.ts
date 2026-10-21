@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { MAX_PHOTO_BYTES, removePhoto, savePhoto } from "@/lib/account/photos";
+import { AccountError } from "@/lib/account/privacy";
 import { withAccount } from "@/lib/account/server";
 import { fail } from "@/lib/server/http";
 
@@ -13,7 +14,14 @@ export async function POST(req: Request) {
     if (!(file instanceof Blob)) return fail(400, "no_photo", "Please choose a photo.");
     if (file.size > MAX_PHOTO_BYTES) return fail(413, "photo_too_big", "Please choose a photo smaller than 5 MB.");
     const bytes = new Uint8Array(await file.arrayBuffer());
-    return NextResponse.json(await savePhoto(db, user, { bytes, consent: form?.get("consent") === "yes" }));
+    try {
+      return NextResponse.json(await savePhoto(db, user, { bytes, consent: form?.get("consent") === "yes" }));
+    } catch (err) {
+      if (err instanceof AccountError) throw err;
+      // Storage or database trouble: log the cause for us, and give the grown-up a clear answer.
+      console.error("profile photo save failed", err instanceof Error ? err.message : err);
+      return fail(500, "photo_save_failed", "We couldn't save your photo just now. Please try again in a moment.");
+    }
   });
 }
 

@@ -7,11 +7,13 @@ import {
   PRIVACY_INTRO,
   PRIVACY_SECTIONS,
 } from "@/lib/content/privacy-policy";
+import { publicPageMetadata } from "@/lib/seo/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicPageMetadata({
   title: "Privacy Policy | Readli",
   description: "How Readli collects, uses, shares and protects family, child and voice information.",
-};
+  path: "/privacy",
+});
 
 export default function PrivacyPage() {
   return (

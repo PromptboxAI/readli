@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { formatPrice } from "@/lib/family/plan";
@@ -7,7 +9,8 @@ import type { NarratorCard, NarratorSlotsView } from "@/lib/family/service";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 
 /** Readli Family → Narrator slots: choose which shared voices the household uses, and add slots. */
-export function NarratorSlots({ initial, canBuy = true }: { initial: NarratorSlotsView; canBuy?: boolean }) {
+export function NarratorSlots({ initial, canBuy = true, approveHref = "/family/kids" }: { initial: NarratorSlotsView; canBuy?: boolean; approveHref?: string }) {
+  const router = useRouter();
   const [view, setView] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -24,6 +27,8 @@ export function NarratorSlots({ initial, canBuy = true }: { initial: NarratorSlo
     if (!res.ok) return setMessage(json?.error?.message ?? "We couldn't save that. Please try again.");
     setView(json as NarratorSlotsView);
     setMessage(done);
+    // Drops the app's cached copies of other family pages, so Back shows this change.
+    router.refresh();
   };
 
   const row = (n: NarratorCard, action: React.ReactNode, muted = false) => (
@@ -68,6 +73,11 @@ export function NarratorSlots({ initial, canBuy = true }: { initial: NarratorSlo
       <p role="status" aria-live="polite" className={message ? "rounded-2xl bg-ivory p-3 font-semibold ring-2 ring-ink/10" : "sr-only"}>
         {message}
       </p>
+      {message?.includes("Now choose which children") && (
+        <Link href={approveHref} className={`${buttonPrimary} self-start`}>
+          Approve for your kids
+        </Link>
+      )}
 
       <section className="flex flex-col gap-3" aria-label="Active narrators">
         <h2 className="font-display text-2xl font-semibold">Active narrators</h2>
@@ -78,6 +88,10 @@ export function NarratorSlots({ initial, canBuy = true }: { initial: NarratorSlo
             {view.active.map((n) =>
               row(
                 n,
+                <div className="flex flex-wrap gap-2">
+                <Link href={approveHref} className={buttonSecondary}>
+                  Choose kids
+                </Link>
                 <button
                   type="button"
                   className={buttonSecondary}
@@ -85,7 +99,8 @@ export function NarratorSlots({ initial, canBuy = true }: { initial: NarratorSlo
                   onClick={() => call("/api/family/narrators", { voiceId: n.voiceId, action: "release" }, `${n.name}'s slot is free. Their approvals for each child were removed.`)}
                 >
                   Free this slot
-                </button>,
+                </button>
+                </div>,
               ),
             )}
           </ul>
@@ -164,8 +179,19 @@ export function NarratorSlots({ initial, canBuy = true }: { initial: NarratorSlo
       {view.waiting.length > 0 && (
         <section className="flex flex-col gap-3" aria-label="Waiting for permission">
           <h2 className="font-display text-2xl font-semibold">Waiting for permission</h2>
-          <p className="text-muted">These family members haven&apos;t shared their voice with your family. Only they can.</p>
-          <ul className="flex flex-col gap-3">{view.waiting.map((n) => row(n, <span className="rounded-full bg-sunshine px-3 py-1 text-sm font-bold">Waiting for permission</span>, true))}</ul>
+          <p className="text-muted">These voices aren&apos;t shared with your family yet. Only the person whose voice it is can share it.</p>
+          <ul className="flex flex-col gap-3">
+            {view.waiting.map((n) =>
+              n.yours
+                ? row(
+                    n,
+                    <Link href="/family/my-voice" className={buttonPrimary}>
+                      Share my voice
+                    </Link>,
+                  )
+                : row(n, <span className="rounded-full bg-sunshine px-3 py-1 text-sm font-bold">Waiting for permission</span>, true),
+            )}
+          </ul>
         </section>
       )}
     </div>

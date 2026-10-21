@@ -405,6 +405,8 @@ export interface NarratorCard {
   relationship: string;
   avatarUrl: string | null;
   tint: string;
+  /** The signed-in adult's own voice, which only they can share. */
+  yours?: boolean;
 }
 
 export interface NarratorSlotsView {
@@ -419,7 +421,7 @@ export interface NarratorSlotsView {
   active: NarratorCard[];
   /** Shared with this family by their owners, not yet in a slot. */
   shared: NarratorCard[];
-  /** Household members whose voices aren't shared with this family. */
+  /** Household members whose voices aren't shared with this family, the viewer's own included. */
   waiting: NarratorCard[];
   releasesLeft: number;
   extraSlotPriceCents: number;
@@ -433,7 +435,7 @@ function card(state: FamilyState, voiceId: string): NarratorCard {
 
 export async function narratorSlots(store: FamilyStore, actor: Actor | null, householdId: string, clock: Clock = now): Promise<NarratorSlotsView> {
   const state = await store.read();
-  requireHouseholdGuardian(state, actor, householdId);
+  const viewerId = requireHouseholdGuardian(state, actor, householdId);
   const plan = store.plan;
   const entitlement = familyEntitlement(state, householdId);
   const live = liveSlots(state, householdId, plan);
@@ -448,7 +450,9 @@ export async function narratorSlots(store: FamilyStore, actor: Actor | null, hou
     extra: entitlement?.extraNarratorSlots ?? 0,
     active: live.map((a) => card(state, a.voiceId)),
     shared: memberVoices.filter((v) => !activeIds.has(v.id) && activeShare(state, v.id, householdId)).map((v) => card(state, v.id)),
-    waiting: memberVoices.filter((v) => !activeShare(state, v.id, householdId)).map((v) => card(state, v.id)),
+    waiting: memberVoices
+      .filter((v) => !activeShare(state, v.id, householdId))
+      .map((v) => (v.ownerId === viewerId ? { ...card(state, v.id), yours: true } : card(state, v.id))),
     releasesLeft: releasesLeft(state, householdId, plan, clock().toISOString()),
     extraSlotPriceCents: plan.extraSlotPriceCents,
     extraSlotPriceApproved: plan.extraSlotPriceApproved,
