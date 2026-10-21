@@ -38,7 +38,7 @@ export default async function CreditsPage({ searchParams }: { searchParams: Prom
   return (
     <FamilyShell>
       <PreviewNote />
-      <BackLink href="/family/controls" label="Parent controls" />
+      <BackLink href="/family/controls" label="Parent Controls" />
       <div className="flex flex-col gap-2">
         {returnTo && (
           <Link href={returnTo} className="font-semibold underline underline-offset-4">

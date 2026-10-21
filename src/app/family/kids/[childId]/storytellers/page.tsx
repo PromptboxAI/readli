@@ -19,7 +19,7 @@ export default async function ManageStorytellersPage({ params }: { params: Promi
     return (
       <FamilyShell>
         <PreviewNote />
-        <BackLink href="/family/kids" label="Child profiles" />
+        <BackLink href="/family/kids" label="Family" />
         <ManageStorytellers initial={view} />
       </FamilyShell>
     );

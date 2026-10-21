@@ -9,7 +9,6 @@ import { guardianHousehold } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
 import { UPCOMING_BOOKS } from "@/lib/library/catalog";
 import { familyLibrary, type LibraryCard } from "@/lib/library/discovery";
-import { BackLink } from "@/components/family/BackLink";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Family library | Readli" };
@@ -50,7 +49,6 @@ export default async function FamilyBooksPage() {
   return (
     <FamilyShell>
       <PreviewNote />
-      <BackLink href="/family" label="Family" />
       <div className="flex flex-col gap-2">
         <h1 className="font-display text-4xl font-semibold">Your family library</h1>
         <p className="text-lg">Every book is here. Choose one to see which storytellers are ready and prepare more.</p>

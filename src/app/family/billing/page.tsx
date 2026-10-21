@@ -53,7 +53,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     <FamilyShell>
       <PreviewNote />
       <header className="flex flex-col gap-2">
-        <BackLink href="/family/controls" label="Parent controls" />
+        <BackLink href="/family/controls" label="Parent Controls" />
         <h1 className="font-display text-4xl font-semibold">Plan and billing</h1>
       </header>
       {q.checkout === "success" && (

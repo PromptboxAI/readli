@@ -36,15 +36,31 @@ test("the family home leads with the kids, stories and storytellers", async ({ p
 test("parent controls gather the admin pages", async ({ page }, info) => {
   await signIn(page, "adult:sara");
   await page.goto("/family");
-  await page.getByRole("link", { name: "All parent controls" }).click();
-  await expect(page.getByRole("heading", { name: "Parent controls" })).toBeVisible();
+  const nav = page.getByRole("navigation", { name: "Readli Family" });
+  await expect(nav.getByRole("link")).toHaveText(["Home", "Books", "Family", "Parent Controls"]);
+  await expect(page.getByTestId("home-controls").getByRole("link", { name: /Readli credits/ })).toContainText("left");
+  await page.getByTestId("home-controls").getByRole("link", { name: "Open Parent Controls" }).click();
+  await expect(page.getByRole("heading", { name: "Parent Controls" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Parent Controls" })).toHaveAttribute("aria-current", "page");
   const controls = page.getByTestId("parent-controls");
-  for (const name of ["Kids profiles", "Family storytellers", "Readli credits", "Plan and billing", "Kids Mode PIN and devices", "Account settings"]) {
+  for (const name of ["Kids profiles", "Family storytellers", "My Voice", "Readli credits", "Plan and billing", "Kids Mode PIN and devices", "Account settings", "Help"]) {
     await expect(controls.getByRole("link", { name: new RegExp(name) })).toBeVisible();
   }
   await expect(controls.getByRole("link", { name: /Kids profiles/ })).toContainText("2 of 6");
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/parent-controls-${info.project.name}.png`, fullPage: true });
+});
+
+test("the Family tab lists the kids and opens Readli Kids from a child's profile", async ({ page }, info) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family");
+  await page.getByRole("navigation", { name: "Readli Family" }).getByRole("link", { name: "Family" }).click();
+  await expect(page).toHaveURL(/\/family\/kids$/);
+  await expect(page.getByRole("heading", { name: "Kids profiles" })).toBeVisible();
+  await noOverflow(page);
+  await page.screenshot({ path: `e2e/screenshots/family-kids-${info.project.name}.png`, fullPage: true });
+  await page.getByRole("button", { name: "Open Readli Kids for Maya" }).click();
+  await expect(page).toHaveURL(/\/kids$/);
 });
 
 test("a kids profile can't open parent controls", async ({ page }) => {
@@ -54,14 +70,11 @@ test("a kids profile can't open parent controls", async ({ page }) => {
   await expect(page).toHaveURL(/\/kids$/);
 });
 
-test("every Readli Family page has a way back up", async ({ page }) => {
+test("every page below the main tabs has a way back up", async ({ page }) => {
   await signIn(page, "adult:sara");
   const pages: [string, string][] = [
-    ["/family/narrators", "/family"],
+    ["/family/narrators", "/family/controls"],
     ["/family/my-voice", "/family"],
-    ["/family/kids", "/family"],
-    ["/family/books", "/family"],
-    ["/family/controls", "/family"],
     ["/family/billing", "/family/controls"],
     ["/family/credits", "/family/controls"],
     ["/family/devices", "/family/controls"],
@@ -73,7 +86,7 @@ test("every Readli Family page has a way back up", async ({ page }) => {
   }
   await page.goto("/family/narrators");
   await page.getByTestId("back-link").click();
-  await expect(page).toHaveURL(/\/family$/);
+  await expect(page).toHaveURL(/\/family\/controls$/);
 });
 
 test("a storyteller in a slot leads straight to choosing which kids hear them", async ({ page }) => {
