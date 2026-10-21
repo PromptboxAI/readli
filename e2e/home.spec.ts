@@ -138,7 +138,7 @@ test("try your voice shows three steps on desktop and a short pitch on phones", 
   await expect(page.locator("#try-heading")).toHaveText("Hear your voice tell a story.");
   if (info.project.name === "desktop") {
     await expect(section.getByTestId("demo-steps").getByRole("heading", { level: 3 })).toHaveText(["Confirm it's your voice", "Read a short story", "Hear it in a story"]);
-    await expect(section.getByText("deleted within 24 hours")).toBeVisible();
+    await expect(section.getByText("deleted within 48 hours")).toBeVisible();
     await section.getByRole("link", { name: /Start recording/ }).click();
   } else {
     await expect(section.getByText("Read a short passage, then hear your voice bring a story to life.")).toBeVisible();
