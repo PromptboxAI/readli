@@ -1,0 +1,403 @@
+{
+ "the-tale-of-peter-rabbit": [
+  {
+   "slug": "the-tale-of-peter-rabbit",
+   "revision": "b3e7d9445524",
+   "edition": "gutenberg-14838",
+   "firstSeen": "2026-10-10T20:45:20+00:00",
+   "lastSeen": "2026-10-11T00:39:03+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 5
+  },
+  {
+   "slug": "the-tale-of-peter-rabbit",
+   "revision": "e6800b891b8f",
+   "edition": "gutenberg-14838",
+   "firstSeen": "2026-10-11T00:44:23+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 48
+  }
+ ],
+ "the-lion-and-the-mouse": [
+  {
+   "slug": "the-lion-and-the-mouse",
+   "revision": "1b359a189a29",
+   "edition": "readli-passage",
+   "firstSeen": "2026-10-10T20:45:20+00:00",
+   "lastSeen": "2026-10-11T00:39:03+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 7
+  },
+  {
+   "slug": "the-lion-and-the-mouse",
+   "revision": "5db4accba0e7",
+   "edition": "gutenberg-19994",
+   "firstSeen": "2026-10-11T00:44:23+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 14
+  }
+ ],
+ "winnie-the-pooh": [
+  {
+   "slug": "winnie-the-pooh",
+   "revision": "826622612796",
+   "edition": "gutenberg-67098",
+   "firstSeen": "2026-10-10T20:45:20+00:00",
+   "lastSeen": "2026-10-11T00:39:03+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 5
+  },
+  {
+   "slug": "winnie-the-pooh",
+   "revision": "bf13dd18babe",
+   "edition": "gutenberg-67098",
+   "firstSeen": "2026-10-11T00:44:23+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 1778
+  }
+ ],
+ "the-three-little-pigs": [
+  {
+   "slug": "the-three-little-pigs",
+   "revision": "6f525ed657d6",
+   "edition": "readli-passage",
+   "firstSeen": "2026-10-10T20:45:20+00:00",
+   "lastSeen": "2026-10-11T00:39:03+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 4
+  },
+  {
+   "slug": "the-three-little-pigs",
+   "revision": "b95bb8109234",
+   "edition": "gutenberg-17034",
+   "firstSeen": "2026-10-11T00:44:23+00:00",
+   "lastSeen": "2026-10-11T12:55:37+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 89
+  },
+  {
+   "slug": "the-three-little-pigs",
+   "revision": "4e4f71c3c194",
+   "edition": "gutenberg-17034",
+   "firstSeen": "2026-10-11T09:07:10-04:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 90
+  }
+ ],
+ "the-princess-and-the-pea": [
+  {
+   "slug": "the-princess-and-the-pea",
+   "revision": "ac77d5495d2e",
+   "edition": "readli-passage",
+   "firstSeen": "2026-10-10T20:45:20+00:00",
+   "lastSeen": "2026-10-11T00:39:03+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 4
+  },
+  {
+   "slug": "the-princess-and-the-pea",
+   "revision": "51eb65ee4778",
+   "edition": "gutenberg-66688",
+   "firstSeen": "2026-10-11T00:44:23+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 19
+  }
+ ],
+ "alices-adventures-in-wonderland": [
+  {
+   "slug": "alices-adventures-in-wonderland",
+   "revision": "61bd65bb4a36",
+   "edition": "gutenberg-11",
+   "firstSeen": "2026-10-10T20:45:20+00:00",
+   "lastSeen": "2026-10-11T00:39:03+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 2
+  },
+  {
+   "slug": "alices-adventures-in-wonderland",
+   "revision": "727842a44470",
+   "edition": "gutenberg-11",
+   "firstSeen": "2026-10-11T00:44:23+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 1291
+  }
+ ],
+ "aesops-fables-retold": [
+  {
+   "slug": "aesops-fables-retold",
+   "revision": "1c55921c18ce",
+   "edition": "readli-retelling-1",
+   "firstSeen": "2026-10-10T22:08:34+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 69
+  }
+ ],
+ "the-little-red-hen": [
+  {
+   "slug": "the-little-red-hen",
+   "revision": "6b51702da035",
+   "edition": "gutenberg-18735",
+   "firstSeen": "2026-10-11T00:44:23+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 72
+  }
+ ],
+ "the-gingerbread-man": [
+  {
+   "slug": "the-gingerbread-man",
+   "revision": "a3873014f706",
+   "edition": "gutenberg-25877",
+   "firstSeen": "2026-10-11T00:44:23+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 57
+  }
+ ],
+ "the-elves-and-the-shoemaker": [
+  {
+   "slug": "the-elves-and-the-shoemaker",
+   "revision": "438a2f890032",
+   "edition": "gutenberg-52521",
+   "firstSeen": "2026-10-11T00:44:23+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 29
+  }
+ ],
+ "goldilocks-and-the-three-bears": [
+  {
+   "slug": "goldilocks-and-the-three-bears",
+   "revision": "d04c4d1afbb1",
+   "edition": "gutenberg-17034",
+   "firstSeen": "2026-10-11T00:44:23+00:00",
+   "lastSeen": "2026-10-11T12:55:37+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 55
+  },
+  {
+   "slug": "goldilocks-and-the-three-bears",
+   "revision": "fe5f73e2ef82",
+   "edition": "gutenberg-17034",
+   "firstSeen": "2026-10-11T09:07:10-04:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 55
+  }
+ ],
+ "the-velveteen-rabbit": [
+  {
+   "slug": "the-velveteen-rabbit",
+   "revision": "32815e09f55b",
+   "edition": "gutenberg-11757",
+   "firstSeen": "2026-10-11T00:44:23+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 214
+  }
+ ],
+ "the-ugly-duckling": [
+  {
+   "slug": "the-ugly-duckling",
+   "revision": "0e718ff695f9",
+   "edition": "gutenberg-66688",
+   "firstSeen": "2026-10-11T00:44:23+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 106
+  }
+ ],
+ "cinderella": [
+  {
+   "slug": "cinderella",
+   "revision": "e41d91f4209f",
+   "edition": "gutenberg-31431",
+   "firstSeen": "2026-10-12T00:57:17+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 100
+  }
+ ],
+ "thumbelina": [
+  {
+   "slug": "thumbelina",
+   "revision": "81e49318a6ca",
+   "edition": "gutenberg-32571",
+   "firstSeen": "2026-10-12T00:57:17+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 201
+  }
+ ],
+ "the-emperors-new-clothes": [
+  {
+   "slug": "the-emperors-new-clothes",
+   "revision": "ddc67a3e0e27",
+   "edition": "gutenberg-32572",
+   "firstSeen": "2026-10-12T00:57:17+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 97
+  }
+ ],
+ "the-tale-of-mrs-tiggy-winkle": [
+  {
+   "slug": "the-tale-of-mrs-tiggy-winkle",
+   "revision": "88fab42b11ba",
+   "edition": "gutenberg-12103",
+   "firstSeen": "2026-10-12T00:57:17+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 80
+  }
+ ],
+ "the-owl-and-the-pussy-cat": [
+  {
+   "slug": "the-owl-and-the-pussy-cat",
+   "revision": "39fd1d8bcca2",
+   "edition": "gutenberg-20113",
+   "firstSeen": "2026-10-12T00:57:17+00:00",
+   "lastSeen": "2026-10-21T18:27:23+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 12
+  },
+  {
+   "slug": "the-owl-and-the-pussy-cat",
+   "revision": "0b81da9aa876",
+   "edition": "gutenberg-20113",
+   "firstSeen": "2026-10-21T18:17:17-04:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 12,
+   "correction": true
+  }
+ ],
+ "sleeping-beauty": [
+  {
+   "slug": "sleeping-beauty",
+   "revision": "86e75552179a",
+   "edition": "gutenberg-52521",
+   "firstSeen": "2026-10-12T00:57:17+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 64
+  }
+ ],
+ "the-tale-of-two-bad-mice": [
+  {
+   "slug": "the-tale-of-two-bad-mice",
+   "revision": "b9d3c0674c72",
+   "edition": "gutenberg-45264",
+   "firstSeen": "2026-10-12T00:57:17+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 57
+  }
+ ],
+ "the-tale-of-mr-jeremy-fisher": [
+  {
+   "slug": "the-tale-of-mr-jeremy-fisher",
+   "revision": "a6d6525034fe",
+   "edition": "gutenberg-15077",
+   "firstSeen": "2026-10-12T00:57:17+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 45
+  }
+ ],
+ "just-so-stories": [
+  {
+   "slug": "just-so-stories",
+   "revision": "173f4e80e76f",
+   "edition": "gutenberg-2781",
+   "firstSeen": "2026-10-12T00:57:17+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 665
+  }
+ ],
+ "heidi": [
+  {
+   "slug": "heidi",
+   "revision": "d323776239b3",
+   "edition": "gutenberg-20781",
+   "firstSeen": "2026-10-12T00:57:17+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 3508
+  }
+ ],
+ "raggedy-ann-stories": [
+  {
+   "slug": "raggedy-ann-stories",
+   "revision": "3b6e48ec3d15",
+   "edition": "gutenberg-18190",
+   "firstSeen": "2026-10-12T13:33:18+00:00",
+   "lastSeen": "2026-10-12T13:33:18+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 912
+  },
+  {
+   "slug": "raggedy-ann-stories",
+   "revision": "00e1924797cd",
+   "edition": "gutenberg-18190",
+   "firstSeen": "2026-10-12T13:33:30+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 912
+  }
+ ],
+ "a-childs-garden-of-verses": [
+  {
+   "slug": "a-childs-garden-of-verses",
+   "revision": "28a4e51d1a11",
+   "edition": "gutenberg-25617",
+   "firstSeen": "2026-10-12T13:40:10+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 136
+  }
+ ]
+}

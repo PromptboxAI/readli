@@ -4,7 +4,7 @@ import { displayCredits } from "@/lib/narration/credits";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Availability, GenerationQuote, PrepareBookView, PrepareVoiceView } from "@/lib/narration/narration";
+import type { Availability, BookUpdate, GenerationQuote, PrepareBookView, PrepareVoiceView } from "@/lib/narration/narration";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 
 /** Units (characters) as credits, to one decimal place. */
@@ -398,6 +398,7 @@ function WholeBook({
           <Link href={`/family/books/${view.book.slug}/listen?voice=${v.voiceId}`} className={btnPrimary}>
             Play now
           </Link>
+          {v.update && !confirm && <UpdateAvailable update={v.update} preparing={Boolean(v.jobId)} busy={busy} onEstimate={onEstimate} />}
         </div>
       ) : v.availability === "unavailable" ? (
         <p className="text-sm">
@@ -477,6 +478,66 @@ function WholeBook({
   );
 }
 
+/**
+ * One quiet line when Readli has revised a story this family already has as an audiobook. Their
+ * audiobook keeps playing as it is; updating goes through the usual quote and confirmation.
+ */
+function UpdateAvailable({ update, preparing, busy, onEstimate }: { update: BookUpdate; preparing: boolean; busy: boolean; onEstimate: () => void }) {
+  const [open, setOpen] = useState(false);
+  if (preparing) {
+    return (
+      <p className="border-t border-ink/10 pt-3 text-sm text-muted" data-testid="book-update">
+        Preparing the updated version. Your current audiobook keeps playing until it&apos;s ready.
+      </p>
+    );
+  }
+  const cost = update.free || update.credits === 0 ? "Free" : `${n(update.credits)} credits`;
+  return (
+    <div className="flex flex-col gap-2 border-t border-ink/10 pt-3 text-sm" data-testid="book-update">
+      <p>
+        An updated version of this story is available.{" "}
+        <button type="button" className="font-semibold underline underline-offset-4" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          See what changed
+        </button>
+      </p>
+      {open && (
+        <div className="flex flex-col gap-2 rounded-lg bg-ivory p-3" data-testid="book-update-details">
+          <p className="text-muted">
+            {update.changed === 1 ? "1 line reads differently." : `${update.changed} lines read differently.`}{" "}
+            {update.free ? "This is a Readli correction, so updating is free." : "Lines that haven't changed are reused at no cost."}
+          </p>
+          {update.before.length > 0 && (
+            <div>
+              <p className="font-semibold">Your audiobook says</p>
+              <ul className="list-disc pl-5">
+                {update.before.map((x, i) => (
+                  <li key={i}>{x}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {update.after.length > 0 && (
+            <div>
+              <p className="font-semibold">The update says</p>
+              <ul className="list-disc pl-5">
+                {update.after.map((x, i) => (
+                  <li key={i}>{x}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p>
+            Cost: <span className="font-semibold" data-testid="book-update-cost">{cost}</span>. Your current audiobook keeps playing until the update is ready.
+          </p>
+          <button type="button" className={`${btnSecondary} self-start`} disabled={busy} onClick={onEstimate}>
+            Update audiobook
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Confirm({
   view,
   voice,
@@ -512,6 +573,7 @@ function Confirm({
         <dd data-testid="quote-after">{n(balance - quote.credits)}</dd>
       </dl>
       <p className="text-sm text-muted">
+        {quote.free ? "This is a Readli correction to a story you already have, so it's free. " : ""}
         {quote.reusedReady ? `${quote.reusedReady} sentences already prepared are free. ` : ""}
         {quote.alreadyQueued ? `${quote.alreadyQueued} are already being prepared, at no cost to you. ` : ""}
         You&apos;re never charged more than this; unused credits come back.

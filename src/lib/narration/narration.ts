@@ -19,7 +19,9 @@ import { estimateSeconds, modelCost } from "./costs";
 import { creditBalance, creditsFor, creditUnits, draw, spendableLots, type CreditBalance } from "./credits";
 import { CATALOG, findCatalogBook } from "@/lib/library/catalog";
 import { THE_END } from "@/lib/content/the-end";
-import { bookCharacters, bookText, type BookText, withoutTheEnd } from "./text";
+import { revisionInfo } from "@/lib/library/revisions";
+import { mapPosition, spokenForm } from "./positions";
+import { bookCharacters, bookText, bookTextAt, type BookText, withoutTheEnd } from "./text";
 
 /**
  * Voice narration libraries (Voice Narration Libraries, Pre-Generation & Instant Narrator Switching
@@ -159,6 +161,126 @@ export function libraryStatus(state: FamilyState, library: NarrationLibrary, tex
 }
 
 // ---------------------------------------------------------------------------
+// Versioned audiobooks (Kevin, 2026-10-21)
+// ---------------------------------------------------------------------------
+
+/** One voice's narration of a book as a family hears it, read along with the text it was made from. */
+export interface Narration {
+  library: NarrationLibrary;
+  text: BookText;
+  status: LibraryStatus;
+  /** A finished narration of an earlier text or recording, kept because today's isn't finished in this voice. */
+  pinned: boolean;
+}
+
+/** The text a narration was prepared from: the same book, edition and revision, or null if it was never built. */
+export function libraryText(library: NarrationLibrary): BookText | null {
+  const text = bookTextAt(library.bookSlug, library.textRevision);
+  return text && text.edition === library.edition ? text : null;
+}
+
+function lastReadyAt(state: FamilyState, libraryKey: string): string {
+  return state.segments.reduce((at, x) => (x.libraryKey === libraryKey && x.readyAt && x.readyAt > at ? x.readyAt : at), "");
+}
+
+/**
+ * Which narration of a book a family hears in one voice. Today's text when it is finished in this voice;
+ * otherwise the most recently finished narration of an earlier text or an earlier recording of the voice,
+ * which keeps playing (with its own words) until the family chooses an update and it is finished;
+ * otherwise today's text, for new or partial preparation. Editing a book never takes a finished
+ * audiobook away, and an update never replaces a working version before every sentence is stored.
+ */
+export function narrationFor(state: FamilyState, plan: PlanConfig, voiceId: string, today: BookText, householdId: string): Narration {
+  const target = libraryFor(state, plan, voiceId, today, householdId);
+  const status = libraryStatus(state, target, today);
+  if (status.readiness === "ready") return { library: target, text: today, status, pinned: false };
+  const earlier: Narration[] = [];
+  for (const l of state.libraries) {
+    if (l.voiceId !== voiceId || l.bookSlug !== today.slug || l.key === target.key || (l.scope !== "shared" && l.scope !== householdId)) continue;
+    const text = libraryText(l);
+    const done = text ? libraryStatus(state, l, text) : null;
+    if (text && done?.readiness === "ready") earlier.push({ library: l, text, status: done, pinned: true });
+  }
+  earlier.sort((a, b) => lastReadyAt(state, b.library.key).localeCompare(lastReadyAt(state, a.library.key)));
+  return earlier[0] ?? { library: target, text: today, status, pinned: false };
+}
+
+/**
+ * Audio this voice already has for sentences of `text` that `target` is missing: the same recording,
+ * model, settings and sharing, a narration of the same book, and the sentence said the same way.
+ * Each sentence is generated on its own, so reused and new sentences join exactly as they always have.
+ */
+function reusableAudio(state: FamilyState, target: NarrationLibrary, text: BookText): Map<string, NarrationSegment> {
+  const stored = new Map<string, NarrationSegment>();
+  for (const l of state.libraries) {
+    if (l.key === target.key || l.voiceId !== target.voiceId || l.voiceVersion !== target.voiceVersion || l.bookSlug !== target.bookSlug) continue;
+    if (l.modelId !== target.modelId || l.configHash !== target.configHash || l.scope !== target.scope) continue;
+    const t = libraryText(l);
+    if (!t) continue;
+    const segs = segmentsOf(state, l.key);
+    for (const x of t.sentences) {
+      const seg = segs.get(x.id);
+      if (seg?.status === "ready" && seg.storageKey) stored.set(spokenForm(x.text), seg);
+    }
+  }
+  const own = segmentsOf(state, target.key);
+  const out = new Map<string, NarrationSegment>();
+  if (!stored.size) return out;
+  for (const x of text.sentences) {
+    const seg = own.get(x.id);
+    if ((seg?.status === "ready" && seg.storageKey) || (seg && activeJob(state, seg.jobId))) continue;
+    const from = stored.get(spokenForm(x.text));
+    if (from) out.set(x.id, from);
+  }
+  return out;
+}
+
+/** Points the target's missing sentences at audio the voice already has for them (no generation, no credits). */
+function adoptReusable(s: FamilyState, target: NarrationLibrary, text: BookText, ids: Set<string> | null, at: string): number {
+  let n = 0;
+  const byId = new Map(text.sentences.map((x) => [x.id, x]));
+  for (const [id, from] of reusableAudio(s, target, text)) {
+    if (ids && !ids.has(id)) continue;
+    const sentence = byId.get(id)!;
+    const reused = { status: "ready" as const, storageKey: from.storageKey, durationMs: from.durationMs, providerCredits: null, jobId: null, error: null, readyAt: at };
+    const existing = s.segments.find((x) => x.libraryKey === target.key && x.sentenceId === id);
+    if (existing) Object.assign(existing, reused);
+    else s.segments.push({ libraryKey: target.key, sentenceId: id, ordinal: sentence.ordinal, characters: sentence.text.length, attempts: 0, ...reused });
+    n += 1;
+  }
+  return n;
+}
+
+/** Today's text is a free Readli correction for a family whose finished narration is of an earlier text. */
+function freeCorrection(state: FamilyState, plan: PlanConfig, voiceId: string, today: BookText, householdId: string): boolean {
+  if (!revisionInfo(today.slug, today.revision)?.correction) return false;
+  const heard = narrationFor(state, plan, voiceId, today, householdId);
+  return heard.pinned && heard.text.revision !== today.revision;
+}
+
+export interface BookUpdate {
+  revision: string;
+  /** Credits the update costs this family; 0 for a Readli correction or when every changed line is already stored. */
+  credits: number;
+  free: boolean;
+  /** Lines the update reads differently: what the current audiobook says, and what the update says. */
+  before: string[];
+  after: string[];
+  changed: number;
+}
+
+/** What changed between a family's audiobook and today's text, and what updating would cost. */
+function bookUpdate(state: FamilyState, plan: PlanConfig, householdId: string, voiceId: string, heard: Narration, today: BookText): BookUpdate | null {
+  if (!heard.pinned || heard.text.revision === today.revision) return null;
+  const said = new Set(heard.text.sentences.map((x) => spokenForm(x.text)));
+  const says = new Set(today.sentences.map((x) => spokenForm(x.text)));
+  const after = today.sentences.filter((x) => !said.has(spokenForm(x.text))).map((x) => x.text);
+  const before = heard.text.sentences.filter((x) => !says.has(spokenForm(x.text))).map((x) => x.text);
+  const q = quote(state, plan, householdId, { voiceId, bookSlug: today.slug, scope: "book" });
+  return { revision: today.revision, credits: q.credits, free: q.free, before: before.slice(0, 12), after: after.slice(0, 12), changed: Math.max(before.length, after.length) };
+}
+
+// ---------------------------------------------------------------------------
 // Household credits (see credits.ts)
 // ---------------------------------------------------------------------------
 
@@ -217,7 +339,7 @@ export function creditHistory(state: FamilyState, householdId: string) {
   }
   for (const job of state.jobs.filter((j) => j.householdId === householdId)) {
     const library = state.libraries.find((l) => l.key === job.libraryKey);
-    const text = library ? bookText(library.bookSlug) : null;
+    const text = library ? (libraryText(library) ?? bookText(library.bookSlug)) : null;
     const owner = library ? state.adults.find((a) => a.id === state.voices.find((v) => v.id === library.voiceId)?.ownerId) : null;
     const entries = state.ledger.filter((e) => e.jobId === job.id);
     const sum = (kind: string) => entries.filter((e) => e.kind === kind).reduce((n, e) => n + e.credits, 0);
@@ -291,6 +413,8 @@ export interface PrepareVoiceView {
   estimateSeconds: number;
   chapters: ChapterView[];
   jobId: string | null;
+  /** Today's text differs from the finished audiobook this family hears; offered, never applied for them. */
+  update: BookUpdate | null;
 }
 
 export interface PrepareBookView {
@@ -354,11 +478,13 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
   const v = state.voices.find((x) => x.id === voiceId)!;
   const owner = state.adults.find((a) => a.id === v.ownerId)!;
   const kids = state.children.filter((c) => c.householdId === householdId && c.deletedAt === null);
-  const library = libraryFor(state, plan, v.id, text, householdId);
-  const status = libraryStatus(state, library, text);
-  const chapters = missingByChapter(state, plan, library, text);
+  const heard = narrationFor(state, plan, v.id, text, householdId);
+  const { library, status } = heard;
+  const target = libraryFor(state, plan, v.id, text, householdId);
+  const chapters = missingByChapter(state, plan, library, heard.text);
   const missingCredits = chapters.reduce((n, c) => n + c.credits, 0);
-  const job = state.jobs.find((j) => j.libraryKey === library.key && j.householdId === householdId && (j.status === "queued" || j.status === "running"));
+  // An update being prepared runs on today's text while the finished audiobook keeps playing.
+  const job = state.jobs.find((j) => (j.libraryKey === library.key || j.libraryKey === target.key) && j.householdId === householdId && (j.status === "queued" || j.status === "running"));
   const approved = new Set(kids.filter((c) => childVoiceAccess(state, c.id, v.id, plan).allowed).map((c) => c.id));
   const approvedFor = kids.filter((c) => approved.has(c.id)).map((c) => c.nickname);
   const yours = viewerId !== undefined && v.ownerId === viewerId;
@@ -404,6 +530,7 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
     estimateSeconds: status.missingCharacters ? estimateSeconds(status.missingCharacters, library.modelId) : 0,
     chapters,
     jobId: job?.id ?? null,
+    update: reason ? null : bookUpdate(state, plan, householdId, v.id, heard, text),
   };
 }
 
@@ -493,6 +620,8 @@ export interface GenerationQuote {
   reusedReady: number;
   /** Segments another request is already generating (that request pays). */
   alreadyQueued: number;
+  /** A Readli correction of a book this family already has: generated without spending their credits. */
+  free: boolean;
   scope: GenerationRequest["scope"];
   chapter: { number: number; title: string } | null;
   book: { title: string };
@@ -526,6 +655,9 @@ export function quote(state: FamilyState, plan: PlanConfig, householdId: string,
   }
   const library = libraryFor(state, plan, req.voiceId, text, householdId);
   const segs = segmentsOf(state, library.key);
+  // Lines this voice already said the same way, in an earlier text of the book, are reused for free.
+  const reusable = reusableAudio(state, library, text);
+  const free = freeCorrection(state, plan, req.voiceId, text, householdId);
   const missing: string[] = [];
   let characters = 0;
   let credits = 0;
@@ -533,7 +665,7 @@ export function quote(state: FamilyState, plan: PlanConfig, householdId: string,
   let alreadyQueued = 0;
   for (const s of requestedSentences(text, req)) {
     const seg = segs.get(s.id);
-    if (seg?.status === "ready" && seg.storageKey) reusedReady += 1;
+    if ((seg?.status === "ready" && seg.storageKey) || reusable.has(s.id)) reusedReady += 1;
     else if (seg && activeJob(state, seg.jobId)) alreadyQueued += 1;
     else {
       missing.push(s.id);
@@ -545,10 +677,11 @@ export function quote(state: FamilyState, plan: PlanConfig, householdId: string,
   return {
     sentenceIds: missing,
     characters,
-    credits,
+    credits: free ? 0 : credits,
     estimateSeconds: characters ? estimateSeconds(characters, library.modelId) : 0,
     reusedReady,
     alreadyQueued,
+    free,
     scope: req.scope,
     chapter: chapter ? { number: chapter.number, title: chapter.title } : null,
     book: { title: text.title },
@@ -587,7 +720,6 @@ export async function requestGeneration(
     // Re-quote inside the write: this is the claim.
     const q = quote(s, store.plan, householdId, req);
     result = { job: null, quote: q };
-    if (q.sentenceIds.length === 0) return;
     const lots = spendableLots(s, store.plan, householdId, at);
     const available = lots.reduce((n, l) => n + l.left, 0);
     if (q.credits > available) {
@@ -598,7 +730,12 @@ export async function requestGeneration(
       });
     }
     const library = libraryFor(s, store.plan, req.voiceId, text, householdId);
+    const wanted = new Set(requestedSentences(text, req).map((x) => x.id));
+    const reuse = reusableAudio(s, library, text);
+    if (q.sentenceIds.length === 0 && ![...reuse.keys()].some((id) => wanted.has(id))) return;
     if (!s.libraries.some((l) => l.key === library.key)) s.libraries.push({ ...library, createdAt: at });
+    adoptReusable(s, library, text, wanted, at);
+    if (q.sentenceIds.length === 0) return;
     const job: NarrationJob = {
       id: randomUUID(),
       libraryKey: library.key,
@@ -614,7 +751,8 @@ export async function requestGeneration(
     const byId = new Map(text.sentences.map((x) => [x.id, x]));
     for (const id of q.sentenceIds) {
       const sentence = byId.get(id)!;
-      const draws = draw(lots, creditsFor(sentence.text.length))!;
+      // A Readli correction is prepared at Readli's cost: nothing is reserved, committed or refunded.
+      const draws = q.free ? [] : draw(lots, creditsFor(sentence.text.length))!;
       job.reservations[id] = draws;
       const existing = s.segments.find((x) => x.libraryKey === library.key && x.sentenceId === id);
       if (existing) Object.assign(existing, { status: "pending", jobId: job.id, error: null, attempts: 0 });
@@ -689,7 +827,8 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
   if (!job) throw new Error(`no job ${jobId}`);
   if (job.status !== "queued" && job.status !== "running") return job;
   const library = state.libraries.find((l) => l.key === job.libraryKey)!;
-  const text = bookText(library.bookSlug)!;
+  // The text the job was confirmed for, even if the book's text has changed since.
+  const text = libraryText(library) ?? bookText(library.bookSlug)!;
   const byId = new Map(text.sentences.map((x) => [x.id, x]));
   const voice = state.voices.find((v) => v.id === library.voiceId);
   await store.write(() => {
@@ -820,6 +959,26 @@ export interface KidsNarratorReadiness {
   voiceId: string;
   readySentenceIds: string[];
   readiness: Readiness;
+  /** The text this narrator's audiobook reads, so the words shown are the words heard. */
+  revision: string;
+}
+
+/** The read-along text of each revision narrators read, keyed by revision; `current` is today's. */
+export interface BookTexts {
+  current: string;
+  texts: Record<string, { sentences: string[]; sentenceIds: string[] }>;
+}
+
+/** Texts for these revisions of a book, leaving out the ones the player already has. */
+export function bookTexts(slug: string, revisions: string[], have: string[] = []): BookTexts {
+  const today = bookText(slug)!;
+  const texts: BookTexts["texts"] = {};
+  for (const r of new Set([today.revision, ...revisions])) {
+    if (have.includes(r)) continue;
+    const t = bookTextAt(slug, r);
+    if (t) texts[r] = { sentences: t.sentences.map((x) => x.text), sentenceIds: t.sentences.map((x) => x.id) };
+  }
+  return { current: today.revision, texts };
 }
 
 /** For each narrator this child may hear, which sentences of this book have audio. */
@@ -832,9 +991,60 @@ export async function kidsReadiness(store: FamilyStore, actor: Actor | null, chi
   return state.voices
     .filter((v) => childVoiceAccess(state, childId, v.id, store.plan).allowed)
     .map((v) => {
-      const status = libraryStatus(state, libraryFor(state, store.plan, v.id, text, child.householdId), text);
-      return { voiceId: v.id, readySentenceIds: status.readySentenceIds, readiness: status.readiness };
+      const heard = narrationFor(state, store.plan, v.id, text, child.householdId);
+      return { voiceId: v.id, readySentenceIds: heard.status.readySentenceIds, readiness: heard.status.readiness, revision: heard.text.revision };
     });
+}
+
+/**
+ * The narration a player is showing. A player names the text on screen; while it does, that text's
+ * narration keeps playing even if an update finished meanwhile, so listening is never interrupted.
+ */
+function narrationShown(state: FamilyState, plan: PlanConfig, voiceId: string, today: BookText, householdId: string, revision?: string): Narration {
+  const heard = narrationFor(state, plan, voiceId, today, householdId);
+  if (revision === undefined || heard.text.revision === revision) return heard;
+  let best: Narration | null = null;
+  for (const l of state.libraries) {
+    if (l.voiceId !== voiceId || l.bookSlug !== today.slug || l.textRevision !== revision || (l.scope !== "shared" && l.scope !== householdId)) continue;
+    const text = libraryText(l);
+    const status = text ? libraryStatus(state, l, text) : null;
+    if (text && status && (!best || status.ready > best.status.ready)) best = { library: l, text, status, pinned: true };
+  }
+  if (best) return best;
+  throw new PermissionError(409, "book_updated", "This story has been updated. Loading it again.");
+}
+
+/**
+ * Where a child picks up, counted in the text their narrator's audiobook reads. A place saved in that
+ * text is used as is; one saved in another text moves to the same sentence, or the nearest unchanged
+ * one before it. A place saved before texts were versioned could belong to any text the family has had;
+ * when those texts disagree about where it is, the child starts at the beginning of that chapter.
+ */
+export function resumePlace(state: FamilyState, householdId: string, place: { sentence: number; textRevision?: string | null }, heard: Narration): { sentence: number; ambiguous: boolean } {
+  const slug = heard.text.slug;
+  const revisions = place.textRevision
+    ? [place.textRevision]
+    : [bookText(slug)!.revision, ...state.libraries.filter((l) => l.bookSlug === slug && (l.scope === "shared" || l.scope === householdId)).map((l) => l.textRevision)];
+  const to = heard.text.sentences.map((x) => x.text);
+  const spots = new Set<number>();
+  for (const r of new Set(revisions)) {
+    const from = r === heard.text.revision ? heard.text : bookTextAt(slug, r);
+    if (from) spots.add(from === heard.text ? Math.min(place.sentence, to.length - 1) : mapPosition(from.sentences.map((x) => x.text), to, place.sentence));
+  }
+  if (spots.size <= 1) return { sentence: [...spots][0] ?? 0, ambiguous: false };
+  const chapter = heard.text.sentences[Math.min(...spots)]!.chapter;
+  return { sentence: heard.text.sentences.findIndex((x) => x.chapter === chapter), ambiguous: true };
+}
+
+/** A child's saved place and narrator in a book, counted in the text that narrator reads. */
+export async function kidsResume(store: FamilyStore, actor: Actor | null, childId: string, slug: string, voiceId: string | null) {
+  const state = await store.read();
+  requireChildAccess(state, actor, childId);
+  const child = activeChild(state, childId)!;
+  const place = state.progress.find((p) => p.childId === childId && p.bookSlug === slug);
+  const today = bookText(slug);
+  if (!place || !today || !voiceId || !state.voices.some((v) => v.id === voiceId)) return { sentence: 0, voiceId };
+  return { sentence: resumePlace(state, child.householdId, place, narrationFor(state, store.plan, voiceId, today, child.householdId)).sentence, voiceId };
 }
 
 interface PlaybackClaims {
@@ -872,7 +1082,7 @@ export function verifyPlayback(token: string, key: string, at = Date.now()): Pla
 export async function authorizePlayback(
   store: FamilyStore,
   actor: Actor | null,
-  input: { childId: string; voiceId: string; bookSlug: string; sentence: number },
+  input: { childId: string; voiceId: string; bookSlug: string; sentence: number; revision?: string },
   key: string,
   clock: Clock = now,
 ): Promise<{ url: string; expiresAt: string }> {
@@ -888,10 +1098,11 @@ export async function authorizePlayback(
   if (!liveSession(state, input.childId, store.plan, at.toISOString())) {
     throw new PermissionError(409, "no_listening_session", "Press play to start listening.");
   }
-  const text = bookText(input.bookSlug);
-  const sentence = text?.sentences[input.sentence];
-  if (!text || !sentence) throw new PermissionError(400, "bad_sentence", "That page doesn't exist.");
-  const library = libraryFor(state, store.plan, input.voiceId, text, child.householdId);
+  const today = bookText(input.bookSlug);
+  if (!today) throw new PermissionError(400, "bad_sentence", "That page doesn't exist.");
+  const { library, text } = narrationShown(state, store.plan, input.voiceId, today, child.householdId, input.revision);
+  const sentence = text.sentences[input.sentence];
+  if (!sentence) throw new PermissionError(400, "bad_sentence", "That page doesn't exist.");
   const seg = segmentsOf(state, library.key).get(sentence.id);
   if (seg?.status !== "ready" || !seg.storageKey) {
     throw new PermissionError(409, "not_prepared", "This part isn't prepared in that voice yet.");
@@ -952,6 +1163,8 @@ export interface ListenVoice {
   name: string;
   avatarUrl: string | null;
   tint: string;
+  /** The text this voice's audiobook reads (a key of `texts`). */
+  revision: string;
   readySentenceIds: string[];
   /** Every sentence of the book is stored in this voice. */
   complete: boolean;
@@ -964,6 +1177,8 @@ export interface ListenView {
   sentenceIds: string[];
   /** Voices this grown-up may hear with at least some of the book prepared, finished books first. */
   voices: ListenVoice[];
+  /** Today's text (`sentences` above) and any earlier text a voice's audiobook reads. */
+  texts: BookTexts;
 }
 
 /** The grown-up player for one book: its text and the prepared audio the household may play. */
@@ -977,9 +1192,17 @@ export async function listenView(store: FamilyStore, actor: Actor | null, househ
     .filter((id) => guardianVoiceAccess(state, store.plan, householdId, id))
     .map((id): ListenVoice => {
       const owner = state.adults.find((a) => a.id === voiceOwnerOf(state, id));
-      const segs = segmentsOf(state, libraryFor(state, store.plan, id, text, householdId).key);
-      const readySentenceIds = text.sentences.filter((x) => segs.get(x.id)?.status === "ready" && segs.get(x.id)?.storageKey).map((x) => x.id);
-      return { voiceId: id, name: owner?.displayName ?? "A storyteller", avatarUrl: owner?.avatarUrl ?? null, tint: owner?.tint ?? "bg-lavender", readySentenceIds, complete: readySentenceIds.length === text.sentences.length };
+      const heard = narrationFor(state, store.plan, id, text, householdId);
+      const readySentenceIds = heard.status.readySentenceIds;
+      return {
+        voiceId: id,
+        name: owner?.displayName ?? "A storyteller",
+        avatarUrl: owner?.avatarUrl ?? null,
+        tint: owner?.tint ?? "bg-lavender",
+        revision: heard.text.revision,
+        readySentenceIds,
+        complete: heard.status.readiness === "ready",
+      };
     })
     .filter((v) => v.readySentenceIds.length > 0)
     .sort((a, b) => Number(b.complete) - Number(a.complete));
@@ -989,6 +1212,7 @@ export async function listenView(store: FamilyStore, actor: Actor | null, househ
     sentences: text.sentences.map((x) => x.text),
     sentenceIds: text.sentences.map((x) => x.id),
     voices,
+    texts: bookTexts(slug, voices.map((v) => v.revision)),
   };
 }
 
@@ -1003,17 +1227,18 @@ function voiceOwnerOf(state: FamilyState, voiceId: string): string | undefined {
 export async function authorizeGuardianPlayback(
   store: FamilyStore,
   actor: Actor | null,
-  input: { householdId: string; voiceId: string; bookSlug: string; sentence: number },
+  input: { householdId: string; voiceId: string; bookSlug: string; sentence: number; revision?: string },
   key: string,
   clock: Clock = now,
 ): Promise<{ url: string; expiresAt: string }> {
   const state = await store.read();
   requireHouseholdGuardian(state, actor, input.householdId);
   if (!guardianVoiceAccess(state, store.plan, input.householdId, input.voiceId)) throw NOT_AVAILABLE;
-  const text = bookText(input.bookSlug);
-  const sentence = text?.sentences[input.sentence];
-  if (!text || !sentence) throw new PermissionError(400, "bad_sentence", "That page doesn't exist.");
-  const library = libraryFor(state, store.plan, input.voiceId, text, input.householdId);
+  const today = bookText(input.bookSlug);
+  if (!today) throw new PermissionError(400, "bad_sentence", "That page doesn't exist.");
+  const { library, text } = narrationShown(state, store.plan, input.voiceId, today, input.householdId, input.revision);
+  const sentence = text.sentences[input.sentence];
+  if (!sentence) throw new PermissionError(400, "bad_sentence", "That page doesn't exist.");
   const seg = segmentsOf(state, library.key).get(sentence.id);
   if (seg?.status !== "ready" || !seg.storageKey) throw new PermissionError(409, "not_prepared", "This part isn't prepared in that voice yet.");
   const exp = clock().getTime() + store.plan.playbackUrlTtlSeconds * 1000;
@@ -1033,7 +1258,9 @@ export async function authorizeGuardianPlayback(
 export async function deleteVoiceNarrations(store: FamilyStore, voiceId: string, clock: Clock = now) {
   const state = await store.read();
   const keys = new Set(state.libraries.filter((l) => l.voiceId === voiceId).map((l) => l.key));
-  const storageKeys = state.segments.filter((s) => keys.has(s.libraryKey) && s.storageKey).map((s) => s.storageKey!);
+  // Audio another narration still points at (a reused sentence) is never deleted from under it.
+  const stillUsed = new Set(state.segments.filter((s) => !keys.has(s.libraryKey) && s.storageKey).map((s) => s.storageKey!));
+  const storageKeys = [...new Set(state.segments.filter((s) => keys.has(s.libraryKey) && s.storageKey).map((s) => s.storageKey!))].filter((k) => !stillUsed.has(k));
   await store.audio.delete(storageKeys);
   const at = clock().toISOString();
   await store.write((s) => {

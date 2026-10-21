@@ -188,6 +188,8 @@ export interface ChildBookProgress {
   bookSlug: string;
   sentence: number;
   voiceId: string | null;
+  /** The text `sentence` counts in; null for places saved before texts were versioned (resolved on read). */
+  textRevision?: string | null;
   updatedAt: string;
 }
 

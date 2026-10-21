@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { findCatalogBook } from "@/lib/library/catalog";
 import { sentencesOf } from "@/lib/content/sentences";
 import { saysTheEnd, THE_END } from "@/lib/content/the-end";
+import { revisionSnapshot } from "@/lib/library/revisions";
 
 /**
  * Canonical book text with stable sentence ids. A sentence id names the book, the text revision
@@ -25,15 +26,35 @@ export interface BookText {
   chapters: { number: number; title: string; sentenceIds: string[] }[];
 }
 
+const current = new Map<string, BookText | null>();
+
+/** Today's text of a book, as new narration is prepared from. */
 export function bookText(slug: string): BookText | null {
-  const book = findCatalogBook(slug);
-  if (!book) return null;
-  const revision = createHash("sha256").update(book.chapters.map((c) => c.text).join("\n\n")).digest("hex").slice(0, 12);
+  if (!current.has(slug)) {
+    const book = findCatalogBook(slug);
+    const revision = book ? createHash("sha256").update(book.chapters.map((c) => c.text).join("\n\n")).digest("hex").slice(0, 12) : "";
+    current.set(slug, book ? build(slug, book.title, book.edition, revision, book.chapters.map((c) => ({ title: c.title, sentences: sentencesOf(c.text) }))) : null);
+  }
+  return current.get(slug)!;
+}
+
+/**
+ * A book's text at one published revision: today's, or an earlier one exactly as it was built, so
+ * narration made from it is read along with the words it says. Null when that revision was never built.
+ */
+export function bookTextAt(slug: string, revision: string): BookText | null {
+  const today = bookText(slug);
+  if (today?.revision === revision) return today;
+  const snap = revisionSnapshot(slug, revision);
+  return snap ? build(slug, snap.title, snap.edition, snap.revision, snap.chapters) : null;
+}
+
+function build(slug: string, title: string, edition: string, revision: string, parts: { title: string; sentences: string[] }[]): BookText {
   const sentences: CanonicalSentence[] = [];
   const chapters: BookText["chapters"] = [];
-  book.chapters.forEach((c, i) => {
+  parts.forEach((c, i) => {
     const ids: string[] = [];
-    for (const text of sentencesOf(c.text)) {
+    for (const text of c.sentences) {
       const ordinal = sentences.length;
       const id = `${slug}.${revision}.${ordinal}`;
       sentences.push({ id, ordinal, chapter: i + 1, text });
@@ -47,7 +68,7 @@ export function bookText(slug: string): BookText | null {
     sentences.push({ id, ordinal, chapter: chapters.length, text: THE_END });
     chapters.at(-1)?.sentenceIds.push(id);
   }
-  return { slug, title: book.title, edition: book.edition, revision, sentences, chapters };
+  return { slug, title, edition, revision, sentences, chapters };
 }
 
 /** The book without its closing "The End.", for audio prepared before that sentence was added. */

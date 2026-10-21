@@ -11,12 +11,12 @@ export const dynamic = "force-dynamic";
  * checked first; nothing is generated here, so the child never waits on synthesis.
  */
 export async function POST(req: Request) {
-  const { childId, voiceId, bookSlug, sentence } = await jsonBody(req);
+  const { childId, voiceId, bookSlug, sentence, revision } = await jsonBody(req);
   if (typeof childId !== "string" || typeof voiceId !== "string" || typeof bookSlug !== "string" || !Number.isInteger(sentence)) {
     return fail(400, "bad_request", "Choose a story and a storyteller.");
   }
   return withFamily(async ({ store, actor }) =>
-    NextResponse.json(await authorizePlayback(store, actor, { childId, voiceId, bookSlug, sentence: sentence as number }, playbackKey()), {
+    NextResponse.json(await authorizePlayback(store, actor, { childId, voiceId, bookSlug, sentence: sentence as number, revision: typeof revision === "string" ? revision : undefined }, playbackKey()), {
       headers: { "cache-control": "no-store" },
     }),
   );

@@ -1,5 +1,5 @@
 import { CATALOG, NEW_BOOKS, MORE_BOOKS_ON_PHONES, findCatalogBook } from "@/lib/library/catalog";
-import { libraryFor, libraryStatus } from "@/lib/narration/narration";
+import { narrationFor } from "@/lib/narration/narration";
 import { bookText } from "@/lib/narration/text";
 import type { Adult, FamilyState } from "./model";
 import { activeApproval, activeChild, activeShare, activeSlot, childVoiceAccess, isActiveMember } from "./permissions";
@@ -77,11 +77,12 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
 
   // A child can page through a story's text before anything is prepared, which saves a place with
   // whichever narrator was picked. Only a place in audio that exists is something to continue.
-  const hasAudio = (slug: string, voiceId: string | null) => {
+  const heard = (slug: string, voiceId: string | null) => {
     const text = bookText(slug);
-    if (!text || !voiceId || !state.voices.some((v) => v.id === voiceId && v.deletedAt === null)) return false;
-    return libraryStatus(state, libraryFor(state, plan, voiceId, text, householdId), text).ready > 0;
+    if (!text || !voiceId || !state.voices.some((v) => v.id === voiceId && v.deletedAt === null)) return null;
+    return narrationFor(state, plan, voiceId, text, householdId);
   };
+  const hasAudio = (slug: string, voiceId: string | null) => (heard(slug, voiceId)?.status.ready ?? 0) > 0;
   const recent = state.progress
     .filter((p) => kidIds.has(p.childId) && p.sentence > 0 && hasAudio(p.bookSlug, p.voiceId))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -93,7 +94,9 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     const kid = kids.find((k) => k.id === p.childId);
     if (!book || !text || !kid || continueListening.length >= 8) continue;
     const owner = voiceOwner(p.voiceId);
-    const percent = Math.min(100, Math.round((p.sentence / Math.max(1, text.sentences.length)) * 100));
+    // How far along, in the text this narrator's audiobook reads.
+    const length = heard(p.bookSlug, p.voiceId)?.text.sentences.length ?? text.sentences.length;
+    const percent = Math.min(100, Math.round((p.sentence / Math.max(1, length)) * 100));
     continueListening.push({
       slug: book.slug,
       title: book.title,
@@ -113,11 +116,12 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     const owners = new Map<string, Adult | undefined>();
     for (const lib of state.libraries) {
       if (lib.bookSlug !== book.slug || !activeShare(state, lib.voiceId, householdId)) continue;
-      const voice = state.voices.find((v) => v.id === lib.voiceId && v.deletedAt === null && v.status === "ready" && v.version === lib.voiceVersion);
+      // An audiobook made with an earlier recording of the voice, or from an earlier text, still counts.
+      const voice = state.voices.find((v) => v.id === lib.voiceId && v.deletedAt === null && v.status === "ready");
       if (!voice || owners.has(voice.id)) continue;
       // Ready means a child can play it now: shared, in a slot, on a live plan and approved for someone.
       if (!kids.some((k) => childVoiceAccess(state, k.id, voice.id, plan).allowed)) continue;
-      if (libraryStatus(state, lib, text).readiness === "ready") owners.set(voice.id, adultById.get(voice.ownerId));
+      if (narrationFor(state, plan, voice.id, text, householdId).status.readiness === "ready") owners.set(voice.id, adultById.get(voice.ownerId));
     }
     if (!owners.size) continue;
     const who = [...owners.values()].map((a) => a?.displayName ?? "a storyteller");

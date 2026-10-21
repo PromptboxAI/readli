@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { isTheEnd, THE_END_PAUSE_MS } from "@/lib/content/the-end";
 import type { NarratorView } from "@/lib/family/service";
-import type { KidsNarratorReadiness } from "@/lib/narration/narration";
+import type { BookTexts, KidsNarratorReadiness } from "@/lib/narration/narration";
+import { mapPosition } from "@/lib/narration/positions";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 import { useGaplessAudio } from "./useGaplessAudio";
 
@@ -19,14 +20,14 @@ async function errorCode(res: Response): Promise<string | undefined> {
 /**
  * Readli Kids player. Shows only narrators the server says this child may hear, marks which have
  * audio prepared at the current sentence, switches instantly at the current sentence when it is
- * prepared, and never generates audio while the child waits.
+ * prepared, and never generates audio while the child waits. Each narrator's words are the text their
+ * audiobook reads, so read-along always matches what is heard.
  */
 export function KidsPlayer({
   childId,
   childName,
   book,
-  sentences,
-  sentenceIds,
+  texts: initialTexts,
   initialNarrators,
   initialReadiness,
   resume,
@@ -35,11 +36,10 @@ export function KidsPlayer({
   childId: string;
   childName: string;
   book: { slug: string; title: string };
-  sentences: string[];
-  sentenceIds: string[];
+  texts: BookTexts;
   initialNarrators: NarratorView[];
   initialReadiness: KidsNarratorReadiness[];
-  /** This child's saved place and narrator in this book. */
+  /** This child's saved place and narrator in this book, counted in that narrator's text. */
   resume: { sentence: number; voiceId: string | null };
   /** The preview family, whose narration is a stand-in sound. */
   preview?: boolean;
@@ -49,7 +49,16 @@ export function KidsPlayer({
   const [voiceId, setVoiceId] = useState<string | null>(
     initialNarrators.find((n) => n.voiceId === resume.voiceId)?.voiceId ?? initialNarrators[0]?.voiceId ?? null,
   );
-  const [sentence, setSentence] = useState(Math.min(resume.sentence, sentences.length - 1));
+  const [texts, setTexts] = useState(initialTexts.texts);
+  const revisionOf = (id: string | null, from = readiness) => from.find((r) => r.voiceId === id)?.revision ?? initialTexts.current;
+  // The revision on screen. It follows the narrator, but never changes under a sentence being heard.
+  const [shown, setShown] = useState(() => {
+    const r = revisionOf(voiceId);
+    return texts[r] ? r : initialTexts.current;
+  });
+  const sentences = (texts[shown] ?? texts[initialTexts.current]!).sentences;
+  const sentenceIds = (texts[shown] ?? texts[initialTexts.current]!).sentenceIds;
+  const [sentence, setSentence] = useState(Math.max(0, Math.min(resume.sentence, sentences.length - 1)));
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [picker, setPicker] = useState(false);
@@ -58,11 +67,41 @@ export function KidsPlayer({
   voiceRef.current = voiceId;
   const sentenceRef = useRef(sentence);
   sentenceRef.current = sentence;
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+  const textsRef = useRef(texts);
+  textsRef.current = texts;
+  const readinessRef = useRef(readiness);
+  readinessRef.current = readiness;
+  const playingRef = useRef(false);
+  playingRef.current = playing;
   const listening = useRef(false);
   const audio = useGaplessAudio({ ended: () => onEnded(), error: () => void onAudioError() });
 
   const readyAt = (id: string | null, at: number) =>
     Boolean(id && readiness.find((r) => r.voiceId === id)?.readySentenceIds.includes(sentenceIds[at] ?? ""));
+
+  /** Whether a narrator has audio here, at the same place in the text they read. */
+  const readyHere = (id: string) => {
+    const r = revisionOf(id);
+    const t = texts[r];
+    if (!t || r === shown) return readyAt(id, sentence);
+    const at = mapPosition(sentences, t.sentences, sentence);
+    return Boolean(readiness.find((x) => x.voiceId === id)?.readySentenceIds.includes(t.sentenceIds[at] ?? ""));
+  };
+
+  /** Shows `revision` in place of the text on screen, keeping the listener's place in the story. */
+  const showRevision = (revision: string, all = textsRef.current) => {
+    const from = all[shownRef.current];
+    const to = all[revision];
+    if (!to || revision === shownRef.current) return sentenceRef.current;
+    const at = from ? mapPosition(from.sentences, to.sentences, sentenceRef.current) : 0;
+    setShown(revision);
+    shownRef.current = revision;
+    setSentence(at);
+    sentenceRef.current = at;
+    return at;
+  };
 
   /** Ends this child's listening session so it stops counting against the family's limit. */
   const endSession = useCallback(() => {
@@ -86,20 +125,33 @@ export function KidsPlayer({
     void fetch(`/api/kids/${childId}/progress`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ bookSlug: book.slug, sentence, voiceId }),
+      body: JSON.stringify({ bookSlug: book.slug, sentence, voiceId, textRevision: shown }),
       keepalive: true,
     });
-  }, [childId, book.slug, sentence, voiceId]);
+  }, [childId, book.slug, sentence, voiceId, shown]);
 
   /** Asks the server who this child may hear and what is prepared; drops a narrator no longer allowed. */
   const refresh = useCallback(async () => {
-    const res = await fetch(`/api/kids/${childId}/books/${book.slug}`, { cache: "no-store" }).catch(() => null);
+    const have = Object.keys(textsRef.current).join(",");
+    const res = await fetch(`/api/kids/${childId}/books/${book.slug}?have=${have}`, { cache: "no-store" }).catch(() => null);
     if (!res) return true;
     if (!res.ok) return true;
-    const body = (await res.json()) as { narrators: NarratorView[]; readiness: KidsNarratorReadiness[] };
-    setNarrators(body.narrators);
-    setReadiness(body.readiness);
+    const body = (await res.json()) as { narrators: NarratorView[]; readiness: KidsNarratorReadiness[]; texts?: BookTexts };
+    const all = { ...textsRef.current, ...body.texts?.texts };
+    setTexts(all);
+    textsRef.current = all;
     const current = voiceRef.current;
+    // A finished update to this narrator's reading waits until listening stops; until then the
+    // story carries on in the reading the child is hearing.
+    const hearing = listening.current || playingRef.current;
+    const kept = readinessRef.current.find((r) => r.voiceId === current);
+    const next = hearing && kept && kept.revision === shownRef.current
+      ? body.readiness.map((r) => (r.voiceId === current && r.revision !== kept.revision ? kept : r))
+      : body.readiness;
+    setNarrators(body.narrators);
+    setReadiness(next);
+    readinessRef.current = next;
+    if (current && !hearing) showRevision(revisionOf(current, next), all);
     if (current && !body.narrators.some((n) => n.voiceId === current)) {
       halt();
       setVoiceId(body.narrators[0]?.voiceId ?? null);
@@ -127,7 +179,7 @@ export function KidsPlayer({
     fetch("/api/kids/narrations", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ childId, voiceId: voice, bookSlug: book.slug, sentence: at }),
+      body: JSON.stringify({ childId, voiceId: voice, bookSlug: book.slug, sentence: at, revision: shownRef.current }),
     });
 
   /** Buffers the next sentence while this one plays, so the story flows without a pause. */
@@ -174,7 +226,11 @@ export function KidsPlayer({
       if (voiceRef.current !== voice) return; // switched again while waiting
       if (!res?.ok) {
         halt();
-        if (code === "not_prepared") {
+        if (code === "book_updated") {
+          // This reading was replaced by an update; show the new one at the same place.
+          await refresh();
+          setNotice(PAUSED);
+        } else if (code === "not_prepared") {
           setNotice(`${nameOf(voice)}'s reading stops here for now. Pick another storyteller, or ask a grown-up to prepare more.`);
         } else if (code === "voice_not_available") {
           // refresh() drops the narrator and explains if access really was removed.
@@ -234,7 +290,9 @@ export function KidsPlayer({
     setVoiceId(id);
     voiceRef.current = id;
     audio.clear();
-    if (playing || loading) void play(sentence, id);
+    // Each narrator shows the words they read; the place carries over to the same sentence.
+    const at = showRevision(revisionOf(id));
+    if (playing || loading) void play(at, id);
   };
 
   const goTo = (at: number) => {
@@ -317,7 +375,7 @@ export function KidsPlayer({
       {picker && (
         <div id="narrator-picker" role="group" aria-label="Choose a storyteller" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {narrators.map((n) => {
-            const ready = readyAt(n.voiceId, sentence);
+            const ready = readyHere(n.voiceId);
             return (
               <button
                 key={n.voiceId}
