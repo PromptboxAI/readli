@@ -11,13 +11,18 @@
  *   NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... GUEST_COOKIE_SECRET=... \
  *   ELEVENLABS_API_KEY=... STAGING_SAMPLE=./sample.webm npx tsx scripts/staging-deletion-check.ts
  *
- * STAGING_SAMPLE is a short recording of real speech by someone who agreed to it (a tone is refused
- * by ElevenLabs). The clone it makes is deleted by the check.
+ * STAGING_SAMPLE is the path to a short .wav, .mp3 or .webm recording of real speech by someone who
+ * agreed to it (a tone is refused by ElevenLabs). The clone it makes is deleted by the check.
+ *
+ * It only ever deletes what this run created: clean-up sees only this run's demo session, and every
+ * delete (the ElevenLabs voice, Storage files, the session row) is refused unless it names that session
+ * or that voice. Other demos in the staging project and other voices on the ElevenLabs key are never
+ * touched, even if they have expired.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { serverConfig } from "@/lib/server/config";
-import { cleanupExpiredGuests } from "@/lib/server/guest-demo";
+import { cleanupExpiredGuests, scopeCleanupTo } from "@/lib/server/guest-demo";
 import { SupabaseGuestStore } from "@/lib/server/guest-store";
 import { ElevenLabsProvider } from "@/lib/voice/elevenlabs";
 
@@ -65,11 +70,14 @@ async function rowCounts(sessionId: string) {
 
 async function main() {
   const sample = readFileSync(env.STAGING_SAMPLE!);
-  const type = env.STAGING_SAMPLE!.endsWith(".wav") ? "audio/wav" : env.STAGING_SAMPLE!.endsWith(".mp3") ? "audio/mpeg" : "audio/webm";
+  const type = ({ wav: "audio/wav", mp3: "audio/mpeg", webm: "audio/webm" } as Record<string, string>)[env.STAGING_SAMPLE!.split(".").pop()!.toLowerCase()];
+  if (!type || sample.byteLength > 25 * 1024 * 1024) throw new Error("STAGING_SAMPLE must be a .wav, .mp3 or .webm file under 25 MB.");
   const session = await store.createSession({ tokenHash: `staging-check-${Date.now()}`, policyVersion: "staging-check", generationsAllowed: 1 });
   await store.saveRecording(session.id, new Blob([sample], { type }), { durationMs: 30_000, mimeType: type, teleprompterWpm: null, pauseCount: 0, deviceClass: null, scriptOffsetEnd: null });
   const { voiceId } = await eleven.createInstantVoice({ name: "Readli staging deletion check", audio: new Blob([sample], { type }), filename: `sample.${type.split("/")[1]}`, description: "Deleted by the staging deletion check." });
+  console.log(`Created demo session ${session.id} and ElevenLabs voice ${voiceId}. If the check stops early, these are the only things to remove.`);
   await store.setVoice(session.id, voiceId);
+  const own = scopeCleanupTo(store, eleven, session.id, voiceId);
   const speech = await eleven.synthesize({ voiceId, text: "This is a staging deletion check." });
   await store.savePreview(session.id, `${voiceId}_check`, speech.audio, speech.contentType);
   check("demo created: take and generated audio in Storage", (await files(session.id)).length >= 2, await files(session.id));
@@ -79,8 +87,8 @@ async function main() {
   const past = new Date(Date.now() - 60_000).toISOString();
   await db.from("guest_sessions").update({ expires_at: past }).eq("id", session.id);
   await db.from("guest_assets").update({ expires_at: past }).eq("guest_session_id", session.id);
-  const failing = Object.assign(Object.create(eleven), { deleteVoice: async () => Promise.reject(new Error("forced failure (staging check)")) });
-  const failed = await cleanupExpiredGuests({ config, store, provider: failing }, 50, 45_000);
+  const failing = Object.assign(Object.create(own.provider), { deleteVoice: async () => Promise.reject(new Error("forced failure (staging check)")) });
+  const failed = await cleanupExpiredGuests({ config, store: own.store, provider: failing }, 50, 45_000);
   const { data: voiceRow } = await db.from("guest_assets").select("deletion_state, provider_ref_encrypted").eq("guest_session_id", session.id).eq("kind", "provider_voice").maybeSingle();
   check("forced failure: run reports the failure", failed.failed >= 1, failed);
   check("forced failure: clone reference kept and marked failed", voiceRow?.deletion_state === "failed" && Boolean(voiceRow?.provider_ref_encrypted), voiceRow?.deletion_state);
@@ -88,7 +96,7 @@ async function main() {
   check("forced failure: ElevenLabs voice still exists", await voiceExists(voiceId));
 
   // Retry for real.
-  const retried = await cleanupExpiredGuests({ config, store, provider: eleven }, 50, 45_000);
+  const retried = await cleanupExpiredGuests({ config, store: own.store, provider: own.provider }, 50, 45_000);
   check("retry: run reports success", retried.failed === 0, retried);
   check("retry: Storage folder empty", (await files(session.id)).length === 0, await files(session.id));
   check("retry: ElevenLabs voice gone (404)", !(await voiceExists(voiceId)));

@@ -91,3 +91,27 @@ These are flagged rather than changed, because each one sets policy.
 - **California.** Is a "Do Not Sell or Share" link and notice at collection needed before licensing launches?
 - **Other states.** Should anywhere beyond Illinois, Texas and Washington be excluded?
 - **New York digital replica law.** Does it apply to licensed recordings?
+
+## Part 5. Voice Agreement promises that don't match what runs today (Kevin, 2026-10-21): please review
+
+The in-app notices (`notice` in `VOICE_CHOICES`) now say only what has actually happened. The Agreement
+text a contributor accepts (`terms`, shown as §8 A to C) still describes deletion and retirement that
+are switched off: `LIFECYCLE_RECORDING_DELETION`, `LIFECYCLE_CLONE_RETIREMENT` and `LIFECYCLE_DELETION`
+are off, and "Delete my voice" is paused (it asks people to email admin@readli.ai). Counsel should
+decide the wording before any of it is published. Claude hasn't changed it.
+
+- **§8 A, Delete my original recordings.** It says Readli "removes them from its active storage,
+  normally within 30 days" and that otherwise "Readli retires" the voice model. Today the request is
+  recorded and the recordings are kept, unused, until recording deletion is turned on. The voice model
+  isn't retired.
+- **§8 B, Stop sharing my voice.** It says "your voice model at Readli's voice provider is retired".
+  Today new stories stop and sharing turns off, but the model stays stored at ElevenLabs until clone
+  retirement is turned on.
+- **§8 C, Delete my voice entirely.** It says the voice model "is deleted and never re-made" and the
+  recordings are deleted within 30 days. This choice is paused, so none of it happens yet.
+- **Agreement summary line.** "I can stop sharing, replace or delete my voice at any time" promises
+  deletion that is paused.
+- **Question for counsel.** Should the Agreement describe the request and a target period ("we record
+  your request and delete … once processed, normally within N days"), or should each flag stay off
+  until the promised behaviour runs? Under the biometric laws in Part 2 (BIPA, CUBI, Washington), a
+  deletion promise that isn't met may itself be a compliance problem.

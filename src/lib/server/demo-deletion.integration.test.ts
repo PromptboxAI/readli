@@ -6,7 +6,7 @@ import { fakeSupabase } from "@/lib/testing/fake-supabase";
 import { SupabaseAccountVoiceStore, cleanupStaleCandidates, type AccountVoiceDeps } from "@/lib/voice/account-voices";
 import { StubVoiceProvider } from "@/lib/voice/stub";
 import { serverConfig } from "./config";
-import { cleanupAlert, cleanupExpiredGuests } from "./guest-demo";
+import { cleanupAlert, cleanupExpiredGuests, scopeCleanupTo } from "./guest-demo";
 import { SupabaseGuestStore } from "./guest-store";
 import { DEMO_DELETION_PROMISE_MS, GUEST_TTL_MS } from "./guest-token";
 import { ProviderRefCipher } from "./provider-ref";
@@ -76,6 +76,27 @@ describe("demo deletion end to end", () => {
     // A demo still within its time is untouched.
     expect((tables.guest_sessions ?? []).some((r) => r.id === keep)).toBe(true);
     expect((files["guest-recordings"] ?? []).filter((k) => k.startsWith(`${keep}/`)).length).toBe(2);
+  });
+
+  it("the staging check's scoped clean-up deletes only its own demo and clone", async () => {
+    const { store, tables, files } = setup();
+    const provider = new StubVoiceProvider();
+    const own = await demo(store, tables, "clone-own", 25);
+    const other = await demo(store, tables, "clone-other", 30);
+    const scoped = scopeCleanupTo(store, provider, own, "clone-own");
+
+    expect((await cleanupExpiredGuests({ config, ...scoped })).deleted).toBe(1);
+    expect(provider.deleted).toEqual(["clone-own"]);
+    expect((tables.guest_sessions ?? []).some((r) => r.id === own)).toBe(false);
+    // Another expired demo is left alone, with its files, rows and clone.
+    expect((tables.guest_sessions ?? []).some((r) => r.id === other)).toBe(true);
+    expect((files["guest-recordings"] ?? []).filter((k) => k.startsWith(`${other}/`)).length).toBe(2);
+    expect(rowsFor(tables, other).length).toBe(5);
+    await expect(scoped.provider.deleteVoice("clone-other")).rejects.toThrow(/Refusing/);
+    await expect(scoped.store.deleteStorage([`${other}/previews/clone-other_peter.mp3`])).rejects.toThrow(/Refusing/);
+    await expect(scoped.store.deleteSession(other)).rejects.toThrow(/Refusing/);
+    await expect(scoped.store.markDeletion(other, "provider_voice", "deleted")).rejects.toThrow(/Refusing/);
+    expect(provider.deleted).toEqual(["clone-own"]);
   });
 
   it("also deletes a stray file in the demo's folder that has no database row", async () => {
