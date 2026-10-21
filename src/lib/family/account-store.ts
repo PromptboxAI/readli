@@ -5,6 +5,9 @@ import type { AuditAction, ChildBookProgress, ChildVoiceApproval, CreditDraw, Cr
 import { planConfig, type PlanConfig } from "./plan";
 import type { FamilyStore } from "./service";
 
+/** A Supabase select that can be ordered and read one range at a time. */
+type Paged = { order: (column: string) => Paged; range: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }> };
+
 export function emptyFamilyState(): FamilyState {
   return {
     households: [],
@@ -66,6 +69,20 @@ export class AccountFamilyStore implements FamilyStore {
     const { data, error } = await p;
     if (error) throw new Error(`${what}: ${error.message}`);
     return (data ?? []) as T;
+  }
+
+  /**
+   * Every matching row, a page at a time in a stable order. Supabase returns at most 1,000 rows per request,
+   * and a family's narration passes that after a few books; a cut-off read made a prepared book look unprepared.
+   */
+  private async all(query: () => Paged, order: string[], what: string): Promise<Row[]> {
+    const size = 1000;
+    const out: Row[] = [];
+    for (let from = 0; ; from += size) {
+      const page = await this.q(order.reduce((q, column) => q.order(column), query()).range(from, from + size - 1), what);
+      out.push(...page);
+      if (page.length < size) return out;
+    }
   }
 
   async read(): Promise<FamilyState> {
@@ -225,16 +242,16 @@ export class AccountFamilyStore implements FamilyStore {
   private async readNarration(state: FamilyState, homeIds: string[]) {
     const voiceIds = state.voices.map((v) => v.id);
     const libraries = voiceIds.length
-      ? (await this.q(this.db.from("narration_libraries").select("*").in("voice_id", voiceIds), "read narration libraries")).filter(
+      ? (await this.all(() => this.db.from("narration_libraries").select("*").in("voice_id", voiceIds), ["key"], "read narration libraries")).filter(
           (l) => l.scope === "shared" || homeIds.includes(l.scope as string),
         )
       : [];
     const keys = libraries.map((l) => l.key as string);
     const [segments, jobs, lots, ledger] = await Promise.all([
-      keys.length ? this.q(this.db.from("narration_segments").select("*").in("library_key", keys), "read narration") : Promise.resolve([] as Row[]),
-      this.q(this.db.from("narration_jobs").select("*").in("household_id", homeIds), "read narration jobs"),
-      this.q(this.db.from("narration_credit_lots").select("*").in("household_id", homeIds), "read credits"),
-      this.q(this.db.from("narration_credit_ledger").select("*").in("household_id", homeIds), "read credit history"),
+      keys.length ? this.all(() => this.db.from("narration_segments").select("*").in("library_key", keys), ["library_key", "sentence_id"], "read narration") : Promise.resolve([] as Row[]),
+      this.all(() => this.db.from("narration_jobs").select("*").in("household_id", homeIds), ["id"], "read narration jobs"),
+      this.all(() => this.db.from("narration_credit_lots").select("*").in("household_id", homeIds), ["id"], "read credits"),
+      this.all(() => this.db.from("narration_credit_ledger").select("*").in("household_id", homeIds), ["id"], "read credit history"),
     ]);
     // Another family's job may be preparing a shared library's sentences; it must count as claimed.
     const known = new Set(jobs.map((j) => j.id as string));
