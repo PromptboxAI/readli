@@ -69,7 +69,7 @@ export interface FamilySession {
 }
 
 /** How long temporary Kids Mode lasts before a grown-up has to open it again. */
-export const TEMPORARY_KIDS_HOURS = 12;
+export const TEMPORARY_KIDS_HOURS = 6;
 const TEMP_PREFIX = "t1~";
 
 export function isTemporaryKidsCookie(value: string | undefined): boolean {
