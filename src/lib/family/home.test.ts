@@ -36,7 +36,8 @@ describe("family home", () => {
   it("shows a story as ready only when every sentence is stored in a voice shared with the family", () => {
     const state = withReadyBook(demoFamilyState());
     expect(familyHome(state, DEMO_HOUSEHOLD_ID).ready.map((b) => [b.slug, b.detail])).toEqual([[SLUG, "Ready with Mom"]]);
-    state.segments.pop();
+    // A missing story line keeps it off the shelf (a missing closing "The End." alone doesn't).
+    state.segments.shift();
     expect(familyHome(state, DEMO_HOUSEHOLD_ID).ready).toEqual([]);
   });
 
