@@ -43,7 +43,7 @@ test("parent controls gather the admin pages", async ({ page }, info) => {
   await expect(page.getByRole("heading", { name: "Parent Controls" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Parent Controls" })).toHaveAttribute("aria-current", "page");
   const controls = page.getByTestId("parent-controls");
-  for (const name of ["Kids profiles", "Family storytellers", "My Voice", "Readli credits", "Plan and billing", "Kids Mode PIN and devices", "Account settings", "Help"]) {
+  for (const name of ["Kids profiles", "Family storytellers", "My Voice", "Readli credits", "Plan and billing", "Kids devices and PIN", "Account settings", "Help"]) {
     await expect(controls.getByRole("link", { name: new RegExp(name) })).toBeVisible();
   }
   await expect(controls.getByRole("link", { name: /Kids profiles/ })).toContainText("2 of 6");
@@ -169,4 +169,18 @@ test("a book page sets up a storyteller in place, prepares the audiobook and pla
   await ready.getByRole("link", { name: "Play now" }).click();
   await expect(page).toHaveURL(/\/family\/books\/the-princess-and-the-pea\/listen\?voice=voice-priya/);
   await expect(page.getByTestId("grown-up-player")).toBeVisible();
+});
+
+test("Kids devices separates temporary Kids Mode from a registered device", async ({ page }, info) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/devices");
+  await expect(page.getByRole("heading", { name: "Kids devices and PIN" })).toBeVisible();
+  const modes = page.getByTestId("kids-modes");
+  await expect(modes).toContainText("Temporary");
+  await expect(modes).toContainText("Ends on its own after 12 hours, and never registers a device");
+  await expect(modes).toContainText("Stays set up");
+  await expect(modes).toContainText("Ends after 90 days unused");
+  await expect(page.getByRole("heading", { name: "Family PIN" })).toBeVisible();
+  await noOverflow(page);
+  await page.screenshot({ path: `e2e/screenshots/kids-devices-${info.project.name}.png`, fullPage: true });
 });
