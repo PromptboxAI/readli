@@ -70,7 +70,7 @@ const phoneTab = (active: boolean) =>
   `flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-center font-display text-xs leading-tight font-semibold ${active ? "text-coral-deep" : "text-ink"}`;
 
 /** The Parent Portal's own navigation: tabs on desktop, a bottom bar on phones, Sign out in the account menu. */
-export function ParentNav({ account }: { account: { name: string; email: string | null; initials: string; badge: string | null; links: NavLink[] } }) {
+export function ParentNav({ account }: { account: { name: string; email: string | null; initials: string; avatarUrl: string | null; badge: string | null; links: NavLink[] } }) {
   const path = usePathname() ?? "";
   const tabs = (phone?: boolean) =>
     NAV.map((tab) => {
