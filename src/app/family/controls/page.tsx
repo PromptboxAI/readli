@@ -7,19 +7,18 @@ import { activeEntitlement, liveSlots, narratorSlotCount } from "@/lib/family/pe
 import { guardianHousehold } from "@/lib/family/service";
 import { deviceRegistry, familyStore } from "@/lib/family/session";
 import { creditBalance, displayCredits } from "@/lib/narration/credits";
-import { BackLink } from "@/components/family/BackLink";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Parent controls | Readli" };
+export const metadata: Metadata = { title: "Parent Controls | Readli" };
 
-type Control = { href: string; title: string; text: string; value?: string; tone: string };
+type Control = { href: string; title: string; text: string; value?: string };
 
-/** Everything a parent manages, in one place, so the family home can stay about listening. */
+/** Parent Controls: every setting a parent manages, grouped, so the family home can stay about listening. */
 export default async function ParentControls() {
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   const session = page.session;
-  const denied = <NeedsGrownUp text="Only a parent or guardian can open parent controls." />;
+  const denied = <NeedsGrownUp text="Only a parent or guardian can open Parent Controls." />;
   if (session?.actor.kind !== "adult") return denied;
   const store = (await familyStore(session))!;
   const householdId = await guardianHousehold(store, session.actor);
@@ -32,45 +31,84 @@ export default async function ParentControls() {
   const credits = creditBalance(state, plan, householdId);
   const registry = deviceRegistry(Boolean(session.account));
   const devices = registry ? (await listDevices(registry, state, session.actor, householdId)).filter((d) => d.status === "active").length : null;
+  const hasPin = registry ? Boolean(await registry.pinHash(householdId)) : false;
   const hasPlan = Boolean(activeEntitlement(state, householdId));
 
-  const controls: Control[] = [
-    { href: "/family/kids", title: "Kids profiles", text: "Add, rename or remove children", value: `${kids} of ${plan.maxChildProfiles}`, tone: "bg-sunshine/40" },
-    { href: "/family/narrators", title: "Family storytellers", text: "Narrator slots, sharing and who each child can hear", value: hasPlan ? `${used} of ${slots} slots` : undefined, tone: "bg-mint/40" },
-    { href: "/family/books", title: "Family library", text: "Prepare stories in a storyteller's voice", tone: "bg-sky/30" },
-    { href: "/family/credits", title: "Readli credits", text: "Your monthly allowance and history", value: `${displayCredits(credits.available, credits.unitsPerCredit).toLocaleString("en-US")} left`, tone: "bg-sunshine/40" },
-    { href: "/family/billing", title: "Plan and billing", text: "Your Readli Family plan and storyteller slots", tone: "bg-lavender/40" },
-    { href: "/family/devices", title: "Kids Mode PIN and devices", text: "The PIN for leaving Kids Mode, and Readli Kids iPads and phones", value: devices === null ? undefined : `${devices} ${devices === 1 ? "device" : "devices"}`, tone: "bg-sky/30" },
-    { href: "/family/my-voice", title: "My Voice", text: "Your own voice and which families can use it", tone: "bg-coral/20" },
-    { href: "/family/account", title: "Account settings", text: "Name, photo, email and sign-in", tone: "bg-ink/5" },
+  const groups: { title: string; controls: Control[] }[] = [
+    {
+      title: "Family",
+      controls: [
+        { href: "/family/kids", title: "Kids profiles", text: "Add, rename or remove children, and open Readli Kids", value: `${kids} of ${plan.maxChildProfiles}` },
+        { href: "/family/narrators", title: "Family storytellers", text: "Narrator slots, sharing and who each child can hear", value: hasPlan ? `${used} of ${slots} slots` : undefined },
+        { href: "/family/my-voice", title: "My Voice", text: "Your recordings, which families can use them, and deleting them" },
+      ],
+    },
+    {
+      title: "Credits and billing",
+      controls: [
+        { href: "/family/credits", title: "Readli credits", text: "Your monthly allowance and history", value: `${displayCredits(credits.available, credits.unitsPerCredit).toLocaleString("en-US")} left` },
+        { href: "/family/billing", title: "Plan and billing", text: "Your Readli Family plan and storyteller slots" },
+      ],
+    },
+    {
+      title: "Kids devices",
+      controls: [
+        {
+          href: "/family/devices",
+          title: "Kids Mode PIN and devices",
+          text: "The PIN for leaving Kids Mode, and Readli Kids iPads and phones",
+          value: devices === null ? undefined : `${hasPin ? "PIN set · " : ""}${devices} ${devices === 1 ? "device" : "devices"}`,
+        },
+      ],
+    },
+    {
+      title: "Account",
+      controls: [
+        { href: "/family/account", title: "Account settings", text: "Name, photo, email, sign-in, your data and deleting your account" },
+        { href: "/help", title: "Help", text: "Guides and how to reach us" },
+      ],
+    },
   ];
+  const column = (list: typeof groups) => (
+    <div className="flex flex-col gap-6">
+      {list.map((g) => (
+        <section key={g.title} className="flex flex-col gap-2" aria-labelledby={`group-${g.title}`}>
+          <h2 id={`group-${g.title}`} className="ml-1 text-sm font-bold tracking-wider text-muted uppercase">
+            {g.title}
+          </h2>
+          <ul className="divide-y-2 divide-ink/5 overflow-hidden rounded-3xl bg-surface ring-2 ring-ink/10">
+            {g.controls.map((c) => (
+              <li key={c.href}>
+                <Link href={c.href} className="flex min-h-16 items-center gap-4 px-4 py-3 hover:bg-ivory">
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="font-display text-lg font-semibold">{c.title}</span>
+                    <span className="text-sm text-muted">{c.text}</span>
+                  </span>
+                  {c.value && <span className="shrink-0 text-right font-display font-semibold">{c.value}</span>}
+                  <span aria-hidden="true" className="text-muted">
+                    ›
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
 
   return (
     <FamilyShell>
       <PreviewNote />
-      <BackLink href="/family" label="Family" />
-      <div className="flex flex-col gap-2">
-        <h1 className="font-display text-4xl font-semibold">Parent controls</h1>
-        <p className="text-lg text-muted">Manage your family, storytellers, credits and account.</p>
+      <h1 className="font-display text-4xl font-semibold">Parent Controls</h1>
+      <div className="grid items-start gap-6 lg:grid-cols-2" data-testid="parent-controls">
+        {column([groups[0]!, groups[2]!])}
+        {column([groups[1]!, groups[3]!])}
       </div>
-      <ul className="grid gap-3 sm:grid-cols-2" data-testid="parent-controls">
-        {controls.map((c) => (
-          <li key={c.href}>
-            <Link href={c.href} className="flex h-full items-center gap-4 rounded-3xl bg-surface p-4 ring-2 ring-ink/10 hover:ring-ink">
-              <span aria-hidden="true" className={`size-12 shrink-0 rounded-2xl ${c.tone}`} />
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="font-display text-lg font-semibold">{c.title}</span>
-                <span className="text-sm text-muted">{c.text}</span>
-              </span>
-              {c.value && <span className="shrink-0 font-display font-semibold">{c.value}</span>}
-              <span aria-hidden="true" className="text-muted">
-                ›
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-      <p className="text-sm text-muted">None of these open on a Readli Kids device.</p>
+      <p className="max-w-3xl text-sm text-muted">
+        Billing changes, deleting a voice or your account, and changing who a voice is shared with always need you to sign in again, never just the Kids
+        Mode PIN. None of these open on a Readli Kids device.
+      </p>
     </FamilyShell>
   );
 }

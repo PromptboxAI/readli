@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { buttonPrimary, buttonQuiet } from "@/components/brand/buttons";
 import type { ChildProfilesView } from "@/lib/family/service";
+import { SessionButton } from "./SessionButton";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 
 /** Readli Family → Kids profiles. Up to the plan's maximum, never charged per child. */
@@ -29,6 +30,7 @@ export function ChildProfiles({ initial }: { initial: ChildProfilesView }) {
     <div className="flex flex-col gap-8" data-testid="child-profiles">
       <div className="flex flex-col gap-3">
         <h1 className="font-display text-4xl font-semibold">Kids profiles</h1>
+        <p className="max-w-2xl text-lg text-muted">Open a child&apos;s Readli Kids here, or choose which storytellers they can hear.</p>
         <p className="max-w-2xl text-lg">
           Readli Family includes up to {view.max} kids profiles at no extra cost. Each child gets their own bookshelf, place in
           every book, favourite stories and storytellers you approve.
@@ -44,7 +46,7 @@ export function ChildProfiles({ initial }: { initial: ChildProfilesView }) {
 
       <ul className="grid gap-3 sm:grid-cols-2">
         {view.children.map((c) => (
-          <li key={c.id} className="flex items-center gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
+          <li key={c.id} className="flex flex-wrap items-center gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
             <StorytellerAvatar name={c.nickname} avatarUrl={null} tint={c.tint} />
             <div className="min-w-0 flex-1">
               <p className="font-display text-xl font-semibold">{c.nickname}</p>
@@ -52,6 +54,9 @@ export function ChildProfiles({ initial }: { initial: ChildProfilesView }) {
                 Manage storytellers
               </Link>
             </div>
+            <SessionButton as={`child:${c.id}`} next="/kids" className={buttonPrimary}>
+              Open Readli Kids<span className="sr-only"> for {c.nickname}</span>
+            </SessionButton>
             <button
               type="button"
               className={buttonQuiet}

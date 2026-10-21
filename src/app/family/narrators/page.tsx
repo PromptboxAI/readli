@@ -20,7 +20,7 @@ export default async function NarratorSlotsPage() {
   return (
     <FamilyShell>
       <PreviewNote />
-      <BackLink href="/family" label="Family" />
+      <BackLink href="/family/controls" label="Parent Controls" />
       <NarratorSlots initial={await narratorSlots(store, page.session.actor, householdId)} canBuy={!page.session.account} approveHref={approveHref(page.state, householdId)} />
     </FamilyShell>
   );

@@ -29,7 +29,7 @@ export default async function MyVoicePage() {
   return (
     <FamilyShell>
       <PreviewNote />
-      <BackLink href="/family" label="Family" />
+      <BackLink href="/family" label="Home" />
       <h1 className="font-display text-4xl font-semibold">My voice</h1>
       {model?.canUpgrade && <VoiceModelUpgrade />}
       {user && <AccountVoiceControls voice={recording && { status: recording.status, version: recording.version, updatedAt: recording.updatedAt }} />}

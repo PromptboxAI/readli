@@ -2,42 +2,61 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useRef, useState } from "react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { AccountMenu } from "@/components/home/AccountMenu";
 import type { NavLink } from "@/lib/auth/nav-links";
 
-type Tab = { label: string; icon: string; href: string; match: string[] } | { label: string; icon: string; items: NavLink[]; match: string[] };
+type Tab = { label: string; href: string; match: string[]; icon: React.ReactNode };
+
+const icon = (paths: React.ReactNode) => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    {paths}
+  </svg>
+);
 
 /**
- * Parent Portal sections: Home | Books | Family | Kids | More. Only pages that exist today are linked;
- * Privacy joins More when that page lands. Kids sets up Readli Kids devices.
+ * Parent Portal sections: Home | Books | Family | Parent Controls. Family is the kids and who reads to them
+ * (each child's profile is where Readli Kids opens); Parent Controls opens every setting directly, including
+ * Kids Mode devices, credits, billing, storytellers and voices.
  */
 const NAV: Tab[] = [
-  { label: "Home", icon: "⌂", href: "/family", match: ["/family"] },
-  { label: "Books", icon: "▤", href: "/family/books", match: ["/family/books"] },
+  { label: "Home", href: "/family", match: ["/family"], icon: icon(<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" />) },
+  {
+    label: "Books",
+    href: "/family/books",
+    match: ["/family/books"],
+    icon: icon(
+      <>
+        <path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z" />
+        <path d="M4 19V5" />
+      </>,
+    ),
+  },
   {
     label: "Family",
-    icon: "♥",
-    match: ["/family/kids", "/family/narrators", "/family/my-voice"],
-    items: [
-      { href: "/family/kids", label: "Child profiles" },
-      { href: "/family/narrators", label: "Family Circle and storytellers" },
-      { href: "/family/my-voice", label: "My Voice" },
-    ],
+    href: "/family/kids",
+    match: ["/family/kids"],
+    icon: icon(
+      <>
+        <circle cx="9" cy="8" r="3" />
+        <circle cx="17" cy="9" r="2.5" />
+        <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+        <path d="M15 15c2.8 0 6 1.5 6 5" />
+      </>,
+    ),
   },
-  { label: "Kids", icon: "☺", href: "/family/devices", match: ["/family/devices"] },
   {
-    label: "More",
-    icon: "≡",
-    match: ["/family/controls", "/family/billing", "/family/credits", "/family/account"],
-    items: [
-      { href: "/family/controls", label: "All parent controls" },
-      { href: "/family/billing", label: "Plan and billing" },
-      { href: "/family/credits", label: "Credits" },
-      { href: "/family/devices", label: "Devices" },
-      { href: "/family/account", label: "Account settings" },
-    ],
+    label: "Parent Controls",
+    href: "/family/controls",
+    match: ["/family/controls", "/family/narrators", "/family/my-voice", "/family/devices", "/family/credits", "/family/billing", "/family/account"],
+    icon: icon(
+      <>
+        <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12" />
+        <circle cx="16" cy="6" r="2" />
+        <circle cx="10" cy="12" r="2" />
+        <circle cx="18" cy="18" r="2" />
+      </>,
+    ),
   },
 ];
 
@@ -45,71 +64,24 @@ function isActive(tab: Tab, path: string): boolean {
   return tab.match.some((m) => (m === "/family" ? path === m : path === m || path.startsWith(`${m}/`)));
 }
 
-/** A tab that opens a short list, above the bar on phones and below it on desktop. */
-function MenuTab({ tab, active, phone }: { tab: Extract<Tab, { items: NavLink[] }>; active: boolean; phone?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const id = useId();
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
-  return (
-    <div ref={ref} className={phone ? "relative flex flex-1 justify-center" : "relative"}>
-      <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)} className={phone ? phoneTab(active) : desktopTab(active)}>
-        {phone && <span aria-hidden="true" className="text-xl leading-none">{tab.icon}</span>}
-        {tab.label}
-        {!phone && <span aria-hidden="true" className="text-xs">▾</span>}
-      </button>
-      {open && (
-        <div
-          id={id}
-          className={`absolute z-40 flex w-64 flex-col gap-0.5 rounded-3xl border-[3px] border-ink bg-surface p-3 text-left shadow-lg ${phone ? "right-0 bottom-full mb-3" : "left-0 mt-2"}`}
-          onClick={(e) => (e.target as HTMLElement).closest("a") && setOpen(false)}
-        >
-          {tab.items.map((l) => (
-            <Link key={l.href} href={l.href} className="block rounded-2xl px-3 py-2 font-display font-medium hover:bg-ivory">
-              {l.label}
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 const desktopTab = (active: boolean) =>
   `flex min-h-11 cursor-pointer items-center gap-1 rounded-full px-4 font-display font-medium ${active ? "bg-ink text-white" : "hover:bg-ink/10"}`;
 const phoneTab = (active: boolean) =>
-  `flex min-h-14 w-full cursor-pointer flex-col items-center justify-center gap-0.5 font-display text-xs font-semibold ${active ? "text-coral-deep" : "text-ink"}`;
+  `flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-center font-display text-xs leading-tight font-semibold ${active ? "text-coral-deep" : "text-ink"}`;
 
-/** The Parent Portal's own navigation: app tabs on desktop, a bottom bar on phones, Sign out in the account menu. */
+/** The Parent Portal's own navigation: tabs on desktop, a bottom bar on phones, Sign out in the account menu. */
 export function ParentNav({ account }: { account: { name: string; email: string | null; initials: string; badge: string | null; links: NavLink[] } }) {
   const path = usePathname() ?? "";
   const tabs = (phone?: boolean) =>
-    NAV.map((tab) =>
-      "items" in tab ? (
-        <MenuTab key={tab.label} tab={tab} active={isActive(tab, path)} phone={phone} />
-      ) : phone ? (
-        <Link key={tab.label} href={tab.href} aria-current={isActive(tab, path) ? "page" : undefined} className={`flex-1 ${phoneTab(isActive(tab, path))}`}>
-          <span aria-hidden="true" className="text-xl leading-none">
-            {tab.icon}
-          </span>
+    NAV.map((tab) => {
+      const active = isActive(tab, path);
+      return (
+        <Link key={tab.label} href={tab.href} aria-current={active ? "page" : undefined} className={phone ? phoneTab(active) : desktopTab(active)}>
+          {phone && tab.icon}
           {tab.label}
         </Link>
-      ) : (
-        <Link key={tab.label} href={tab.href} aria-current={isActive(tab, path) ? "page" : undefined} className={desktopTab(isActive(tab, path))}>
-          {tab.label}
-        </Link>
-      ),
-    );
+      );
+    });
   return (
     <>
       <header className="sticky top-0 z-30 border-b border-ink/10 bg-ivory/90 backdrop-blur">
