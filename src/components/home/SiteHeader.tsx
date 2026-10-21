@@ -40,15 +40,19 @@ export async function SiteHeader() {
               Log in
             </Link>
           )}
-          <Link href={primary.href} className={buttonPrimary}>
-            {primary.label}
-          </Link>
+          {primary && (
+            <Link href={primary.href} className={buttonPrimary}>
+              {primary.label}
+            </Link>
+          )}
           {account && <AccountMenu {...account} />}
         </nav>
         <div className="flex items-center gap-2 md:hidden">
-          <Link href={primary.href} className={compactPrimary}>
-            {primary.label}
-          </Link>
+          {primary && (
+            <Link href={primary.href} className={compactPrimary}>
+              {primary.label}
+            </Link>
+          )}
           {account ? (
             <AccountMenu {...account} explore={NAV} compact />
           ) : (

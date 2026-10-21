@@ -45,16 +45,16 @@ describe("header for each account", () => {
     expect(labels(adult({ plan: "none", hadFamily: true }))).not.toContain("Start a free Family trial");
   });
 
-  it("gives a trial My Family, its end date and a way to choose a plan", () => {
+  it("gives a trial My Family in the menu, its end date and a way to choose a plan", () => {
     const trial = adult({ plan: "trial", endsAt: "2026-10-27T00:00:00.000Z" });
-    expect(primaryAction(trial)).toEqual({ href: "/family", label: "My Family" });
+    expect(primaryAction(trial)).toBeNull();
     expect(labels(trial)).toEqual(["My Family", "My Voice", "Account settings", "Help", "Choose a plan"]);
     expect(accountBadge(trial)).toBe("Family trial · ends Oct 27");
   });
 
-  it("gives a paid family My Family with no offers", () => {
+  it("gives a paid family My Family in the menu with no offers", () => {
     const paid = adult({ plan: "paid", endsAt: null });
-    expect(primaryAction(paid)).toEqual({ href: "/family", label: "My Family" });
+    expect(primaryAction(paid)).toBeNull();
     expect(labels(paid)).toEqual(["My Family", "My Voice", "Account settings", "Help"]);
     expect(accountBadge(paid)).toBeNull();
   });
