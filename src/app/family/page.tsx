@@ -9,13 +9,14 @@ import { ResetButton } from "@/components/family/ResetButton";
 import { SessionButton } from "@/components/family/SessionButton";
 import { SetKidsPin } from "@/components/family/SetKidsPin";
 import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
-import { BookShelf, StorytellerRow } from "@/components/family/HomeShelf";
+import { FamilyBookshelf, KidCards, StorytellersCard } from "@/components/family/HomeShelf";
+import { HomeNotice } from "@/components/family/HomeNotice";
 import { demoFamilyState } from "@/lib/family/demo-family";
-import { familyHome } from "@/lib/family/home";
+import { familyHome, homeNotice, noticeText } from "@/lib/family/home";
 import { planConfig } from "@/lib/family/plan";
 import { familyPage, guardianChildren } from "@/lib/family/page-data";
-import { activeEntitlement } from "@/lib/family/permissions";
-import { deviceRegistry, familyPreviewEnabled } from "@/lib/family/session";
+import { activeEntitlement, liveSlots, narratorSlotCount } from "@/lib/family/permissions";
+import { deviceRegistry, familyPreviewEnabled, TEMPORARY_KIDS_HOURS } from "@/lib/family/session";
 import { authConfigured } from "@/lib/auth/supabase";
 import { carriedInvitationToken } from "@/lib/invitations/context";
 import { serverConfig } from "@/lib/server/config";
@@ -118,33 +119,46 @@ export default async function FamilyHome() {
   }
   const isGuardian = state.members.some((m) => m.adultId === adult.id && m.role === "guardian" && m.removedAt === null);
   const homes = new Set(state.members.filter((m) => m.adultId === adult.id && m.role === "guardian" && m.removedAt === null).map((m) => m.householdId));
-  const notes = state.notifications.filter((n) => homes.has(n.householdId)).slice(-3).reverse();
   const home = [...homes][0];
-  const hasPlan = home ? Boolean(activeEntitlement(state, home)) : false;
+  const entitlement = home ? activeEntitlement(state, home) : null;
+  const hasPlan = Boolean(entitlement);
   const invited = account && isGuardian ? await carriedInvitationToken() : null;
   // A voice made on an older reading model can be heard on the newest one and switched, by its owner.
   const ownVoice = state.voices.find((v) => v.ownerId === adult.id && v.status === "ready" && v.deletedAt === null);
   const newerModel = Boolean(account && ownVoice?.modelId && ownVoice.modelId !== serverConfig().elevenLabsModel);
-  const view = home ? familyHome(state, home, planConfig(), adult.id) : null;
+  const plan = planConfig();
+  const view = home ? familyHome(state, home, plan, adult.id) : null;
   const familyName = account && home ? state.households.find((h) => h.id === home)?.name : null;
   const pinRegistry = isGuardian && home ? deviceRegistry(Boolean(account)) : null;
   const needsPin = Boolean(pinRegistry && kids.length > 0 && !(await pinRegistry.pinHash(home!)));
-  const balance = isGuardian && home ? creditBalance(state, planConfig(), home) : null;
+  const balance = isGuardian && home ? creditBalance(state, plan, home) : null;
   const credits = balance ? displayCredits(balance.available, balance.unitsPerCredit).toLocaleString("en-US") : null;
+  const notice = isGuardian && home ? homeNotice(state, home, adult.id) : null;
+  const slots = home ? narratorSlotCount(state, home, plan) : 0;
+  const slotLine = home && entitlement && slots ? `${liveSlots(state, home, plan).length} of ${slots} ${entitlement.extraNarratorSlots ? "" : "included "}narrator slots in use` : null;
+  const kidIds = new Set(kids.map((k) => k.id));
+  const kidCards = view ? view.kids.filter((k) => kidIds.has(k.id)) : [];
   return (
     <FamilyShell>
-      <div className="flex items-center gap-4">
-        <StorytellerAvatar name={adult.displayName} avatarUrl={adult.avatarUrl} tint={adult.tint} size="lg" />
-        <div>
-          {familyName && <p className="font-display text-lg text-muted">{familyName}</p>}
-          <h1 className="font-display text-4xl font-semibold">Welcome back, {adult.displayName}</h1>
-          <p className="text-lg text-muted">{isGuardian && kids.length ? "Who\u2019s listening tonight?" : adult.relationship}</p>
-          {account && (
-            <Link href="/family/account#photo" className="text-sm font-semibold underline underline-offset-4">
-              {adult.avatarUrl ? "Change your photo" : "Add your photo"}
-            </Link>
-          )}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex items-center gap-4">
+          <StorytellerAvatar name={adult.displayName} avatarUrl={adult.avatarUrl} tint={adult.tint} size="lg" />
+          <div className="min-w-0">
+            {familyName && <p className="font-display text-lg text-muted">{familyName}</p>}
+            <h1 className="font-display text-3xl font-semibold sm:text-4xl">Welcome back, {adult.displayName}</h1>
+            {!isGuardian && <p className="text-lg text-muted">{adult.relationship}</p>}
+            {account && !adult.avatarUrl && (
+              <Link href="/family/account#photo" className="text-sm font-semibold underline underline-offset-4">
+                Add your photo
+              </Link>
+            )}
+          </div>
         </div>
+        {notice && (
+          <div className="lg:max-w-xl">
+            <HomeNotice text={noticeText(notice)} through={notice.through} />
+          </div>
+        )}
       </div>
       <PreviewNote />
       {invited && (
@@ -157,111 +171,129 @@ export default async function FamilyHome() {
           A new version of your Readli voice is ready to try. Hear it and choose →
         </Link>
       )}
-      {isGuardian && notes.length > 0 && (
-        <section className="flex flex-col gap-2 rounded-panel bg-mint/40 p-4" aria-label="Updates" data-testid="notifications">
-          {notes.map((n) => (
-            <Link key={n.id} href={n.href} className="font-semibold underline underline-offset-4">
-              {n.text}
-            </Link>
-          ))}
+
+      {isGuardian && (
+        // On phones, the way to the next story sits above the kids, in one slim strip.
+        <section className="flex items-center justify-between gap-3 rounded-3xl bg-ink px-4 py-3 text-white lg:hidden" aria-label="Find your next story" data-testid="next-story-strip">
+          <div className="min-w-0">
+            <p className="font-display text-lg font-semibold leading-tight">Find your next story</p>
+            {credits !== null && (
+              <p className="text-sm text-white/80">
+                <strong className="text-white">{credits}</strong> credits available
+              </p>
+            )}
+          </div>
+          <Link
+            href="/family/books"
+            className="inline-flex min-h-12 shrink-0 items-center rounded-full bg-coral-deep px-4 font-display font-semibold text-white shadow-[0_4px_0_#8f2a1e] hover:-translate-y-0.5"
+          >
+            Browse Books
+          </Link>
         </section>
       )}
 
       {isGuardian && (
-        <section className="flex flex-col gap-3" aria-labelledby="kids-h">
-          <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <h2 id="kids-h" className="font-display text-2xl font-semibold">Your kids</h2>
-            <Link href="/family/devices" className="font-display font-semibold text-coral-deep underline-offset-4 hover:underline">
-              Kids Mode PIN and devices
-            </Link>
-          </div>
-          {account && !hasPlan && (
-            <p className="rounded-2xl bg-sunshine/50 p-3 text-sm">
-              Kids profiles come with Readli Family. Checkout isn&apos;t switched on yet, so this unlocks when it is.
-            </p>
-          )}
-          {needsPin && <SetKidsPin />}
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="home-kids">
-            {kids.map((c) => {
-              const playing = view?.kids.find((k) => k.id === c.id)?.nowPlaying;
-              return (
-                <li key={c.id} className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
-                  <div className="flex items-center gap-3">
-                    <StorytellerAvatar name={c.nickname} avatarUrl={null} tint={c.tint} />
-                    <div className="min-w-0">
-                      <p className="font-display text-2xl font-semibold">{c.nickname}</p>
-                      <p className="text-sm text-muted">{playing ? `Listening to ${playing}` : "No story started yet"}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <SessionButton as={`child:${c.id}`} next="/kids" className={buttonPrimary}>
-                      Open {c.nickname}&apos;s Readli Kids
-                    </SessionButton>
-                    <Link href={`/family/kids/${c.id}/storytellers`} className="font-semibold underline underline-offset-4">
-                      Manage storytellers
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+          <div className="flex min-w-0 flex-col gap-8">
+            <section className="flex flex-col gap-3" aria-labelledby="kids-h">
+              <div className="flex flex-wrap items-baseline justify-between gap-3">
+                <h2 id="kids-h" className="font-display text-2xl font-semibold">
+                  Your kids
+                </h2>
+                {kids.length >= plan.maxChildProfiles ? (
+                  <span className="text-muted">
+                    {kids.length} of {plan.maxChildProfiles} profiles
+                  </span>
+                ) : (
+                  <Link href="/family/kids" className="font-semibold underline underline-offset-4">
+                    {kids.length ? "Add a child" : "Add your first child"}
+                  </Link>
+                )}
+              </div>
+              {account && !hasPlan && (
+                <p className="rounded-2xl bg-sunshine/50 p-3 text-sm">
+                  Kids profiles come with Readli Family. Checkout isn&apos;t switched on yet, so this unlocks when it is.
+                </p>
+              )}
+              {needsPin && <SetKidsPin />}
+              {kidCards.length > 0 ? (
+                <KidCards kids={kidCards} />
+              ) : (
+                <Link
+                  href="/family/kids"
+                  className="flex min-h-28 flex-col items-center justify-center gap-1 rounded-3xl border-[3px] border-dashed border-ink/20 p-4 text-center font-display text-lg font-semibold text-muted hover:border-ink/50"
+                  data-testid="home-kids"
+                >
+                  <span aria-hidden="true" className="text-3xl leading-none">
+                    +
+                  </span>
+                  Add your first child
+                </Link>
+              )}
+              {kidCards.length > 0 && (
+                <p className="text-sm text-muted" data-testid="kids-mode-note">
+                  <span className="hidden sm:inline">
+                    Open Readli Kids starts Kids Mode for that child on this browser. A grown-up leaves it with the family PIN, and it ends on its own after{" "}
+                    {TEMPORARY_KIDS_HOURS} hours. To give a child their own iPad,{" "}
+                    <Link href="/family/devices" className="font-semibold underline underline-offset-4">
+                      set up a kids device
+                    </Link>
+                    .
+                  </span>
+                  <span className="sm:hidden">
+                    Kids Mode stays on this browser until a grown-up enters the family PIN. It ends on its own after {TEMPORARY_KIDS_HOURS} hours.
+                  </span>
+                </p>
+              )}
+            </section>
+
+            {view && (
+              <section id="bookshelf" className="flex scroll-mt-24 flex-col gap-3" aria-labelledby="bookshelf-h">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                  <h2 id="bookshelf-h" className="font-display text-2xl font-semibold">
+                    Family bookshelf
+                  </h2>
+                  {view.shelf.length > 0 && (
+                    <span className="text-muted">
+                      {view.shelf.length} {view.shelf.length === 1 ? "audiobook" : "audiobooks"} in family voices
+                    </span>
+                  )}
+                </div>
+                {view.shelf.length > 0 ? (
+                  <>
+                    <FamilyBookshelf books={view.shelf} />
+                    <p className="text-sm text-muted">Listen plays here for you, from the start. Each child keeps their own place, which only moves when they listen in Readli Kids.</p>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-start gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10" data-testid="shelf-ready-empty">
+                    <p>Pick a story and choose who reads it. Prepared audiobooks show up here, with each child&apos;s place.</p>
+                    <Link href="/family/books" className={buttonPrimary}>
+                      Choose a story
                     </Link>
                   </div>
-                </li>
-              );
-            })}
-            <li>
-              <Link
-                href="/family/kids"
-                className="flex h-full min-h-28 flex-col items-center justify-center gap-1 rounded-3xl border-[3px] border-dashed border-ink/20 p-4 text-center font-display text-lg font-semibold text-muted hover:border-ink/50"
-              >
-                <span aria-hidden="true" className="text-3xl leading-none">
-                  +
-                </span>
-                {kids.length ? "Add or remove kids" : "Add your first child"}
-              </Link>
-            </li>
-          </ul>
-          <p className="text-sm text-muted">
-            Opening Readli Kids puts this browser in Kids Mode for that child until you sign back in. Your other devices stay signed in.
-            To give the kids their own iPad or phone, <Link href="/family/devices" className="font-semibold underline underline-offset-4">set up a kids device</Link>.
-          </p>
-        </section>
-      )}
-
-      {isGuardian && view && view.continueListening.length > 0 && (
-        <BookShelf id="continue" title="Continue listening" books={view.continueListening} more={{ href: "/family/books", label: "All stories" }} />
-      )}
-      {isGuardian && view && (
-        view.ready.length > 0 ? (
-          <BookShelf id="ready" title="Ready to play" books={view.ready} more={{ href: "/family/books", label: "See all" }} />
-        ) : (
-          <section className="flex flex-col items-start gap-3 rounded-panel bg-surface p-5" data-testid="shelf-ready-empty">
-            <h2 className="font-display text-2xl font-semibold">Ready to play</h2>
-            <p>Pick a story and choose who reads it. Prepared stories show up here for the kids.</p>
-            <Link href="/family/books" className={buttonPrimary}>
-              Choose a story
-            </Link>
-          </section>
-        )
-      )}
-      {isGuardian && view && view.fresh.length > 0 && (
-        <BookShelf id="new" title="New stories" books={view.fresh} more={{ href: "/family/books", label: "Browse stories" }} />
-      )}
-
-      {isGuardian && view && (
-        <section className="flex flex-col gap-3" aria-labelledby="storytellers-h">
-          <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <h2 id="storytellers-h" className="font-display text-2xl font-semibold">Family storytellers</h2>
-            <Link href="/family/narrators" className="font-display font-semibold text-coral-deep underline-offset-4 hover:underline">
-              Family Circle
-            </Link>
+                )}
+              </section>
+            )}
           </div>
-          {view.storytellers.length > 0 ? (
-            <StorytellerRow storytellers={view.storytellers} />
-          ) : (
-            <p className="text-muted">No storytellers yet. Invite a grandparent, aunt or uncle to record their voice.</p>
-          )}
-          {!account && (
-            <Link href="/billing/narrator-slots" className="self-start font-semibold underline underline-offset-4">
-              Add a narrator slot
-            </Link>
-          )}
-        </section>
+
+          <aside className="flex min-w-0 flex-col gap-6">
+            <section className="hidden flex-col gap-3 rounded-3xl bg-ink p-6 text-white lg:flex" aria-labelledby="next-story-h" data-testid="next-story">
+              <h2 id="next-story-h" className="font-display text-2xl font-semibold">
+                Find your next story
+              </h2>
+              <p className="text-white/85">Prepare another book in a family voice. Anything already prepared plays free.</p>
+              {credits !== null && (
+                <p>
+                  <strong>{credits} credits</strong> available
+                </p>
+              )}
+              <Link href="/family/books" className={buttonPrimary}>
+                Browse Books
+              </Link>
+            </section>
+            {view && <StorytellersCard storytellers={view.storytellers} slotLine={slotLine} />}
+          </aside>
+        </div>
       )}
 
       {!isGuardian && (
@@ -286,30 +318,6 @@ export default async function FamilyHome() {
           <h2 id="invite-h" className="font-display text-2xl font-semibold">Grow your family circle</h2>
           <InviteActions headingLevel={3} />
           <FamilyRewardsCard />
-        </section>
-      )}
-
-      {isGuardian && (
-        <section className="flex flex-col gap-3" aria-labelledby="controls-h">
-          <h2 id="controls-h" className="font-display text-2xl font-semibold">Parent controls</h2>
-          <ul className="divide-y-2 divide-ink/5 overflow-hidden rounded-3xl bg-surface ring-2 ring-ink/10 lg:max-w-2xl" data-testid="home-controls">
-            {[
-              { href: "/family/devices", label: "Kids Mode PIN and devices" },
-              { href: "/family/credits", label: "Readli credits", value: credits === null ? undefined : `${credits} left` },
-              { href: "/family/billing", label: "Plan and billing" },
-              { href: "/family/controls", label: "Open Parent Controls" },
-            ].map((c) => (
-              <li key={c.href}>
-                <Link href={c.href} className="flex min-h-14 items-center gap-4 px-4 py-3 font-display font-semibold hover:bg-ivory">
-                  <span className="flex-1">{c.label}</span>
-                  {c.value && <span className="text-muted">{c.value}</span>}
-                  <span aria-hidden="true" className="text-muted">
-                    ›
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
         </section>
       )}
 

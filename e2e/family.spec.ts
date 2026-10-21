@@ -19,7 +19,7 @@ test("a parent manages storytellers child by child", async ({ page }) => {
   await page.goto("/family");
   await page.getByRole("button", { name: "Sign in as Mom" }).click();
   await expect(page.getByRole("heading", { name: "Mom" })).toBeVisible();
-  await page.getByRole("link", { name: "Manage storytellers" }).first().click();
+  await page.goto("/family/kids/maya/storytellers");
   await expect(page.getByRole("heading", { name: "Manage storytellers for Maya" })).toBeVisible();
 
   const lou = page.getByTestId("storyteller-voice-lou");
@@ -293,7 +293,16 @@ test("a parent prepares narration ahead of time and is told when it's ready", as
   await expect(status("voice-june")).toHaveText("Ready", { timeout: 15_000 });
 
   await page.goto("/family");
-  await expect(page.getByTestId("notifications")).toContainText("Grandma June's reading of The Princess and the Pea is ready.");
+  const notice = page.getByTestId("notifications");
+  await expect(notice).toContainText("The Princess and the Pea");
+  await expect(notice).toContainText("read by Grandma June");
+  // Dismissing it keeps it dismissed for this grown-up; the audiobook stays on the bookshelf.
+  const dismissed = page.waitForResponse((r) => r.url().endsWith("/api/family/notifications") && r.request().method() === "POST");
+  await notice.getByRole("button", { name: "Dismiss" }).click();
+  expect((await dismissed).status()).toBe(200);
+  await page.reload();
+  await expect(page.getByTestId("notifications")).toHaveCount(0);
+  await expect(page.getByTestId("shelf-book-the-princess-and-the-pea")).toBeVisible();
 });
 
 test("Books is one catalog with search, simple filters and each book's cost in the chosen voice", async ({ page }, info) => {

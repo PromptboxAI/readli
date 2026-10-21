@@ -327,6 +327,23 @@ export async function guardianHousehold(store: FamilyStore, actor: Actor | null)
   return state.members.find((m) => m.adultId === actor.adultId && m.role === "guardian" && m.removedAt === null)?.householdId ?? null;
 }
 
+/**
+ * Hides Home's narration notice for this adult, up to the newest notice they saw. Kept per adult, so
+ * each parent dismisses it for themselves. It only hides the notice; nothing prepared is touched.
+ */
+export async function dismissNotices(store: FamilyStore, actor: Actor | null, through: string, clock: Clock = now): Promise<void> {
+  const householdId = await guardianHousehold(store, actor);
+  if (!householdId || actor?.kind !== "adult") throw new PermissionError(403, "not_allowed", "Only a parent or guardian can do that.");
+  const at = clock().toISOString();
+  const parsed = Date.parse(through);
+  // Never past now, so a notice that arrives later still shows.
+  const upTo = Number.isFinite(parsed) && new Date(parsed).toISOString() < at ? new Date(parsed).toISOString() : at;
+  await store.write((s) => {
+    const m = s.members.find((x) => x.householdId === householdId && x.adultId === actor.adultId && x.removedAt === null);
+    if (m && (!m.noticesSeenThrough || m.noticesSeenThrough < upTo)) m.noticesSeenThrough = upTo;
+  });
+}
+
 /** Starts a family with this grown-up as its first parent or guardian. One family per grown-up for now. */
 export async function createHousehold(store: FamilyStore, actor: Actor | null, name: string, clock: Clock = now): Promise<string> {
   const adultId = requireAdult(actor);
