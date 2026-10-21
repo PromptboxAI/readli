@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { isTheEnd, THE_END_PAUSE_MS } from "@/lib/content/the-end";
 import type { ListenView } from "@/lib/narration/narration";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 import { useGaplessAudio } from "./useGaplessAudio";
@@ -87,9 +88,12 @@ export function GrownUpPlayer({ view, initialVoice }: { view: ListenView; initia
     const next = sentenceRef.current + 1;
     const id = voiceRef.current;
     if (next >= sentences.length || !id) return stop();
+    // A book prepared before "The End." was added simply finishes without it.
+    if (isTheEnd(sentences, next) && !readyAt(id, next)) return stop();
     setSentence(next);
     sentenceRef.current = next;
-    if (readyAt(id, next)) void play(next, id);
+    if (readyAt(id, next) && isTheEnd(sentences, next)) audio.after(THE_END_PAUSE_MS, () => void play(next, id));
+    else if (readyAt(id, next)) void play(next, id);
     else {
       stop();
       setNotice(`${voices.find((v) => v.voiceId === id)?.name ?? "This storyteller"}'s reading stops here for now. Prepare the rest of the book to keep listening.`);

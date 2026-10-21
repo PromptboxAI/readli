@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
+import { isTheEnd, THE_END_PAUSE_MS } from "@/lib/content/the-end";
 import type { NarratorView } from "@/lib/family/service";
 import type { KidsNarratorReadiness } from "@/lib/narration/narration";
 import { StorytellerAvatar } from "./StorytellerAvatar";
@@ -204,6 +205,12 @@ export function KidsPlayer({
   const onEnded = () => {
     const at = sentenceRef.current;
     const voice = voiceRef.current;
+    // A book prepared before "The End." was added simply finishes without it.
+    if (isTheEnd(sentences, at + 1) && !readyAt(voice, at + 1)) {
+      setPlaying(false);
+      endSession();
+      return;
+    }
     // Only continue into audio that is already prepared; never promise more than exists.
     if (at + 1 < sentences.length && voice && !readyAt(voice, at + 1)) {
       setSentence(at + 1);
@@ -214,7 +221,8 @@ export function KidsPlayer({
     if (at + 1 < sentences.length && voice) {
       setSentence(at + 1);
       sentenceRef.current = at + 1;
-      void play(at + 1, voice);
+      if (isTheEnd(sentences, at + 1)) audio.after(THE_END_PAUSE_MS, () => void play(at + 1, voice));
+      else void play(at + 1, voice);
     } else {
       setPlaying(false);
       endSession();
