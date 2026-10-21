@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
 import { NarratorSlots } from "@/components/family/NarratorSlots";
+import { accountDb } from "@/lib/family/account-store";
 import { familyPage } from "@/lib/family/page-data";
 import type { FamilyState } from "@/lib/family/model";
 import { guardianHousehold, narratorSlots } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
 import { BackLink } from "@/components/family/BackLink";
+import { listInvites } from "@/lib/invites/server";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Narrator slots | Readli" };
+export const metadata: Metadata = { title: "Family storytellers | Readli" };
 
 export default async function NarratorSlotsPage() {
   const page = await familyPage();
@@ -17,11 +19,21 @@ export default async function NarratorSlotsPage() {
   const store = (await familyStore(page.session))!;
   const householdId = await guardianHousehold(store, page.session.actor);
   if (!householdId) return <NeedsGrownUp text="Only a parent or guardian can manage narrator slots." />;
+  // Signed-in families save real invitations; the sample family previews the form without saving.
+  const db = page.session.account ? accountDb() : null;
+  const inviteMode = page.session.account ? (db ? "live" : "off") : "preview";
+  const invites = db ? await listInvites(db, householdId) : [];
   return (
     <FamilyShell>
       <PreviewNote />
       <BackLink href="/family/controls" label="Parent Controls" />
-      <NarratorSlots initial={await narratorSlots(store, page.session.actor, householdId)} canBuy={!page.session.account} approveHref={approveHref(page.state, householdId)} />
+      <NarratorSlots
+        initial={await narratorSlots(store, page.session.actor, householdId)}
+        canBuy={!page.session.account}
+        approveHref={approveHref(page.state, householdId)}
+        inviteMode={inviteMode}
+        invites={invites}
+      />
     </FamilyShell>
   );
 }
