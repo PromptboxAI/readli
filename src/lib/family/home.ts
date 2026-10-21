@@ -1,5 +1,5 @@
 import { CATALOG, NEW_BOOKS, MORE_BOOKS_ON_PHONES, findCatalogBook } from "@/lib/library/catalog";
-import { libraryStatus } from "@/lib/narration/narration";
+import { libraryFor, libraryStatus } from "@/lib/narration/narration";
 import { bookText } from "@/lib/narration/text";
 import type { Adult, FamilyState } from "./model";
 import { activeApproval, activeChild, activeShare, activeSlot, childVoiceAccess, isActiveMember } from "./permissions";
@@ -75,7 +75,16 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     return v ? adultById.get(v.ownerId) : undefined;
   };
 
-  const recent = state.progress.filter((p) => kidIds.has(p.childId) && p.sentence > 0).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  // A child can page through a story's text before anything is prepared, which saves a place with
+  // whichever narrator was picked. Only a place in audio that exists is something to continue.
+  const hasAudio = (slug: string, voiceId: string | null) => {
+    const text = bookText(slug);
+    if (!text || !voiceId || !state.voices.some((v) => v.id === voiceId && v.deletedAt === null)) return false;
+    return libraryStatus(state, libraryFor(state, plan, voiceId, text, householdId), text).ready > 0;
+  };
+  const recent = state.progress
+    .filter((p) => kidIds.has(p.childId) && p.sentence > 0 && hasAudio(p.bookSlug, p.voiceId))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
   const continueListening: HomeBook[] = [];
   for (const p of recent) {
