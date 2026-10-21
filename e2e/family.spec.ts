@@ -304,7 +304,7 @@ test("Books is one catalog with search, simple filters and each book's cost in t
   // Every book shows by default, shortest first, including ones the family can't afford yet.
   await expect(book("aesops-fables-retold")).toContainText("More credits needed");
   await expect(book("the-lion-and-the-mouse").getByTestId("cost")).toContainText("Ready · free to play");
-  await expect(catalog.getByTestId("catalog-count")).toContainText("Showing");
+  await expect(catalog.getByTestId("catalog-count")).toContainText("Showing 12 of");
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/books-catalog-${info.project.name}.png`, fullPage: true });
 
@@ -323,6 +323,15 @@ test("Books is one catalog with search, simple filters and each book's cost in t
   await expect(book("the-lion-and-the-mouse")).toHaveCount(0);
   await catalog.getByRole("searchbox", { name: "Search books" }).fill("zzz");
   await expect(catalog.getByTestId("catalog-empty")).toBeVisible();
+
+  // Opening a book and coming back keeps the same view.
+  await catalog.getByRole("searchbox", { name: "Search books" }).fill("");
+  await filter("Quick stories").click();
+  await book("the-lion-and-the-mouse").click();
+  await expect(page).toHaveURL(/\/family\/books\/the-lion-and-the-mouse$/);
+  await page.goBack();
+  await expect(filter("Quick stories")).toHaveAttribute("aria-pressed", "true");
+  await expect(book("aesops-fables-retold")).toHaveCount(0);
 });
 
 test("short on credits: prepare a chapter, or buy credits and come straight back to confirm", async ({ page }) => {

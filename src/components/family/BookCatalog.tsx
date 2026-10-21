@@ -2,15 +2,30 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { buttonSecondary } from "@/components/brand/buttons";
 import type { LibraryCard } from "@/lib/library/discovery";
 import { displayCredits } from "@/lib/narration/credits";
 
 type Filter = "all" | "ready" | "quick" | "bedtime" | "longer" | "fits";
 type Sort = "shortest" | "longest" | "title";
+const filtersIds: Filter[] = ["all", "ready", "quick", "bedtime", "longer", "fits"];
 
-const PAGE = 18;
+const PAGE = 12;
+const SORTS: Sort[] = ["shortest", "longest", "title"];
+/** The catalog's choices this visit, so coming back from a book finds the same view and place. */
+const STATE_KEY = "readli:catalog";
+const SCROLL_KEY = "readli:catalog-scroll";
+
+type View = { q: string; filter: Filter; sort: Sort; voice: string; shown: number };
+
+function savedView(): Partial<View> {
+  try {
+    return JSON.parse(window.sessionStorage.getItem(STATE_KEY) ?? "{}") as Partial<View>;
+  } catch {
+    return {};
+  }
+}
 
 /**
  * The whole family library as one catalog: search, a few simple filters, and what each book costs to prepare
@@ -44,6 +59,42 @@ export function BookCatalog({
   const [sort, setSort] = useState<Sort>("shortest");
   const [voiceId, setVoiceId] = useState(narrators[0]?.voiceId ?? "");
   const [shown, setShown] = useState(PAGE);
+
+  // Coming back to Books from a book (Back, or the book page's link) brings back the same search, filter,
+  // sort, storyteller, how far the list was opened and the scroll position. Opening Books afresh starts clean.
+  useEffect(() => {
+    let y = NaN;
+    try {
+      y = Number(window.sessionStorage.getItem(SCROLL_KEY) ?? "NaN");
+      window.sessionStorage.removeItem(SCROLL_KEY);
+    } catch {
+      /* Storage blocked: the catalog opens at the top with the default view. */
+    }
+    if (!Number.isFinite(y)) return;
+    const v = savedView();
+    if (typeof v.q === "string") setQuery(v.q);
+    if (v.filter && filtersIds.includes(v.filter)) setFilter(v.filter);
+    if (v.sort && SORTS.includes(v.sort)) setSort(v.sort);
+    if (v.voice && narrators.some((n) => n.voiceId === v.voice)) setVoiceId(v.voice);
+    if (typeof v.shown === "number" && v.shown > PAGE) setShown(v.shown);
+    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)));
+  }, [narrators]);
+
+  // Runs after the effect above has read what was saved, so it only ever overwrites it with the current view.
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(STATE_KEY, JSON.stringify({ q: query, filter, sort, voice: voiceId, shown } satisfies View));
+    } catch {
+      /* Storage blocked: coming back shows the default view. */
+    }
+  }, [query, filter, sort, voiceId, shown]);
+  const rememberPlace = () => {
+    try {
+      window.sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+    } catch {
+      /* Storage blocked: coming back opens at the top. */
+    }
+  };
 
   const credits = (units: number) => displayCredits(units, unitsPerCredit).toLocaleString("en-US");
   const inVoice = (b: LibraryCard) => b.narrators.find((n) => n.voiceId === voiceId);
@@ -87,8 +138,8 @@ export function BookCatalog({
   const select = "min-h-11 rounded-2xl border-2 border-ink/20 bg-surface px-3 font-semibold text-ink";
   return (
     <div className="flex flex-col gap-5" data-testid="catalog">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <label className="flex min-h-12 flex-1 items-center gap-3 rounded-2xl border-2 border-ink/20 bg-surface px-4 lg:max-w-md">
+      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)] lg:items-center lg:gap-x-4 lg:gap-y-4">
+        <label className="flex min-h-12 items-center gap-3 rounded-2xl border-2 border-ink/20 bg-surface px-4 lg:col-start-1 lg:row-start-1">
           <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5 shrink-0 text-muted" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <circle cx="11" cy="11" r="7" />
             <path d="M20 20l-3.5-3.5" />
@@ -105,7 +156,23 @@ export function BookCatalog({
             className="min-w-0 flex-1 bg-transparent py-2 outline-none"
           />
         </label>
-        <div className="flex flex-wrap gap-3">
+        <div role="group" aria-label="Filters" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 lg:col-span-2 lg:row-start-2">
+          {filters.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              aria-pressed={filter === f.id}
+              onClick={() => {
+                setFilter(f.id);
+                setShown(PAGE);
+              }}
+              className={`min-h-11 shrink-0 rounded-full border-2 px-4 font-display font-semibold whitespace-nowrap ${filter === f.id ? "border-ink bg-ink text-white" : "border-ink/20 bg-surface hover:border-ink"}`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-3 lg:col-start-2 lg:row-start-1">
           {narrators.length > 0 && (
             <label className="flex items-center gap-2 text-sm text-muted">
               Costs for
@@ -129,24 +196,8 @@ export function BookCatalog({
         </div>
       </div>
 
-      <div role="group" aria-label="Filters" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
-        {filters.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            aria-pressed={filter === f.id}
-            onClick={() => {
-              setFilter(f.id);
-              setShown(PAGE);
-            }}
-            className={`min-h-11 shrink-0 rounded-full border-2 px-4 font-display font-semibold whitespace-nowrap ${filter === f.id ? "border-ink bg-ink text-white" : "border-ink/20 bg-surface hover:border-ink"}`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
       <p className="text-sm text-muted">
-        Costs are for {voiceName ?? "the storyteller you choose"}. Parts already prepared in that voice are free, and listening again never costs credits.
+        Costs are for {voiceName ?? "the storyteller you choose"}. You only pay for what isn&apos;t prepared yet in that voice, and listening again never costs credits.
       </p>
 
       {list.length === 0 ? (
@@ -157,15 +208,15 @@ export function BookCatalog({
         <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {list.slice(0, shown).map((b) => (
             <li key={b.slug} className="min-w-0">
-              <Link href={`/family/books/${b.slug}`} className="group flex flex-col gap-1.5" data-testid={`book-${b.slug}`}>
+              <Link href={`/family/books/${b.slug}`} onClick={rememberPlace} className="group flex h-full flex-col gap-1.5 rounded-2xl outline-offset-4" data-testid={`book-${b.slug}`}>
                 {b.coverUrl ? (
                   <Image src={b.coverUrl} alt="" width={180} height={240} className="aspect-[3/4] w-full rounded-2xl object-cover shadow-md group-hover:ring-4 group-hover:ring-ink" />
                 ) : (
                   <span className={`flex aspect-[3/4] w-full items-center justify-center rounded-2xl p-3 text-center font-display text-lg font-semibold ${b.tint}`}>{b.title}</span>
                 )}
-                <span className="font-display text-lg leading-tight font-semibold group-hover:underline">{b.title}</span>
+                <span className="line-clamp-2 font-display text-lg leading-tight font-semibold group-hover:underline">{b.title}</span>
                 <span className="text-sm text-muted">
-                  {b.minutes < 1 ? "Under a minute" : `About ${b.minutes} min`}
+                  {b.minutes < 1 ? "Under a minute" : `About ${Math.round(b.minutes)} min`}
                   {b.chapters > 1 ? ` · ${b.chapters} chapters` : ""}
                 </span>
                 <span className="text-sm" data-testid="cost">
