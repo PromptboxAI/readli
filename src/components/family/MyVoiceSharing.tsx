@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { VOICE_CHOICES } from "@/lib/content/voice-agreement";
 import type { MyVoiceView } from "@/lib/family/service";
+import type { CloneOutcome } from "@/lib/voice/retire-unused";
 import { Toggle } from "./Toggle";
 
 /** The voice owner's own switch, per family. Turning it off removes the voice from every child at once. */
@@ -38,9 +39,16 @@ export function MyVoiceSharing({ initial }: { initial: MyVoiceView[] }) {
     setConfirmPause(null);
     if (!res.ok) return setMessage(body?.error?.message ?? "We couldn't save that. Please try again.");
     setVoices(body.voices);
+    const clone = body.clone as CloneOutcome | undefined;
     setMessage(
       paused
-        ? "New stories in your voice are stopped for every family. Stories already made still play."
+        ? `New stories in your voice are stopped for every family. Stories already made still play.${
+            clone === "retired"
+              ? " Your voice model was removed from our voice provider."
+              : clone === "deferred"
+                ? " Your voice model is no longer used. It's still stored at our voice provider until removal there is switched on."
+                : ""
+          }`
         : "Families you share with can have new stories made in your voice again.",
     );
   };

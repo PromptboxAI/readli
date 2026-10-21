@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * The voice owner shares or stops sharing with one household: { householdId, shared }. When no family
- * is left sharing it, the provider clone is retired (the recording stays, so sharing again re-makes it).
+ * is left sharing it, the provider clone is retired once LIFECYCLE_CLONE_RETIREMENT is on (the recording
+ * stays, so sharing again re-makes it); until then the clone is kept, unused.
  */
 export async function PUT(req: Request, { params }: { params: Promise<{ voiceId: string }> }) {
   const { voiceId } = await params;

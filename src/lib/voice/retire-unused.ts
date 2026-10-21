@@ -6,6 +6,13 @@ import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps, retireUnusedClone } from "./account-voices";
 
 /**
+ * What happened to a voice's provider clone after an owner's choice, so the page says exactly that:
+ * kept (still in use), retired (deleted at the provider), deferred (no longer used, but deletion at the
+ * provider waits for LIFECYCLE_CLONE_RETIREMENT) or none (there was no clone).
+ */
+export type CloneOutcome = "kept" | "retired" | "deferred" | "none";
+
+/**
  * Once no family may have new stories made in a voice (sharing off everywhere, or new stories paused),
  * its provider clone has no valid use left and is retired at once (Kevin, 2026-10-12, answer 5). The
  * original recording stays, so sharing or resuming again re-makes it. A failure goes to the admin

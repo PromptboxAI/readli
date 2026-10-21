@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useState } from "react";
 import { PERMISSION_STATEMENTS, VOICE_AGREEMENT_PATH, VOICE_CHOICES } from "@/lib/content/voice-agreement";
+import type { CloneOutcome } from "@/lib/voice/retire-unused";
 
 interface Agreement {
   id: string;
@@ -23,6 +24,8 @@ export function VoicePermissions() {
   const [error, setError] = useState<string | null>(null);
   const [deletion, setDeletion] = useState<{ due_at: string; status: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  /** What happened to the story voice when the recordings were deleted, from the request just made. */
+  const [cloneOutcome, setCloneOutcome] = useState<CloneOutcome | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -74,8 +77,9 @@ export function VoicePermissions() {
     setBusy(false);
     setConfirmDelete(false);
     if (!res.ok) return setError("We couldn't send your request. Please try again.");
-    const { dueAt } = (await res.json()) as { dueAt: string };
+    const { dueAt, clone } = (await res.json()) as { dueAt: string; clone?: CloneOutcome };
     setDeletion({ due_at: dueAt, status: "pending" });
+    setCloneOutcome(clone ?? null);
   };
   const training = current.rights.readliDevelopment || current.rights.thirdPartyLicensing;
 
@@ -132,8 +136,12 @@ export function VoicePermissions() {
         <Choice letter="A" title={VOICE_CHOICES.deleteRecordings.title}>
           {deletion?.status === "pending" ? (
             <p className="text-sm">
-              Requested. We&apos;ve stopped using your recordings and will delete them from our storage by{" "}
-              {new Date(deletion.due_at).toLocaleDateString(undefined, { dateStyle: "long" })}.
+              Requested. We&apos;ve stopped using your original recordings for anything new, and your request to delete them from our storage
+              is recorded. They haven&apos;t been deleted yet; we&apos;ll show it here when they have.
+              {cloneOutcome === "kept" && " Your story voice keeps reading for the families you share it with."}
+              {cloneOutcome === "retired" && " Your story voice was removed from our voice provider."}
+              {cloneOutcome === "deferred" &&
+                " Your story voice is no longer used. It's still stored at our voice provider until removal there is switched on, and we'll tell you here when it's removed."}
             </p>
           ) : deletion?.status === "completed" ? (
             <p className="text-sm">Done. Your original recordings were deleted.</p>

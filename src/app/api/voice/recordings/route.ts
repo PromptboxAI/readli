@@ -8,6 +8,7 @@ import { lifecycleFlags } from "@/lib/lifecycle/run";
 import { serverConfig } from "@/lib/server/config";
 import { fail } from "@/lib/server/http";
 import { accountVoiceDeps, retireUnusedClone } from "@/lib/voice/account-voices";
+import type { CloneOutcome } from "@/lib/voice/retire-unused";
 import { voiceOwner } from "@/lib/voice/owner";
 
 export const dynamic = "force-dynamic";
@@ -32,9 +33,11 @@ export async function GET() {
 
 /**
  * "Delete my original recordings" (action A), { acknowledged: true } after the grown-up read the notice.
- * The recordings stop being used at once and are removed from storage normally within 30 days. The story
- * voice keeps working only while it still has a valid use (cloneMayRemain); otherwise its clone is
- * retired now. Stopping sharing and deleting the voice are separate actions.
+ * The recordings stop being used at once and their deletion is queued; it is carried out only while
+ * LIFECYCLE_RECORDING_DELETION=on, and the page says "done" only once it has. The story voice keeps
+ * working only while it still has a valid use (cloneMayRemain); otherwise its clone is retired, or the
+ * retirement is deferred while LIFECYCLE_CLONE_RETIREMENT is off. `clone` tells the page which happened.
+ * Stopping sharing and deleting the voice are separate actions.
  */
 export async function POST(req: Request) {
   const owner = await voiceOwner(SIGN_IN);
@@ -63,5 +66,6 @@ export async function POST(req: Request) {
       { actor: "voice-owner", action: "recording_deletion_requested", voiceId: clone.voiceId ?? undefined, detail: { request: request.id, due_at: request.dueAt, clone_kept: clone.keep, clone_retired: cloneRetired } },
     ]);
   }
-  return NextResponse.json({ dueAt: request.dueAt, existing: request.existing, cloneKept: clone.keep }, { status: request.existing ? 200 : 201 });
+  const outcome: CloneOutcome = !clone.voiceId ? "none" : clone.keep ? "kept" : cloneRetired ? "retired" : "deferred";
+  return NextResponse.json({ dueAt: request.dueAt, existing: request.existing, cloneKept: clone.keep, clone: outcome }, { status: request.existing ? 200 : 201 });
 }

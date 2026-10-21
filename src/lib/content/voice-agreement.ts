@@ -75,14 +75,14 @@ export const VOICE_CHOICES = {
     terms:
       "Readli stops using your stored original recordings at once and removes them from its active storage, normally within 30 days, subject to legal exceptions. Your story voice (the voice model already made at Readli's voice provider) keeps working for the families you share it with only while you keep sharing it, your Readli service permission stays in force, and the law and the provider's rules allow it; otherwise Readli retires it. Once your recordings are deleted, a retired story voice can't be re-made from them; to use Readli Voice again you record again.",
     notice:
-      "Your original recordings stop being used now and are deleted from our storage, normally within 30 days. Your story voice keeps reading for the families you share it with while you keep sharing it; if you're not sharing it with anyone, it's retired now. Once retired it can't be re-made without recording again. Stories already made stay with your families.",
+      "Readli stops using your original recordings for anything new straight away, and your request to delete them from our storage is recorded. We'll show here when the deletion has finished; until then they're kept but not used. Your story voice keeps reading for the families you share it with while you keep sharing it. If you're not sharing it with anyone, it stops being used, and we'll tell you here when it has been removed from our voice provider. Stories already made stay with your families.",
   },
   stopSharing: {
     title: "Stop sharing my voice",
     terms:
       "This withdraws your authorization for new stories in your voice in every family at once. Stories still being prepared stop (unused credits go back to the family), and your voice model at Readli's voice provider is retired. Stories already prepared keep playing for the families you shared with, as section 9 describes. Your original recordings and this Agreement are kept, so you can allow new stories again later, when your voice model is re-made from your recording. Separately, you can turn sharing off for one family at a time; that family then stops hearing your voice, including stories already prepared for it.",
     notice:
-      "No family can have new stories made in your voice. Stories being prepared stop and unused credits go back to each family. Your voice model is retired. Stories already made keep playing, and your recordings are kept, so you can allow new stories again later.",
+      "From now on no family can have new stories made in your voice. Stories still being prepared stop, and unused credits go back to each family. Stories already made keep playing, and your recordings are kept, so you can allow new stories again later. Your voice model stays stored at our voice provider, unused, until it's removed there; we'll tell you here when that has happened.",
   },
   deleteVoice: {
     title: "Delete my voice entirely",
@@ -94,7 +94,7 @@ export const VOICE_CHOICES = {
 } as const;
 
 /** Stored with each recording-deletion request: the notice the grown-up confirmed. */
-export const VOICE_CHOICES_NOTICE_VERSION = "voice-choices-2026-10-12";
+export const VOICE_CHOICES_NOTICE_VERSION = "voice-choices-2026-10-21";
 
 export const VOICE_AGREEMENT_INTRO: string[] = [
   'This Voice Recording & AI Training Agreement ("Agreement") applies when an adult creates and records a Readli Voice profile. It is part of the Readli Terms of Service, and the Privacy Policy explains how voice data is handled. Readli shows this Agreement and asks for your acceptance before the microphone starts.',
