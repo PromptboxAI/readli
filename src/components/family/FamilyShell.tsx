@@ -26,7 +26,7 @@ export async function FamilyShell({ children, portal = true, wide = false }: { c
         <main className={`mx-auto flex ${width} flex-col gap-8 px-4 py-12 sm:px-6`}>{children}</main>
         <SiteFooter />
         {/* Room for the phone bottom bar, so it never covers the footer. */}
-        <div aria-hidden="true" className="h-20 md:hidden" />
+        <div aria-hidden="true" className="h-[calc(5rem+env(safe-area-inset-bottom))] md:hidden" />
       </>
     );
   }
