@@ -4,8 +4,8 @@
  */
 export const THE_END = "The End.";
 
-/** Silence before "The End." is read. */
-export const THE_END_PAUSE_MS = 1200;
+/** Silence before "The End." is read (halved from 1,200 ms, Kevin, 2026-10-21). */
+export const THE_END_PAUSE_MS = 600;
 
 /** True for a story's closing "The End." sentence: the last one, matching THE_END. */
 export function isTheEnd(sentences: readonly string[], at: number): boolean {
