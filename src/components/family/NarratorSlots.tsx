@@ -22,6 +22,46 @@ const WAITING: Record<NonNullable<NarratorCard["status"]>, { badge: string; tone
   stopped_sharing: { badge: "Stopped sharing", tone: "bg-ink/10", note: (n) => `${n} stopped sharing their voice with your family.` },
 };
 
+function NicknameEditor({ name, ownName, busy, onSave }: { name: string; ownName: string; busy: boolean; onSave: (nickname: string) => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(name === ownName ? "" : name);
+  if (!open) {
+    return (
+      <button type="button" className="font-display font-semibold underline underline-offset-4" onClick={() => setOpen(true)}>
+        Change what we call them
+      </button>
+    );
+  }
+  return (
+    <form
+      className="flex w-full flex-wrap items-end gap-2"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        await onSave(value.trim());
+        setOpen(false);
+      }}
+    >
+      <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm font-semibold">
+        What your family calls {ownName}
+        <input
+          className="rounded-2xl border-2 border-ink/20 bg-surface px-3 py-2 text-base font-normal"
+          value={value}
+          maxLength={40}
+          placeholder={ownName}
+          onChange={(e) => setValue(e.target.value)}
+        />
+      </label>
+      <button type="submit" className={buttonSecondary} disabled={busy}>
+        Save
+      </button>
+      <button type="button" className="font-display font-semibold underline underline-offset-4" onClick={() => setOpen(false)}>
+        Cancel
+      </button>
+      <p className="w-full text-sm text-muted">Only your family sees this. It doesn&apos;t change {ownName}&apos;s account or voice.</p>
+    </form>
+  );
+}
+
 /** Readli Family → Family storytellers: narrator slots, invitations and voices on the way. */
 export function NarratorSlots({
   initial,
@@ -82,14 +122,31 @@ export function NarratorSlots({
     setMessage(`The invitation to ${inv.name} was withdrawn. Its link no longer works.`);
   };
 
-  const person = (p: { name: string; relationship: string; avatarUrl: string | null; tint: string }, muted = false) => (
+  const person = (p: { name: string; ownName?: string; relationship: string; avatarUrl: string | null; tint: string }, muted = false) => (
     <>
       <StorytellerAvatar name={p.name} avatarUrl={p.avatarUrl} tint={p.tint} muted={muted} />
       <div className="min-w-0 flex-1">
         <p className="font-display text-xl font-semibold">{p.name}</p>
-        {p.relationship && <p className="text-sm text-muted">{p.relationship}</p>}
+        {(p.ownName || p.relationship) && <p className="text-sm text-muted">{[p.ownName, p.relationship].filter(Boolean).join(" · ")}</p>}
       </div>
     </>
+  );
+
+  // What your family calls a storyteller ("Mommy"). Only the name shown here changes.
+  const rename = (n: NarratorCard) => (
+    <NicknameEditor
+      key={`${n.adultId}-${n.name}`}
+      name={n.name}
+      ownName={n.ownName ?? n.name}
+      busy={busy}
+      onSave={(nickname) =>
+        call(
+          "/api/family/narrators",
+          { adultId: n.adultId, action: "nickname", nickname },
+          nickname ? `Your family will see ${n.ownName ?? n.name} as ${nickname}.` : `Your family will see ${n.ownName ?? n.name}'s own name again.`,
+        )
+      }
+    />
   );
 
   if (!view.hasPlan) {
@@ -143,6 +200,7 @@ export function NarratorSlots({
                 <Link href={approveHref} className={buttonSecondary}>
                   Choose kids
                 </Link>
+                {rename(n)}
                 <button
                   type="button"
                   className={buttonSecondary}
@@ -232,6 +290,7 @@ export function NarratorSlots({
                 >
                   Add to a slot
                 </button>
+                {rename(n)}
               </li>
             ))}
             {view.waiting.map((n) => {

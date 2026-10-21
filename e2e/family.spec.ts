@@ -146,10 +146,15 @@ test("an owner's revocation removes the voice from every child, and sharing agai
   await page.goto("/family/my-voice");
   const toggle = page.getByRole("switch", { name: "Share my voice with Our family" });
   await expect(toggle).toHaveAttribute("aria-checked", "true");
+  // Read-only: what the family's parents chose for Priya's voice.
+  const status = page.locator('[data-testid^="family-status-"]');
+  await expect(status).toContainText("Added as a narrator");
+  await expect(status).toContainText("Reading to Maya");
   await toggle.click();
   await expect(page.getByRole("status")).toContainText("removed from every child");
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-checked", "true");
+  await expect(status).toContainText("Waiting for a parent to add you as a narrator");
 
   await signIn(page, "adult:sara");
   await signIn(page, "child:maya");
@@ -413,6 +418,25 @@ test("family storytellers: invite into a free slot, see who's on the way, and on
   await page.screenshot({ path: `e2e/screenshots/storytellers-on-the-way-${info.project.name}.png`, fullPage: true });
   await invite.getByRole("button", { name: "Withdraw" }).click();
   await expect(page.getByTestId("on-the-way").getByRole("listitem").filter({ hasText: "Mommy" })).toHaveCount(0);
+});
+
+test("family storytellers: a family's nickname for a storyteller shows only in that family", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/narrators");
+  const june = page.getByTestId("slot-voice-june");
+  await june.getByRole("button", { name: "Change what we call them" }).click();
+  await june.getByLabel("What your family calls Grandma June").fill("Gigi");
+  await june.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Your family will see Grandma June as Gigi.")).toBeVisible();
+  await expect(june).toContainText("Gigi");
+  await expect(june).toContainText("Grandma June");
+  await noOverflow(page);
+
+  // Clearing it brings back her own name.
+  await june.getByRole("button", { name: "Change what we call them" }).click();
+  await june.getByLabel("What your family calls Grandma June").fill("");
+  await june.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Your family will see Grandma June's own name again.")).toBeVisible();
 });
 
 test("Home's invite link opens the invite form on Family storytellers", async ({ page }) => {
