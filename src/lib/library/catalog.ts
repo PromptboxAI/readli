@@ -48,7 +48,7 @@ const ADDED: readonly UpcomingBook[] = [
   { slug: "thumbelina", title: "Thumbelina", author: "Hans Christian Andersen", firstPublished: 1835, approxMinutes: 29 },
   { slug: "the-emperors-new-clothes", title: "The Emperor's New Clothes", author: "Hans Christian Andersen", firstPublished: 1837, approxMinutes: 11 },
   { slug: "the-tale-of-mrs-tiggy-winkle", title: "The Tale of Mrs. Tiggy-Winkle", author: "Beatrix Potter", firstPublished: 1905, approxMinutes: 9 },
-  { slug: "the-owl-and-the-pussy-cat", title: "The Owl and the Pussy-Cat", author: "Edward Lear", firstPublished: 1871, approxMinutes: 2 },
+  { slug: "the-owl-and-the-pussy-cat", title: "The Owl and the Kitty-Cat", author: "Edward Lear", firstPublished: 1871, approxMinutes: 2 },
   { slug: "sleeping-beauty", title: "Sleeping Beauty", author: "The Brothers Grimm", firstPublished: 1812, approxMinutes: 9 },
   { slug: "the-tale-of-two-bad-mice", title: "The Tale of Two Bad Mice", author: "Beatrix Potter", firstPublished: 1904, approxMinutes: 6 },
   { slug: "the-tale-of-mr-jeremy-fisher", title: "The Tale of Mr. Jeremy Fisher", author: "Beatrix Potter", firstPublished: 1906, approxMinutes: 5 },
