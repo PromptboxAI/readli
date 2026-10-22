@@ -12,8 +12,9 @@ export const metadata: Metadata = { title: "Discover more stories | Readli Kids"
 /** Books not prepared for this child yet. Nothing here starts preparing or spends credits. */
 export default async function KidsDiscover() {
   const page = await familyPage();
+  if (!page.enabled) redirect("/kids");
   const actor = page.session?.actor;
-  const child = page.enabled && actor?.kind === "child" && page.state ? activeChild(page.state, actor.childId) : null;
+  const child = actor?.kind === "child" && page.state ? activeChild(page.state, actor.childId) : null;
   if (!child) redirect("/kids");
   const store = (await familyStore(page.session!))!;
   const { waiting } = await kidsShelf(store, actor!, page.state!, child.id);
