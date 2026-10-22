@@ -6,6 +6,7 @@ import {
   activeShare,
   activeSlot,
   approvedVoiceIds,
+  childVoiceAccess,
   isActiveMember,
   isGuardianOf,
   liveSlots,
@@ -14,6 +15,7 @@ import {
   storytellerStatus,
   type StorytellerStatus,
 } from "./permissions";
+import { calledIn } from "./names";
 import { DEFAULT_PLAN, type PlanConfig } from "./plan";
 import { MemoryNarrationStorage, type NarrationStorage } from "@/lib/narration/storage";
 
@@ -102,10 +104,22 @@ function requireAdult(actor: Actor | null): string {
 // Voice owner: key 1
 // ---------------------------------------------------------------------------
 
+export interface MyVoiceHousehold {
+  id: string;
+  name: string;
+  shared: boolean;
+  /** Read-only for the owner: when sharing began, whether the parents have added the voice, and who hears it. */
+  sharedSince: string | null;
+  inSlot: boolean;
+  approvedFor: string[];
+  /** What this family calls the owner, when they've set a nickname. */
+  calledAs: string | null;
+}
+
 export interface MyVoiceView {
   voiceId: string;
   status: string;
-  households: { id: string; name: string; shared: boolean }[];
+  households: MyVoiceHousehold[];
 }
 
 export async function myVoices(store: FamilyStore, actor: Actor | null): Promise<MyVoiceView[]> {
@@ -117,11 +131,23 @@ export async function myVoices(store: FamilyStore, actor: Actor | null): Promise
     .map((v) => ({
       voiceId: v.id,
       status: v.status,
-      households: homes.map((m) => ({
-        id: m.householdId,
-        name: state.households.find((h) => h.id === m.householdId)?.name ?? "Family",
-        shared: activeShare(state, v.id, m.householdId) !== null,
-      })),
+      households: homes.map((m) => {
+        const share = activeShare(state, v.id, m.householdId);
+        const inSlot = share !== null && activeSlot(state, v.id, m.householdId, store.plan) !== null;
+        return {
+          id: m.householdId,
+          name: state.households.find((h) => h.id === m.householdId)?.name ?? "Family",
+          shared: share !== null,
+          sharedSince: share?.grantedAt ?? null,
+          inSlot,
+          approvedFor: inSlot
+            ? state.children
+                .filter((c) => c.householdId === m.householdId && activeChild(state, c.id) && childVoiceAccess(state, c.id, v.id, store.plan).allowed)
+                .map((c) => c.nickname)
+            : [],
+          calledAs: m.nickname?.trim() || null,
+        };
+      }),
     }));
 }
 
@@ -158,6 +184,16 @@ export async function setHouseholdShare(
         revokedBy: null,
       });
       audit(s, adultId, "voice_shared", at, { voiceId: voice.id, householdId: input.householdId });
+      // The parents hear about it; nothing is activated or approved on their behalf.
+      const name = calledIn(s, s.adults.find((a) => a.id === adultId), input.householdId)?.displayName ?? "A storyteller";
+      s.notifications.push({
+        id: randomUUID(),
+        householdId: input.householdId,
+        text: `${name} shared their voice with your family. Add them to a narrator slot, then choose which children hear them.`,
+        href: "/family/narrators",
+        at,
+        readAt: null,
+      });
       return;
     }
     if (!current) return;
@@ -209,7 +245,7 @@ export async function manageStorytellers(store: FamilyStore, actor: Actor | null
   for (const voice of state.voices) {
     const status = storytellerStatus(state, childId, voice.id, store.plan);
     if (!status) continue;
-    const owner = state.adults.find((a) => a.id === voice.ownerId)!;
+    const owner = calledIn(state, state.adults.find((a) => a.id === voice.ownerId), child.householdId)!;
     storytellers.push({
       voiceId: voice.id,
       ownerName: owner.displayName,
@@ -300,7 +336,7 @@ export async function narratorsFor(store: FamilyStore, actor: Actor | null, chil
   const state = await store.read();
   requireChildAccess(state, actor, childId);
   return approvedVoiceIds(state, childId, store.plan).map((voiceId) => {
-    const owner = state.adults.find((a) => a.id === readyVoice(state, voiceId)!.ownerId)!;
+    const owner = calledIn(state, state.adults.find((a) => a.id === readyVoice(state, voiceId)!.ownerId), activeChild(state, childId)?.householdId)!;
     return { voiceId, name: owner.displayName, avatarUrl: owner.avatarUrl, tint: owner.tint };
   });
 }
@@ -376,7 +412,11 @@ function voiceOwner(state: FamilyState, voiceId: string): string | null {
 
 export interface NarratorCard {
   voiceId: string;
+  adultId: string;
+  /** What this family calls them: the family's nickname, or their own name. */
   name: string;
+  /** Their own name, only when the family's nickname differs from it. */
+  ownName?: string;
   relationship: string;
   avatarUrl: string | null;
   tint: string;
@@ -390,6 +430,7 @@ export interface NarratorCard {
 export interface JoinedCard {
   adultId: string;
   name: string;
+  ownName?: string;
   relationship: string;
   avatarUrl: string | null;
   tint: string;
@@ -414,9 +455,10 @@ export interface NarratorSlotsView {
   extraSlotPriceApproved: boolean;
 }
 
-function card(state: FamilyState, voiceId: string): NarratorCard {
-  const owner = state.adults.find((a) => a.id === voiceOwner(state, voiceId))!;
-  return { voiceId, name: owner.displayName, relationship: owner.relationship, avatarUrl: owner.avatarUrl, tint: owner.tint };
+function card(state: FamilyState, voiceId: string, householdId: string): NarratorCard {
+  const own = state.adults.find((a) => a.id === voiceOwner(state, voiceId))!;
+  const owner = calledIn(state, own, householdId)!;
+  return { voiceId, adultId: own.id, name: owner.displayName, ...nameNote(own, owner), relationship: owner.relationship, avatarUrl: owner.avatarUrl, tint: owner.tint };
 }
 
 export async function narratorSlots(store: FamilyStore, actor: Actor | null, householdId: string, clock: Clock = now): Promise<NarratorSlotsView> {
@@ -433,12 +475,12 @@ export async function narratorSlots(store: FamilyStore, actor: Actor | null, hou
     total: narratorSlotCount(state, householdId, plan),
     included: entitlement ? plan.includedNarratorSlots : 0,
     extra: entitlement?.extraNarratorSlots ?? 0,
-    active: live.map((a) => card(state, a.voiceId)),
-    shared: memberVoices.filter((v) => !activeIds.has(v.id) && activeShare(state, v.id, householdId)).map((v) => card(state, v.id)),
+    active: live.map((a) => card(state, a.voiceId, householdId)),
+    shared: memberVoices.filter((v) => !activeIds.has(v.id) && activeShare(state, v.id, householdId)).map((v) => card(state, v.id, householdId)),
     waiting: memberVoices
       .filter((v) => !activeShare(state, v.id, householdId))
       .map((v) => ({
-        ...card(state, v.id),
+        ...card(state, v.id, householdId),
         ...(v.ownerId === viewerId ? { yours: true } : {}),
         status:
           v.status !== "ready"
@@ -450,14 +492,37 @@ export async function narratorSlots(store: FamilyStore, actor: Actor | null, hou
     joined: state.members
       .filter((m) => m.householdId === householdId && m.removedAt === null && !state.voices.some((v) => v.ownerId === m.adultId && v.deletedAt === null))
       .flatMap((m) => {
-        const a = state.adults.find((x) => x.id === m.adultId);
-        if (!a) return [];
-        return [{ adultId: a.id, name: a.displayName, relationship: a.relationship, avatarUrl: a.avatarUrl, tint: a.tint, ...(a.id === viewerId ? { yours: true } : {}) }];
+        const own = state.adults.find((x) => x.id === m.adultId);
+        const a = calledIn(state, own, householdId);
+        if (!own || !a) return [];
+        return [{ adultId: a.id, name: a.displayName, ...nameNote(own, a), relationship: a.relationship, avatarUrl: a.avatarUrl, tint: a.tint, ...(a.id === viewerId ? { yours: true } : {}) }];
       }),
     releasesLeft: releasesLeft(state, householdId, plan, clock().toISOString()),
     extraSlotPriceCents: plan.extraSlotPriceCents,
     extraSlotPriceApproved: plan.extraSlotPriceApproved,
   };
+}
+
+function nameNote(own: { displayName: string }, called: { displayName: string }) {
+  return called.displayName !== own.displayName ? { ownName: own.displayName } : {};
+}
+
+export const NICKNAME_MAX = 40;
+
+/**
+ * Sets what this family calls one of its storytellers, such as "Mommy". Display only and per family:
+ * the storyteller's own name, voice and sharing choices don't change. An empty nickname clears it.
+ */
+export async function setStorytellerNickname(store: FamilyStore, actor: Actor | null, householdId: string, adultId: string, nickname: string): Promise<void> {
+  const state = await store.read();
+  requireHouseholdGuardian(state, actor, householdId);
+  if (!isActiveMember(state, adultId, householdId)) throw new PermissionError(404, "not_member", "That storyteller isn't part of your family.");
+  const value = nickname.replace(/\s+/g, " ").trim();
+  if (value.length > NICKNAME_MAX) throw new PermissionError(400, "nickname_too_long", `Keep it to ${NICKNAME_MAX} characters.`);
+  await store.write((s) => {
+    const m = s.members.find((x) => x.householdId === householdId && x.adultId === adultId && x.removedAt === null);
+    if (m) m.nickname = value || null;
+  });
 }
 
 /**

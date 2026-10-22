@@ -3,6 +3,7 @@ import { THE_END } from "@/lib/content/the-end";
 import { bookMinutes, libraryFor, libraryStatus } from "@/lib/narration/narration";
 import { bookText } from "@/lib/narration/text";
 import type { Adult, FamilyState } from "./model";
+import { calledIn } from "./names";
 import { activeApproval, activeChild, activeShare, activeSlot, childVoiceAccess, isActiveMember } from "./permissions";
 import { DEFAULT_PLAN, type PlanConfig } from "./plan";
 
@@ -137,7 +138,7 @@ function names(list: string[]): string {
 export function familyHome(state: FamilyState, householdId: string, plan: PlanConfig = DEFAULT_PLAN, viewerId?: string): FamilyHomeView {
   const kids = state.children.filter((c) => c.householdId === householdId && activeChild(state, c.id));
   const kidIds = new Set(kids.map((k) => k.id));
-  const adultById = new Map(state.adults.map((a) => [a.id, a]));
+  const adultById = new Map(state.adults.map((a) => [a.id, calledIn(state, a, householdId)!]));
   const voiceOwner = (voiceId: string | null) => {
     const v = voiceId ? state.voices.find((x) => x.id === voiceId) : undefined;
     return v ? adultById.get(v.ownerId) : undefined;

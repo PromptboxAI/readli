@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { jsonBody, withFamily } from "@/lib/family/http";
-import { activateNarrator, guardianHousehold, narratorSlots, releaseNarrator } from "@/lib/family/service";
+import { activateNarrator, guardianHousehold, narratorSlots, releaseNarrator, setStorytellerNickname } from "@/lib/family/service";
 import { fail } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
@@ -16,9 +16,18 @@ export async function GET() {
   });
 }
 
-/** { voiceId, action: "activate" | "release" } */
+/** { voiceId, action: "activate" | "release" }, or { adultId, action: "nickname", nickname } */
 export async function POST(req: Request) {
-  const { voiceId, action } = await jsonBody(req);
+  const { voiceId, adultId, action, nickname } = await jsonBody(req);
+  if (action === "nickname") {
+    if (typeof adultId !== "string" || typeof nickname !== "string") return fail(400, "bad_request", "Choose a storyteller.");
+    return withFamily(async ({ store, actor }) => {
+      const householdId = await guardianHousehold(store, actor);
+      if (!householdId) return noHousehold();
+      await setStorytellerNickname(store, actor, householdId, adultId, nickname);
+      return NextResponse.json(await narratorSlots(store, actor, householdId));
+    });
+  }
   if (typeof voiceId !== "string" || (action !== "activate" && action !== "release")) return fail(400, "bad_request", "Choose a storyteller.");
   return withFamily(async ({ store, actor }) => {
     const householdId = await guardianHousehold(store, actor);

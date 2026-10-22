@@ -136,6 +136,7 @@ export class AccountFamilyStore implements FamilyStore {
         role: m.role as "guardian" | "member",
         joinedAt: m.joined_at as string,
         removedAt: str(m.removed_at),
+        nickname: str(m.storyteller_nickname),
         noticesSeenThrough: str(m.notices_seen_through),
       }));
       state.adults = people.map((id) => ({
@@ -358,6 +359,12 @@ export class AccountFamilyStore implements FamilyStore {
         await this.q(
           db.from("household_members").update({ role: m.role, removed_at: m.removedAt }).eq("household_id", m.householdId).eq("user_id", m.adultId),
           "update member",
+        );
+      }
+      if (old && (old.nickname ?? null) !== (m.nickname ?? null)) {
+        await this.q(
+          db.from("household_members").update({ storyteller_nickname: m.nickname ?? null }).eq("household_id", m.householdId).eq("user_id", m.adultId),
+          "save nickname",
         );
       }
       if (old && (old.noticesSeenThrough ?? null) !== (m.noticesSeenThrough ?? null)) {
