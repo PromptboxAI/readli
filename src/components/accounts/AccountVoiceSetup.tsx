@@ -29,7 +29,7 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
  * listen to a sample and keep it. The voice is saved privately; sharing happens per family. A new
  * recording stays a candidate until "Keep my voice", so a working voice is never lost to a worse one.
  */
-export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
+export function AccountVoiceSetup({ hasVoice, next }: { hasVoice: boolean; next?: string }) {
   const [step, setStep] = useState(0);
   const [agreed, setAgreed] = useState<boolean[]>(VOICE_CONSENTS.map(() => false));
   const [take, setTake] = useState<TakeDetails | null>(null);
@@ -227,8 +227,8 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
           <h2 className="font-display text-3xl font-semibold">Your voice is ready</h2>
           <p className="max-w-md">It&apos;s private. Nobody can use it until you share it with a family, and their parents approve it for each child.</p>
           <div className="flex flex-wrap justify-center gap-3">
-            <Link href="/family/my-voice" className={buttonPrimary}>
-              Choose who can use it
+            <Link href={next ?? "/family/my-voice"} className={buttonPrimary}>
+              {next ? "Continue" : "Choose who can use it"}
             </Link>
             <Link href="/family" className={buttonQuiet}>
               Back to my family

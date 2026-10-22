@@ -186,6 +186,32 @@ describe("signup and pricing amendment", () => {
     expect((await narratorSlots(store, priya, "home-priya", clock)).active.map((n) => n.voiceId)).toEqual(["voice-priya"]);
   });
 
+  it("family storytellers shows invited adults who joined, and why a voice isn't ready to add", async () => {
+    const { state, store } = basePlanFamily();
+    // Andrea accepted an invitation: she's a member with no voice yet, and holds no slot.
+    state.adults.push({ id: "andrea", displayName: "Andrea", relationship: "Mom", avatarUrl: null, tint: "bg-sky" });
+    state.members.push({ householdId: H, adultId: "andrea", role: "member", joinedAt: clock().toISOString(), removedAt: null });
+    let view = await narratorSlots(store, mom, H, clock);
+    expect(view.joined.map((p) => p.adultId)).toEqual(["andrea"]);
+    expect(view.active).toHaveLength(0);
+    expect(view.waiting.find((n) => n.voiceId === "voice-lou")?.status).toBe("not_shared");
+
+    // Her voice is being made, then ready but not shared, then shared: ready to add.
+    state.voices.push({ id: "voice-andrea", ownerId: "andrea", version: 1, status: "processing", createdAt: clock().toISOString(), deletedAt: null });
+    view = await narratorSlots(store, mom, H, clock);
+    expect(view.joined).toHaveLength(0);
+    expect(view.waiting.find((n) => n.voiceId === "voice-andrea")?.status).toBe("processing");
+    state.voices.find((v) => v.id === "voice-andrea")!.status = "ready";
+    expect((await narratorSlots(store, mom, H, clock)).waiting.find((n) => n.voiceId === "voice-andrea")?.status).toBe("not_shared");
+    const andrea: Actor = { kind: "adult", adultId: "andrea" };
+    await setHouseholdShare(store, andrea, { voiceId: "voice-andrea", householdId: H, shared: true, policyVersion: "p" }, clock);
+    expect((await narratorSlots(store, mom, H, clock)).shared.map((n) => n.voiceId)).toContain("voice-andrea");
+
+    // Stopping sharing is shown as such, not as never shared.
+    await setHouseholdShare(store, andrea, { voiceId: "voice-andrea", householdId: H, shared: false, policyVersion: "p" }, clock);
+    expect((await narratorSlots(store, mom, H, clock)).waiting.find((n) => n.voiceId === "voice-andrea")?.status).toBe("stopped_sharing");
+  });
+
   it("free contributor households get no kids profiles", async () => {
     const { state, store } = basePlanFamily();
     addSecondHousehold(state);

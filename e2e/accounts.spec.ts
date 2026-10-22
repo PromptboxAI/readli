@@ -15,10 +15,16 @@ test("signup offers exactly two ways in: Family at $19.99 and Voice for free", a
   await page.screenshot({ path: `e2e/screenshots/signup-${info.project.name}.png`, fullPage: true });
 });
 
-test("family invitations land on Readli Voice signup", async ({ page }, info) => {
+test("family invitations land on the join page, never the preview signup form", async ({ page }, info) => {
   await page.goto("/signup?invite=abc123");
-  await expect(page).toHaveURL(/\/signup\/voice\?invite=abc123/);
-  await expect(page.getByTestId("invited-banner")).toContainText("Accepting doesn't share your voice");
+  await expect(page).toHaveURL(/\/voice\/join\?invite=abc123/);
+  await expect(page.getByRole("heading", { name: "Storyteller invitation" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create my free account" })).toHaveCount(0);
+  // Older links keep working.
+  await page.goto("/signup/voice?invite=abc123");
+  await expect(page).toHaveURL(/\/voice\/join\?invite=abc123/);
+  await page.goto("/voice?invite=abc123");
+  await expect(page).toHaveURL(/\/voice\/join\?invite=abc123/);
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/signup-voice-${info.project.name}.png`, fullPage: true });
 });

@@ -54,6 +54,17 @@ describe("family invitations for real accounts", () => {
     expect(tables.household_invitations![0]!.relationship_label).toBeNull();
   });
 
+  it("take an email instead of a name, keep only its hash, and refuse a bad address", async () => {
+    const { db, tables } = fakeDb();
+    const { invite } = await createInvite(db, { householdId: "h1", inviterId: "u1", name: "", relationship: "", email: "andrea@example.com", emailHash: "hashed" });
+    expect(invite.name).toBe("andrea");
+    expect(tables.household_invitations![0]).toMatchObject({ invitee_name: "andrea", recipient_email_hash: "hashed" });
+    expect(JSON.stringify(tables)).not.toContain("andrea@example.com");
+    await createInvite(db, { householdId: "h1", inviterId: "u1", name: "Mommy", relationship: "Mom", email: "andrea@example.com", emailHash: "hashed" });
+    expect(tables.household_invitations![1]).toMatchObject({ invitee_name: "Mommy", relationship_label: "Mom" });
+    await expect(createInvite(db, { householdId: "h1", inviterId: "u1", name: "Mommy", relationship: "", email: "not-an-email" })).rejects.toMatchObject({ code: "bad_email" });
+  });
+
   it("show each status, and only the family's own invitations", async () => {
     const base = { expires_at: "2026-10-20T00:00:00Z", accepted_at: null, revoked_at: null };
     expect(statusOf(base, NOW)).toBe("invited");
@@ -83,8 +94,8 @@ describe("family invitations for real accounts", () => {
       adult_profiles: [{ user_id: "u1", display_name: "Sara" }],
       household_members: [{ household_id: "h1", user_id: "u1", removed_at: null }],
     });
-    expect(await inviteForToken(db, "tok", "u2", NOW)).toEqual({ familyName: "The Riveras", inviterName: "Sara", inviteeName: "June", status: "invited", alreadyMember: false });
-    expect((await inviteForToken(db, "tok", "u1", NOW))?.alreadyMember).toBe(true);
+    expect(await inviteForToken(db, "tok", "u2", NOW)).toEqual({ familyName: "The Riveras", inviterName: "Sara", inviteeName: "June", status: "invited", alreadyMember: false, householdId: null });
+    expect(await inviteForToken(db, "tok", "u1", NOW)).toMatchObject({ alreadyMember: true, householdId: "h1" });
     expect(await inviteForToken(db, "nope", null, NOW)).toBeNull();
   });
 

@@ -26,7 +26,7 @@ describe("signup routing", () => {
     expect(signupPath(signupStart({ signedIn: false }))).toBe("/signup");
     expect(signupPath(signupStart({ signedIn: false, choice: "family" }))).toBe("/signup/family");
     expect(signupPath(signupStart({ signedIn: false, choice: "kids" }))).toBe("/signup");
-    expect(signupPath(signupStart({ signedIn: false, invitation: "tok" }))).toBe("/signup/voice?invite=tok");
-    expect(signupPath(signupStart({ signedIn: true, invitation: "tok" }))).toBe("/voice?invite=tok");
+    expect(signupPath(signupStart({ signedIn: false, invitation: "tok" }))).toBe("/voice/join?invite=tok");
+    expect(signupPath(signupStart({ signedIn: true, invitation: "tok" }))).toBe("/voice/join?invite=tok");
   });
 });

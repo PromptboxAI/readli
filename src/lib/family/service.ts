@@ -327,6 +327,23 @@ export async function guardianHousehold(store: FamilyStore, actor: Actor | null)
   return state.members.find((m) => m.adultId === actor.adultId && m.role === "guardian" && m.removedAt === null)?.householdId ?? null;
 }
 
+/**
+ * Hides Home's narration notice for this adult, up to the newest notice they saw. Kept per adult, so
+ * each parent dismisses it for themselves. It only hides the notice; nothing prepared is touched.
+ */
+export async function dismissNotices(store: FamilyStore, actor: Actor | null, through: string, clock: Clock = now): Promise<void> {
+  const householdId = await guardianHousehold(store, actor);
+  if (!householdId || actor?.kind !== "adult") throw new PermissionError(403, "not_allowed", "Only a parent or guardian can do that.");
+  const at = clock().toISOString();
+  const parsed = Date.parse(through);
+  // Never past now, so a notice that arrives later still shows.
+  const upTo = Number.isFinite(parsed) && new Date(parsed).toISOString() < at ? new Date(parsed).toISOString() : at;
+  await store.write((s) => {
+    const m = s.members.find((x) => x.householdId === householdId && x.adultId === actor.adultId && x.removedAt === null);
+    if (m && (!m.noticesSeenThrough || m.noticesSeenThrough < upTo)) m.noticesSeenThrough = upTo;
+  });
+}
+
 /** Starts a family with this grown-up as its first parent or guardian. One family per grown-up for now. */
 export async function createHousehold(store: FamilyStore, actor: Actor | null, name: string, clock: Clock = now): Promise<string> {
   const adultId = requireAdult(actor);
@@ -365,6 +382,18 @@ export interface NarratorCard {
   tint: string;
   /** The signed-in adult's own voice, which only they can share. */
   yours?: boolean;
+  /** Why a voice isn't in "shared" yet; only set on waiting cards. */
+  status?: "processing" | "not_shared" | "stopped_sharing";
+}
+
+/** A household member with no voice yet, such as someone who just accepted an invitation. */
+export interface JoinedCard {
+  adultId: string;
+  name: string;
+  relationship: string;
+  avatarUrl: string | null;
+  tint: string;
+  yours?: boolean;
 }
 
 export interface NarratorSlotsView {
@@ -378,6 +407,8 @@ export interface NarratorSlotsView {
   shared: NarratorCard[];
   /** Household members whose voices aren't shared with this family, the viewer's own included. */
   waiting: NarratorCard[];
+  /** Household members who haven't made a voice yet. */
+  joined: JoinedCard[];
   releasesLeft: number;
   extraSlotPriceCents: number;
   extraSlotPriceApproved: boolean;
@@ -406,7 +437,23 @@ export async function narratorSlots(store: FamilyStore, actor: Actor | null, hou
     shared: memberVoices.filter((v) => !activeIds.has(v.id) && activeShare(state, v.id, householdId)).map((v) => card(state, v.id)),
     waiting: memberVoices
       .filter((v) => !activeShare(state, v.id, householdId))
-      .map((v) => (v.ownerId === viewerId ? { ...card(state, v.id), yours: true } : card(state, v.id))),
+      .map((v) => ({
+        ...card(state, v.id),
+        ...(v.ownerId === viewerId ? { yours: true } : {}),
+        status:
+          v.status !== "ready"
+            ? ("processing" as const)
+            : state.shares.some((x) => x.voiceId === v.id && x.householdId === householdId)
+              ? ("stopped_sharing" as const)
+              : ("not_shared" as const),
+      })),
+    joined: state.members
+      .filter((m) => m.householdId === householdId && m.removedAt === null && !state.voices.some((v) => v.ownerId === m.adultId && v.deletedAt === null))
+      .flatMap((m) => {
+        const a = state.adults.find((x) => x.id === m.adultId);
+        if (!a) return [];
+        return [{ adultId: a.id, name: a.displayName, relationship: a.relationship, avatarUrl: a.avatarUrl, tint: a.tint, ...(a.id === viewerId ? { yours: true } : {}) }];
+      }),
     releasesLeft: releasesLeft(state, householdId, plan, clock().toISOString()),
     extraSlotPriceCents: plan.extraSlotPriceCents,
     extraSlotPriceApproved: plan.extraSlotPriceApproved,

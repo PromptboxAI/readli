@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { LoginForm } from "@/components/auth/LoginForm";
 import { AccountFields } from "@/components/accounts/AccountFields";
 import { PlanList } from "@/components/accounts/PlanList";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
-import { EnvelopeArt } from "@/components/invites/illustrations";
 import { ACCOUNT_TYPES } from "@/lib/accounts/accounts";
 import { familyAccountsEnabled } from "@/lib/family/session";
 
@@ -17,12 +18,12 @@ const STEPS = [
   ["Choose who can use it", "Approve each family that asks. Change your mind any time."],
 ] as const;
 
-/** Readli Voice: free contributor signup. Invitation links land here directly. */
+/** Readli Voice: free contributor signup. With accounts on, it signs in for real; otherwise it previews. */
 export default async function VoiceSignupPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const p = await searchParams;
-  const invited = typeof p.invite === "string" && p.invite.length > 0;
+  // Invitation links always go to the join page, which keeps the invitation through sign-in.
+  if (typeof p.invite === "string" && p.invite) redirect(`/voice/join?invite=${encodeURIComponent(p.invite)}`);
   const accounts = familyAccountsEnabled();
-  const acceptHref = `/login?next=${encodeURIComponent(`/voice?invite=${String(p.invite)}`)}`;
   return (
     <AdultPage wide>
       <header className="flex flex-col gap-2">
@@ -33,49 +34,32 @@ export default async function VoiceSignupPage({ searchParams }: { searchParams: 
         <h1 className="font-display text-4xl font-semibold sm:text-5xl">Share your voice</h1>
         <p className="max-w-2xl text-lg">Read to the kids you love, even from far away. It&apos;s free, and you decide who hears you.</p>
       </header>
-      {invited && (
-        <section data-testid="invited-banner" className="flex items-center gap-4 rounded-[var(--radius-panel)] bg-sky/50 p-5">
-          <EnvelopeArt className="w-20 shrink-0" />
-          <p>
-            <span className="block font-display text-xl font-semibold">A family invited you to be a storyteller</span>
-            {accounts ? (
-              <>
-                Accepting doesn&apos;t share your voice: you&apos;ll choose that after you record.{" "}
-                <Link href={acceptHref} className="font-semibold underline underline-offset-4">
-                  Sign in or create your free account to accept
-                </Link>
-                .
-              </>
-            ) : (
-              <>
-                Sign up free to accept. Accepting doesn&apos;t share your voice: you&apos;ll choose that after you record. Already have Readli?{" "}
-                <Link href={acceptHref} className="font-semibold underline underline-offset-4">
-                  Log in to accept
-                </Link>
-                .
-              </>
-            )}
-          </p>
-        </section>
-      )}
-      <PreviewNote>Readli Voice accounts are coming soon, so nothing here is saved yet.</PreviewNote>
+      {!accounts && <PreviewNote>Readli Voice accounts are coming soon, so nothing here is saved yet.</PreviewNote>}
 
       <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">
-        <form action="/voice/record" className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10 sm:p-8" aria-label="Create a free Readli Voice account">
-          <h2 className="font-display text-2xl font-semibold">Your free account</h2>
-          <AccountFields namePlaceholder="Grandma June" />
-          <label className="flex items-start gap-3">
-            <input type="checkbox" required className="mt-1 size-5 accent-coral-deep" />
-            <span>I&apos;ll only record my own voice, and I control who can use it.</span>
-          </label>
-          <button type="submit" className={`${buttonPrimary} w-full`}>
-            Create my free account
-          </button>
-          <p className="text-sm text-muted">
-            Recording together? Grandma and Grandpa each sign up and verify on their own, then join the same free household. Each of
-            you controls your own voice.
-          </p>
-        </form>
+        {accounts ? (
+          <section className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10 sm:p-8" aria-label="Create a free Readli Voice account">
+            <h2 className="font-display text-2xl font-semibold">Your free account</h2>
+            <p>Sign in with your email or Google. New here? This creates your free Readli Voice account. No card, no subscription.</p>
+            <LoginForm next="/voice/record" />
+          </section>
+        ) : (
+          <form action="/voice/record" className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10 sm:p-8" aria-label="Create a free Readli Voice account">
+            <h2 className="font-display text-2xl font-semibold">Your free account</h2>
+            <AccountFields namePlaceholder="Grandma June" />
+            <label className="flex items-start gap-3">
+              <input type="checkbox" required className="mt-1 size-5 accent-coral-deep" />
+              <span>I&apos;ll only record my own voice, and I control who can use it.</span>
+            </label>
+            <button type="submit" className={`${buttonPrimary} w-full`}>
+              Create my free account
+            </button>
+            <p className="text-sm text-muted">
+              Recording together? Grandma and Grandpa each sign up and verify on their own, then join the same free household. Each of
+              you controls your own voice.
+            </p>
+          </form>
+        )}
 
         <div className="flex flex-col gap-6">
           <section aria-labelledby="how" className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-mint/50 p-6">

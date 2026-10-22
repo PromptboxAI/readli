@@ -35,6 +35,8 @@ export interface HouseholdMember {
   role: MemberRole;
   joinedAt: string;
   removedAt: string | null;
+  /** Home's narration notice is hidden for this adult up to here (they dismissed it). */
+  noticesSeenThrough?: string | null;
 }
 
 export interface ChildProfile {
