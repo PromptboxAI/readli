@@ -785,22 +785,23 @@ export async function childBookState(store: FamilyStore, actor: Actor | null, ch
   const state = await store.read();
   requireChildAccess(state, actor, childId);
   const p = state.progress.find((x) => x.childId === childId && x.bookSlug === bookSlug);
-  return { sentence: p?.sentence ?? 0, voiceId: p?.voiceId ?? null };
+  return { sentence: p?.sentence ?? 0, voiceId: p?.voiceId ?? null, textRevision: p?.textRevision ?? null };
 }
 
 export async function saveChildProgress(
   store: FamilyStore,
   actor: Actor | null,
-  input: { childId: string; bookSlug: string; sentence: number; voiceId: string | null },
+  input: { childId: string; bookSlug: string; sentence: number; voiceId: string | null; textRevision?: string | null },
   clock: Clock = now,
 ): Promise<void> {
   const state = await store.read();
   requireChildAccess(state, actor, input.childId);
   const at = clock().toISOString();
+  const textRevision = input.textRevision ?? null;
   await store.write((s) => {
     const p = s.progress.find((x) => x.childId === input.childId && x.bookSlug === input.bookSlug);
-    if (p) Object.assign(p, { sentence: input.sentence, voiceId: input.voiceId, updatedAt: at });
-    else s.progress.push({ ...input, updatedAt: at });
+    if (p) Object.assign(p, { sentence: input.sentence, voiceId: input.voiceId, textRevision, updatedAt: at });
+    else s.progress.push({ ...input, textRevision, updatedAt: at });
   });
 }
 

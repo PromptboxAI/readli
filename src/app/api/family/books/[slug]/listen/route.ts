@@ -8,17 +8,17 @@ import { fail } from "@/lib/server/http";
 export const dynamic = "force-dynamic";
 
 /**
- * { voiceId, sentence }: a short-lived URL for one prepared sentence, for a grown-up listening in the
+ * { voiceId, sentence, revision? }: a short-lived URL for one prepared sentence, for a grown-up listening in the
  * Parent Portal. Only stored audio is served; nothing is generated here.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const { voiceId, sentence } = await jsonBody(req);
+  const { voiceId, sentence, revision } = await jsonBody(req);
   if (typeof voiceId !== "string" || !Number.isInteger(sentence)) return fail(400, "bad_request", "Choose a storyteller.");
   return withFamily(async ({ store, actor }) => {
     const householdId = await guardianHousehold(store, actor);
     if (!householdId) return fail(403, "not_guardian", "Only a parent or guardian can listen here.");
-    const result = await authorizeGuardianPlayback(store, actor, { householdId, voiceId, bookSlug: slug, sentence: sentence as number }, playbackKey());
+    const result = await authorizeGuardianPlayback(store, actor, { householdId, voiceId, bookSlug: slug, sentence: sentence as number, revision: typeof revision === "string" ? revision : undefined }, playbackKey());
     return NextResponse.json(result, { headers: { "cache-control": "no-store" } });
   });
 }

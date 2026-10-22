@@ -1,7 +1,7 @@
 import type { FamilyState } from "@/lib/family/model";
 import type { PlanConfig } from "@/lib/family/plan";
 import { ELEVENLABS_PLANS, modelCost, usdPerMinute } from "./costs";
-import { bookMinutes, libraryStatus, READINESS_LABELS } from "./narration";
+import { bookMinutes, libraryStatus, libraryText, READINESS_LABELS } from "./narration";
 import { creditBalance } from "./credits";
 import type { NarrationStorage } from "./storage";
 import { bookText } from "./text";
@@ -16,13 +16,14 @@ export async function narrationMetrics(state: FamilyState, plan: PlanConfig, sto
   const retries = state.usage.reduce((n, u) => n + Math.max(0, u.attempts - 1), 0);
 
   const libraries = state.libraries.map((l) => {
-    const text = bookText(l.bookSlug);
+    // Each audiobook counted against the text it reads, which may be an earlier one.
+    const text = libraryText(l);
     const status = text ? libraryStatus(state, l, text) : null;
     const owner = state.adults.find((a) => a.id === state.voices.find((v) => v.id === l.voiceId)?.ownerId);
     const households = new Set([...state.plays.filter((p) => p.libraryKey === l.key).map((p) => p.householdId), ...state.jobs.filter((j) => j.libraryKey === l.key).map((j) => j.householdId)]);
     return {
       key: l.key,
-      book: text?.title ?? l.bookSlug,
+      book: bookText(l.bookSlug)?.title ?? l.bookSlug,
       voice: owner?.displayName ?? l.voiceId,
       readiness: status ? READINESS_LABELS[status.readiness] : "Text changed",
       ready: status?.ready ?? 0,
