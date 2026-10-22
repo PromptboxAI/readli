@@ -69,8 +69,8 @@ export function PreviewPicker({ books, approved, draft }: { books: PickerBook[];
   return (
     <section className="flex flex-col gap-4" data-testid="preview-picker">
       <div className="flex flex-col gap-1">
-        <h2 className="font-display text-2xl font-semibold">Choose what they&apos;ll hear</h2>
-        <p>Pick a book, then a short passage. We&apos;ll read it in your Readli voice so you can listen before anyone else does.</p>
+        <h2 className="font-display text-2xl font-semibold">Add a preview (optional)</h2>
+        <p>Pick a book, then a short passage. We&apos;ll read it in your Readli voice so you can listen before anyone else does. You can send invitations without one.</p>
       </div>
       <ul className="grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-7">
         {books.map((b) => (

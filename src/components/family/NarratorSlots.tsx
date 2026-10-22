@@ -7,6 +7,7 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { INVITE_TTL_DAYS } from "@/lib/invites/family-invites";
 import { formatPrice } from "@/lib/family/plan";
 import type { JoinedCard, NarratorCard, NarratorSlotsView } from "@/lib/family/service";
+import { InvitationPill } from "@/components/invitations/InvitationPill";
 import { InviteStoryteller, type SavedInvite } from "./InviteStoryteller";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 
@@ -356,7 +357,7 @@ export function NarratorSlots({
                           : `${inv.emailed ? "Emailed" : "Created"} ${day(inv.createdAt)}. The link works until ${day(until)}.`}
                     </p>
                   </div>
-                  <span className={`${pill} ${expired || declined ? "bg-ink/10" : "bg-sunshine"}`}>{declined ? "Declined" : expired ? "Expired" : "Invitation sent"}</span>
+                  <InvitationPill state={declined ? "declined" : expired ? "expired" : "sent"} />
                   {declined ? null : inv.canResend && inviteMode === "live" ? (
                     <div className="flex flex-wrap items-center gap-3">
                       <button type="button" className={buttonSecondary} disabled={busy} onClick={() => resend(inv)}>

@@ -161,7 +161,9 @@ describe("family invitations on the server", () => {
     expect((args.p_recipients as Row[])[0]!.email_hash).toBe(emailHash(SECRET, "sara@example.com"));
     expect(mailer.sent).toHaveLength(1);
     expect(mailer.sent[0]!.to).toBe("sara@example.com");
-    expect(mailer.sent[0]!.subject).toBe("June Walker recorded a story for your family on Readli");
+    expect(mailer.sent[0]!.subject).toBe("June Walker wants to read stories to your family on Readli");
+    expect(mailer.sent[0]!.text).toContain("Love, Mom");
+    expect(mailer.sent[0]!.text).toContain("recorded a short preview from Winnie-the-Pooh");
     const token = /readli\.ai\/v\/([A-Za-z0-9_-]+)/.exec(mailer.sent[0]!.text)![1]!;
     expect((args.p_recipients as Row[])[0]!.token_hash).toBe(hashInvitationToken(token));
     expect(tables.voice_invitation_sends![0]).toMatchObject({ delivery: "sent", provider_message_id: "mem_1" });
@@ -192,6 +194,42 @@ describe("family invitations on the server", () => {
     const { db, calls } = fakeDb({}, () => "not_guardian");
     expect(await acceptInvitation(db, "tok", "u2", "h1")).toBe("not_guardian");
     expect(calls).toEqual([{ name: "accept_voice_invitation", args: { p_token_hash: hashInvitationToken("tok"), p_user: "u2", p_household: "h1" } }]);
+  });
+
+  it("send without a preview, in the contributor's words or Readli's default", async () => {
+    const mailer = new MemoryMailer();
+    const { db, tables, calls } = fakeDb({ voice_invitation_settings: [settings()], adult_profiles: [{ user_id: "u1", display_name: "Andrea" }] }, (_name, args) => {
+      tables.voice_invitation_sends = [{ id: 1, invitation_id: ID, delivery: "queued" }];
+      return (args.p_recipients as Row[]).map((r) => ({ email_hash: r.email_hash, result: "created", id: ID }));
+    });
+    const input = { recipients: [{ email: "kevin@example.com" }], message: "", adultsConfirmed: true, shareConsent: true };
+    expect((await sendInvitations(db, { secret: SECRET, origin: "https://readli.ai", mailer }, deps(), { id: "u1", name: "Andrea" }, input))[0]!.result).toBe("created");
+    expect(calls[0]!.args.p_preview).toBeNull();
+    const text = mailer.sent[0]!.text;
+    expect(text).toContain("I've recorded my voice on Readli so I can read stories to your family. Connect my voice to your Readli Family!");
+    expect(text).toContain("Connect Andrea's voice: https://readli.ai/v/");
+    expect(text).not.toContain("preview from");
+  });
+
+  it("tell the contributor once when a family connects their voice", async () => {
+    const mailer = new MemoryMailer();
+    const tok = "connect-token-abcdefghijklmnop";
+    const { db, tables } = fakeDb(
+      {
+        voice_invitations: [{ id: ID, contributor_id: "u1", token_hash: hashInvitationToken(tok), accepted_at: null }],
+        adult_profiles: [{ user_id: "u1", display_name: "Andrea" }],
+        households: [{ id: "h1", name: "The Godfrey family" }],
+      },
+      () => "accepted",
+    );
+    (db as unknown as { auth: { admin: { getUserById: () => Promise<unknown> } } }).auth.admin.getUserById = async () => ({ data: { user: { email: "andrea@example.com" } }, error: null });
+    expect(await acceptInvitation(db, tok, "kevin", "h1", { mailer, origin: "https://readli.ai" })).toBe("accepted");
+    expect(mailer.sent).toHaveLength(1);
+    expect(mailer.sent[0]).toMatchObject({ to: "andrea@example.com", subject: "The Godfrey family connected your Readli voice" });
+    expect(mailer.sent[0]!.text).toContain("https://readli.ai/family/my-voice");
+    tables.voice_invitations![0]!.accepted_at = "2026-10-21";
+    await acceptInvitation(db, tok, "kevin", "h1", { mailer, origin: "https://readli.ai" });
+    expect(mailer.sent).toHaveLength(1);
   });
 
   it("play the giver's approved preview on their gift's page, and nothing for a cancelled gift", async () => {

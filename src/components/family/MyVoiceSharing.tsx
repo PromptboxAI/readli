@@ -43,8 +43,22 @@ export function MyVoiceSharing({ initial }: { initial: MyVoiceView[] }) {
   };
 
   if (voices.length === 0) return <p className="rounded-3xl bg-surface p-4">You haven&apos;t recorded your voice yet.</p>;
+  // Families that connected in the last two weeks, so a new connection never goes unnoticed.
+  const recent = voices.flatMap((v) => v.households.filter((h) => h.shared && h.sharedSince && Date.now() - Date.parse(h.sharedSince) < 14 * 86_400_000));
   return (
     <div className="flex flex-col gap-4" data-testid="my-voice">
+      {recent.length > 0 && (
+        <ul className="flex flex-col gap-2" data-testid="new-connections">
+          {recent.map((h) => (
+            <li key={h.id} className="rounded-3xl bg-mint/40 p-4">
+              <span className="font-semibold">
+                {h.name} can use your voice since {day(h.sharedSince!)}.
+              </span>{" "}
+              Their parents choose which children hear you. To stop sharing, turn off {h.name} below.
+            </li>
+          ))}
+        </ul>
+      )}
       <p role="status" aria-live="polite" className={message ? "rounded-2xl bg-ivory p-3 font-semibold ring-2 ring-ink/10" : "sr-only"}>
         {message}
       </p>

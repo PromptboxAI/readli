@@ -6,7 +6,7 @@ import { hashGiftCode } from "@/lib/gifting/codes.server";
 import { findCatalogBook } from "@/lib/library/catalog";
 import { ProviderRefCipher } from "@/lib/server/provider-ref";
 import type { VoiceProvider } from "@/lib/voice/provider";
-import { invitationEmail, type Mailer } from "./email";
+import { connectedEmail, invitationEmail, type Mailer } from "./email";
 import {
   DEFAULT_INVITATION_SETTINGS,
   REPORT_REASONS,
@@ -28,9 +28,9 @@ import { findPassage } from "./passages";
  * kept encrypted for resends and hashed for suppression; they never reach analytics.
  */
 export const INVITE_COOKIE = "readli_voice_invite";
-export const SHARE_CONSENT_VERSION = "voice-invitation-2026-10";
+export const SHARE_CONSENT_VERSION = "voice-invitation-2026-10b";
 export const SHARE_CONSENT =
-  "If someone I invite starts or connects a Readli Family, they may use my Readli voice for stories, but only for the children their parents approve. I can stop sharing at any time.";
+  "I agree that each family I invite here may connect my Readli voice. Only these families, and only for the children their parents approve. I'll be told each time a family connects, and I can stop sharing with any family at any time.";
 export const ADULTS_CONSENT = "Everyone I'm inviting is 18 or older, and I know them.";
 
 type Row = Record<string, unknown>;
@@ -325,12 +325,12 @@ function links(ctx: SendContext, invitationId: string, token: string) {
   };
 }
 
-async function deliver(db: SupabaseClient, ctx: SendContext, invitation: { id: string; email: string; name: string; message: string; token: string }, sender: { name: string; book: string }, linkDays: number): Promise<boolean> {
+async function deliver(db: SupabaseClient, ctx: SendContext, invitation: { id: string; email: string; name: string; message: string; token: string }, sender: { name: string; book: string | null }, linkDays: number): Promise<boolean> {
   const email = invitationEmail({
     contributorName: sender.name,
     recipientName: invitation.name,
     message: invitation.message,
-    bookTitle: findCatalogBook(sender.book)?.title ?? "a classic story",
+    bookTitle: sender.book ? (findCatalogBook(sender.book)?.title ?? null) : null,
     linkDays,
     ...links(ctx, invitation.id, invitation.token),
   });
@@ -357,7 +357,7 @@ export async function sendInvitations(db: SupabaseClient, ctx: SendContext, deps
   const state = await contributorState(db, deps, user);
   if (!state.settings.sendingEnabled || !ctx.mailer) throw new InvitationError(503, "sending_off", "Sending invitations isn't switched on yet.");
   if (state.blocker) throw new InvitationError(403, state.blocker, "Finish setting up your Readli voice before inviting your family.");
-  if (!state.approved) throw new InvitationError(409, "no_preview", "Choose and approve your preview first.");
+  // The preview is optional: without one, the email and page simply have nothing to play.
   if (!input.adultsConfirmed) throw new InvitationError(400, "adults_only", "Please confirm everyone you're inviting is an adult you know.");
   if (!input.shareConsent) throw new InvitationError(400, "consent_required", "Please agree to share your voice with families who join.");
   const { recipients, problems } = parseRecipients(input.recipients);
@@ -378,7 +378,7 @@ export async function sendInvitations(db: SupabaseClient, ctx: SendContext, deps
   const prepared = recipients.map((r) => ({ ...r, token: newInvitationToken(), hash: emailHash(ctx.secret, r.email) }));
   const { data, error } = await db.rpc("send_voice_invitations", {
     p_contributor: user.id,
-    p_preview: state.approved.id,
+    p_preview: state.approved?.id ?? null,
     p_consent: receipt.id,
     p_recipients: prepared.map((r) => ({ email_hash: r.hash, email_encrypted: cipher.encrypt(r.email), name: r.name, relationship: r.relationship, message, token_hash: hashInvitationToken(r.token) })),
   });
@@ -394,9 +394,10 @@ export async function sendInvitations(db: SupabaseClient, ctx: SendContext, deps
     const res = results.find((x) => x.email_hash === r.hash && x.result === "created") ?? results.find((x) => x.email_hash === r.hash);
     let result: SendOutcome["result"] = res?.result ?? "failed";
     if (res?.result === "created" && res.id) {
-      const ok = await deliver(db, ctx, { id: res.id, email: r.email, name: r.name, message, token: r.token }, { name: state.displayName, book: state.approved.book }, state.settings.linkDays);
+      const book = state.approved?.book ?? null;
+      const ok = await deliver(db, ctx, { id: res.id, email: r.email, name: r.name, message, token: r.token }, { name: state.displayName, book }, state.settings.linkDays);
       if (!ok) result = "failed";
-      else await track(db, "invite_sent", { invitation_id: res.id, contributor_id: user.id, book: state.approved.book }, user.id);
+      else await track(db, "invite_sent", { invitation_id: res.id, contributor_id: user.id, book }, user.id);
     }
     outcomes.push({ email: r.email, name: r.name, result });
   }
@@ -415,7 +416,6 @@ const RESEND_MESSAGES: Record<string, string> = {
 export async function resendInvitation(db: SupabaseClient, ctx: SendContext, deps: PreviewDeps, user: { id: string; name: string }, invitationId: string): Promise<void> {
   const state = await contributorState(db, deps, user);
   if (!ctx.mailer || !state.settings.sendingEnabled) throw new InvitationError(503, "sending_off", RESEND_MESSAGES.switched_off!);
-  if (!state.approved) throw new InvitationError(409, "no_preview", "Choose and approve your preview first.");
   const [inv] = await q(db.from("voice_invitations").select("*").eq("id", invitationId).eq("contributor_id", user.id).limit(1), "read invitation");
   if (!inv?.recipient_email_encrypted) throw new InvitationError(404, "not_found", RESEND_MESSAGES.not_found!);
   const token = newInvitationToken();
@@ -423,7 +423,7 @@ export async function resendInvitation(db: SupabaseClient, ctx: SendContext, dep
   if (error) throw new Error(`resend invitation: ${error.message}`);
   if (data !== "resent") throw new InvitationError(409, String(data), RESEND_MESSAGES[String(data)] ?? "That invitation can't be sent again.");
   const email = new ProviderRefCipher(ctx.secret).decrypt(inv.recipient_email_encrypted as string);
-  const ok = await deliver(db, ctx, { id: invitationId, email, name: (inv.recipient_name as string) ?? "", message: (inv.message as string) ?? "", token }, { name: state.displayName, book: state.approved.book }, state.settings.linkDays);
+  const ok = await deliver(db, ctx, { id: invitationId, email, name: (inv.recipient_name as string) ?? "", message: (inv.message as string) ?? "", token }, { name: state.displayName, book: state.approved?.book ?? null }, state.settings.linkDays);
   if (!ok) throw new InvitationError(502, "email_failed", "We couldn't send that email just now. Please try again.");
   await track(db, "invite_resent", { invitation_id: invitationId, contributor_id: user.id }, user.id);
 }
@@ -584,16 +584,37 @@ export const ACCEPT_MESSAGES: Record<Exclude<AcceptResult, "accepted">, string> 
   no_voice: "This storyteller's voice isn't available right now.",
 };
 
-/** A family's parent connects the contributor: they join the family as a pending storyteller. No slot, no child approvals. */
-export async function acceptInvitation(db: SupabaseClient, token: string, userId: string, householdId: string): Promise<AcceptResult> {
+/**
+ * A family's parent connects the contributor: they join the family as a pending storyteller. No slot, no
+ * child approvals. The contributor is told by email, with a link to manage or stop sharing.
+ */
+export async function acceptInvitation(db: SupabaseClient, token: string, userId: string, householdId: string, opts: { mailer?: Mailer | null; origin?: string } = {}): Promise<AcceptResult> {
+  const before = await invitationByToken(db, token);
   const { data, error } = await db.rpc("accept_voice_invitation", { p_token_hash: hashInvitationToken(token), p_user: userId, p_household: householdId });
   if (error) throw new Error(`accept invitation: ${error.message}`);
   const result = data as AcceptResult;
   if (result === "accepted") {
-    const inv = await invitationByToken(db, token);
-    await track(db, "invite_accepted", { invitation_id: inv?.id, contributor_id: inv?.contributor_id, household_id: householdId }, userId);
+    await track(db, "invite_accepted", { invitation_id: before?.id, contributor_id: before?.contributor_id, household_id: householdId }, userId);
+    // Only the first connection sends the email; opening the link again doesn't.
+    if (before && !before.accepted_at && opts.mailer) await tellContributor(db, opts.mailer, opts.origin ?? "https://readli.ai", before.contributor_id as string, householdId);
   }
   return result;
+}
+
+async function tellContributor(db: SupabaseClient, mailer: Mailer, origin: string, contributorId: string, householdId: string): Promise<void> {
+  try {
+    const [{ data }, name, [home]] = await Promise.all([
+      db.auth.admin.getUserById(contributorId),
+      displayNameOf(db, contributorId, "there"),
+      q(db.from("households").select("name").eq("id", householdId).limit(1), "read family"),
+    ]);
+    const to = data?.user?.email;
+    if (!to) return;
+    const email = connectedEmail({ contributorName: name, familyName: (home?.name as string) ?? "A family", manageUrl: `${origin.replace(/\/$/, "")}/family/my-voice` });
+    await mailer.send({ ...email, to });
+  } catch (err) {
+    console.error("connected email failed", contributorId, err);
+  }
 }
 
 /** The invitation id behind a preview token, for Checkout metadata. */
