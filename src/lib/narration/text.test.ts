@@ -37,3 +37,23 @@ describe("every story closes with The End", () => {
     expect(story.chapters.flatMap((c) => c.sentenceIds)).toEqual(story.sentences.map((s) => s.id));
   });
 });
+
+describe("long stories split into parts", () => {
+  // Revisions and sentence counts from before the split: splitting at a paragraph keeps every sentence id.
+  const SPLIT = [
+    ["the-ugly-duckling", "0e718ff695f9", 106, 4],
+    ["thumbelina", "81e49318a6ca", 201, 4],
+    ["the-velveteen-rabbit", "32815e09f55b", 214, 4],
+    ["cinderella", "e41d91f4209f", 100, 2],
+    ["the-emperors-new-clothes", "ddc67a3e0e27", 97, 2],
+  ] as const;
+
+  it("can be prepared a part at a time, and audio already prepared still lines up", () => {
+    for (const [slug, revision, sentences, parts] of SPLIT) {
+      const text = bookText(slug)!;
+      expect(text.chapters, slug).toHaveLength(parts);
+      expect(text.revision, slug).toBe(revision);
+      expect(text.sentences, slug).toHaveLength(sentences + 1);
+    }
+  });
+});
