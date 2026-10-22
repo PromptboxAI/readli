@@ -122,6 +122,21 @@ export function NarratorSlots({
     setMessage(`The invitation to ${inv.name} was withdrawn. Its link no longer works.`);
   };
 
+  const resend = async (inv: SavedInvite) => {
+    setBusy(true);
+    setMessage(null);
+    const res = await fetch(`/api/invites/${encodeURIComponent(inv.id)}/resend`, { method: "POST" });
+    const body = await res.json().catch(() => null);
+    setBusy(false);
+    if (!res.ok) return setMessage(body?.error?.message ?? "We couldn't send that just now. Please try again.");
+    setInvites((list) => list.map((i) => (i.id === inv.id ? { ...i, status: "invited" as const, emailed: true } : i)));
+    setMessage(
+      body?.email === "sent"
+        ? `We emailed ${inv.name} again with a fresh link. The old link no longer works.`
+        : `${body?.message ?? "We couldn't send the email."} Here's the fresh link to share yourself: ${body?.link ?? ""}`,
+    );
+  };
+
   const person = (p: { name: string; ownName?: string; relationship: string; avatarUrl: string | null; tint: string }, muted = false) => (
     <>
       <StorytellerAvatar name={p.name} avatarUrl={p.avatarUrl} tint={p.tint} muted={muted} />
@@ -153,7 +168,7 @@ export function NarratorSlots({
     return <p className="rounded-3xl bg-sunshine/60 p-4 font-semibold">Narrator slots come with Readli Family.</p>;
   }
 
-  const pendingInvites = invites.filter((i) => i.status === "invited" || i.status === "expired");
+  const pendingInvites = invites.filter((i) => i.status === "invited" || i.status === "expired" || i.status === "declined");
   const onTheWay = view.shared.length + view.waiting.length + view.joined.length + pendingInvites.length;
   const openInvite = (name = "") => setInviting({ name });
 
@@ -326,18 +341,34 @@ export function NarratorSlots({
             ))}
             {pendingInvites.map((inv) => {
               const expired = inv.status === "expired";
-              const until = new Date(new Date(inv.createdAt).getTime() + INVITE_TTL_DAYS * 86_400_000);
+              const declined = inv.status === "declined";
+              const until = inv.expiresAt ? new Date(inv.expiresAt) : new Date(new Date(inv.createdAt).getTime() + INVITE_TTL_DAYS * 86_400_000);
               return (
                 <li key={inv.id} data-testid={`invite-${inv.id}`} className="flex flex-wrap items-center gap-4 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
                   <StorytellerAvatar name={inv.name} avatarUrl={null} tint="bg-ivory" muted />
                   <div className="min-w-0 flex-1">
                     <p className="font-display text-xl font-semibold">{inv.name}</p>
                     <p className="text-sm text-muted">
-                      {expired ? "The link expired before it was used." : `Sent ${day(inv.createdAt)}. The link works until ${day(until)}.`}
+                      {declined
+                        ? "They said no thanks. We won't email them again for your family."
+                        : expired
+                          ? "The link expired before it was used."
+                          : `${inv.emailed ? "Emailed" : "Created"} ${day(inv.createdAt)}. The link works until ${day(until)}.`}
                     </p>
                   </div>
-                  <span className={`${pill} ${expired ? "bg-ink/10" : "bg-sunshine"}`}>{expired ? "Expired" : "Invitation sent"}</span>
-                  {expired ? (
+                  <span className={`${pill} ${expired || declined ? "bg-ink/10" : "bg-sunshine"}`}>{declined ? "Declined" : expired ? "Expired" : "Invitation sent"}</span>
+                  {declined ? null : inv.canResend && inviteMode === "live" ? (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button type="button" className={buttonSecondary} disabled={busy} onClick={() => resend(inv)}>
+                        {expired ? "Send a fresh link" : "Resend email"}
+                      </button>
+                      {!expired && (
+                        <button type="button" className="font-display font-semibold underline underline-offset-4" onClick={() => withdraw(inv)}>
+                          Withdraw
+                        </button>
+                      )}
+                    </div>
+                  ) : expired ? (
                     <button type="button" className={buttonSecondary} onClick={() => openInvite(inv.name)}>
                       Invite again
                     </button>

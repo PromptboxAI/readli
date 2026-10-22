@@ -41,7 +41,7 @@ export function JoinInvite({ token, invite, signedIn, live }: { token: string; i
       <section role="alert" className="rounded-[var(--radius-panel)] bg-coral/20 p-6" data-testid="join-unusable">
         <h2 className="font-display text-2xl font-semibold">This invitation can&apos;t be used</h2>
         <p>
-          It has {invite.status === "expired" ? "expired" : invite.status === "withdrawn" ? "been withdrawn" : "already been used"}. Ask {invite.inviterName} to
+          It has {invite.status === "expired" ? "expired" : invite.status === "withdrawn" ? "been withdrawn" : invite.status === "declined" ? "been declined" : "already been used"}. Ask {invite.inviterName} to
           send a fresh link from Family storytellers.
         </p>
       </section>

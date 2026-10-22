@@ -44,7 +44,7 @@ describe("family invitations for real accounts", () => {
     expect(tables.household_invitations![0]).toMatchObject({ token_hash: hashInviteToken(token), invitee_name: "Grandma June", relationship_label: "Grandma", expires_at: "2026-10-25T12:00:00.000Z" });
     expect(JSON.stringify(tables)).not.toContain(token);
     expect(invite).toMatchObject({ name: "Grandma June", status: "invited", email: null });
-    expect(inviteLink("https://readli.ai/", token)).toBe(`https://readli.ai/signup?invite=${token}`);
+    expect(inviteLink("https://readli.ai/", token)).toBe(`https://readli.ai/voice/join?invite=${token}`);
   });
 
   it("need a name and drop relationships Readli doesn't offer", async () => {
@@ -71,6 +71,7 @@ describe("family invitations for real accounts", () => {
     expect(statusOf({ ...base, accepted_at: "x" }, NOW)).toBe("joined_no_voice");
     expect(statusOf({ ...base, revoked_at: "x" }, NOW)).toBe("withdrawn");
     expect(statusOf({ ...base, expires_at: "2026-10-01T00:00:00Z" }, NOW)).toBe("expired");
+    expect(statusOf({ ...base, declined_at: "x" }, NOW)).toBe("declined");
     const { db } = fakeDb({ household_invitations: [{ id: "a", household_id: "h1", invitee_name: "A", created_at: "2026-10-10T00:00:00Z", ...base }, { id: "b", household_id: "h2", invitee_name: "B", created_at: "2026-10-10T00:00:00Z", ...base }] });
     expect((await listInvites(db, "h1")).map((i) => i.id)).toEqual(["a"]);
   });

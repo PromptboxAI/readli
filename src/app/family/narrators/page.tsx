@@ -7,6 +7,8 @@ import type { FamilyState } from "@/lib/family/model";
 import { guardianHousehold, narratorSlots } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
 import { BackLink } from "@/components/family/BackLink";
+import { invitationMailer } from "@/lib/invitations/email";
+import { inviteEmailOn } from "@/lib/invites/email";
 import { listInvites } from "@/lib/invites/server";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +24,8 @@ export default async function NarratorSlotsPage() {
   // Signed-in families save real invitations; the sample family previews the form without saving.
   const db = page.session.account ? accountDb() : null;
   const inviteMode = page.session.account ? (db ? "live" : "off") : "preview";
-  const invites = db ? await listInvites(db, householdId) : [];
+  const email = db ? await inviteEmailOn(db, invitationMailer()) : null;
+  const invites = db ? await listInvites(db, householdId, { maxResends: email?.on ? email.maxResends : null }) : [];
   return (
     <FamilyShell>
       <PreviewNote />

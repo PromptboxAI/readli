@@ -116,3 +116,56 @@ ${message}
     headers: { "List-Unsubscribe": `<${input.oneClickUnsubscribeUrl}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
   };
 }
+
+export interface FamilyInviteEmailInput {
+  inviterName: string;
+  familyName: string;
+  recipientName: string;
+  joinUrl: string;
+  declineUrl: string;
+  unsubscribeUrl: string;
+  oneClickUnsubscribeUrl: string;
+  reportUrl: string;
+  linkDays: number;
+}
+
+/** A family's parent invites a storyteller (Family storytellers → Invite a storyteller). */
+export function familyInviteEmail(input: FamilyInviteEmailInput): Omit<OutgoingEmail, "to"> {
+  const who = input.inviterName;
+  const family = input.familyName;
+  const hello = input.recipientName ? `Hi ${input.recipientName},` : "Hi,";
+  const subject = `${who} invited you to read stories to ${family} on Readli`;
+  const lines = [
+    hello,
+    "",
+    `${who} would love you to read stories to the kids in ${family}. On Readli, you record your voice once, and the children your family's parents choose can hear you read classic books.`,
+    "",
+    `Accept the invitation: ${input.joinUrl}`,
+    "",
+    `It's free for you, with no card and no subscription. Your voice stays yours: it's shared with ${family} only after you agree, and you can stop sharing at any time. The link works once, for ${input.linkDays} days.`,
+    "",
+    `Not for you? Decline: ${input.declineUrl}`,
+    `Stop all Readli invitations: ${input.unsubscribeUrl}`,
+    `Report this email: ${input.reportUrl}`,
+    "",
+    `You're getting this because ${who} entered your email address on Readli. We don't add you to any mailing list.`,
+  ];
+  const html = `<!doctype html><html><body style="margin:0;background:#fdf8f0;font-family:Arial,Helvetica,sans-serif;color:#2a2340">
+<div style="max-width:560px;margin:0 auto;padding:24px">
+<p style="font-size:22px;font-weight:700;margin:0 0 16px">Readli</p>
+<div style="background:#ffffff;border-radius:20px;padding:24px">
+<p style="margin:0 0 12px">${esc(hello)}</p>
+<p style="margin:0">${esc(who)} would love you to read stories to the kids in <strong>${esc(family)}</strong>. On Readli, you record your voice once, and the children your family's parents choose can hear you read classic books.</p>
+<p style="margin:24px 0;text-align:center"><a href="${esc(input.joinUrl)}" style="display:inline-block;background:#ff7a59;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 24px;border-radius:999px">Accept the invitation</a></p>
+<p style="margin:0;font-size:14px">It's free for you, with no card and no subscription. Your voice stays yours: it's shared with ${esc(family)} only after you agree, and you can stop sharing at any time. The link works once, for ${input.linkDays} days.</p>
+</div>
+<p style="font-size:12px;color:#6b6480;margin:16px 0 0">Not for you? <a href="${esc(input.declineUrl)}" style="color:#6b6480">Decline</a> · <a href="${esc(input.unsubscribeUrl)}" style="color:#6b6480">Stop all Readli invitations</a> · <a href="${esc(input.reportUrl)}" style="color:#6b6480">Report this email</a></p>
+<p style="font-size:12px;color:#6b6480;margin:8px 0 0">You're getting this because ${esc(who)} entered your email address on Readli. We don't add you to any mailing list.</p>
+</div></body></html>`;
+  return {
+    subject,
+    html,
+    text: lines.join("\n"),
+    headers: { "List-Unsubscribe": `<${input.oneClickUnsubscribeUrl}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
+  };
+}
