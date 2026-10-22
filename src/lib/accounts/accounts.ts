@@ -118,8 +118,9 @@ export function signupPath(start: SignupStart): string {
     case "family":
       return "/signup/family";
     case "voice":
-      return start.invitation ? `/signup/voice?invite=${encodeURIComponent(start.invitation)}` : "/signup/voice";
+      // An invitation always lands on the join page, which signs in, accepts and records in order.
+      return start.invitation ? `/voice/join?invite=${encodeURIComponent(start.invitation)}` : "/signup/voice";
     case "accept_invitation":
-      return `/voice?invite=${encodeURIComponent(start.invitation)}`;
+      return `/voice/join?invite=${encodeURIComponent(start.invitation)}`;
   }
 }

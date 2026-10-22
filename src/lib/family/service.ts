@@ -382,6 +382,18 @@ export interface NarratorCard {
   tint: string;
   /** The signed-in adult's own voice, which only they can share. */
   yours?: boolean;
+  /** Why a voice isn't in "shared" yet; only set on waiting cards. */
+  status?: "processing" | "not_shared" | "stopped_sharing";
+}
+
+/** A household member with no voice yet, such as someone who just accepted an invitation. */
+export interface JoinedCard {
+  adultId: string;
+  name: string;
+  relationship: string;
+  avatarUrl: string | null;
+  tint: string;
+  yours?: boolean;
 }
 
 export interface NarratorSlotsView {
@@ -395,6 +407,8 @@ export interface NarratorSlotsView {
   shared: NarratorCard[];
   /** Household members whose voices aren't shared with this family, the viewer's own included. */
   waiting: NarratorCard[];
+  /** Household members who haven't made a voice yet. */
+  joined: JoinedCard[];
   releasesLeft: number;
   extraSlotPriceCents: number;
   extraSlotPriceApproved: boolean;
@@ -423,7 +437,23 @@ export async function narratorSlots(store: FamilyStore, actor: Actor | null, hou
     shared: memberVoices.filter((v) => !activeIds.has(v.id) && activeShare(state, v.id, householdId)).map((v) => card(state, v.id)),
     waiting: memberVoices
       .filter((v) => !activeShare(state, v.id, householdId))
-      .map((v) => (v.ownerId === viewerId ? { ...card(state, v.id), yours: true } : card(state, v.id))),
+      .map((v) => ({
+        ...card(state, v.id),
+        ...(v.ownerId === viewerId ? { yours: true } : {}),
+        status:
+          v.status !== "ready"
+            ? ("processing" as const)
+            : state.shares.some((x) => x.voiceId === v.id && x.householdId === householdId)
+              ? ("stopped_sharing" as const)
+              : ("not_shared" as const),
+      })),
+    joined: state.members
+      .filter((m) => m.householdId === householdId && m.removedAt === null && !state.voices.some((v) => v.ownerId === m.adultId && v.deletedAt === null))
+      .flatMap((m) => {
+        const a = state.adults.find((x) => x.id === m.adultId);
+        if (!a) return [];
+        return [{ adultId: a.id, name: a.displayName, relationship: a.relationship, avatarUrl: a.avatarUrl, tint: a.tint, ...(a.id === viewerId ? { yours: true } : {}) }];
+      }),
     releasesLeft: releasesLeft(state, householdId, plan, clock().toISOString()),
     extraSlotPriceCents: plan.extraSlotPriceCents,
     extraSlotPriceApproved: plan.extraSlotPriceApproved,

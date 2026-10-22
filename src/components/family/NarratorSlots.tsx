@@ -2,21 +2,59 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { INVITE_TTL_DAYS } from "@/lib/invites/family-invites";
 import { formatPrice } from "@/lib/family/plan";
-import type { NarratorCard, NarratorSlotsView } from "@/lib/family/service";
+import type { JoinedCard, NarratorCard, NarratorSlotsView } from "@/lib/family/service";
+import { InviteStoryteller, type SavedInvite } from "./InviteStoryteller";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 
-/** Readli Family → Narrator slots: choose which shared voices the household uses, and add slots. */
-export function NarratorSlots({ initial, canBuy = true, approveHref = "/family/kids" }: { initial: NarratorSlotsView; canBuy?: boolean; approveHref?: string }) {
+/** "live": invitations are saved; "preview": the sample family, nothing saved; "off": no invitations here. */
+export type InviteMode = "live" | "preview" | "off";
+
+const pill = "shrink-0 rounded-full px-3 py-1 text-sm font-bold";
+const day = (d: string | Date) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+const WAITING: Record<NonNullable<NarratorCard["status"]>, { badge: string; tone: string; note: (name: string) => string }> = {
+  processing: { badge: "Making their voice", tone: "bg-sky/60", note: (n) => `${n} recorded and their voice is being made.` },
+  not_shared: { badge: "Not shared yet", tone: "bg-sunshine", note: (n) => `${n}'s voice is ready. Only ${n} can share it with your family.` },
+  stopped_sharing: { badge: "Stopped sharing", tone: "bg-ink/10", note: (n) => `${n} stopped sharing their voice with your family.` },
+};
+
+/** Readli Family → Family storytellers: narrator slots, invitations and voices on the way. */
+export function NarratorSlots({
+  initial,
+  canBuy = true,
+  approveHref = "/family/kids",
+  inviteMode = "off",
+  invites: initialInvites = [],
+}: {
+  initial: NarratorSlotsView;
+  canBuy?: boolean;
+  approveHref?: string;
+  inviteMode?: InviteMode;
+  invites?: SavedInvite[];
+}) {
   const router = useRouter();
   const [view, setView] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [buying, setBuying] = useState(false);
+  const [invites, setInvites] = useState(initialInvites);
+  const [inviting, setInviting] = useState<{ name: string } | null>(null);
+  const inviteRef = useRef<HTMLDivElement>(null);
   const free = view.total - view.active.length;
   const price = formatPrice(view.extraSlotPriceCents);
+  const canInvite = inviteMode !== "off";
+
+  // Home's "Invite a storyteller" links here with #invite.
+  useEffect(() => {
+    if (canInvite && window.location.hash === "#invite") setInviting({ name: "" });
+  }, [canInvite]);
+  useEffect(() => {
+    if (inviting) inviteRef.current?.scrollIntoView({ block: "start" });
+  }, [inviting]);
 
   const call = async (url: string, body: unknown, done: string) => {
     setBusy(true);
@@ -31,36 +69,52 @@ export function NarratorSlots({ initial, canBuy = true, approveHref = "/family/k
     router.refresh();
   };
 
-  const row = (n: NarratorCard, action: React.ReactNode, muted = false) => (
-    <li key={n.voiceId} data-testid={`slot-${n.voiceId}`} className={`flex flex-wrap items-center gap-4 rounded-3xl p-4 ${muted ? "bg-ink/5" : "bg-surface ring-2 ring-ink/10"}`}>
-      <StorytellerAvatar name={n.name} avatarUrl={n.avatarUrl} tint={n.tint} muted={muted} />
+  const withdraw = async (inv: SavedInvite) => {
+    setMessage(null);
+    if (inviteMode === "live") {
+      const res = await fetch(`/api/invites/${encodeURIComponent(inv.id)}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        return setMessage(body?.error?.message ?? "That invitation can't be withdrawn.");
+      }
+    }
+    setInvites((list) => list.filter((i) => i.id !== inv.id));
+    setMessage(`The invitation to ${inv.name} was withdrawn. Its link no longer works.`);
+  };
+
+  const person = (p: { name: string; relationship: string; avatarUrl: string | null; tint: string }, muted = false) => (
+    <>
+      <StorytellerAvatar name={p.name} avatarUrl={p.avatarUrl} tint={p.tint} muted={muted} />
       <div className="min-w-0 flex-1">
-        <p className="font-display text-xl font-semibold">{n.name}</p>
-        <p className="text-sm text-muted">{n.relationship}</p>
+        <p className="font-display text-xl font-semibold">{p.name}</p>
+        {p.relationship && <p className="text-sm text-muted">{p.relationship}</p>}
       </div>
-      {action}
-    </li>
+    </>
   );
 
   if (!view.hasPlan) {
     return <p className="rounded-3xl bg-sunshine/60 p-4 font-semibold">Narrator slots come with Readli Family.</p>;
   }
 
+  const pendingInvites = invites.filter((i) => i.status === "invited" || i.status === "expired");
+  const onTheWay = view.shared.length + view.waiting.length + view.joined.length + pendingInvites.length;
+  const openInvite = (name = "") => setInviting({ name });
+
   return (
     <div className="flex flex-col gap-8" data-testid="narrator-slots">
       <div className="flex flex-col gap-3">
-        <h1 className="font-display text-4xl font-semibold">Narrator slots</h1>
+        <h1 className="font-display text-4xl font-semibold">Family storytellers</h1>
         <p className="max-w-2xl text-lg">
-          Your plan includes {view.included} narrator slots{view.extra > 0 ? `, plus ${view.extra} you added` : ""}. Put a
-          storyteller who has shared their voice into a slot, then choose which children can hear them.
+          Your plan includes {view.included} narrator slots{view.extra > 0 ? `, plus ${view.extra} you added` : ""}. Put a storyteller who has
+          shared their voice into a slot, then choose which children can hear them. Inviting someone never uses a slot.
         </p>
-        <div className="flex flex-wrap gap-2" aria-label="Slots used">
+        <div className="flex flex-wrap gap-2" aria-hidden="true">
           {Array.from({ length: view.total }, (_, i) => (
             <span key={i} className={`h-4 w-12 rounded-full border-2 border-ink ${i < view.active.length ? "bg-coral" : "bg-surface"}`} />
           ))}
         </div>
         <p className="font-display text-xl font-semibold" data-testid="slots-used">
-          {view.active.length} of {view.total} slots in use
+          {view.active.length} of {view.total} slots used
         </p>
       </div>
 
@@ -73,16 +127,19 @@ export function NarratorSlots({ initial, canBuy = true, approveHref = "/family/k
         </Link>
       )}
 
-      <section className="flex flex-col gap-3" aria-label="Active narrators">
-        <h2 className="font-display text-2xl font-semibold">Active narrators</h2>
-        {view.active.length === 0 ? (
-          <p className="rounded-3xl bg-surface p-4 text-muted">No narrators yet.</p>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {view.active.map((n) =>
-              row(
-                n,
-                <div className="flex flex-wrap gap-2">
+      <section className="flex flex-col gap-3" aria-label="Narrator slots">
+        <h2 className="font-display text-2xl font-semibold">Narrator slots</h2>
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {view.active.map((n, i) => (
+            <li key={n.voiceId} data-testid={`slot-${n.voiceId}`} className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-bold tracking-wider text-muted uppercase">
+                  Slot {i + 1} · {i < view.included ? "included" : "added"}
+                </span>
+                <span className={`${pill} bg-mint`}>In use</span>
+              </div>
+              <div className="flex items-center gap-4">{person(n)}</div>
+              <div className="flex flex-wrap gap-2">
                 <Link href={approveHref} className={buttonSecondary}>
                   Choose kids
                 </Link>
@@ -92,13 +149,33 @@ export function NarratorSlots({ initial, canBuy = true, approveHref = "/family/k
                   disabled={busy || view.releasesLeft === 0}
                   onClick={() => call("/api/family/narrators", { voiceId: n.voiceId, action: "release" }, `${n.name}'s slot is free. Their approvals for each child were removed.`)}
                 >
-                  Free this slot
+                  Free up this slot
                 </button>
-                </div>,
-              ),
-            )}
-          </ul>
-        )}
+              </div>
+            </li>
+          ))}
+          {Array.from({ length: Math.max(free, 0) }, (_, i) => (
+            <li key={`free-${i}`} data-testid="free-slot" className="flex flex-col gap-3 rounded-3xl border-[3px] border-dashed border-coral/60 bg-ivory p-4">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-bold tracking-wider text-muted uppercase">
+                  Slot {view.active.length + i + 1} · {view.active.length + i < view.included ? "included" : "added"}
+                </span>
+                <span className={`${pill} bg-sunshine`}>Available</span>
+              </div>
+              <p className="font-display text-xl font-semibold">Who else should read to your kids?</p>
+              <p>
+                {view.shared.length > 0
+                  ? `${view.shared[0]!.name} is ready to add below. Or invite someone new: they record for free and share their voice with your family.`
+                  : "Invite a partner, grandparent or friend. They record for free and share their voice with your family, then you add them here."}
+              </p>
+              {canInvite && i === 0 && (
+                <button type="button" className={`${buttonPrimary} self-start`} onClick={() => openInvite()}>
+                  Invite a storyteller
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
         {view.releasesLeft <= 1 && (
           <p className="text-sm text-muted">
             {view.releasesLeft === 0 ? "You've changed narrators a lot this month, so slots can't be freed right now." : "You can free one more slot this month."}
@@ -106,16 +183,47 @@ export function NarratorSlots({ initial, canBuy = true, approveHref = "/family/k
         )}
       </section>
 
-      <section className="flex flex-col gap-3" aria-label="Shared with your family">
-        <h2 className="font-display text-2xl font-semibold">Shared with your family</h2>
-        <p className="text-muted">These storytellers said yes to your family. Sharing alone doesn&apos;t put them in a slot.</p>
-        {view.shared.length === 0 ? (
-          <p className="rounded-3xl bg-surface p-4 text-muted">Everyone who shared is already in a slot.</p>
+      {canInvite && (
+        <div id="invite" ref={inviteRef} className="scroll-mt-24">
+          {inviting && (
+            <InviteStoryteller
+              key={inviting.name}
+              live={inviteMode === "live"}
+              initialName={inviting.name}
+              onSent={(inv) => setInvites((list) => [inv, ...list.filter((i) => !(i.status === "expired" && i.name === inv.name))])}
+              onClose={() => setInviting(null)}
+            />
+          )}
+        </div>
+      )}
+
+      <section className="flex flex-col gap-3" aria-label="Storytellers on the way">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-display text-2xl font-semibold">Storytellers on the way</h2>
+          {canInvite && free <= 0 && !inviting && (
+            <button type="button" className="font-display font-semibold underline underline-offset-4" onClick={() => openInvite()}>
+              Invite a storyteller
+            </button>
+          )}
+        </div>
+        {onTheWay === 0 ? (
+          <div className="flex flex-wrap items-center gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10" data-testid="on-the-way-empty">
+            <p className="min-w-0 flex-1">
+              <span className="font-semibold">No one is on the way yet.</span> When you invite someone, you&apos;ll see each step here: invitation sent, joined,
+              recording, and ready to add.
+            </p>
+            {canInvite && !inviting && (
+              <button type="button" className={buttonSecondary} onClick={() => openInvite()}>
+                Invite someone
+              </button>
+            )}
+          </div>
         ) : (
-          <ul className="flex flex-col gap-3">
-            {view.shared.map((n) =>
-              row(
-                n,
+          <ul className="flex flex-col gap-3" data-testid="on-the-way">
+            {view.shared.map((n) => (
+              <li key={n.voiceId} data-testid={`slot-${n.voiceId}`} className="flex flex-wrap items-center gap-4 rounded-3xl bg-mint/30 p-4 ring-2 ring-ink/10">
+                {person(n)}
+                <span className={`${pill} bg-mint`}>Ready to add</span>
                 <button
                   type="button"
                   className={buttonPrimary}
@@ -123,69 +231,107 @@ export function NarratorSlots({ initial, canBuy = true, approveHref = "/family/k
                   onClick={() => call("/api/family/narrators", { voiceId: n.voiceId, action: "activate" }, `${n.name} is in a narrator slot. Now choose which children can hear them.`)}
                 >
                   Add to a slot
-                </button>,
-              ),
-            )}
+                </button>
+              </li>
+            ))}
+            {view.waiting.map((n) => {
+              const w = WAITING[n.status ?? "not_shared"];
+              return (
+                <li key={n.voiceId} data-testid={`slot-${n.voiceId}`} className="flex flex-wrap items-center gap-4 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
+                  {person(n, !n.yours)}
+                  {n.yours && n.status !== "processing" ? (
+                    <Link href="/family/my-voice" className={buttonPrimary}>
+                      Share my voice
+                    </Link>
+                  ) : (
+                    <span className={`${pill} ${w.tone}`} title={w.note(n.name)}>
+                      {w.badge}
+                    </span>
+                  )}
+                  {!n.yours && <p className="w-full text-sm text-muted">{w.note(n.name)}</p>}
+                </li>
+              );
+            })}
+            {view.joined.map((p: JoinedCard) => (
+              <li key={p.adultId} data-testid={`joined-${p.adultId}`} className="flex flex-wrap items-center gap-4 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
+                {person(p, !p.yours)}
+                {p.yours ? (
+                  <Link href="/voice/record" className={buttonPrimary}>
+                    Record my voice
+                  </Link>
+                ) : (
+                  <span className={`${pill} bg-sky/60`}>Joined</span>
+                )}
+                {!p.yours && <p className="w-full text-sm text-muted">{p.name} joined your family and hasn&apos;t recorded their voice yet.</p>}
+              </li>
+            ))}
+            {pendingInvites.map((inv) => {
+              const expired = inv.status === "expired";
+              const until = new Date(new Date(inv.createdAt).getTime() + INVITE_TTL_DAYS * 86_400_000);
+              return (
+                <li key={inv.id} data-testid={`invite-${inv.id}`} className="flex flex-wrap items-center gap-4 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
+                  <StorytellerAvatar name={inv.name} avatarUrl={null} tint="bg-ivory" muted />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-display text-xl font-semibold">{inv.name}</p>
+                    <p className="text-sm text-muted">
+                      {expired ? "The link expired before it was used." : `Sent ${day(inv.createdAt)}. The link works until ${day(until)}.`}
+                    </p>
+                  </div>
+                  <span className={`${pill} ${expired ? "bg-ink/10" : "bg-sunshine"}`}>{expired ? "Expired" : "Invitation sent"}</span>
+                  {expired ? (
+                    <button type="button" className={buttonSecondary} onClick={() => openInvite(inv.name)}>
+                      Invite again
+                    </button>
+                  ) : (
+                    <button type="button" className="font-display font-semibold underline underline-offset-4" onClick={() => withdraw(inv)}>
+                      Withdraw
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
         {free <= 0 && view.shared.length > 0 && <p className="font-semibold">All your slots are in use. Free one up or add a slot.</p>}
       </section>
 
-      <section className="flex flex-col gap-3 rounded-panel bg-sky/30 p-5" aria-label="Add a narrator slot">
-        <h2 className="font-display text-2xl font-semibold">Add a narrator slot</h2>
-        <p>
-          {price} a month for each extra active narrator. Storytellers never pay to share their voice, and there&apos;s no charge
-          for more children.
-        </p>
-        {!canBuy ? (
-          <p className="text-sm text-muted">Extra slots arrive with checkout, which isn&apos;t switched on yet.</p>
-        ) : !buying ? (
-          <button type="button" className={`${buttonSecondary} self-start`} onClick={() => setBuying(true)}>
-            Add a slot
-          </button>
-        ) : (
-          <div className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10" data-testid="slot-checkout">
-            <p className="font-display text-xl font-semibold">1 extra narrator slot · {price}/month</p>
-            <p className="text-sm text-muted">
-              {view.extraSlotPriceApproved ? "" : "Price pending approval. "}Payments aren&apos;t switched on yet, so this preview adds the slot
-              without charging you.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className={buttonPrimary}
-                disabled={busy}
-                onClick={async () => {
-                  await call("/api/family/narrators/slots", null, "Slot added. You can put another storyteller in it now.");
-                  setBuying(false);
-                }}
-              >
-                Confirm slot
-              </button>
-              <button type="button" className={buttonSecondary} onClick={() => setBuying(false)}>
-                Cancel
-              </button>
+      {free <= 0 && (
+        <section className="flex flex-col gap-3 rounded-panel bg-sky/30 p-5" aria-label="Add a narrator slot">
+          <h2 className="font-display text-2xl font-semibold">Need more narrators?</h2>
+          <p>
+            Add a narrator slot for {price} a month. Storytellers never pay to share their voice, and there&apos;s no charge for more children.
+          </p>
+          {!canBuy ? (
+            <p className="text-sm text-muted">Extra slots arrive with checkout, which isn&apos;t switched on yet.</p>
+          ) : !buying ? (
+            <button type="button" className={`${buttonSecondary} self-start`} onClick={() => setBuying(true)}>
+              Add a slot
+            </button>
+          ) : (
+            <div className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10" data-testid="slot-checkout">
+              <p className="font-display text-xl font-semibold">1 extra narrator slot · {price}/month</p>
+              <p className="text-sm text-muted">
+                {view.extraSlotPriceApproved ? "" : "Price pending approval. "}Payments aren&apos;t switched on yet, so this preview adds the slot without
+                charging you.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className={buttonPrimary}
+                  disabled={busy}
+                  onClick={async () => {
+                    await call("/api/family/narrators/slots", null, "Slot added. You can put another storyteller in it now.");
+                    setBuying(false);
+                  }}
+                >
+                  Confirm slot
+                </button>
+                <button type="button" className={buttonSecondary} onClick={() => setBuying(false)}>
+                  Cancel
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-      </section>
-
-      {view.waiting.length > 0 && (
-        <section className="flex flex-col gap-3" aria-label="Waiting for permission">
-          <h2 className="font-display text-2xl font-semibold">Waiting for permission</h2>
-          <p className="text-muted">These voices aren&apos;t shared with your family yet. Only the person whose voice it is can share it.</p>
-          <ul className="flex flex-col gap-3">
-            {view.waiting.map((n) =>
-              n.yours
-                ? row(
-                    n,
-                    <Link href="/family/my-voice" className={buttonPrimary}>
-                      Share my voice
-                    </Link>,
-                  )
-                : row(n, <span className="rounded-full bg-sunshine px-3 py-1 text-sm font-bold">Waiting for permission</span>, true),
-            )}
-          </ul>
+          )}
         </section>
       )}
     </div>
