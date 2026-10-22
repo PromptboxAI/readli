@@ -1,77 +1,219 @@
 import Image from "next/image";
 import Link from "next/link";
+import { SessionButton } from "@/components/family/SessionButton";
 import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
-import type { HomeBook, HomeStoryteller } from "@/lib/family/home";
+import type { HomeKid, HomeStoryteller, ShelfBook, ShelfKid, ShelfState } from "@/lib/family/home";
 
-/** A titled row of book covers that scrolls sideways, like a shelf. */
-export function BookShelf({ id, title, books, more }: { id: string; title: React.ReactNode; books: HomeBook[]; more?: { href: string; label: string } }) {
+function names(list: string[]): string {
+  if (list.length <= 1) return list.join("");
+  return `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
+}
+
+function Bar({ percent }: { percent: number }) {
   return (
-    <section className="flex flex-col gap-3" aria-labelledby={`${id}-h`} data-testid={`shelf-${id}`}>
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 id={`${id}-h`} className="font-display text-2xl font-semibold">
-          {title}
-        </h2>
-        {more && (
-          <Link href={more.href} className="shrink-0 font-display font-semibold text-coral-deep underline-offset-4 hover:underline">
-            {more.label}
-          </Link>
-        )}
-      </div>
-      <ul className="-mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6">
-        {books.map((b) => (
-          <li key={`${b.slug}-${b.detail}`} className="w-36 shrink-0 snap-start sm:w-40">
-            <Link href={b.href} className="flex flex-col gap-2 rounded-2xl" data-testid={`home-book-${b.slug}`}>
-              <span className="relative block overflow-hidden rounded-2xl bg-bookcase shadow-[0_3px_0_rgba(40,53,72,0.12)]">
-                {b.coverUrl ? (
-                  <Image src={b.coverUrl} alt="" width={160} height={213} className="aspect-[3/4] w-full object-cover" />
-                ) : (
-                  <span className={`flex aspect-[3/4] w-full items-center justify-center p-3 text-center font-display text-lg font-semibold ${b.tint}`}>{b.title}</span>
-                )}
-                {b.voices.length > 0 && (
-                  <span className="absolute bottom-2 left-2 flex -space-x-2" aria-hidden="true">
-                    {b.voices.slice(0, 3).map((v) => (
-                      <StorytellerAvatar key={v.name} name={v.name} avatarUrl={v.avatarUrl} tint={v.tint} size="xs" />
-                    ))}
-                  </span>
-                )}
-                {b.percent !== null && (
-                  <span className="absolute inset-x-0 bottom-0 h-1.5 bg-white/60" aria-hidden="true">
-                    <span className="block h-full bg-coral" style={{ width: `${b.percent}%` }} />
-                  </span>
-                )}
-              </span>
-              <span className="font-display font-semibold leading-tight">{b.title}</span>
-              <span className="text-sm leading-snug text-muted">{b.detail}</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <span className="block h-1.5 overflow-hidden rounded-full bg-ink/10" aria-hidden="true">
+      <span className="block h-full rounded-full bg-mint-deep" style={{ width: `${percent}%` }} />
+    </span>
   );
 }
 
-const TONE: Record<HomeStoryteller["tone"], string> = {
-  family: "bg-sunshine/40",
-  some: "bg-mint/40",
-  none: "bg-sky/30",
-  waiting: "bg-lavender/40",
-};
-
-/** The family's storytellers at a glance, each with who may hear them. */
-export function StorytellerRow({ storytellers }: { storytellers: HomeStoryteller[] }) {
+/**
+ * One card per child. However many kids there are, every card has the same rows in the same order,
+ * so Open Readli Kids sits in the same place on each: one child gets a wide row, two get detailed
+ * cards, and three to six get compact cards in a grid that never needs sideways scrolling.
+ */
+export function KidCards({ kids }: { kids: HomeKid[] }) {
+  const layout = kids.length === 1 ? "wide" : kids.length === 2 ? "detailed" : "compact";
+  const grid = layout === "wide" ? "" : layout === "detailed" ? "sm:grid-cols-2" : "grid-cols-2 lg:grid-cols-3";
   return (
-    <ul className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6" data-testid="home-storytellers">
-      {storytellers.map((s) => (
-        <li key={s.voiceId} className="shrink-0">
-          <Link href={s.href} className={`flex w-60 items-center gap-3 rounded-3xl p-3 ${TONE[s.tone]}`}>
-            <StorytellerAvatar name={s.person.name} avatarUrl={s.person.avatarUrl} tint={s.person.tint} muted={s.tone === "waiting"} />
-            <span className="flex min-w-0 flex-col">
-              <span className="font-display text-lg font-semibold">{s.person.name}</span>
-              <span className="text-sm text-muted">{s.detail}</span>
-            </span>
-          </Link>
+    <ul className={`grid gap-3 ${grid}`} data-testid="home-kids" data-layout={layout}>
+      {kids.map((k) => (
+        <li key={k.id} className="min-w-0">
+          {layout === "compact" ? <CompactKid kid={k} /> : <DetailedKid kid={k} wide={layout === "wide"} />}
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Same pill as the primary button, sized so it fits the narrowest card without wrapping. */
+function OpenKids({ kid, compact = false, className = "" }: { kid: HomeKid; compact?: boolean; className?: string }) {
+  const size = compact ? "px-3 text-base" : "px-6 text-lg";
+  return (
+    <SessionButton
+      as={`child:${kid.id}`}
+      next="/kids"
+      className={`inline-flex min-h-12 w-full items-center justify-center rounded-full bg-coral-deep font-display font-semibold text-white shadow-[0_4px_0_#8f2a1e] transition-transform hover:-translate-y-0.5 active:scale-[0.97] ${size} ${className}`}
+    >
+      <span className="sr-only">Open {kid.name}&apos;s Readli Kids</span>
+      <span aria-hidden="true">Open Readli Kids</span>
+    </SessionButton>
+  );
+}
+
+function readyLine(kid: HomeKid): string {
+  if (!kid.readyCount) return "Nothing prepared for them yet";
+  return `${kid.readyCount} ${kid.readyCount === 1 ? "story" : "stories"} ready`;
+}
+
+function DetailedKid({ kid, wide }: { kid: HomeKid; wide: boolean }) {
+  const story = (
+    <div className="flex min-w-0 flex-col gap-2 rounded-2xl bg-ivory p-3">
+      <p className="truncate font-semibold">{kid.current?.title ?? "No story started"}</p>
+      <Bar percent={kid.current?.percent ?? 0} />
+      <p className="truncate text-sm text-muted">
+        {kid.current
+          ? `${kid.current.percent}%${kid.current.narrator ? ` · read by ${kid.current.narrator}` : ""}`
+          : kid.suggested
+            ? `Suggested first: ${kid.suggested}`
+            : "Prepare a story in Books"}
+      </p>
+    </div>
+  );
+  return (
+    <div
+      className={`flex h-full flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10 ${wide ? "md:grid md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_minmax(0,14rem)] md:items-center md:gap-5" : ""}`}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <StorytellerAvatar name={kid.name} avatarUrl={null} tint={kid.tint} />
+        <div className="min-w-0">
+          <p className="truncate font-display text-2xl font-semibold">{kid.name}</p>
+          <p className="truncate text-sm text-muted">{readyLine(kid)}</p>
+        </div>
+      </div>
+      {story}
+      <OpenKids kid={kid} className={wide ? "" : "mt-auto"} />
+    </div>
+  );
+}
+
+function CompactKid({ kid }: { kid: HomeKid }) {
+  return (
+    <div className="flex h-full flex-col gap-2 rounded-3xl bg-surface p-3 ring-2 ring-ink/10 sm:p-4">
+      <div className="flex min-w-0 items-center gap-2">
+        <StorytellerAvatar name={kid.name} avatarUrl={null} tint={kid.tint} size="sm" />
+        <p className="truncate font-display text-xl font-semibold">{kid.name}</p>
+      </div>
+      <p className="line-clamp-2 min-h-[2lh] text-sm font-semibold">{kid.current?.title ?? "No story started"}</p>
+      <Bar percent={kid.current?.percent ?? 0} />
+      <p className="truncate text-sm text-muted">
+        {kid.current ? `${kid.current.percent}%` : kid.notStarted ? `${kid.notStarted} ready to start` : readyLine(kid)}
+      </p>
+      <OpenKids kid={kid} compact className="mt-auto" />
+    </div>
+  );
+}
+
+const BADGE: Record<ShelfState, { label: string; className: string }> = {
+  progress: { label: "In progress", className: "bg-sunshine/50" },
+  ready: { label: "Ready to play", className: "bg-mint/50 text-mint-deep" },
+  done: { label: "Completed", className: "bg-sky/30" },
+};
+
+function kidChips(kids: ShelfKid[]): string[] {
+  const place = (k: ShelfKid) => `${k.name} · ${k.percent === null ? "not started" : k.percent === 100 ? "finished" : `${k.percent}%`}`;
+  // With three or more kids, the ones who haven't started are counted rather than listed.
+  if (kids.length < 3) return kids.map(place);
+  const started = kids.filter((k) => k.percent !== null);
+  const waiting = kids.length - started.length;
+  return [...started.map(place), ...(waiting ? [`${waiting} not started`] : [])];
+}
+
+/**
+ * Every prepared audiobook the kids may hear, one row per book with its narrators grouped. Listen
+ * opens the grown-up player; each child's own place shows beside it and only moves in Readli Kids.
+ */
+export function FamilyBookshelf({ books }: { books: ShelfBook[] }) {
+  return (
+    <ul className="divide-y-2 divide-ink/5 rounded-3xl bg-surface px-4 ring-2 ring-ink/10" data-testid="shelf-ready">
+      {books.map((b) => (
+        <li key={b.slug} className="flex items-center gap-4 py-4" data-testid={`shelf-book-${b.slug}`} data-state={b.state}>
+          <span className="block w-20 shrink-0 overflow-hidden rounded-xl bg-bookcase shadow-[0_3px_0_rgba(40,53,72,0.12)] sm:w-24">
+            {b.coverUrl ? (
+              <Image src={b.coverUrl} alt="" width={96} height={128} className="aspect-[3/4] w-full object-cover" />
+            ) : (
+              <span className={`flex aspect-[3/4] w-full items-center justify-center p-2 text-center font-display text-sm font-semibold ${b.tint}`}>{b.title}</span>
+            )}
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
+              <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${BADGE[b.state].className}`}>{BADGE[b.state].label}</span>
+              <p className="font-display text-xl font-semibold leading-tight">{b.title}</p>
+              <p className="text-sm text-muted">
+                Read by {names(b.narrators.map((n) => n.name))} · about {b.minutes} min
+              </p>
+              <ul className="flex flex-wrap gap-1.5" aria-label="Each child's place">
+                {kidChips(b.kids).map((c) => (
+                  <li key={c} className="rounded-full bg-ink/5 px-2.5 py-0.5 text-sm font-semibold">
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <Link
+              href={b.href}
+              className="inline-flex min-h-11 shrink-0 items-center gap-2 self-start rounded-xl bg-ink px-5 font-display font-semibold text-white hover:-translate-y-0.5 sm:self-center"
+              data-testid={`home-book-${b.slug}`}
+            >
+              <span aria-hidden="true">▶</span>
+              <span>
+                Listen<span className="sr-only"> to {b.title}</span>
+              </span>
+            </Link>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const STATUS: Record<HomeStoryteller["tone"], { label: string; className: string }> = {
+  family: { label: "Available", className: "bg-mint/50 text-mint-deep" },
+  some: { label: "Available", className: "bg-mint/50 text-mint-deep" },
+  none: { label: "Not approved yet", className: "bg-sky/30" },
+  waiting: { label: "Waiting", className: "bg-lavender/40" },
+};
+
+/** The family's storytellers, each with who may hear them, and the narrator slots in use. */
+export function StorytellersCard({ storytellers, slotLine }: { storytellers: HomeStoryteller[]; slotLine: string | null }) {
+  return (
+    <section className="flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10" aria-labelledby="storytellers-h">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h2 id="storytellers-h" className="font-display text-2xl font-semibold">
+          Family storytellers
+        </h2>
+        <Link href="/family/kids" className="font-semibold underline underline-offset-4">
+          Go to Family
+        </Link>
+      </div>
+      {storytellers.length > 0 ? (
+        <ul className="flex flex-col gap-1" data-testid="home-storytellers">
+          {storytellers.map((s) => (
+            <li key={s.voiceId}>
+              <Link href={s.href} className="-mx-2 flex items-center gap-3 rounded-2xl p-2 hover:bg-ivory">
+                <StorytellerAvatar name={s.person.name} avatarUrl={s.person.avatarUrl} tint={s.person.tint} size="sm" muted={s.tone === "waiting"} />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="font-display text-lg font-semibold">
+                    {s.person.name}
+                    {s.mine && <span className="font-normal text-muted"> (you)</span>}
+                  </span>
+                  <span className="text-sm text-muted">{s.detail}</span>
+                </span>
+                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-sm font-semibold ${STATUS[s.tone].className}`}>{STATUS[s.tone].label}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-muted">No storytellers yet. Invite a grandparent, aunt or uncle to record their voice.</p>
+      )}
+      {slotLine && <p className="text-sm text-muted">{slotLine}</p>}
+      <Link
+        href="/family/narrators#invite"
+        className="inline-flex min-h-11 items-center gap-2 self-start rounded-xl border-2 border-ink/20 px-4 font-display font-semibold hover:border-ink/50"
+      >
+        <span aria-hidden="true">+</span> Invite a storyteller
+      </Link>
+    </section>
   );
 }
