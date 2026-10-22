@@ -37,3 +37,24 @@ describe("every story closes with The End", () => {
     expect(story.chapters.flatMap((c) => c.sentenceIds)).toEqual(story.sentences.map((s) => s.id));
   });
 });
+
+describe("long stories split into parts", () => {
+  // Splitting at a paragraph keeps the revision and every sentence id. Revisions are after the
+  // 2026-10-22 language fixes (turkey-cock, queer, Cinder-slut...), which changed the words, not the parts.
+  const SPLIT = [
+    ["the-ugly-duckling", "f2a6c717f137", 106, 4],
+    ["thumbelina", "d0b5f61601d9", 201, 4],
+    ["the-velveteen-rabbit", "29ea7731ccb2", 214, 4],
+    ["cinderella", "7a139598fe80", 100, 2],
+    ["the-emperors-new-clothes", "29d7f1eb9f34", 97, 2],
+  ] as const;
+
+  it("can be prepared a part at a time, and audio already prepared still lines up", () => {
+    for (const [slug, revision, sentences, parts] of SPLIT) {
+      const text = bookText(slug)!;
+      expect(text.chapters, slug).toHaveLength(parts);
+      expect(text.revision, slug).toBe(revision);
+      expect(text.sentences, slug).toHaveLength(sentences + 1);
+    }
+  });
+});

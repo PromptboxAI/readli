@@ -4,6 +4,7 @@ import { RespondForm } from "@/components/invitations/RespondForm";
 import { AdultPage } from "@/components/invites/AdultPage";
 import { invitationContext } from "@/lib/invitations/context";
 import { invitationIdFromRespondToken } from "@/lib/invitations/server";
+import { householdInviteIdFromRespondToken } from "@/lib/invites/email";
 
 export const metadata: Metadata = { title: "Readli invitations", robots: { index: false, follow: false }, referrer: "no-referrer" };
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export default async function RespondPage({ params, searchParams }: { params: Pr
   const a = (await searchParams).action;
   const action = a === "unsubscribe" || a === "report" ? a : "decline";
   const ctx = invitationContext();
-  if (!ctx || !invitationIdFromRespondToken(ctx.secret, token)) notFound();
+  if (!ctx || !(invitationIdFromRespondToken(ctx.secret, token) ?? householdInviteIdFromRespondToken(ctx.secret, token))) notFound();
   const [title, text] = TITLES[action];
   return (
     <AdultPage>

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { INVITATION_STATUS_LABELS, type InvitationStatus } from "@/lib/invitations/invitations";
+import { InvitationPill, type InvitationPillState } from "./InvitationPill";
 
 export interface InvitationItem {
   id: string;
@@ -16,13 +17,13 @@ export interface InvitationItem {
   canRevoke: boolean;
 }
 
-const TONE: Record<InvitationStatus, string> = {
-  accepted: "bg-mint",
-  opened: "bg-sky",
-  pending: "bg-sunshine",
-  expired: "bg-ink/10",
-  declined: "bg-ink/10",
-  revoked: "bg-ink/10",
+const PILL: Record<InvitationStatus, InvitationPillState> = {
+  accepted: "accepted",
+  opened: "opened",
+  pending: "sent",
+  expired: "expired",
+  declined: "declined",
+  revoked: "withdrawn",
 };
 
 const date = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -68,7 +69,7 @@ export function InvitationList({ items }: { items: InvitationItem[] }) {
                 <span className="font-display text-lg font-semibold">{i.name || i.email}</span>
                 <span className="truncate text-sm text-muted">{[i.relationship, i.name ? i.email : "", i.status === "pending" || i.status === "opened" ? `link works until ${date(i.expiresAt)}` : ""].filter(Boolean).join(" · ")}</span>
               </div>
-              <span className={`w-fit rounded-full px-3 py-1 text-sm font-semibold ${TONE[i.status]}`}>{INVITATION_STATUS_LABELS[i.status]}</span>
+              <InvitationPill state={PILL[i.status]} />
               <div className="flex gap-2">
                 {i.canResend && (
                   <button type="button" className="min-h-11 rounded-full px-3 font-semibold underline underline-offset-4 disabled:opacity-50" disabled={busy === i.id} onClick={() => act(i.id, "resend")}>

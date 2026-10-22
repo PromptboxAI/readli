@@ -8,6 +8,9 @@
  * or boxing his ear. Just So Stories keeps only its seven gentlest tales.
  * Kevin, 2026-10-12: Raggedy Ann Stories has light edits to dated passages (Dinah's description, and the
  * "Indian doll" is a scout doll). A Child's Garden of Verses leaves out six poems with dated lines.
+ * Kevin, 2026-10-22: stories of 10 minutes or more that have no chapters of their own are split into
+ * parts at natural breaks, so a family can try one part before spending credits on the whole story.
+ * Split only between paragraphs where a sentence ends, so the revision and every sentence id stay the same.
  * Kevin, 2026-10-22: every text is scanned for outdated or now-offensive words before it is added
  * (src/lib/content/language-check.ts; run `npm run scan:language -- <book.json>` on a new import).
  * The first scan's words were all replaced by hand (Cinder-girl, Robin Redbreast, Tom Tiptoe-mouse,

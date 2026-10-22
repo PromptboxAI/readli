@@ -117,7 +117,7 @@ export const PREVIEW_PASSAGES: readonly PreviewPassage[] = [
   {
     id: "the-ugly-duckling-2",
     book: "the-ugly-duckling",
-    chapter: 0,
+    chapter: 2,
     text: "And the autumn came, the leaves turned yellow and brown, the wind caught them and danced them about, the air was very cold, the clouds were heavy with hail or snow, and the raven sat on the hedge and croaked:—the poor duckling was certainly not very comfortable! One evening, just as the sun was setting with unusual brilliancy, a flock of large beautiful birds rose from out of the brushwood; the duckling had never seen anything so beautiful before; their plumage was of a dazzling white, and they had long, slender necks.",
   },
   {
@@ -129,7 +129,7 @@ export const PREVIEW_PASSAGES: readonly PreviewPassage[] = [
   {
     id: "the-velveteen-rabbit-2",
     book: "the-velveteen-rabbit",
-    chapter: 0,
+    chapter: 1,
     text: "Spring came, and they had long days in the garden, for wherever the Boy went the Rabbit went too. He had rides in the wheelbarrow, and picnics on the grass, and lovely fairy huts built for him under the raspberry canes behind the flower border. And once, when the Boy was called away suddenly to go out to tea, the Rabbit was left out on the lawn until long after dusk, and Nana had to come and look for him with the candle because the Boy couldn't go to sleep unless he was there.",
   },
   {

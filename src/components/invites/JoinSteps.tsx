@@ -13,17 +13,20 @@ export function JoinSteps({
   familyName,
   voice,
   shared: initialShared,
+  nickname: initialNickname,
   recordHref,
 }: {
   householdId: string;
   familyName: string;
   voice: { id: string; ready: boolean } | null;
   shared: boolean;
+  nickname: string;
   recordHref: string;
 }) {
   const router = useRouter();
   const [shared, setShared] = useState(initialShared);
   const [agreed, setAgreed] = useState(false);
+  const [nickname, setNickname] = useState(initialNickname);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -38,6 +41,19 @@ export function JoinSteps({
     if (!voice || !agreed) return;
     setBusy(true);
     setError("");
+    // The name first, so the family's notice already says what their kids will call this storyteller.
+    if (nickname.trim() !== initialNickname.trim()) {
+      const named = await fetch("/api/family/me/nickname", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ householdId, nickname }),
+      });
+      if (!named.ok) {
+        const body = await named.json().catch(() => null);
+        setBusy(false);
+        return setError(body?.error?.message ?? "We couldn't save that name. Please try again.");
+      }
+    }
     const res = await fetch(`/api/family/voices/${encodeURIComponent(voice.id)}/share`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
@@ -88,11 +104,24 @@ export function JoinSteps({
         <section className="flex flex-col items-start gap-4 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10" data-testid="share-step">
           <h2 className="font-display text-2xl font-semibold">Share your voice with {familyName}?</h2>
           <ul className="flex list-disc flex-col gap-1 pl-5">
-            <li>{familyName}&apos;s parents can add you as a narrator and prepare books in your voice.</li>
-            <li>Each child only hears you after a parent approves you for that child.</li>
-            <li>Your recording stays in your account. The family can&apos;t change or manage it.</li>
-            <li>You can stop sharing from My voice at any time. Their children stop hearing you.</li>
+            <li>{familyName} can prepare audiobooks using your voice.</li>
+            <li>Their parents decide which children can hear it.</li>
+            <li>Sharing doesn&apos;t give them access to your account or your recording.</li>
+            <li>You can stop sharing any time from your Readli Voice home, so no new books are made in your voice.</li>
+            <li>Audiobooks already made are kept as described in the voice agreement you accepted.</li>
           </ul>
+          <label className="flex w-full max-w-md flex-col gap-1">
+            <span className="font-semibold">What should the kids call you?</span>
+            <input
+              className="min-h-12 w-full rounded-2xl border-[3px] border-ink/20 bg-surface px-4 text-lg focus:border-ink"
+              value={nickname}
+              maxLength={40}
+              placeholder="Mommy, Grandma, Aunt Ange, Grandpa Joe"
+              onChange={(e) => setNickname(e.target.value)}
+              data-testid="join-nickname"
+            />
+            <span className="text-sm text-muted">This is the name children will see in Readli Kids. You can change it later.</span>
+          </label>
           <label className="flex items-start gap-3 font-semibold">
             <input type="checkbox" className="mt-1 size-5 accent-coral-deep" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
             <span>I agree to share my Readli voice with {familyName} on these terms.</span>
@@ -112,9 +141,9 @@ export function JoinSteps({
       {ready && shared && (
         <section aria-live="polite" className="flex flex-col items-start gap-3 rounded-[var(--radius-panel)] bg-mint/50 p-6" data-testid="join-done">
           <h2 className="font-display text-2xl font-semibold">You&apos;re ready to read to {familyName}</h2>
-          <p>Their parents can now add you as a narrator and choose which children hear you. You can stop sharing any time from My voice.</p>
-          <Link href="/family/my-voice" className={buttonSecondary}>
-            My voice
+          <p>We&apos;ve let their parents know. They add you as a narrator and choose which children hear you. You can stop sharing any time.</p>
+          <Link href="/voice" className={buttonPrimary}>
+            Go to my Readli Voice home
           </Link>
         </section>
       )}

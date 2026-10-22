@@ -592,7 +592,8 @@ export async function requestGeneration(
     const lots = spendableLots(s, store.plan, householdId, at);
     const available = lots.reduce((n, l) => n + l.left, 0);
     if (q.credits > available) {
-      throw new PermissionError(402, "not_enough_credits", "Not enough Readli credits for this. Get more credits or prepare a chapter at a time.", {
+      const tip = store.plan.chapterGenerationEnabled && text.chapters.length > 1 ? "Get more credits or prepare a chapter at a time." : "Get more credits or try a shorter story.";
+      throw new PermissionError(402, "not_enough_credits", `Not enough Readli credits for this. ${tip}`, {
         needed: q.credits,
         available,
         extra: q.credits - available,

@@ -20,6 +20,7 @@ const STATUS_TINT: Record<FamilyInvite["status"], string> = {
   revoked: "bg-surface ring-2 ring-ink/20",
   withdrawn: "bg-surface ring-2 ring-ink/20",
   expired: "bg-surface ring-2 ring-ink/20",
+  declined: "bg-surface ring-2 ring-ink/20",
 };
 
 const field = "min-h-12 w-full rounded-2xl border-[3px] border-ink/20 bg-surface px-4 text-lg focus:border-ink";

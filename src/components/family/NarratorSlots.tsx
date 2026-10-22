@@ -7,6 +7,7 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { INVITE_TTL_DAYS } from "@/lib/invites/family-invites";
 import { formatPrice } from "@/lib/family/plan";
 import type { JoinedCard, NarratorCard, NarratorSlotsView } from "@/lib/family/service";
+import { InvitationPill } from "@/components/invitations/InvitationPill";
 import { InviteStoryteller, type SavedInvite } from "./InviteStoryteller";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 
@@ -22,7 +23,7 @@ const WAITING: Record<NonNullable<NarratorCard["status"]>, { badge: string; tone
   stopped_sharing: { badge: "Stopped sharing", tone: "bg-ink/10", note: (n) => `${n} stopped sharing their voice with your family.` },
 };
 
-function NicknameEditor({ name, ownName, busy, onSave }: { name: string; ownName: string; busy: boolean; onSave: (nickname: string) => Promise<void> }) {
+function NicknameEditor({ name, ownName, busy, onSave }: { name: string; ownName: string; busy: boolean; onSave: (nickname: string) => Promise<unknown> }) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(name === ownName ? "" : name);
   if (!open) {
@@ -69,12 +70,18 @@ export function NarratorSlots({
   approveHref = "/family/kids",
   inviteMode = "off",
   invites: initialInvites = [],
+  kids = [],
+  focus = null,
 }: {
   initial: NarratorSlotsView;
   canBuy?: boolean;
   approveHref?: string;
   inviteMode?: InviteMode;
   invites?: SavedInvite[];
+  /** This parent's children, so a new narrator can be approved for them right here. */
+  kids?: { id: string; name: string }[];
+  /** A voice to open on, from the "ready to read" notice or email. */
+  focus?: string | null;
 }) {
   const router = useRouter();
   const [view, setView] = useState(initial);
@@ -87,6 +94,46 @@ export function NarratorSlots({
   const free = view.total - view.active.length;
   const price = formatPrice(view.extraSlotPriceCents);
   const canInvite = inviteMode !== "off";
+  const [picking, setPicking] = useState<{ voiceId: string; name: string } | null>(null);
+  const [chosen, setChosen] = useState<string[]>([]);
+  const pickRef = useRef<HTMLElement>(null);
+
+  // "Add Mommy to My Family" lands here on that storyteller's card.
+  useEffect(() => {
+    if (focus) document.querySelector(`[data-testid="slot-${CSS.escape(focus)}"]`)?.scrollIntoView({ block: "center" });
+  }, [focus]);
+  useEffect(() => {
+    if (picking) pickRef.current?.scrollIntoView({ block: "start" });
+  }, [picking]);
+
+  const pick = (voiceId: string, name: string) => {
+    setChosen([]);
+    setPicking({ voiceId, name });
+  };
+
+  // Approves the new narrator for the children ticked here: one parent decision per child, never automatic.
+  const approveChosen = async () => {
+    if (!picking || chosen.length === 0) return;
+    setBusy(true);
+    setMessage(null);
+    for (const childId of chosen) {
+      const res = await fetch(`/api/family/kids/${encodeURIComponent(childId)}/storytellers`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ changes: [{ voiceId: picking.voiceId, approved: true }] }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setBusy(false);
+        return setMessage(body?.error?.message ?? "We couldn't save that. Please try again.");
+      }
+    }
+    const names = kids.filter((k) => chosen.includes(k.id)).map((k) => k.name);
+    setBusy(false);
+    setMessage(`${names.join(" and ")} can now hear ${picking.name}. Prepare a book in ${picking.name}'s voice from the library.`);
+    setPicking(null);
+    router.refresh();
+  };
 
   // Home's "Invite a storyteller" links here with #invite.
   useEffect(() => {
@@ -102,11 +149,15 @@ export function NarratorSlots({
     const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
     const json = await res.json().catch(() => null);
     setBusy(false);
-    if (!res.ok) return setMessage(json?.error?.message ?? "We couldn't save that. Please try again.");
+    if (!res.ok) {
+      setMessage(json?.error?.message ?? "We couldn't save that. Please try again.");
+      return false;
+    }
     setView(json as NarratorSlotsView);
     setMessage(done);
     // Drops the app's cached copies of other family pages, so Back shows this change.
     router.refresh();
+    return true;
   };
 
   const withdraw = async (inv: SavedInvite) => {
@@ -120,6 +171,21 @@ export function NarratorSlots({
     }
     setInvites((list) => list.filter((i) => i.id !== inv.id));
     setMessage(`The invitation to ${inv.name} was withdrawn. Its link no longer works.`);
+  };
+
+  const resend = async (inv: SavedInvite) => {
+    setBusy(true);
+    setMessage(null);
+    const res = await fetch(`/api/invites/${encodeURIComponent(inv.id)}/resend`, { method: "POST" });
+    const body = await res.json().catch(() => null);
+    setBusy(false);
+    if (!res.ok) return setMessage(body?.error?.message ?? "We couldn't send that just now. Please try again.");
+    setInvites((list) => list.map((i) => (i.id === inv.id ? { ...i, status: "invited" as const, emailed: true } : i)));
+    setMessage(
+      body?.email === "sent"
+        ? `We emailed ${inv.name} again with a fresh link. The old link no longer works.`
+        : `${body?.message ?? "We couldn't send the email."} Here's the fresh link to share yourself: ${body?.link ?? ""}`,
+    );
   };
 
   const person = (p: { name: string; ownName?: string; relationship: string; avatarUrl: string | null; tint: string }, muted = false) => (
@@ -153,7 +219,7 @@ export function NarratorSlots({
     return <p className="rounded-3xl bg-sunshine/60 p-4 font-semibold">Narrator slots come with Readli Family.</p>;
   }
 
-  const pendingInvites = invites.filter((i) => i.status === "invited" || i.status === "expired");
+  const pendingInvites = invites.filter((i) => i.status === "invited" || i.status === "expired" || i.status === "declined");
   const onTheWay = view.shared.length + view.waiting.length + view.joined.length + pendingInvites.length;
   const openInvite = (name = "") => setInviting({ name });
 
@@ -178,10 +244,41 @@ export function NarratorSlots({
       <p role="status" aria-live="polite" className={message ? "rounded-2xl bg-ivory p-3 font-semibold ring-2 ring-ink/10" : "sr-only"}>
         {message}
       </p>
-      {message?.includes("Now choose which children") && (
-        <Link href={approveHref} className={`${buttonPrimary} self-start`}>
-          Approve for your kids
-        </Link>
+      {picking && kids.length > 0 ? (
+        <section ref={pickRef} className="flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10" data-testid="pick-kids" aria-labelledby="pick-kids-h">
+          <h2 id="pick-kids-h" className="font-display text-2xl font-semibold">
+            Which children can hear {picking.name}?
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {kids.map((k) => (
+              <li key={k.id}>
+                <label className="flex min-h-11 items-center gap-3 font-semibold">
+                  <input
+                    type="checkbox"
+                    className="size-6 accent-coral-deep"
+                    checked={chosen.includes(k.id)}
+                    onChange={(e) => setChosen((c) => (e.target.checked ? [...c, k.id] : c.filter((x) => x !== k.id)))}
+                  />
+                  {k.name}
+                </label>
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={buttonPrimary} disabled={busy || chosen.length === 0} onClick={approveChosen}>
+              Approve for {chosen.length === 1 ? "this child" : "these children"}
+            </button>
+            <button type="button" className={buttonSecondary} onClick={() => setPicking(null)}>
+              Not now
+            </button>
+          </div>
+        </section>
+      ) : (
+        message?.includes("Now choose which children") && (
+          <Link href={approveHref} className={`${buttonPrimary} self-start`}>
+            Approve for your kids
+          </Link>
+        )
       )}
 
       <section className="flex flex-col gap-3" aria-label="Narrator slots">
@@ -279,18 +376,29 @@ export function NarratorSlots({
         ) : (
           <ul className="flex flex-col gap-3" data-testid="on-the-way">
             {view.shared.map((n) => (
-              <li key={n.voiceId} data-testid={`slot-${n.voiceId}`} className="flex flex-wrap items-center gap-4 rounded-3xl bg-mint/30 p-4 ring-2 ring-ink/10">
+              <li
+                key={n.voiceId}
+                data-testid={`slot-${n.voiceId}`}
+                className={`flex flex-wrap items-center gap-4 rounded-3xl bg-mint/30 p-4 ${focus === n.voiceId ? "ring-4 ring-coral-deep" : "ring-2 ring-ink/10"}`}
+              >
                 {person(n)}
                 <span className={`${pill} bg-mint`}>Ready to add</span>
                 <button
                   type="button"
                   className={buttonPrimary}
                   disabled={busy || free <= 0}
-                  onClick={() => call("/api/family/narrators", { voiceId: n.voiceId, action: "activate" }, `${n.name} is in a narrator slot. Now choose which children can hear them.`)}
+                  onClick={async () => {
+                    if (await call("/api/family/narrators", { voiceId: n.voiceId, action: "activate" }, `${n.name} is in a narrator slot. Now choose which children can hear them.`)) pick(n.voiceId, n.name);
+                  }}
                 >
                   Add to a slot
                 </button>
                 {rename(n)}
+                {free <= 0 && (
+                  <p className="w-full text-sm" data-testid="slots-full-note">
+                    {n.name}&apos;s voice is ready, but all your narrator slots are in use. Free one up, or add a slot below.
+                  </p>
+                )}
               </li>
             ))}
             {view.waiting.map((n) => {
@@ -326,18 +434,34 @@ export function NarratorSlots({
             ))}
             {pendingInvites.map((inv) => {
               const expired = inv.status === "expired";
-              const until = new Date(new Date(inv.createdAt).getTime() + INVITE_TTL_DAYS * 86_400_000);
+              const declined = inv.status === "declined";
+              const until = inv.expiresAt ? new Date(inv.expiresAt) : new Date(new Date(inv.createdAt).getTime() + INVITE_TTL_DAYS * 86_400_000);
               return (
                 <li key={inv.id} data-testid={`invite-${inv.id}`} className="flex flex-wrap items-center gap-4 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
                   <StorytellerAvatar name={inv.name} avatarUrl={null} tint="bg-ivory" muted />
                   <div className="min-w-0 flex-1">
                     <p className="font-display text-xl font-semibold">{inv.name}</p>
                     <p className="text-sm text-muted">
-                      {expired ? "The link expired before it was used." : `Sent ${day(inv.createdAt)}. The link works until ${day(until)}.`}
+                      {declined
+                        ? "They said no thanks. We won't email them again for your family."
+                        : expired
+                          ? "The link expired before it was used."
+                          : `${inv.emailed ? "Emailed" : "Created"} ${day(inv.createdAt)}. The link works until ${day(until)}.`}
                     </p>
                   </div>
-                  <span className={`${pill} ${expired ? "bg-ink/10" : "bg-sunshine"}`}>{expired ? "Expired" : "Invitation sent"}</span>
-                  {expired ? (
+                  <InvitationPill state={declined ? "declined" : expired ? "expired" : "sent"} />
+                  {declined ? null : inv.canResend && inviteMode === "live" ? (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button type="button" className={buttonSecondary} disabled={busy} onClick={() => resend(inv)}>
+                        {expired ? "Send a fresh link" : "Resend email"}
+                      </button>
+                      {!expired && (
+                        <button type="button" className="font-display font-semibold underline underline-offset-4" onClick={() => withdraw(inv)}>
+                          Withdraw
+                        </button>
+                      )}
+                    </div>
+                  ) : expired ? (
                     <button type="button" className={buttonSecondary} onClick={() => openInvite(inv.name)}>
                       Invite again
                     </button>

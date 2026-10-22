@@ -17,6 +17,13 @@ export interface AdminFamily {
   members: number;
   kids: number;
   plan: AdminPlan | null;
+  /** No kids, no plan and no one else in it: safe to remove, such as a family made by mistake. */
+  empty: boolean;
+  /**
+   * The families its owner reads for as a storyteller, when this empty family looks made by mistake
+   * (a free Readli Voice account sent through family setup). Kept out of Tester plans.
+   */
+  storytellerFor: string[] | null;
 }
 
 export interface AdminOverview {
@@ -109,6 +116,20 @@ export async function adminOverview(db: SupabaseClient, at = new Date()): Promis
     ),
   );
   const tally = (list: Row[], id: string) => list.filter((r) => r.household_id === id).length;
+  // Owners who read for another family: invited in as a storyteller there, not its parent.
+  const [elsewhere, accepted] = owners.length
+    ? await Promise.all([
+        rows(db.from("household_members").select("user_id, household_id").in("user_id", owners).eq("role", "member").is("removed_at", null), "read storytellers"),
+        rows(db.from("household_invitations").select("accepted_by, household_id").in("accepted_by", owners), "read accepted invitations"),
+      ])
+    : [[], []];
+  const readsFor = new Map<string, Set<string>>();
+  for (const r of [...elsewhere.map((m) => [m.user_id, m.household_id]), ...accepted.map((a) => [a.accepted_by, a.household_id])] as [string, string][]) {
+    readsFor.set(r[0], (readsFor.get(r[0]) ?? new Set()).add(r[1]));
+  }
+  const names = new Map<string, string>(homes.map((h) => [h.id as string, h.name as string]));
+  const otherIds = [...new Set([...readsFor.values()].flatMap((v) => [...v]))].filter((id) => !names.has(id));
+  if (otherIds.length) for (const h of await rows(db.from("households").select("id, name").in("id", otherIds), "read storyteller families")) names.set(h.id as string, h.name as string);
 
   return {
     totals: {
@@ -131,8 +152,22 @@ export async function adminOverview(db: SupabaseClient, at = new Date()): Promis
       members: tally(members, h.id as string),
       kids: tally(children, h.id as string),
       plan: liveByHousehold.get(h.id as string) ?? null,
+      ...emptyFamily(h, tally(members, h.id as string), tally(children, h.id as string), liveByHousehold.has(h.id as string), readsFor, names),
     })),
   };
+}
+
+function emptyFamily(
+  h: Row,
+  members: number,
+  kids: number,
+  hasPlan: boolean,
+  readsFor: Map<string, Set<string>>,
+  names: Map<string, string>,
+): Pick<AdminFamily, "empty" | "storytellerFor"> {
+  const empty = kids === 0 && !hasPlan && members <= 1;
+  const others = [...(readsFor.get(h.created_by as string) ?? [])].filter((id) => id !== h.id);
+  return { empty, storytellerFor: empty && others.length ? others.map((id) => names.get(id) ?? "Another family") : null };
 }
 
 /** Narrows the family list by family name or owner email. */

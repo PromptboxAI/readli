@@ -12,7 +12,7 @@ import { PREVIEW_PASSAGES } from "@/lib/invitations/passages";
 import { ADULTS_CONSENT, SHARE_CONSENT, contributorState, listInvitations } from "@/lib/invitations/server";
 import { findCatalogBook } from "@/lib/library/catalog";
 
-export const metadata: Metadata = { title: "Invite your family | Readli Voice", robots: { index: false } };
+export const metadata: Metadata = { title: "Share your voice with another family | Readli Voice", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 const BLOCKERS = {
@@ -41,8 +41,11 @@ export default async function InviteFamilyPage() {
         ← My voice
       </Link>
       <Eyebrow>Readli Voice · Free</Eyebrow>
-      <h1 className="font-display text-4xl font-semibold sm:text-5xl">Invite your family</h1>
-      <p className="max-w-2xl text-lg">Let the grown-ups in your family hear a story in your voice. If they start Readli Family, you can read to their kids, with their say-so for each child.</p>
+      <h1 className="font-display text-4xl font-semibold sm:text-5xl">Share your voice with another family</h1>
+      <p className="max-w-2xl text-lg">
+        Invite the parents of a family you read to. They connect your voice to their Readli Family, or start one, and choose which of their children hear you. It&apos;s
+        free for you, and you can stop sharing with any family at any time.
+      </p>
     </header>
   );
   if (!ctx) {
@@ -82,7 +85,7 @@ export default async function InviteFamilyPage() {
         linkDays={state.settings.linkDays}
         shareConsent={SHARE_CONSENT}
         adultsConsent={ADULTS_CONSENT}
-        disabled={sendingOff ? "Sending invitations switches on soon. You can choose and approve your preview now." : !state.approved ? "Approve your preview above, then you can send invitations." : null}
+        disabled={sendingOff ? "Sending invitations switches on soon. You can choose and approve a preview now." : null}
       />
       <InvitationList items={invitations} />
     </AdultPage>

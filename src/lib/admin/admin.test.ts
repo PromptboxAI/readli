@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { adminPreviewOpen } from "./access";
 import { adminEmails, DEFAULT_ADMIN_EMAILS, isAdmin, isAdminPath } from "./emails";
 import { filterFamilies, livePlan } from "./overview";
-import { AdminActionError, endTesterPlan, grantTesterPlan, parseTesterDays, testerPlanEnd } from "./tester-plans";
+import { AdminActionError, endTesterPlan, grantTesterPlan, parseTesterDays, removeEmptyFamily, testerPlanEnd } from "./tester-plans";
 
 const confirmed = "2026-10-01T00:00:00Z";
 const env = (vars: Record<string, string>) => ({ NODE_ENV: "production", ...vars }) as NodeJS.ProcessEnv;
@@ -54,7 +54,7 @@ describe("admin overview", () => {
   });
 
   it("finds families by name or owner email", () => {
-    const f = (name: string, ownerEmail: string | null) => ({ id: name, name, ownerEmail, createdAt: "", members: 1, kids: 0, plan: null });
+    const f = (name: string, ownerEmail: string | null) => ({ id: name, name, ownerEmail, createdAt: "", members: 1, kids: 0, plan: null, empty: true, storytellerFor: null });
     const list = [f("The Parks", "sam@example.com"), f("Rivera family", null)];
     expect(filterFamilies(list, "  ").length).toBe(2);
     expect(filterFamilies(list, "SAM@").map((x) => x.name)).toEqual(["The Parks"]);
@@ -74,6 +74,16 @@ function fakeDb(tables: Record<string, Record<string, unknown>[]>) {
         filters.push([k, v]);
         return builder;
       },
+      is: (k: string, v: unknown) => {
+        filters.push([k, v]);
+        return builder;
+      },
+      delete: () => ({
+        eq: async (k: string, v: unknown) => {
+          writes.push({ table, op: "delete", row: { [k]: v } });
+          return { error: null };
+        },
+      }),
       maybeSingle: async () => ({ data: matching()[0] ?? null, error: null }),
       then: (resolve: (v: unknown) => unknown) => Promise.resolve({ data: matching(), error: null }).then(resolve),
       insert: async (row: Record<string, unknown>) => {
@@ -140,5 +150,30 @@ describe("tester plans", () => {
     await endTesterPlan(db, admin, "test", at);
     expect(writes[0]).toMatchObject({ table: "household_entitlements", op: "update", row: { status: "canceled", id: "test" } });
     expect(writes[1]).toMatchObject({ table: "admin_actions", row: { action: "tester_plan_ended", household_id: "h2" } });
+  });
+});
+
+describe("removing an empty family", () => {
+  const admin = { id: "admin-1", email: "admin@readli.ai", name: "Admin" };
+  const at = new Date("2026-10-22T00:00:00Z");
+  const home = { id: "h9", name: "The Godfrey Family", created_by: "andrea" };
+  const me = { household_id: "h9", user_id: "andrea", removed_at: null };
+
+  it("removes a family with no kids, no plan and no one else, and logs it first", async () => {
+    const { db, writes } = fakeDb({ households: [home], household_members: [me], child_profiles: [], household_entitlements: [] });
+    expect(await removeEmptyFamily(db, admin, "h9", at)).toBe("The Godfrey Family");
+    expect(writes.map((w) => `${w.table}:${w.op}`)).toEqual(["admin_actions:insert", "households:delete"]);
+    expect(writes[0]).toMatchObject({ row: { action: "empty_family_removed", household_id: "h9", detail: { name: "The Godfrey Family", ownerId: "andrea" } } });
+  });
+
+  it("never removes a family with kids, another grown-up or a plan", async () => {
+    const kid = { child_profiles: [{ id: "k", household_id: "h9", deleted_at: null }] };
+    const other = { household_members: [me, { household_id: "h9", user_id: "kevin", removed_at: null }] };
+    const plan = { household_entitlements: [{ id: "e", household_id: "h9", source: "tester", status: "active", starts_at: "2026-10-01T00:00:00Z", ends_at: null }] };
+    for (const extra of [kid, other, plan]) {
+      const { db, writes } = fakeDb({ households: [home], household_members: [me], child_profiles: [], household_entitlements: [], ...extra });
+      await expect(removeEmptyFamily(db, admin, "h9", at)).rejects.toThrow(AdminActionError);
+      expect(writes).toEqual([]);
+    }
   });
 });

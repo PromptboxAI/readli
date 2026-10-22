@@ -2,17 +2,20 @@ import type { Metadata } from "next";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
 import { NarratorSlots } from "@/components/family/NarratorSlots";
 import { accountDb } from "@/lib/family/account-store";
-import { familyPage } from "@/lib/family/page-data";
+import { familyPage, guardianChildren } from "@/lib/family/page-data";
 import type { FamilyState } from "@/lib/family/model";
 import { guardianHousehold, narratorSlots } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
 import { BackLink } from "@/components/family/BackLink";
+import { invitationMailer } from "@/lib/invitations/email";
+import { inviteEmailOn } from "@/lib/invites/email";
 import { listInvites } from "@/lib/invites/server";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Family storytellers | Readli" };
 
-export default async function NarratorSlotsPage() {
+export default async function NarratorSlotsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const add = (await searchParams).add;
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   if (page.session?.actor.kind !== "adult") return <NeedsGrownUp text="Only a parent or guardian can manage narrator slots." />;
@@ -22,7 +25,8 @@ export default async function NarratorSlotsPage() {
   // Signed-in families save real invitations; the sample family previews the form without saving.
   const db = page.session.account ? accountDb() : null;
   const inviteMode = page.session.account ? (db ? "live" : "off") : "preview";
-  const invites = db ? await listInvites(db, householdId) : [];
+  const email = db ? await inviteEmailOn(db, invitationMailer()) : null;
+  const invites = db ? await listInvites(db, householdId, { maxResends: email?.on ? email.maxResends : null }) : [];
   return (
     <FamilyShell>
       <PreviewNote />
@@ -33,6 +37,8 @@ export default async function NarratorSlotsPage() {
         approveHref={approveHref(page.state, householdId)}
         inviteMode={inviteMode}
         invites={invites}
+        kids={guardianChildren(page.state!, page.session.actor.adultId).filter((c) => c.householdId === householdId).map((c) => ({ id: c.id, name: c.nickname }))}
+        focus={typeof add === "string" ? add : null}
       />
     </FamilyShell>
   );

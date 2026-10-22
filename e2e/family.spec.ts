@@ -53,6 +53,34 @@ test("a parent manages storytellers child by child", async ({ page }) => {
   await expect(page.getByTestId("storyteller-voice-priya")).toContainText("Not available to this child");
 });
 
+test("a ready storyteller is added and approved for children from one page", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  // The "ready to read" notice opens Family storytellers on that storyteller's card.
+  await page.goto("/family/narrators?add=voice-priya");
+  const priya = page.getByTestId("slot-voice-priya");
+  await expect(priya).toContainText("Ready to add");
+  // Every slot is in use: the voice is ready, but nothing is bought automatically.
+  await expect(priya.getByTestId("slots-full-note")).toContainText("all your narrator slots are in use");
+  await expect(page.getByTestId("slots-used")).toHaveText("4 of 4 slots used");
+
+  await page.getByRole("button", { name: "Add a slot", exact: true }).click();
+  await page.getByRole("button", { name: "Confirm slot" }).click();
+  await priya.getByRole("button", { name: "Add to a slot" }).click();
+  const pick = page.getByTestId("pick-kids");
+  await expect(pick).toBeVisible();
+  // No child is ticked for the parent.
+  await expect(pick.getByRole("checkbox", { name: "Maya" })).not.toBeChecked();
+  await pick.getByRole("checkbox", { name: "Maya" }).check();
+  await pick.getByRole("button", { name: "Approve for this child" }).click();
+  await expect(page.getByText(/Maya can now hear/)).toBeVisible();
+  await noOverflow(page);
+
+  await page.goto("/family/kids/maya/storytellers");
+  await expect(page.getByTestId("storyteller-voice-priya")).toContainText("Approved for Maya");
+  await page.goto("/family/kids/leo/storytellers");
+  await expect(page.getByTestId("storyteller-voice-priya")).toContainText("Not available to this child");
+});
+
 test("kids see only approved narrators and can switch without losing their place", async ({ page }) => {
   await signIn(page, "adult:sara");
   await page.goto("/family");
