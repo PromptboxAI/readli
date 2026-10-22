@@ -1,8 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import type { MyVoiceView } from "@/lib/family/service";
+import type { MyVoiceHousehold, MyVoiceView } from "@/lib/family/service";
 import { Toggle } from "./Toggle";
+
+const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+/** What the family has done with a shared voice. Read-only: the family's parents make these choices. */
+function FamilyStatus({ h }: { h: MyVoiceHousehold }) {
+  return (
+    <ul className="mt-2 flex flex-col gap-0.5 text-sm" data-testid={`family-status-${h.id}`}>
+      {h.sharedSince && <li>Shared since {day(h.sharedSince)}</li>}
+      <li>{h.inSlot ? "Added as a narrator" : "Waiting for a parent to add you as a narrator"}</li>
+      {h.inSlot && <li>{h.approvedFor.length ? `Reading to ${h.approvedFor.join(", ")}` : "No children yet. A parent chooses who hears you."}</li>}
+      {h.calledAs && <li>They call you {h.calledAs}</li>}
+    </ul>
+  );
+}
 
 /** The voice owner's own switch, per family. Turning it off removes the voice from every child at once. */
 export function MyVoiceSharing({ initial }: { initial: MyVoiceView[] }) {
@@ -46,6 +60,7 @@ export function MyVoiceSharing({ initial }: { initial: MyVoiceView[] }) {
                 <div className="min-w-0 flex-1">
                   <p className="font-display text-xl font-semibold">{h.name}</p>
                   <p className="text-sm text-muted">{h.shared ? "Available to your family" : "Private: only you can use it"}</p>
+                  {h.shared && <FamilyStatus h={h} />}
                 </div>
                 <Toggle checked={h.shared} disabled={saving} label={`Share my voice with ${h.name}`} onChange={(on) => set(v.voiceId, h.id, h.name, on)} />
               </li>

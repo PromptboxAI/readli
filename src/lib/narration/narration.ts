@@ -4,6 +4,7 @@ import { voiceSettings } from "@/lib/voice/elevenlabs";
 import type { VoiceProvider } from "@/lib/voice/provider";
 import type { Actor, CreditLot, FamilyState, NarrationJob, NarrationLibrary, NarrationSegment } from "@/lib/family/model";
 import { activeChild, activeEntitlement, activeShare, activeSlot, childVoiceAccess, isActiveMember, liveSlots, narratorSlotCount, readyVoice } from "@/lib/family/permissions";
+import { calledIn } from "@/lib/family/names";
 import type { PlanConfig } from "@/lib/family/plan";
 import {
   actorLabel,
@@ -218,7 +219,7 @@ export function creditHistory(state: FamilyState, householdId: string) {
   for (const job of state.jobs.filter((j) => j.householdId === householdId)) {
     const library = state.libraries.find((l) => l.key === job.libraryKey);
     const text = library ? bookText(library.bookSlug) : null;
-    const owner = library ? state.adults.find((a) => a.id === state.voices.find((v) => v.id === library.voiceId)?.ownerId) : null;
+    const owner = library ? calledIn(state, state.adults.find((a) => a.id === state.voices.find((v) => v.id === library.voiceId)?.ownerId), householdId) : null;
     const entries = state.ledger.filter((e) => e.jobId === job.id);
     const sum = (kind: string) => entries.filter((e) => e.kind === kind).reduce((n, e) => n + e.credits, 0);
     const spent = job.status === "queued" || job.status === "running" ? sum("reserve") - sum("refund") : sum("commit");
@@ -352,7 +353,7 @@ function unavailableReason(state: FamilyState, plan: PlanConfig, householdId: st
 
 function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, text: BookText, voiceId: string, available: number, viewerId?: string): PrepareVoiceView {
   const v = state.voices.find((x) => x.id === voiceId)!;
-  const owner = state.adults.find((a) => a.id === v.ownerId)!;
+  const owner = calledIn(state, state.adults.find((a) => a.id === v.ownerId), householdId)!;
   const kids = state.children.filter((c) => c.householdId === householdId && c.deletedAt === null);
   const library = libraryFor(state, plan, v.id, text, householdId);
   const status = libraryStatus(state, library, text);
@@ -772,7 +773,7 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
     job.status = allReady ? "done" : "failed";
     job.finishedAt = at;
     settleUnfinished(s, job, at);
-    const owner = voice ? s.adults.find((a) => a.id === voice.ownerId) : null;
+    const owner = voice ? calledIn(s, s.adults.find((a) => a.id === voice.ownerId), job.householdId) : null;
     const status = libraryStatus(s, library, text);
     s.notifications.push({
       id: randomUUID(),
@@ -977,7 +978,7 @@ export async function listenView(store: FamilyStore, actor: Actor | null, househ
   const voices = householdVoiceIds(state, householdId)
     .filter((id) => guardianVoiceAccess(state, store.plan, householdId, id))
     .map((id): ListenVoice => {
-      const owner = state.adults.find((a) => a.id === voiceOwnerOf(state, id));
+      const owner = calledIn(state, state.adults.find((a) => a.id === voiceOwnerOf(state, id)), householdId);
       const segs = segmentsOf(state, libraryFor(state, store.plan, id, text, householdId).key);
       const readySentenceIds = text.sentences.filter((x) => segs.get(x.id)?.status === "ready" && segs.get(x.id)?.storageKey).map((x) => x.id);
       return { voiceId: id, name: owner?.displayName ?? "A storyteller", avatarUrl: owner?.avatarUrl ?? null, tint: owner?.tint ?? "bg-lavender", readySentenceIds, complete: readySentenceIds.length === text.sentences.length };
