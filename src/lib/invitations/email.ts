@@ -12,6 +12,8 @@ export interface OutgoingEmail {
   html: string;
   text: string;
   headers: Record<string, string>;
+  /** Resend drops a second send with the same key, so a retried request never emails twice. */
+  idempotencyKey?: string;
 }
 
 export interface Mailer {
@@ -30,7 +32,11 @@ export class ResendMailer implements Mailer {
   async send(email: OutgoingEmail) {
     const res = await this.fetchImpl("https://api.resend.com/emails", {
       method: "POST",
-      headers: { authorization: `Bearer ${this.apiKey}`, "content-type": "application/json" },
+      headers: {
+        authorization: `Bearer ${this.apiKey}`,
+        "content-type": "application/json",
+        ...(email.idempotencyKey ? { "idempotency-key": email.idempotencyKey } : {}),
+      },
       body: JSON.stringify({ from: this.from, to: [email.to], subject: email.subject, html: email.html, text: email.text, headers: email.headers }),
     });
     if (!res.ok) throw new MailerError(`resend ${res.status}: ${(await res.text()).slice(0, 200)}`);
@@ -202,4 +208,27 @@ export function familyInviteEmail(input: FamilyInviteEmailInput): Omit<OutgoingE
     text: lines.join("\n"),
     headers: { "List-Unsubscribe": `<${input.oneClickUnsubscribeUrl}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
   };
+}
+
+export interface ReadyEmailInput {
+  parentName: string;
+  title: string;
+  body: string;
+  cta: string;
+  ctaUrl: string;
+}
+
+/** To the parent who invited a storyteller: their voice is ready and shared with the family. */
+export function storytellerReadyEmail(input: ReadyEmailInput): Omit<OutgoingEmail, "to"> {
+  const lines = [`Hi ${input.parentName},`, "", input.title, input.body, "", `${input.cta}: ${input.ctaUrl}`];
+  const html = `<!doctype html><html><body style="margin:0;background:#fdf8f0;font-family:Arial,Helvetica,sans-serif;color:#2a2340">
+<div style="max-width:560px;margin:0 auto;padding:24px">
+<p style="font-size:22px;font-weight:700;margin:0 0 16px">Readli</p>
+<div style="background:#ffffff;border-radius:20px;padding:24px">
+<p style="margin:0 0 12px">Hi ${esc(input.parentName)},</p>
+<p style="margin:0 0 12px;font-size:20px;font-weight:700">${esc(input.title)}</p>
+<p style="margin:0">${esc(input.body)}</p>
+<p style="margin:24px 0;text-align:center"><a href="${esc(input.ctaUrl)}" style="display:inline-block;background:#ff7a59;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 24px;border-radius:999px">${esc(input.cta)}</a></p>
+</div></div></body></html>`;
+  return { subject: input.title, html, text: lines.join("\n"), headers: {} };
 }

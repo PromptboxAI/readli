@@ -160,7 +160,7 @@ export async function setHouseholdShare(
   actor: Actor | null,
   input: { voiceId: string; householdId: string; shared: boolean; policyVersion: string },
   clock: Clock = now,
-): Promise<void> {
+): Promise<ReadyNotice | null> {
   const adultId = requireAdult(actor);
   const state = await store.read();
   const voice = state.voices.find((v) => v.id === input.voiceId && v.deletedAt === null);
@@ -169,6 +169,7 @@ export async function setHouseholdShare(
   if (input.shared && voice.status !== "ready") throw new PermissionError(409, "voice_not_ready", "Your voice is still being made.");
 
   const at = clock().toISOString();
+  let notice: ReadyNotice | null = null;
   await store.write((s) => {
     const current = s.shares.find((x) => x.voiceId === voice.id && x.householdId === input.householdId && x.revokedAt === null);
     if (input.shared) {
@@ -184,16 +185,13 @@ export async function setHouseholdShare(
         revokedBy: null,
       });
       audit(s, adultId, "voice_shared", at, { voiceId: voice.id, householdId: input.householdId });
-      // The parents hear about it; nothing is activated or approved on their behalf.
-      const name = calledIn(s, s.adults.find((a) => a.id === adultId), input.householdId)?.displayName ?? "A storyteller";
-      s.notifications.push({
-        id: randomUUID(),
-        householdId: input.householdId,
-        text: `${name} shared their voice with your family. Add them to a narrator slot, then choose which children hear them.`,
-        href: "/family/narrators",
-        at,
-        readAt: null,
-      });
+      // The parents hear about it; nothing is activated or approved on their behalf. One unread
+      // notice per storyteller, so sharing again after stopping never stacks up duplicates.
+      notice = readyNotice(s, store.plan, input.householdId, adultId, voice.id);
+      const text = `${notice.title} ${notice.body}`;
+      if (!s.notifications.some((n) => n.householdId === input.householdId && n.href === notice!.href && n.readAt === null)) {
+        s.notifications.push({ id: randomUUID(), householdId: input.householdId, text, href: notice.href, at, readAt: null });
+      }
       return;
     }
     if (!current) return;
@@ -215,6 +213,44 @@ export async function setHouseholdShare(
     }
     audit(s, adultId, "voice_unshared", at, { voiceId: voice.id, householdId: input.householdId });
   });
+  return notice;
+}
+
+/** What a family is told when a storyteller's voice is ready and shared with them. */
+export interface ReadyNotice {
+  /** What the family's kids will call them, such as "Mommy". */
+  name: string;
+  /** Their own name, when the family calls them something else. */
+  ownName: string;
+  familyName: string;
+  slotsFull: boolean;
+  title: string;
+  body: string;
+  cta: string;
+  /** Family storytellers, opened on this voice so a parent adds it and picks children in one place. */
+  href: string;
+}
+
+export function readyNotice(state: FamilyState, plan: PlanConfig, householdId: string, adultId: string, voiceId: string): ReadyNotice {
+  const adult = state.adults.find((a) => a.id === adultId);
+  const ownName = adult?.displayName || "Your storyteller";
+  const name = calledIn(state, adult, householdId)?.displayName || ownName;
+  const familyName = state.households.find((h) => h.id === householdId)?.name ?? "your family";
+  const slotsFull = liveSlots(state, householdId, plan).length >= narratorSlotCount(state, householdId, plan);
+  const who = name === ownName ? ownName : `${ownName} (${name})`;
+  const body = slotsFull
+    ? `${who} recorded a voice and shared it with ${familyName}. It's ready, but all your narrator slots are in use: free one up or add a slot to activate it.`
+    : `${who} recorded a voice and shared it with ${familyName}. Add them as a storyteller and choose which children can hear them.`;
+  return {
+    name,
+    ownName,
+    familyName,
+    slotsFull,
+    title: `${name} is ready to read!`,
+    body,
+    cta: slotsFull ? "Open Family storytellers" : `Add ${name} to My Family`,
+    href: `/family/narrators?add=${encodeURIComponent(voiceId)}`,
+  };
 }
 
 // ---------------------------------------------------------------------------

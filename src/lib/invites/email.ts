@@ -7,7 +7,7 @@ import { ProviderRefCipher } from "@/lib/server/provider-ref";
 import { InviteError, hashInviteToken, inviteLink, newInviteToken } from "./server";
 
 /**
- * Email for a family's storyteller invitations (household_invitations, migration 20261022000100), on
+ * Email for a family's storyteller invitations (household_invitations, migration 20261022120000), on
  * the same rails as Readli Voice invitations: the same Resend mailer and on/off switch, the same daily
  * and resend limits, the same suppression list, and decline, unsubscribe and report links in every
  * email. The copyable link keeps working whether or not email is on. Addresses are kept encrypted for

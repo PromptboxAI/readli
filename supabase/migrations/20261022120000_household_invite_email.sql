@@ -3,7 +3,8 @@ alter table public.household_invitations
   add column if not exists sent_count integer not null default 0 check (sent_count >= 0),
   add column if not exists last_sent_at timestamptz,
   add column if not exists declined_at timestamptz,
-  add column if not exists reported_at timestamptz;
+  add column if not exists reported_at timestamptz,
+  add column if not exists ready_notified_at timestamptz;
 
 create table if not exists public.household_invitation_sends (
   id bigint generated always as identity primary key,
