@@ -170,6 +170,7 @@ export class AccountFamilyStore implements FamilyStore {
         bookSlug: p.book_slug as string,
         sentence: Number(p.sentence ?? 0),
         voiceId: str(p.voice_id),
+        textRevision: str(p.text_revision),
         updatedAt: p.updated_at as string,
       }));
       state.voices = voices.map((v) => ({
@@ -418,19 +419,17 @@ export class AccountFamilyStore implements FamilyStore {
     }
     const changed = (p: ChildBookProgress) => {
       const old = before.progress.find((x) => x.childId === p.childId && x.bookSlug === p.bookSlug);
-      return !old || old.sentence !== p.sentence || old.voiceId !== p.voiceId;
+      return !old || old.sentence !== p.sentence || old.voiceId !== p.voiceId || (old.textRevision ?? null) !== (p.textRevision ?? null);
     };
     const places = after.progress.filter(changed);
     if (places.length) {
-      await this.q(
-        db
-          .from("child_book_progress")
-          .upsert(
-            places.map((p) => ({ child_id: p.childId, book_slug: p.bookSlug, sentence: p.sentence, voice_id: p.voiceId, updated_at: p.updatedAt })),
-            { onConflict: "child_id,book_slug" },
-          ),
-        "save reading place",
-      );
+      const rows = places.map((p) => ({ child_id: p.childId, book_slug: p.bookSlug, sentence: p.sentence, voice_id: p.voiceId, text_revision: p.textRevision ?? null, updated_at: p.updatedAt }));
+      const saved = await db.from("child_book_progress").upsert(rows, { onConflict: "child_id,book_slug" });
+      // Until migration 20261021000100 adds text_revision, places save without it (and are resolved on read).
+      if (saved.error && /text_revision/.test(saved.error.message)) {
+        const older = rows.map((r) => ({ child_id: r.child_id, book_slug: r.book_slug, sentence: r.sentence, voice_id: r.voice_id, updated_at: r.updated_at }));
+        await this.q(db.from("child_book_progress").upsert(older, { onConflict: "child_id,book_slug" }), "save reading place");
+      } else if (saved.error) throw new Error(`save reading place: ${saved.error.message}`);
     }
 
     // Voice rows come from the recording flow; a change here is only a status or deletion.

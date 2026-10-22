@@ -6,16 +6,24 @@ import { useRef, useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { isTheEnd, THE_END_PAUSE_MS } from "@/lib/content/the-end";
 import type { ListenView } from "@/lib/narration/narration";
+import { mapPosition } from "@/lib/narration/positions";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 import { useGaplessAudio } from "./useGaplessAudio";
 
 /**
  * The Parent Portal player: plays a prepared book sentence by sentence from stored audio, in any
- * voice the family may use, and stops where the prepared audio ends instead of generating more.
+ * voice the family may use, and stops where the prepared audio ends instead of generating more. The
+ * words shown are the text the chosen voice's audiobook reads.
  */
 export function GrownUpPlayer({ view, initialVoice }: { view: ListenView; initialVoice: string | null }) {
-  const { book, sentences, sentenceIds, voices } = view;
+  const { book, voices, texts } = view;
   const [voiceId, setVoiceId] = useState(initialVoice);
+  const revisionOf = (id: string | null) => {
+    const r = voices.find((v) => v.voiceId === id)?.revision;
+    return r && texts.texts[r] ? r : texts.current;
+  };
+  const [shown, setShown] = useState(() => revisionOf(initialVoice));
+  const { sentences, sentenceIds } = texts.texts[shown] ?? { sentences: view.sentences, sentenceIds: view.sentenceIds };
   const [sentence, setSentence] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -27,7 +35,9 @@ export function GrownUpPlayer({ view, initialVoice }: { view: ListenView; initia
   const audio = useGaplessAudio({ ended: () => onEnded(), error: () => stop() });
 
   const voice = voices.find((v) => v.voiceId === voiceId) ?? null;
-  const readyAt = (id: string | null, at: number) => Boolean(id && voices.find((v) => v.voiceId === id)?.readySentenceIds.includes(sentenceIds[at] ?? ""));
+  // Counted in the text that voice reads, so a place right after switching voices checks the right sentence.
+  const readyAt = (id: string | null, at: number) =>
+    Boolean(id && voices.find((v) => v.voiceId === id)?.readySentenceIds.includes((texts.texts[revisionOf(id)]?.sentenceIds ?? sentenceIds)[at] ?? ""));
 
   const stop = () => {
     audio.pause();
@@ -40,7 +50,7 @@ export function GrownUpPlayer({ view, initialVoice }: { view: ListenView; initia
     fetch(`/api/family/books/${book.slug}/listen`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ voiceId: id, sentence: at }),
+      body: JSON.stringify({ voiceId: id, sentence: at, revision: revisionOf(id) }),
     });
 
   /** Buffers the next sentence while this one plays, so the story flows without a pause. */
@@ -118,7 +128,13 @@ export function GrownUpPlayer({ view, initialVoice }: { view: ListenView; initia
     audio.clear();
     setVoiceId(id);
     voiceRef.current = id;
-    if (playing || loading) void play(sentence, id);
+    // The place carries over to the same sentence in the text this voice reads.
+    const next = revisionOf(id);
+    const at = next === shown ? sentence : mapPosition(sentences, texts.texts[next]?.sentences ?? sentences, sentence);
+    setShown(next);
+    setSentence(at);
+    sentenceRef.current = at;
+    if (playing || loading) void play(at, id);
   };
 
   return (

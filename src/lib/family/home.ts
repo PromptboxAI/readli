@@ -1,6 +1,6 @@
 import { CATALOG, NEW_BOOKS, MORE_BOOKS_ON_PHONES, findCatalogBook } from "@/lib/library/catalog";
 import { THE_END } from "@/lib/content/the-end";
-import { bookMinutes, libraryFor, libraryStatus } from "@/lib/narration/narration";
+import { bookMinutes, narrationFor } from "@/lib/narration/narration";
 import { bookText } from "@/lib/narration/text";
 import type { Adult, FamilyState } from "./model";
 import { calledIn } from "./names";
@@ -146,11 +146,14 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
 
   // A child can page through a story's text before anything is prepared, which saves a place with
   // whichever narrator was picked. Only a place in audio that exists is something to continue.
-  const hasAudio = (slug: string, voiceId: string | null) => {
+  const heard = (slug: string, voiceId: string | null) => {
     const text = bookText(slug);
-    if (!text || !voiceId || !state.voices.some((v) => v.id === voiceId && v.deletedAt === null)) return false;
-    return libraryStatus(state, libraryFor(state, plan, voiceId, text, householdId), text).ready > 0;
+    if (!text || !voiceId || !state.voices.some((v) => v.id === voiceId && v.deletedAt === null)) return null;
+    return narrationFor(state, plan, voiceId, text, householdId);
   };
+  const hasAudio = (slug: string, voiceId: string | null) => (heard(slug, voiceId)?.status.ready ?? 0) > 0;
+  /** The text a child's place counts in: what their narrator's audiobook reads. */
+  const placeText = (slug: string, voiceId: string | null) => heard(slug, voiceId)?.text ?? bookText(slug);
   const recent = state.progress
     .filter((p) => kidIds.has(p.childId) && p.sentence > 0 && hasAudio(p.bookSlug, p.voiceId))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -162,7 +165,9 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     const kid = kids.find((k) => k.id === p.childId);
     if (!book || !text || !kid || continueListening.length >= 8) continue;
     const owner = voiceOwner(p.voiceId);
-    const percent = Math.min(100, Math.round((p.sentence / Math.max(1, text.sentences.length)) * 100));
+    // How far along, in the text this narrator's audiobook reads.
+    const length = heard(p.bookSlug, p.voiceId)?.text.sentences.length ?? text.sentences.length;
+    const percent = Math.min(100, Math.round((p.sentence / Math.max(1, length)) * 100));
     continueListening.push({
       slug: book.slug,
       title: book.title,
@@ -182,11 +187,12 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     const owners = new Map<string, Adult | undefined>();
     for (const lib of state.libraries) {
       if (lib.bookSlug !== book.slug || !activeShare(state, lib.voiceId, householdId)) continue;
-      const voice = state.voices.find((v) => v.id === lib.voiceId && v.deletedAt === null && v.status === "ready" && v.version === lib.voiceVersion);
+      // An audiobook made with an earlier recording of the voice, or from an earlier text, still counts.
+      const voice = state.voices.find((v) => v.id === lib.voiceId && v.deletedAt === null && v.status === "ready");
       if (!voice || owners.has(voice.id)) continue;
       // Ready means a child can play it now: shared, in a slot, on a live plan and approved for someone.
       if (!kids.some((k) => childVoiceAccess(state, k.id, voice.id, plan).allowed)) continue;
-      if (libraryStatus(state, lib, text).readiness === "ready") owners.set(voice.id, adultById.get(voice.ownerId));
+      if (narrationFor(state, plan, voice.id, text, householdId).status.readiness === "ready") owners.set(voice.id, adultById.get(voice.ownerId));
     }
     if (!owners.size) continue;
     const who = [...owners.values()].map((a) => a?.displayName ?? "a storyteller");
@@ -203,11 +209,13 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     const hearers = new Set<string>();
     for (const lib of state.libraries) {
       if (lib.bookSlug !== book.slug || !activeShare(state, lib.voiceId, householdId)) continue;
-      const voice = state.voices.find((v) => v.id === lib.voiceId && v.deletedAt === null && v.status === "ready" && v.version === lib.voiceVersion);
-      if (!voice) continue;
+      // Any recording of the voice: an audiobook made before it was re-recorded keeps playing.
+      const voice = state.voices.find((v) => v.id === lib.voiceId && v.deletedAt === null && v.status === "ready");
+      if (!voice || narrators.has(voice.id)) continue;
       const allowed = kids.filter((k) => childVoiceAccess(state, k.id, voice.id, plan).allowed);
       if (!allowed.length) continue;
-      const status = libraryStatus(state, lib, text);
+      // What the family hears in this voice, which may be a finished audiobook of an earlier text.
+      const status = narrationFor(state, plan, voice.id, text, householdId).status;
       // A partly prepared reading stays on the shelf only while a child is already part way through it.
       const started = allowed.some((k) => state.progress.some((p) => p.childId === k.id && p.bookSlug === book.slug && p.voiceId === voice.id && p.sentence > 0));
       if (status.readiness !== "ready" && !(started && status.ready > 0)) continue;
@@ -220,7 +228,8 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       .map((k) => {
         const p = recent.find((x) => x.childId === k.id && x.bookSlug === book.slug);
         if (!p) return { id: k.id, name: k.nickname, percent: null };
-        const percent = finished(text.sentences, p.sentence) ? 100 : Math.min(99, Math.round((p.sentence / Math.max(1, text.sentences.length)) * 100));
+        const read = placeText(p.bookSlug, p.voiceId) ?? text;
+        const percent = finished(read.sentences, p.sentence) ? 100 : Math.min(99, Math.round((p.sentence / Math.max(1, read.sentences.length)) * 100));
         return { id: k.id, name: k.nickname, percent };
       });
     const touchedAt = recent.find((x) => x.bookSlug === book.slug && hearers.has(x.childId))?.updatedAt ?? null;
@@ -286,9 +295,9 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
   return {
     kids: kids.map((k) => {
       const last = recent.find((p) => p.childId === k.id);
-      const open = recent.find((p) => p.childId === k.id && !finished(bookText(p.bookSlug)?.sentences ?? [], p.sentence));
+      const open = recent.find((p) => p.childId === k.id && !finished(placeText(p.bookSlug, p.voiceId)?.sentences ?? [], p.sentence));
       const openBook = open ? findCatalogBook(open.bookSlug) : undefined;
-      const text = open ? bookText(open.bookSlug) : null;
+      const text = open ? placeText(open.bookSlug, open.voiceId) : null;
       const theirs = shelf.filter((b) => b.kids.some((x) => x.id === k.id));
       const unstarted = theirs.filter((b) => b.kids.find((x) => x.id === k.id)?.percent === null);
       const suggested = [...unstarted].sort((a, b) => a.minutes - b.minutes)[0];
