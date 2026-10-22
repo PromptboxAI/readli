@@ -14,7 +14,7 @@ const sub = (over: Record<string, unknown> = {}) => ({
   metadata: { household_id: "h1" },
   items: {
     data: [
-      { price: { lookup_key: "readli_family_monthly_1999" }, quantity: 1 },
+      { price: { lookup_key: "readli_family_monthly_1999", recurring: { interval: "month" } }, quantity: 1 },
       { price: { lookup_key: "readli_extra_slot_599" }, quantity: 2 },
     ],
   },
@@ -30,9 +30,31 @@ describe("billingChange", () => {
       subscriptionRef: "sub_1",
       customerRef: "cus_1",
       status: "active",
+      tier: "family",
+      trialEndsAt: null,
       extraNarratorSlots: 2,
+      billingInterval: "month",
       startsAt: "2025-10-09T08:53:20.000Z",
       endsAt: null,
+      invitationId: null,
+    });
+  });
+
+  it("records whether Readli Family bills monthly or yearly", () => {
+    const yearly = sub({ items: { data: [{ price: { lookup_key: "readli_family_annual_17999", recurring: { interval: "year" } }, quantity: 1 }] } });
+    expect(billingChange(event("customer.subscription.updated", yearly))).toMatchObject({ tier: "family", billingInterval: "year" });
+  });
+
+  it("reads the Family Archive price as the Archive tier, with no extra slots", () => {
+    const archive = sub({ items: { data: [{ price: { lookup_key: "readli_archive_monthly_699" }, quantity: 1 }] } });
+    expect(billingChange(event("customer.subscription.updated", archive))).toMatchObject({ tier: "archive", extraNarratorSlots: 0, status: "active" });
+  });
+
+  it("records when a subscription's free trial ends", () => {
+    expect(billingChange(event("customer.subscription.created", sub({ status: "trialing", trial_end: 1_761_000_000 })))).toMatchObject({
+      status: "active",
+      tier: "family",
+      trialEndsAt: new Date(1_761_000_000 * 1000).toISOString(),
     });
   });
 
@@ -40,6 +62,25 @@ describe("billingChange", () => {
     for (const status of ["trialing", "past_due"]) {
       expect(billingChange(event("customer.subscription.updated", sub({ status })))).toMatchObject({ status: "active" });
     }
+  });
+
+  it("keeps one plan row through a trial and its conversion, with the trial end recorded", () => {
+    const trialing = sub({ status: "trialing", start_date: 1_760_000_000, trial_end: 1_761_209_600, current_period_end: 1_761_209_600 });
+    expect(billingChange(event("customer.subscription.created", trialing))).toMatchObject({
+      status: "active",
+      startsAt: new Date(1_760_000_000 * 1000).toISOString(),
+      endsAt: null,
+      trialEndsAt: new Date(1_761_209_600 * 1000).toISOString(),
+    });
+    expect(billingChange(event("customer.subscription.updated", { ...trialing, status: "active" }))).toMatchObject({
+      status: "active",
+      startsAt: new Date(1_760_000_000 * 1000).toISOString(),
+      endsAt: null,
+    });
+    expect(billingChange(event("customer.subscription.deleted", { ...trialing, status: "canceled", ended_at: 1_761_209_600 }))).toMatchObject({
+      status: "canceled",
+      endsAt: new Date(1_761_209_600 * 1000).toISOString(),
+    });
   });
 
   it("ends the plan at period end when the family cancels, and right away when Stripe ends it", () => {

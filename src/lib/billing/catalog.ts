@@ -5,7 +5,7 @@ import type { PlanConfig } from "@/lib/family/plan";
  * Each item's Stripe lookup key includes its amount, so changing a price in the admin portal makes a
  * new Stripe price for new purchases and never reprices what a family already pays.
  */
-export type CatalogItemId = "family_monthly" | "family_annual" | "extra_slot" | `credit_pack:${string}`;
+export type CatalogItemId = "family_monthly" | "family_annual" | "archive_monthly" | "extra_slot" | `credit_pack:${string}`;
 
 export interface CatalogItem {
   id: CatalogItemId;
@@ -35,6 +35,7 @@ export function catalog(plan: PlanConfig): CatalogItem[] {
     item("family_monthly", "Readli Family (monthly)", plan.familyMonthlyPriceCents, "month"),
     item("family_annual", "Readli Family (annual)", plan.familyAnnualPriceCents, "year"),
     item("extra_slot", "Extra family storyteller slot", plan.extraSlotPriceCents, "month"),
+    item("archive_monthly", "Readli Family Archive (monthly)", plan.archiveMonthlyPriceCents, "month"),
     ...plan.creditPacks.map((p) => item(`credit_pack:${p.id}`, `${p.credits} Readli credits`, p.priceCents, null, p.credits)),
   ];
 }

@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
 import { CONTRIBUTOR_HOUSEHOLD_MAX_ADULTS } from "@/lib/accounts/accounts";
 import { buttonPrimary } from "@/components/brand/buttons";
-import { effectivePlan, MAX_CREDIT_PACKS } from "@/lib/billing/price-settings";
+import { effectivePlan, LIMIT_FIELDS, MAX_CREDIT_PACKS } from "@/lib/billing/price-settings";
 import { accountDb } from "@/lib/family/account-store";
+import { PRICE_INCREASE_NOTICE_DAYS } from "@/lib/content/billing-policy";
 import { formatPrice, type PlanConfig } from "@/lib/family/plan";
 import { rewardsConfig } from "@/lib/rewards/rewards";
 import { requireAdmin } from "@/lib/admin/access";
-import { updatePriceSettingsAction } from "./actions";
+import { updateGenerationLimitsAction, updatePriceSettingsAction } from "./actions";
 
 export const metadata: Metadata = { title: "Plan settings | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -18,6 +19,12 @@ function rows(plan: PlanConfig): Row[] {
   return [
     { label: "Readli Family monthly price", value: formatPrice(plan.familyMonthlyPriceCents) },
     { label: "Readli Family annual price", value: formatPrice(plan.familyAnnualPriceCents), note: "Monthly credits still refresh each month" },
+    {
+      label: "Readli Family Archive",
+      value: `${formatPrice(plan.archiveMonthlyPriceCents)} a month`,
+      note: "Keeps stories, listening, kids profiles and permissions; no new stories, credits or extra slots",
+    },
+    { label: "Recovery window", value: `${plan.recoveryDays} days`, note: "After paid access ends; nothing streams meanwhile" },
     { label: "Included active narrator slots", value: String(plan.includedNarratorSlots) },
     {
       label: "Extra narrator slot price (monthly)",
@@ -44,7 +51,7 @@ function rows(plan: PlanConfig): Row[] {
       value: plan.creditPacks.map((p) => `${p.credits} for ${formatPrice(p.priceCents)}`).join(", "),
       note: plan.narrationPurchasesEnabled ? "On sale" : "Not on sale until payments are switched on",
     },
-    { label: "Purchased credits expire after", value: plan.purchasedCreditMonths ? `${plan.purchasedCreditMonths} months` : "Never" },
+    { label: "Purchased credits expire after", value: plan.purchasedCreditMonths ? `${plan.purchasedCreditMonths} months` : "Never", note: "No expiry until the prepaid-credit law review" },
     { label: "Monthly credit rollover", value: plan.subscriptionRolloverMonths ? `${plan.subscriptionRolloverMonths} months` : "None" },
     { label: "Welcome promotional credits", value: `${plan.welcomePromoCredits}`, note: plan.welcomePromoDays ? `Expire after ${plan.welcomePromoDays} days` : "Never expire" },
     { label: "Quick Stories length", value: `Up to ${plan.quickStoryMaxMinutes} min` },
@@ -84,6 +91,7 @@ export default async function AdminPlansPage({ searchParams }: { searchParams: P
       {ok && <p role="status" className="rounded-2xl bg-mint/40 px-4 py-3">{ok}</p>}
       {err && <p role="alert" className="rounded-2xl bg-coral/30 px-4 py-3">{err}</p>}
       <PriceSettings plan={plan} editable={Boolean(db)} />
+      <GenerationLimitsForm plan={plan} editable={Boolean(db)} />
       <PreviewNote>Values come from the plan_settings and reward_settings tables, or PLAN_* and REWARDS_* settings until those exist.</PreviewNote>
       <Settings rows={rows(plan)} testId="plan-settings" />
       <h2 className="font-display text-2xl font-semibold">Readli Rewards</h2>
@@ -128,7 +136,7 @@ function PriceSettings({ plan, editable }: { plan: PlanConfig; editable: boolean
     <section className="flex flex-col gap-3" aria-labelledby="price-settings-h">
       <h2 id="price-settings-h" className="font-display text-2xl font-semibold">Prices</h2>
       <p className="text-sm">
-        Prices in US dollars. A change applies to new purchases only: families already paying keep their price. Gift prices follow the Family prices.
+        Prices in US dollars. A change applies to new purchases only: families already paying, and prepaid gift terms, keep their price. Moving existing subscribers to a higher price isn&apos;t done from here: it needs at least {PRICE_INCREASE_NOTICE_DAYS} days&apos; notice naming the old and new price, the date and how to cancel, and any consent the law requires. Gift prices follow the Family prices.
         Payments stay off until they&apos;re switched on.
       </p>
       {!editable && <PreviewNote>Prices can be changed once sign-in and Supabase are connected.</PreviewNote>}
@@ -136,6 +144,7 @@ function PriceSettings({ plan, editable }: { plan: PlanConfig; editable: boolean
         <PriceField name="family_monthly" label="Readli Family, monthly" cents={plan.familyMonthlyPriceCents} disabled={!editable} />
         <PriceField name="family_annual" label="Readli Family, annual" cents={plan.familyAnnualPriceCents} disabled={!editable} />
         <PriceField name="extra_slot" label="Extra storyteller slot, monthly" cents={plan.extraSlotPriceCents} disabled={!editable} />
+        <PriceField name="archive_monthly" label="Readli Family Archive, monthly" cents={plan.archiveMonthlyPriceCents} disabled={!editable} />
         <label className="flex items-center gap-3 self-end py-3 text-sm">
           <input type="checkbox" name="extra_slot_approved" defaultChecked={plan.extraSlotPriceApproved} disabled={!editable} className="size-5" />
           <span className="font-semibold">Extra slots approved for sale</span>
@@ -157,6 +166,35 @@ function PriceSettings({ plan, editable }: { plan: PlanConfig; editable: boolean
           ))}
         </fieldset>
         <button className={`${buttonPrimary} self-start`} disabled={!editable}>Save prices</button>
+      </form>
+    </section>
+  );
+}
+
+/** Generation safeguards: per-family request, character and concurrency limits, spend caps and preview allowances. */
+function GenerationLimitsForm({ plan, editable }: { plan: PlanConfig; editable: boolean }) {
+  return (
+    <section className="flex flex-col gap-3" aria-labelledby="limits-h">
+      <h2 id="limits-h" className="font-display text-2xl font-semibold">Generation limits</h2>
+      <p className="text-sm">
+        Credits are still the main allowance. These stop bursts, oversized requests and runaway voice costs. Requests already queued finish; new requests over a
+        limit are refused with a friendly message, and reaching a daily all-families cap opens an item in the voices exception queue.
+      </p>
+      <form action={updateGenerationLimitsAction} className="grid gap-3 sm:grid-cols-2" data-testid="generation-limits">
+        {LIMIT_FIELDS.map((f) => (
+          <label key={f.key} className="flex min-w-0 flex-col gap-1 text-sm">
+            <span className="font-semibold">{f.label}</span>
+            <input
+              name={`limit_${f.key}`}
+              inputMode={f.decimals ? "decimal" : "numeric"}
+              defaultValue={String(plan.generationLimits[f.key])}
+              required
+              disabled={!editable}
+              className="w-full min-w-0 rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/15 disabled:opacity-60"
+            />
+          </label>
+        ))}
+        <button className={`${buttonPrimary} self-start`} disabled={!editable}>Save limits</button>
       </form>
     </section>
   );

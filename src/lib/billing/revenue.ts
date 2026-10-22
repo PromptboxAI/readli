@@ -33,6 +33,7 @@ function recurringKind(lookupKey: string | null): { kind: "subscription" | "narr
   if (lookupKey.startsWith("readli_extra_slot_")) return { kind: "narrator_slot", interval: "month" };
   if (lookupKey.startsWith("readli_family_annual_")) return { kind: "subscription", interval: "year" };
   if (lookupKey.startsWith("readli_family_monthly_")) return { kind: "subscription", interval: "month" };
+  if (lookupKey.startsWith("readli_archive_monthly_")) return { kind: "subscription", interval: "month" };
   return null;
 }
 

@@ -43,7 +43,13 @@ export function NarratorSlots({ initial, canBuy = true, approveHref = "/family/k
   );
 
   if (!view.hasPlan) {
-    return <p className="rounded-3xl bg-sunshine/60 p-4 font-semibold">Narrator slots come with Readli Family.</p>;
+    return (
+      <p className="rounded-3xl bg-sunshine/60 p-4 font-semibold">
+        {view.archive
+          ? "Your Family Archive keeps every story you've prepared, and your kids can keep listening. Narrator slots, for making new stories, come back when you return to Readli Family."
+          : "Narrator slots come with Readli Family."}
+      </p>
+    );
   }
 
   return (

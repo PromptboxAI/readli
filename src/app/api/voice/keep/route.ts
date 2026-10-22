@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { currentAdult } from "@/lib/auth/adult";
 import { accountDb } from "@/lib/family/account-store";
 import { track } from "@/lib/invitations/server";
 import { serverConfig } from "@/lib/server/config";
 import { fail } from "@/lib/server/http";
 import { recordVoiceEvent } from "@/lib/server/voice-analytics";
 import { AccountVoiceError, accountVoiceDeps, keepVoiceCandidate } from "@/lib/voice/account-voices";
+import { voiceOwner } from "@/lib/voice/owner";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +14,9 @@ export async function POST() {
   const config = serverConfig();
   const deps = accountVoiceDeps(config);
   if (!deps) return fail(503, "voices_off", "Readli voices aren't switched on here yet.");
-  const user = await currentAdult();
-  if (!user) return fail(401, "sign_in_required", "Please sign in to keep your voice.");
+  const owner = await voiceOwner("Please sign in to keep your voice.");
+  if ("error" in owner) return owner.error;
+  const user = owner.user;
   try {
     const voice = await keepVoiceCandidate(deps, { id: user.id, name: user.name });
     const db = accountDb();

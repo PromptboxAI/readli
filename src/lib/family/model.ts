@@ -12,7 +12,14 @@
  */
 
 export type MemberRole = "guardian" | "member";
-export type VoiceStatus = "processing" | "ready" | "deleted";
+/**
+ * "withdrawn": the owner deleted their voice. Nothing new is made in it and its clone is retired, but
+ * stories already prepared keep playing for the families it was shared with. "deleted" is only for a
+ * legally required removal (or the owner's whole account going), which takes the stories too.
+ */
+export type VoiceStatus = "processing" | "ready" | "withdrawn" | "deleted";
+/** Readli Family makes new stories; the Family Archive keeps and plays the ones already made. */
+export type PlanTier = "family" | "archive";
 
 export interface Household {
   id: string;
@@ -61,6 +68,17 @@ export interface VoiceProfile {
   modelId?: string | null;
   createdAt: string;
   deletedAt: string | null;
+  /** When the owner deleted (withdrew) the voice. */
+  withdrawnAt?: string | null;
+  /** The provider clone was retired to save capacity; stored stories don't need it, new ones re-clone. */
+  cloneRetiredAt?: string | null;
+  /** The owner deleted their account. Stories already made still play where the voice was shared. */
+  ownerDeleted?: boolean;
+  /**
+   * The owner stopped new stories in this voice for every family (action B): nothing new is made and
+   * its clone is retired, while stories already prepared keep playing. They can resume at any time.
+   */
+  pausedAt?: string | null;
 }
 
 /** Key 1: the voice owner's consent to share with one household. */
@@ -102,7 +120,11 @@ export type AuditAction =
   | "child_profile_created"
   | "child_profile_removed"
   | "entitlement_granted"
-  | "credits_purchased";
+  | "credits_purchased"
+  | "voice_withdrawn"
+  | "voice_paused"
+  | "voice_resumed"
+  | "plan_changed";
 
 export interface AuditEvent {
   id: string;
@@ -153,6 +175,14 @@ export interface HouseholdEntitlement {
    */
   source: "subscription" | "gift" | "donated" | "trial" | "tester";
   status: "active" | "canceled";
+  /** Missing means "family" (rows from before the Archive). */
+  tier?: PlanTier;
+  /** A paid subscription's free trial: until then it gets the trial credits, not the monthly ones. */
+  trialEndsAt?: string | null;
+  /** Trial credits for this plan when they differ from the plan default (0 when withheld for a reused trial card). */
+  trialCredits?: number | null;
+  /** How often a Stripe subscription bills, when known. */
+  billingInterval?: "month" | "year" | null;
   /** Narrator slots bought on top of the plan's included slots. */
   extraNarratorSlots: number;
   /** Future paid upgrade; stays 0 until approved (plan.extraStreamsUpgradeEnabled). */

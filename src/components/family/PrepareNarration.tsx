@@ -384,6 +384,12 @@ function WholeBook({
         <p className="text-sm text-muted">Read by {v.name}</p>
       </div>
 
+      {v.stored && (
+        <p className="text-sm text-muted" data-testid="stored-version">
+          Kids still hear the earlier recording for {v.stored.ready === v.stored.total ? "this book" : `${v.stored.ready} of ${v.stored.total} sentences`} until this one is prepared.
+        </p>
+      )}
+
       {v.lastFailure && v.status.readiness !== "preparing" && (
         <p className="rounded-lg bg-coral/15 p-3 text-sm font-semibold" data-testid="last-failure">
           {v.lastFailure} You can try again.
@@ -400,8 +406,10 @@ function WholeBook({
           </Link>
         </div>
       ) : v.availability === "unavailable" ? (
-        <p className="text-sm">
-          {v.unavailableReason === "Needs Readli Family" && v.fix ? (
+        <p className="text-sm" data-testid="unavailable-reason">
+          {v.noNewReason ? (
+            `${v.noNewReason}.`
+          ) : v.unavailableReason === "Needs Readli Family" && v.fix ? (
             <>
               {v.unavailableReason}.{" "}
               <Link href={v.fix.href} className="font-semibold underline underline-offset-4">

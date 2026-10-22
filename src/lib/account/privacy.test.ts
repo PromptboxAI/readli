@@ -2,60 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import { ProviderRefCipher } from "@/lib/server/provider-ref";
 import type { VoiceProvider } from "@/lib/voice/provider";
+import { fakeSupabase } from "@/lib/testing/fake-supabase";
 import { AccountError, deleteAccount, deletionBlockers, exportAccountData, updateDisplayName } from "./privacy";
 
 type Row = Record<string, unknown>;
 
-/** Just enough of the Supabase client for the account's own reads, writes, storage and sign-in. */
 function fakeDb(tables: Record<string, Row[]>, files: Record<string, string[]> = {}) {
-  const removed: Record<string, string[]> = {};
-  const auth = { deleted: [] as string[], metadata: {} as Record<string, unknown> };
-  const t = (name: string) => (tables[name] ??= []);
-  const from = (name: string) => {
-    const filters: ((r: Row) => boolean)[] = [];
-    let op: { kind: "select" } | { kind: "update"; values: Row } | { kind: "delete" } = { kind: "select" };
-    const result = () => {
-      const hit = t(name).filter((r) => filters.every((f) => f(r)));
-      if (op.kind === "update") for (const r of hit) Object.assign(r, op.values);
-      if (op.kind === "delete") tables[name] = t(name).filter((r) => !hit.includes(r));
-      return { data: op.kind === "select" ? hit.map((r) => ({ ...r })) : null, error: null };
-    };
-    const q = {
-      select: () => q,
-      eq: (k: string, v: unknown) => (filters.push((r) => r[k] === v), q),
-      in: (k: string, v: unknown[]) => (filters.push((r) => v.includes(r[k])), q),
-      is: (k: string, v: unknown) => (filters.push((r) => (r[k] ?? null) === v), q),
-      update: (values: Row) => ((op = { kind: "update", values }), q),
-      delete: () => ((op = { kind: "delete" }), q),
-      upsert: (row: Row, opts: { onConflict: string }) => {
-        const old = t(name).find((x) => x[opts.onConflict] === row[opts.onConflict]);
-        if (old) Object.assign(old, row);
-        else t(name).push({ ...row });
-        return Promise.resolve({ data: null, error: null });
-      },
-      then: (resolve: (v: unknown) => void) => resolve(result()),
-    };
-    return q;
-  };
-  const db = {
-    from,
-    storage: {
-      from: (bucket: string) => ({
-        remove: async (keys: string[]) => ((removed[bucket] ??= []).push(...keys), { data: [], error: null }),
-        list: async (folder: string) => ({
-          data: (files[bucket] ?? []).filter((k) => k.startsWith(`${folder}/`)).map((k) => ({ id: k, name: k.slice(folder.length + 1) })),
-          error: null,
-        }),
-      }),
-    },
-    auth: {
-      admin: {
-        deleteUser: async (id: string) => (auth.deleted.push(id), { data: {}, error: null }),
-        updateUserById: async (id: string, attrs: { user_metadata: Row }) => ((auth.metadata[id] = attrs.user_metadata), { data: {}, error: null }),
-      },
-    },
-  } as unknown as SupabaseClient;
-  return { db, tables, removed, auth };
+  return fakeSupabase(tables, { files });
 }
 
 const ME = "11111111-1111-4111-8111-111111111111";
@@ -77,12 +30,18 @@ function sarasData(extra: Partial<Record<string, Row[]>> = {}): Record<string, R
     child_profiles: [{ id: "maya", household_id: "home", nickname: "Maya", deleted_at: null }],
     child_guardians: [{ child_id: "maya", user_id: ME, removed_at: null }],
     voice_profiles: [{ id: "v1", owner_id: ME, display_name: "Mom", provider_voice_id_encrypted: refs.encrypt("eleven-123"), status: "ready" }],
-    narration_libraries: [{ key: "lib1", voice_id: "v1" }],
+    narration_libraries: [
+      { key: "lib1", voice_id: "v1", scope: "home" },
+      { key: "lib-shared", voice_id: "v1", scope: "shared" },
+    ],
     narration_segments: [
       { library_key: "lib1", sentence_id: "s1", storage_key: "lib1/s1.mp3" },
       { library_key: "lib1", sentence_id: "s2", storage_key: null },
+      { library_key: "lib-shared", sentence_id: "s1", storage_key: "shared/s1.mp3" },
     ],
-    narration_assets: [{ voice_id: "v1", storage_key: "old/a.mp3" }],
+    narration_assets: [{ voice_id: "v1", child_id: "maya", storage_key: "old/a.mp3" }],
+    household_entitlements: [{ household_id: "home", status: "canceled", ends_at: "2026-09-01T00:00:00Z", provider_subscription_ref: "sub_1" }],
+    narration_credit_lots: [],
     voice_training_sessions: [{ id: "rec1", owner_id: ME }],
     voice_training_segments: [{ session_id: "rec1", storage_key: "rec1/0.webm" }],
     child_voice_approvals: [],
@@ -93,25 +52,75 @@ function sarasData(extra: Partial<Record<string, Row[]>> = {}): Record<string, R
 }
 
 describe("deleting an account", () => {
-  it("removes the voice from the provider, then the audio, the family and the sign-in", async () => {
+  it("retires the clone, withdraws the voice, deletes recordings and cleans their own family, but keeps stories other families have", async () => {
     const files = {
       "voice-recordings": [`${ME}/take.webm`, `${ME}/failed-clone.webm`, `${PARTNER}/theirs.webm`],
       "profile-photos": [`${ME}/me.jpg`, `${PARTNER}/them.jpg`],
     };
-    const { db, tables, removed, auth } = fakeDb(sarasData({ voice_training_segments: [{ session_id: "rec1", storage_key: `${ME}/take.webm` }] }), files);
+    const { db, tables, removed, auth, rpcs } = fakeDb(sarasData({ voice_training_segments: [{ session_id: "rec1", storage_key: `${ME}/take.webm` }] }), files);
     const { provider, deleted } = recordingProvider();
     const result = await deleteAccount({ db, provider, refs }, ME);
 
     expect(result).toEqual({ deleted: true, blockers: [], voicesRemoved: 1, audioFilesRemoved: 4 });
     expect(deleted).toEqual(["eleven-123"]);
     expect(removed).toEqual({
-      narrations: ["lib1/s1.mp3"],
-      "generated-audio": ["old/a.mp3"],
       "voice-recordings": [`${ME}/take.webm`, `${ME}/failed-clone.webm`],
       "profile-photos": [`${ME}/me.jpg`],
+      narrations: ["lib1/s1.mp3"],
+      "generated-audio": ["old/a.mp3"],
     });
-    expect(tables.households).toEqual([]);
+    // The voice stays as a withdrawn record so the shared stories made in it keep playing elsewhere.
+    expect(tables.voice_profiles![0]).toMatchObject({ status: "withdrawn", provider_voice_id_encrypted: null });
+    expect(tables.voice_profiles![0]!.owner_deleted_at).toBeTruthy();
+    expect(tables.narration_segments!.map((x) => x.storage_key)).toEqual(["shared/s1.mp3"]);
+    expect(rpcs.map((r) => r.name)).toEqual(["stop_voice_narration", "stop_household_narration"]);
+    // The family record, its plan history and the audit trail stay; its kids profile goes.
+    expect(tables.households).toHaveLength(1);
+    expect(tables.households![0]!.cleaned_at).toBeTruthy();
+    expect(tables.household_entitlements).toHaveLength(1);
+    expect(tables.child_profiles).toEqual([]);
+    expect(tables.voice_recording_deletions).toEqual([expect.objectContaining({ reason: "account_deletion", status: "completed", files_removed: 2 })]);
+    expect(tables.lifecycle_audit_log!.map((x) => x.action)).toEqual(["account_deleted", "voice_withdrawn"]);
     expect(auth.deleted).toEqual([ME]);
+  });
+
+  it("doesn't wait for a renewing plan: it cancels it first, with no refund of unused time", async () => {
+    const { db, tables, auth } = fakeDb(sarasData({ household_entitlements: [{ household_id: "home", status: "active", ends_at: null, provider_subscription_ref: "sub_1" }] }));
+    expect(await deletionBlockers(db, ME)).toEqual([]);
+    const cancelled: string[] = [];
+    const billing = { cancel: async (ref: string) => (cancelled.push(ref), { customer: "cus_1" }) };
+    const result = await deleteAccount({ db, ...recordingProvider(), refs, billing }, ME);
+    expect(result.deleted).toBe(true);
+    expect(cancelled).toEqual(["sub_1"]);
+    expect(tables.lifecycle_exceptions ?? []).toEqual([]);
+    expect(tables.lifecycle_audit_log![0]!.detail).toMatchObject({ plans_ended: [{ householdId: "home", subscription: "sub_1" }] });
+    expect(auth.deleted).toEqual([ME]);
+  });
+
+  it("deletes nothing if it can't reach billing to stop a renewing plan", async () => {
+    const { db, auth, removed } = fakeDb(sarasData({ household_entitlements: [{ household_id: "home", status: "active", ends_at: null, provider_subscription_ref: "sub_1" }] }));
+    const { provider, deleted } = recordingProvider();
+    await expect(deleteAccount({ db, provider, refs, billing: null }, ME)).rejects.toMatchObject({ code: "billing_off" });
+    expect(deleted).toEqual([]);
+    expect(removed).toEqual({});
+    expect(auth.deleted).toEqual([]);
+  });
+
+  it("removes unspent credits without a refund, keeping the lots and ledger on record", async () => {
+    const { db, tables } = fakeDb(
+      sarasData({
+        narration_credit_lots: [{ id: "lot1", household_id: "home", source: "purchased", credits: 20, granted_at: "2026-09-01T00:00:00Z", payment_ref: "pi_1" }],
+        revenue_events: [{ provider_ref: "pi_1", kind: "credit_pack", amount_cents: 699 }],
+        narration_credit_ledger: [{ household_id: "home", lot_id: "lot1", kind: "reserve", credits: 5 }],
+      }),
+    );
+    await deleteAccount({ db, ...recordingProvider(), refs }, ME);
+    expect(tables.narration_credit_lots).toHaveLength(1);
+    // Purchased credits are held for an admin until credit forfeiture is switched on, never refunded automatically.
+    expect(tables.narration_credit_lots![0]!.expires_at ?? null).toBeNull();
+    expect(tables.narration_credit_ledger).toHaveLength(1);
+    expect(tables.lifecycle_exceptions).toEqual([expect.objectContaining({ kind: "purchased_credits_held", household_id: "home" })]);
+    expect(tables.lifecycle_audit_log![0]!.detail).toMatchObject({ credits_removed: 0, credits_held: 15 });
   });
 
   it("won't leave a shared family's kids without a guardian, and deletes nothing", async () => {
@@ -132,11 +141,14 @@ describe("deleting an account", () => {
     expect(auth.deleted).toEqual([]);
   });
 
-  it("asks to stop a monthly gift first", async () => {
-    const { db } = fakeDb(
+  it("stops a monthly gift renewing instead of blocking; the recipient keeps the paid month", async () => {
+    const { db, tables, auth } = fakeDb(
       sarasData({ gifts: [{ id: "g1", giver_id: ME, plan_id: "sponsored_monthly", recipient_name: "Grandma", status: "active", renewals_stopped: false }] }),
     );
-    expect(await deletionBlockers(db, ME)).toEqual([{ kind: "sponsoring", giftId: "g1", recipientName: "Grandma" }]);
+    expect(await deletionBlockers(db, ME)).toEqual([]);
+    await deleteAccount({ db, ...recordingProvider(), refs }, ME);
+    expect(tables.gifts![0]).toMatchObject({ status: "active", renewals_stopped: true });
+    expect(auth.deleted).toEqual([ME]);
   });
 
   it("leaves a shared family to the other guardian and ends the approvals it gave", async () => {

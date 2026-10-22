@@ -14,10 +14,12 @@ import { rewardsConfig, rewardsVisible } from "@/lib/rewards/rewards";
 export const metadata: Metadata = { title: "Create a Family | Readli", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
-export default async function FamilySignupPage({ searchParams }: { searchParams: Promise<{ billing?: string | string[] }> }) {
+export default async function FamilySignupPage({ searchParams }: { searchParams: Promise<{ billing?: string | string[]; from?: string | string[] }> }) {
   const open = familyCheckoutOpen();
   const plan = await effectivePlan(accountDb());
-  const initial = (await searchParams).billing === "annual" ? "annual" : "monthly";
+  const params = await searchParams;
+  const initial = params.billing === "annual" ? "annual" : "monthly";
+  const fromDemo = params.from === "demo";
   const rewards = rewardsConfig();
   // The trial shows on previews for review, and in production only once the program is public.
   const showTrial = rewardsVisible(rewards);
@@ -30,6 +32,11 @@ export default async function FamilySignupPage({ searchParams }: { searchParams:
         <Eyebrow>Readli Family</Eyebrow>
         <h1 className="font-display text-4xl font-semibold sm:text-5xl">Create your family</h1>
       </header>
+      {fromDemo && (
+        <p className="rounded-2xl bg-mint/50 p-4 font-semibold" data-testid="demo-take-note">
+          Your demo recording is kept on this device. After you sign up, you can save it as your voice from My voice.
+        </p>
+      )}
       <PreviewNote>Family accounts are coming soon, so nothing here is saved or charged yet.</PreviewNote>
       <form className="grid gap-8 lg:grid-cols-[1.1fr_1fr]" aria-label="Create a Readli Family account">
         <section aria-labelledby="acct" className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10 sm:p-8">
@@ -55,6 +62,10 @@ export default async function FamilySignupPage({ searchParams }: { searchParams:
               <p className="font-display text-lg font-semibold">Try it free for {rewards.trialDays} days</p>
               <p className="text-sm">
                 For new families. Your trial includes {rewards.trialCredits} narration credits for new stories in your storytellers&apos; voices.
+              </p>
+              <p className="text-sm">
+                We ask for a card to start the trial. Nothing is charged until it ends. When it ends, the plan you choose above renews at
+                its price until you cancel; cancel before then and you won&apos;t pay anything.
               </p>
               {!rewards.programPublic && <p className="text-sm text-muted">Not switched on yet. This is how it will look.</p>}
             </div>

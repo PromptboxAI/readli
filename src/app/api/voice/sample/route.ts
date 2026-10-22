@@ -1,7 +1,7 @@
-import { currentAdult } from "@/lib/auth/adult";
 import { serverConfig } from "@/lib/server/config";
 import { fail } from "@/lib/server/http";
 import { AccountVoiceError, accountVoiceDeps, accountVoiceSample } from "@/lib/voice/account-voices";
+import { voiceOwner } from "@/lib/voice/owner";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -14,11 +14,11 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   const deps = accountVoiceDeps(serverConfig());
   if (!deps) return fail(503, "voices_off", "Readli voices aren't switched on here yet.");
-  const user = await currentAdult();
-  if (!user) return fail(401, "sign_in_required", "Please sign in to hear your voice.");
+  const owner = await voiceOwner("Please sign in to hear your voice.");
+  if ("error" in owner) return owner.error;
   try {
     const params = new URL(req.url).searchParams;
-    const sample = await accountVoiceSample(deps, user.id, { candidate: params.get("candidate") === "1", latest: params.get("latest") === "1" });
+    const sample = await accountVoiceSample(deps, owner.user.id, { candidate: params.get("candidate") === "1", latest: params.get("latest") === "1" });
     return new Response(sample.audio, {
       headers: { "content-type": sample.contentType, "cache-control": "no-store", "x-readli-stand-in": sample.standIn ? "1" : "0" },
     });

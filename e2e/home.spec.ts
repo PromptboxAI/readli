@@ -72,7 +72,7 @@ test("links from the footer open the next page at the top", async ({ page }) => 
 
 test("header and page links never lead to a missing page", async ({ page, request }) => {
   const hrefs = new Set<string>();
-  for (const path of ["/", "/company", "/login", "/privacy", "/terms", "/accessibility", "/parents/safety", "/help", "/help/privacy-and-child-safety", "/help/books-and-listening", "/help/getting-started/what-is-readli"]) {
+  for (const path of ["/", "/company", "/login", "/privacy", "/terms", "/voice-agreement", "/accessibility", "/parents/safety", "/help", "/help/privacy-and-child-safety", "/help/books-and-listening", "/help/getting-started/what-is-readli"]) {
     await page.goto(path);
     for (const href of await page.locator("header a[href^='/'], main a[href^='/']").evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? "/")))
       hrefs.add(href.split("#")[0] || "/");
@@ -101,7 +101,8 @@ test("family voices section shows the parent controls illustration and links to 
 test("privacy page shows every policy section and fits the screen", async ({ page }, info) => {
   await page.goto("/privacy");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Privacy Policy");
-  await expect(page.locator("main section h2")).toHaveCount(12);
+  await expect(page.locator("main section h2")).toHaveCount(13);
+  await expect(page.locator("#voice-data-training-and-licensing")).toContainText("never used for training");
   await expect(page.getByText("Required publication details")).toHaveCount(0);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
@@ -111,10 +112,15 @@ test("privacy page shows every policy section and fits the screen", async ({ pag
 test("terms explain both voice approvals and accessibility gives a contact", async ({ page }) => {
   await page.goto("/terms");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Terms of Service");
-  await expect(page.locator("main section h2")).toHaveCount(16);
+  await expect(page.locator("main section h2")).toHaveCount(21);
+  await expect(page.locator("#voice-recording-ai-development-and-data-rights")).toContainText("separate opt-in that is off by default");
   await expect(page.locator("#private-family-voices-and-child-level-approval")).toContainText("two independent permissions");
   await expect(page.getByText("COUNSEL REVIEW REQUIRED")).toHaveCount(0);
   await expect(page.getByText("Pre-publication verification")).toHaveCount(0);
+
+  await page.goto("/voice-agreement");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Voice Recording & AI Training Agreement");
+  await expect(page.locator("#children")).toContainText("Readli never includes children’s voices");
 
   await page.goto("/accessibility");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Accessibility Statement");
@@ -132,7 +138,7 @@ test("try your voice shows three steps on desktop and a short pitch on phones", 
   await expect(page.locator("#try-heading")).toHaveText("Hear your voice tell a story.");
   if (info.project.name === "desktop") {
     await expect(section.getByTestId("demo-steps").getByRole("heading", { level: 3 })).toHaveText(["Confirm it's your voice", "Read a short story", "Hear it in a story"]);
-    await expect(section.getByText("deleted within 24 hours")).toBeVisible();
+    await expect(section.getByText("deleted within 48 hours")).toBeVisible();
     await section.getByRole("link", { name: /Start recording/ }).click();
   } else {
     await expect(section.getByText("Read a short passage, then hear your voice bring a story to life.")).toBeVisible();

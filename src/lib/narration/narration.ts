@@ -3,8 +3,8 @@ import { sameHash } from "@/lib/server/guest-token";
 import { voiceSettings } from "@/lib/voice/elevenlabs";
 import type { VoiceProvider } from "@/lib/voice/provider";
 import type { Actor, CreditLot, FamilyState, NarrationJob, NarrationLibrary, NarrationSegment } from "@/lib/family/model";
-import { activeChild, activeEntitlement, activeShare, activeSlot, childVoiceAccess, isActiveMember, liveSlots, narratorSlotCount, readyVoice } from "@/lib/family/permissions";
-import type { PlanConfig } from "@/lib/family/plan";
+import { activeChild, activeEntitlement, activeShare, activeSlot, childVoiceAccess, familyEntitlement, isActiveMember, liveSlots, narratorSlotCount, readyVoice, storedNarrationAccess, storedShare } from "@/lib/family/permissions";
+import type { GenerationLimits, PlanConfig } from "@/lib/family/plan";
 import {
   actorLabel,
   audit,
@@ -16,7 +16,7 @@ import {
   type FamilyStore,
 } from "@/lib/family/service";
 import { estimateSeconds, modelCost } from "./costs";
-import { creditBalance, creditsFor, creditUnits, draw, spendableLots, type CreditBalance } from "./credits";
+import { creditBalance, creditsFor, creditUnits, draw, inTrial, spendableLots, type CreditBalance } from "./credits";
 import { CATALOG, findCatalogBook } from "@/lib/library/catalog";
 import { THE_END } from "@/lib/content/the-end";
 import { bookCharacters, bookText, type BookText, withoutTheEnd } from "./text";
@@ -88,6 +88,37 @@ export function libraryFor(state: FamilyState, plan: PlanConfig, voiceId: string
       createdAt: "",
     }
   );
+}
+
+/**
+ * The library a child hears for this voice and book. Replacing a voice, or a model or settings change,
+ * makes a new library, and the old one stays: books keep their original audio and its voice version.
+ * The newest complete library wins; with none complete, the one with the most ready sentences (the
+ * newer version on a tie). Sentences from different libraries are never mixed within one book.
+ */
+export function playbackLibrary(state: FamilyState, plan: PlanConfig, voiceId: string, text: BookText, householdId: string): NarrationLibrary {
+  const current = libraryFor(state, plan, voiceId, text, householdId);
+  const candidates = state.libraries.filter(
+    (l) =>
+      l.voiceId === voiceId &&
+      l.bookSlug === text.slug &&
+      l.edition === text.edition &&
+      l.textRevision === text.revision &&
+      (l.scope === "shared" || l.scope === householdId),
+  );
+  if (!candidates.some((l) => l.key === current.key)) candidates.push(current);
+  const total = text.sentences.length;
+  const ranked = candidates.map((l) => ({ l, ready: libraryStatus(state, l, text).ready }));
+  ranked.sort((a, b) => {
+    const ca = a.ready === total;
+    const cb = b.ready === total;
+    if (ca !== cb) return ca ? -1 : 1;
+    if (!ca && a.ready !== b.ready) return b.ready - a.ready;
+    if (a.l.voiceVersion !== b.l.voiceVersion) return b.l.voiceVersion - a.l.voiceVersion;
+    if (a.l.key === current.key || b.l.key === current.key) return a.l.key === current.key ? -1 : 1;
+    return b.l.createdAt.localeCompare(a.l.createdAt);
+  });
+  return ranked[0]!.l;
 }
 
 function segmentsOf(state: FamilyState, libraryKey: string): Map<string, NarrationSegment> {
@@ -169,7 +200,7 @@ export function libraryStatus(state: FamilyState, library: NarrationLibrary, tex
 export async function purchaseCredits(store: FamilyStore, actor: Actor | null, householdId: string, packId: string, opts: { paymentRef: string | null }, clock: Clock = now) {
   const state = await store.read();
   const adultId = requireHouseholdGuardian(state, actor, householdId);
-  if (!activeEntitlement(state, householdId)) throw new PermissionError(402, "no_family_plan", "Narration credits come with Readli Family.");
+  if (!familyEntitlement(state, householdId)) throw new PermissionError(402, "no_family_plan", "Narration credits come with Readli Family.");
   const pack = store.plan.creditPacks.find((p) => p.id === packId);
   if (!pack) throw new PermissionError(400, "bad_pack", "Choose a credit pack.");
   const at = clock();
@@ -228,8 +259,18 @@ export function creditHistory(state: FamilyState, householdId: string) {
   return rows.sort((a, b) => b.at.localeCompare(a.at));
 }
 
+const ARCHIVE_NO_NEW = "Preparing new stories needs Readli Family. Your Family Archive keeps the stories you've already prepared";
+const WITHDRAWN_NO_NEW = "This storyteller deleted their voice, so no new stories can be made in it. Stories already prepared still play";
+const PAUSED_NO_NEW = "This storyteller has stopped new stories in their voice for now. Stories already prepared still play";
+const paused = (state: FamilyState, voiceId: string) => state.voices.some((v) => v.id === voiceId && v.pausedAt);
+
 function requirePreparable(state: FamilyState, plan: PlanConfig, householdId: string, voiceId: string) {
-  if (!activeEntitlement(state, householdId)) throw new PermissionError(402, "no_family_plan", "Preparing narration needs Readli Family.");
+  if (!familyEntitlement(state, householdId)) {
+    const archive = activeEntitlement(state, householdId) !== null;
+    throw new PermissionError(402, "no_family_plan", archive ? `${ARCHIVE_NO_NEW}.` : "Preparing narration needs Readli Family.");
+  }
+  if (state.voices.some((v) => v.id === voiceId && v.status === "withdrawn")) throw new PermissionError(409, "voice_withdrawn", `${WITHDRAWN_NO_NEW}.`);
+  if (paused(state, voiceId)) throw new PermissionError(409, "voice_paused", `${PAUSED_NO_NEW}.`);
   if (!readyVoice(state, voiceId) || !activeShare(state, voiceId, householdId)) {
     throw new PermissionError(403, "voice_not_shared", "This storyteller hasn't shared their voice with your family.");
   }
@@ -274,6 +315,13 @@ export interface PrepareVoiceView {
   availabilityLabel: string;
   /** Why this narrator can't be prepared or played, when Unavailable. */
   unavailableReason: string | null;
+  /**
+   * Stories kids hear from an earlier recording (or earlier settings) of this voice, when that isn't
+   * the library `status` describes: after the owner records again, finished books keep their audio.
+   */
+  stored: { version: number; ready: number; total: number } | null;
+  /** Why nothing new can be made in this voice here (plan ended, voice deleted, new stories paused), when that's the reason. */
+  noNewReason: string | null;
   /** Where a parent fixes that reason, so Unavailable is never a dead end. */
   fix: { label: string; href: string } | null;
   /** Some of this book is stored in this voice and a grown-up here may play it. */
@@ -341,7 +389,9 @@ function fixFor(state: FamilyState, plan: PlanConfig, householdId: string, voice
 
 /** Why a household can't prepare (or a child can't hear) this narrator, or null. */
 function unavailableReason(state: FamilyState, plan: PlanConfig, householdId: string, voiceId: string, approvedFor: string[], yours = false): string | null {
-  if (!activeEntitlement(state, householdId)) return "Needs Readli Family";
+  if (!familyEntitlement(state, householdId)) return activeEntitlement(state, householdId) ? ARCHIVE_NO_NEW : "Needs Readli Family";
+  if (state.voices.some((v) => v.id === voiceId && v.status === "withdrawn")) return WITHDRAWN_NO_NEW;
+  if (paused(state, voiceId)) return PAUSED_NO_NEW;
   if (!readyVoice(state, voiceId) || !activeShare(state, voiceId, householdId)) {
     return yours ? "Share your voice with this family first" : "This storyteller hasn't shared their voice with your family";
   }
@@ -354,12 +404,19 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
   const v = state.voices.find((x) => x.id === voiceId)!;
   const owner = state.adults.find((a) => a.id === v.ownerId)!;
   const kids = state.children.filter((c) => c.householdId === householdId && c.deletedAt === null);
-  const library = libraryFor(state, plan, v.id, text, householdId);
+  const current = libraryFor(state, plan, v.id, text, householdId);
+  const playing = playbackLibrary(state, plan, v.id, text, householdId);
+  const canPrepare = v.status === "ready" && familyEntitlement(state, householdId) !== null;
+  // Where nothing new can be made, show what's stored; otherwise what preparing would add to.
+  const library = canPrepare ? current : playing;
   const status = libraryStatus(state, library, text);
+  const playingStatus = playing.key === library.key ? null : libraryStatus(state, playing, text);
   const chapters = missingByChapter(state, plan, library, text);
-  const missingCredits = chapters.reduce((n, c) => n + c.credits, 0);
+  const missingCredits = canPrepare ? chapters.reduce((n, c) => n + c.credits, 0) : 0;
   const job = state.jobs.find((j) => j.libraryKey === library.key && j.householdId === householdId && (j.status === "queued" || j.status === "running"));
-  const approved = new Set(kids.filter((c) => childVoiceAccess(state, c.id, v.id, plan).allowed).map((c) => c.id));
+  const approved = new Set(
+    kids.filter((c) => (canPrepare ? childVoiceAccess(state, c.id, v.id, plan) : storedNarrationAccess(state, c.id, v.id, plan)).allowed).map((c) => c.id),
+  );
   const approvedFor = kids.filter((c) => approved.has(c.id)).map((c) => c.nickname);
   const yours = viewerId !== undefined && v.ownerId === viewerId;
   const reason = unavailableReason(state, plan, householdId, v.id, approvedFor, yours);
@@ -367,23 +424,28 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
     .filter((j) => j.libraryKey === library.key && j.householdId === householdId)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
   const failedSeg = last?.status === "failed" ? state.segments.find((x) => x.libraryKey === library.key && x.status === "failed" && x.error) : undefined;
-  const availability: Availability = reason
-    ? "unavailable"
-    : status.readiness === "ready"
-      ? "ready"
-      : status.readiness === "preparing"
-        ? "preparing"
-        : status.readiness === "partial"
-          ? "partial"
-          : missingCredits <= available
-            ? "available"
-            : "needs_credits";
+  const availability: Availability =
+    !canPrepare && status.ready > 0
+      ? status.readiness === "ready"
+        ? "ready"
+        : "partial"
+      : reason
+        ? "unavailable"
+        : status.readiness === "ready"
+          ? "ready"
+          : status.readiness === "preparing"
+            ? "preparing"
+            : status.readiness === "partial"
+              ? "partial"
+              : missingCredits <= available
+                ? "available"
+                : "needs_credits";
   return {
     voiceId: v.id,
     name: owner.displayName,
     tint: owner.tint,
     avatarUrl: owner.avatarUrl,
-    shared: Boolean(activeShare(state, v.id, householdId)),
+    shared: Boolean(storedShare(state, v.id, householdId)),
     inSlot: activeSlot(state, v.id, householdId, plan) !== null,
     approvedFor,
     status,
@@ -391,6 +453,8 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
     availability,
     availabilityLabel: AVAILABILITY_LABELS[availability],
     unavailableReason: reason,
+    noNewReason: reason === ARCHIVE_NO_NEW || reason === WITHDRAWN_NO_NEW || reason === PAUSED_NO_NEW ? reason : null,
+    stored: playingStatus && playingStatus.ready > 0 ? { version: playing.voiceVersion, ready: playingStatus.ready, total: playingStatus.total } : null,
     fix: reason ? fixFor(state, plan, householdId, v.id, kids) : null,
     canListen: status.ready > 0 && guardianVoiceAccess(state, plan, householdId, v.id),
     yours,
@@ -408,16 +472,18 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
 }
 
 /**
- * Narrators this household could use: every ready voice shared with it, plus (on the prepare page)
- * the viewer's own ready voice, which they can share with the family in place.
+ * Narrators this household could use: every ready voice shared with it, voices whose owners have
+ * deleted them but whose stories this family keeps, and (on the prepare page) the viewer's own ready
+ * voice, which they can share with the family in place.
  */
 function householdVoiceIds(state: FamilyState, householdId: string, viewerId?: string): string[] {
   return state.voices
-    .filter(
-      (v) =>
-        v.status === "ready" &&
-        v.deletedAt === null &&
-        (activeShare(state, v.id, householdId) || (viewerId !== undefined && v.ownerId === viewerId && isActiveMember(state, viewerId, householdId))),
+    .filter((v) =>
+      v.status === "withdrawn"
+        ? storedShare(state, v.id, householdId) !== null
+        : v.status === "ready" &&
+          v.deletedAt === null &&
+          (activeShare(state, v.id, householdId) || (viewerId !== undefined && v.ownerId === viewerId && isActiveMember(state, viewerId, householdId))),
     )
     .sort((a, b) => Number(b.ownerId === viewerId) - Number(a.ownerId === viewerId))
     .map((v) => v.id);
@@ -569,6 +635,46 @@ export async function quoteGeneration(store: FamilyStore, actor: Actor | null, h
  * reservation refunded, and the next request claims them. All of this happens in one store write,
  * so two simultaneous requests can't both claim (and pay for) the same segment.
  */
+/**
+ * Whether a household may make this request now (Kevin, 2026-10-11, decision 6; 2026-10-12, answer 4):
+ * request counts per hour (tighter during the free trial, with a daily trial cap), characters per day,
+ * the size of one request, and preparations at once. Credits remain the real quota, checked after
+ * this; asking again for audio already queued or stored is free and never counts. The limits come from
+ * the plan, so an admin can tune them on /admin/plans.
+ */
+export function generationLimit(
+  state: FamilyState,
+  limits: GenerationLimits,
+  householdId: string,
+  at: string,
+  characters: number,
+): { code: string; message: string; status: number } | null {
+  const t = Date.parse(at);
+  const mine = state.jobs.filter((j) => j.householdId === householdId);
+  const recent = (ms: number) => mine.filter((j) => t - Date.parse(j.createdAt) < ms).length;
+  const e = activeEntitlement(state, householdId, at);
+  const trial = e ? inTrial(e, at) : false;
+  if (characters > limits.maxRequestCharacters) {
+    return { status: 413, code: "request_too_large", message: "That's a lot to prepare in one go. Please prepare it a chapter at a time." };
+  }
+  if (mine.filter((j) => j.status === "queued" || j.status === "running").length >= (trial ? limits.trialMaxConcurrentJobs : limits.maxConcurrentJobs)) {
+    return { status: 429, code: "too_many_at_once", message: "You've got stories being prepared already. Please wait for one to finish, then try again." };
+  }
+  if (trial && recent(86_400_000) >= limits.trialRequestsPerDay) {
+    return { status: 429, code: "trial_rate_limited", message: "You've prepared a lot of stories today on your free trial. Try again tomorrow." };
+  }
+  if (recent(3_600_000) >= (trial ? limits.trialRequestsPerHour : limits.requestsPerHour)) {
+    return { status: 429, code: "rate_limited", message: "You've asked for a lot of stories in the last hour. Please try again a little later." };
+  }
+  // Characters reserved in the last 24 hours, less any refunded when a preparation stopped (credits are kept in characters).
+  const day = state.ledger.filter((l) => l.householdId === householdId && t - Date.parse(l.at) < 86_400_000);
+  const used = day.filter((l) => l.kind === "reserve").reduce((n, l) => n + l.credits, 0) - day.filter((l) => l.kind === "refund").reduce((n, l) => n + l.credits, 0);
+  if (used + characters > (trial ? limits.trialCharactersPerDay : limits.charactersPerDay)) {
+    return { status: 429, code: "daily_characters", message: "You've prepared a lot of story today. Please try again tomorrow, or prepare a shorter part now." };
+  }
+  return null;
+}
+
 export async function requestGeneration(
   store: FamilyStore,
   actor: Actor | null,
@@ -588,6 +694,8 @@ export async function requestGeneration(
     const q = quote(s, store.plan, householdId, req);
     result = { job: null, quote: q };
     if (q.sentenceIds.length === 0) return;
+    const limited = generationLimit(s, store.plan.generationLimits, householdId, at, q.characters);
+    if (limited) throw new PermissionError(limited.status, limited.code, limited.message);
     const lots = spendableLots(s, store.plan, householdId, at);
     const available = lots.reduce((n, l) => n + l.left, 0);
     if (q.credits > available) {
@@ -670,9 +778,7 @@ export async function cancelGeneration(store: FamilyStore, actor: Actor | null, 
   if (job.status !== "queued" && job.status !== "running") return;
   const at = clock().toISOString();
   await store.write((s) => {
-    job.status = "canceled";
-    job.finishedAt = at;
-    settleUnfinished(s, job, at);
+    stopJob(s, job, at);
     audit(s, adultId, "narration_canceled", at, { householdId: job.householdId, detail: job.libraryKey });
   });
 }
@@ -706,8 +812,8 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
     }
     const seg = state.segments.find((x) => x.libraryKey === job.libraryKey && x.sentenceId === id)!;
     if (seg.jobId !== job.id || seg.status === "ready") continue;
-    // The owner may have revoked, or the voice been deleted, since the job was confirmed.
-    if (!voice || voice.deletedAt || !activeShare(state, voice.id, job.householdId)) break;
+    // The owner may have revoked or deleted the voice, or the family moved to the Archive, since the job was confirmed.
+    if (!voice || voice.deletedAt || voice.pausedAt || !activeShare(state, voice.id, job.householdId) || !familyEntitlement(state, job.householdId)) break;
     while ((seg.status as string) !== "ready" && seg.attempts < store.plan.maxSegmentAttempts && job.status === "running") {
       await store.write(() => {
         seg.status = "generating";
@@ -830,9 +936,9 @@ export async function kidsReadiness(store: FamilyStore, actor: Actor | null, chi
   const text = bookText(slug);
   if (!text) throw new PermissionError(404, "unknown_book", "That book isn't here.");
   return state.voices
-    .filter((v) => childVoiceAccess(state, childId, v.id, store.plan).allowed)
+    .filter((v) => storedNarrationAccess(state, childId, v.id, store.plan).allowed)
     .map((v) => {
-      const status = libraryStatus(state, libraryFor(state, store.plan, v.id, text, child.householdId), text);
+      const status = libraryStatus(state, playbackLibrary(state, store.plan, v.id, text, child.householdId), text);
       return { voiceId: v.id, readySentenceIds: status.readySentenceIds, readiness: status.readiness };
     });
 }
@@ -866,8 +972,9 @@ export function verifyPlayback(token: string, key: string, at = Date.now()): Pla
 
 /**
  * Issues a short-lived playback URL for one ready sentence, after every gate passes: owner share,
- * active reading entitlement, narrator slot, this child's approval, and a live listening session.
- * Never calls the voice provider: playback only reads stored audio.
+ * a Readli Family or Family Archive plan, the narrator slot where one applies, this child's approval,
+ * and a live listening session. Never calls the voice provider: playback only reads stored audio, so
+ * it works after the owner deletes their voice or its clone is retired.
  */
 export async function authorizePlayback(
   store: FamilyStore,
@@ -879,7 +986,7 @@ export async function authorizePlayback(
   const state = await store.read();
   requireChildAccess(state, actor, input.childId);
   const child = activeChild(state, input.childId)!;
-  const access = childVoiceAccess(state, input.childId, input.voiceId, store.plan);
+  const access = storedNarrationAccess(state, input.childId, input.voiceId, store.plan);
   const at = clock();
   if (!access.allowed) {
     await store.write((s) => audit(s, actorLabel(actor!), "narration_denied", at.toISOString(), { voiceId: input.voiceId, childId: input.childId, detail: access.reason }));
@@ -891,7 +998,7 @@ export async function authorizePlayback(
   const text = bookText(input.bookSlug);
   const sentence = text?.sentences[input.sentence];
   if (!text || !sentence) throw new PermissionError(400, "bad_sentence", "That page doesn't exist.");
-  const library = libraryFor(state, store.plan, input.voiceId, text, child.householdId);
+  const library = playbackLibrary(state, store.plan, input.voiceId, text, child.householdId);
   const seg = segmentsOf(state, library.key).get(sentence.id);
   if (seg?.status !== "ready" || !seg.storageKey) {
     throw new PermissionError(409, "not_prepared", "This part isn't prepared in that voice yet.");
@@ -927,8 +1034,9 @@ export async function readPlayback(store: FamilyStore, actor: Actor | null, toke
     } catch {
       throw NOT_AVAILABLE;
     }
-    if (!childVoiceAccess(state, claims.c, claims.v, store.plan).allowed) throw NOT_AVAILABLE;
+    if (!storedNarrationAccess(state, claims.c, claims.v, store.plan).allowed) throw NOT_AVAILABLE;
   }
+  if (state.libraries.find((l) => l.key === claims.lk)?.voiceId !== claims.v) throw NOT_AVAILABLE;
   const seg = segmentsOf(state, claims.lk).get(claims.sid);
   const object = seg?.status === "ready" && seg.storageKey ? await store.audio.get(seg.storageKey) : null;
   if (!object) throw NOT_AVAILABLE;
@@ -1026,25 +1134,38 @@ export async function authorizeGuardianPlayback(
 // ---------------------------------------------------------------------------
 
 /**
- * Honors a voice owner's deletion: removes that voice's narration audio and segment records for
- * every household. A household merely removing a narrator never calls this; shared audio stays for
- * other households with their own authorization.
+ * Ends a job that hasn't finished: unfinished sentences are released and their reserved credits go
+ * back to the lots that paid, once (settleUnfinished checks the ledger, so repeating this refunds
+ * nothing twice). Sentences already delivered stay paid for.
  */
-export async function deleteVoiceNarrations(store: FamilyStore, voiceId: string, clock: Clock = now) {
+export function stopJob(s: FamilyState, job: NarrationJob, at: string) {
+  if (job.status !== "queued" && job.status !== "running") return false;
+  job.status = "canceled";
+  job.finishedAt = at;
+  settleUnfinished(s, job, at);
+  return true;
+}
+
+/**
+ * When a voice's owner deletes it: stops every narration still being prepared in it, in every family,
+ * and refunds the credits those jobs hadn't used. Stories already prepared stay, for the families the
+ * voice was shared with. Removing the audio itself is only ever a legally required removal
+ * (src/lib/lifecycle/legal-removal.ts).
+ */
+export async function stopVoiceNarration(store: FamilyStore, voiceId: string, clock: Clock = now): Promise<number> {
   const state = await store.read();
   const keys = new Set(state.libraries.filter((l) => l.voiceId === voiceId).map((l) => l.key));
-  const storageKeys = state.segments.filter((s) => keys.has(s.libraryKey) && s.storageKey).map((s) => s.storageKey!);
-  await store.audio.delete(storageKeys);
   const at = clock().toISOString();
+  let stopped = 0;
   await store.write((s) => {
-    for (const job of s.jobs) {
-      if (keys.has(job.libraryKey) && (job.status === "queued" || job.status === "running")) {
-        job.status = "canceled";
-        job.finishedAt = at;
-        settleUnfinished(s, job, at);
-      }
-    }
-    s.segments = s.segments.filter((x) => !keys.has(x.libraryKey));
-    s.libraries = s.libraries.filter((l) => !keys.has(l.key));
+    for (const job of s.jobs) if (keys.has(job.libraryKey) && stopJob(s, job, at)) stopped += 1;
   });
+  return stopped;
+}
+
+/** Stops a household's unfinished narration (moving to the Archive) and refunds what it hadn't used. */
+export function stopHouseholdNarration(s: FamilyState, householdId: string, at: string): number {
+  let stopped = 0;
+  for (const job of s.jobs) if (job.householdId === householdId && stopJob(s, job, at)) stopped += 1;
+  return stopped;
 }

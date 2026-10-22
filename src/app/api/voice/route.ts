@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { currentAdult } from "@/lib/auth/adult";
 import { serverConfig } from "@/lib/server/config";
 import { fail } from "@/lib/server/http";
 import { recordVoiceEvent } from "@/lib/server/voice-analytics";
 import { AccountVoiceError, accountVoiceDeps, createVoiceCandidate } from "@/lib/voice/account-voices";
+import { voiceOwner } from "@/lib/voice/owner";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -17,26 +17,41 @@ function intOrNull(v: FormDataEntryValue | null): number | null {
   return v === null || v === "" || !Number.isFinite(n) ? null : Math.round(n);
 }
 
+/** The recorder's own checks, if sent: speech time and any issues it noticed. */
+function parseQc(v: FormDataEntryValue | null): { speechMs: number | null; issues: string[] } | null {
+  if (typeof v !== "string") return null;
+  try {
+    const raw = JSON.parse(v) as { speechMs?: unknown; issues?: unknown };
+    const speechMs = typeof raw.speechMs === "number" && Number.isFinite(raw.speechMs) ? Math.round(raw.speechMs) : null;
+    const issues = Array.isArray(raw.issues) ? raw.issues.filter((i): i is string => typeof i === "string").slice(0, 10).map((i) => i.slice(0, 40)) : [];
+    return { speechMs, issues };
+  } catch {
+    return null;
+  }
+}
+
 /** The signed-in grown-up's own voice, without anything provider-side. */
 export async function GET() {
   const deps = accountVoiceDeps(serverConfig());
   if (!deps) return fail(503, "voices_off", VOICES_OFF);
-  const user = await currentAdult();
-  if (!user) return fail(401, "sign_in_required", SIGN_IN);
-  const voice = await deps.store.findVoice(user.id);
+  const owner = await voiceOwner(SIGN_IN);
+  if ("error" in owner) return owner.error;
+  const voice = await deps.store.findVoice(owner.user.id);
   return NextResponse.json({ voice: voice ? { id: voice.id, status: voice.status, version: voice.version, updatedAt: voice.updatedAt } : null }, { headers: { "cache-control": "no-store" } });
 }
 
 /**
- * Records consent, saves the take privately and clones it into a candidate the grown-up listens to.
- * Their current voice stays in use until they keep the candidate (POST /api/voice/keep).
+ * Checks the agreement accepted before recording, saves the take privately and clones it into a
+ * candidate the grown-up listens to. Their current voice stays in use until they keep the candidate
+ * (POST /api/voice/keep), when the agreement is checked again.
  */
 export async function POST(req: Request) {
   const config = serverConfig();
   const deps = accountVoiceDeps(config);
   if (!deps) return fail(503, "voices_off", VOICES_OFF);
-  const user = await currentAdult();
-  if (!user) return fail(401, "sign_in_required", SIGN_IN);
+  const owner = await voiceOwner(SIGN_IN);
+  if ("error" in owner) return owner.error;
+  const user = owner.user;
 
   const form = await req.formData().catch(() => null);
   const audio = form?.get("audio");
@@ -52,8 +67,10 @@ export async function POST(req: Request) {
       pauseCount: intOrNull(form.get("pauseCount")) ?? 0,
       deviceClass: DEVICE_CLASSES.find((d) => d === device) ?? null,
       scriptOffsetEnd: intOrNull(form.get("scriptOffsetEnd")),
-      consents: form.getAll("consent").filter((c): c is string => typeof c === "string"),
+      agreementId: typeof form.get("agreementId") === "string" ? (form.get("agreementId") as string) : null,
       removeBackgroundNoise,
+      qc: parseQc(form.get("qc")),
+      userAgent: req.headers.get("user-agent")?.slice(0, 500) ?? null,
     });
     const deviceClass = DEVICE_CLASSES.find((d) => d === device) ?? null;
     await recordVoiceEvent(config, {
@@ -76,8 +93,9 @@ export async function POST(req: Request) {
 }
 
 /**
- * Deleting a voice is paused: today it would also remove finished stories, and Kevin asked
- * (2026-10-11) that finished stories be kept. The voice rights work brings it back with that rule.
+ * Deleting a voice is paused (Kevin, 2026-10-11 and 2026-10-12): before it comes back, household-sharing
+ * dependencies are verified, deleting source recordings is kept apart from revoking future stories, and
+ * finished authorized stories stay available. deleteAccountVoice is ready but not reachable from here.
  */
 export async function DELETE() {
   return fail(409, "deletion_paused", "Deleting a voice is paused while we update how finished stories are kept. Your voice hasn't changed. Email admin@readli.ai if you need it deleted now.");

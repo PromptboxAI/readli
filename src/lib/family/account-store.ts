@@ -114,6 +114,7 @@ export class AccountFamilyStore implements FamilyStore {
       const people = [...new Set(members.map((m) => m.user_id as string))];
       const since = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
       const [voices, shares, slots, sessions, notices, releases, approvals] = await Promise.all([
+        // Withdrawn voices stay (their prepared stories still play); a removed one has deleted_at. "*" so this read never needs newer columns.
         this.q(this.db.from("voice_profiles").select("*").in("owner_id", people).is("deleted_at", null), "read voices"),
         this.q(this.db.from("voice_household_shares").select("*").in("household_id", homeIds), "read sharing"),
         this.q(this.db.from("narrator_slot_assignments").select("*").in("household_id", homeIds), "read narrator slots"),
@@ -127,6 +128,14 @@ export class AccountFamilyStore implements FamilyStore {
         childIds.length ? this.q(this.db.from("child_voice_approvals").select("*").in("child_id", childIds), "read approvals") : Promise.resolve([] as Row[]),
       ]);
       const profiles = await this.q(this.db.from("adult_profiles").select("user_id, display_name, avatar_path, photo_consent_at").in("user_id", people), "read people");
+      // Voices whose owner deleted their account: the stories already made in them still play for the
+      // families they were shared with, so they're read through those families' live shares.
+      const known = new Set(voices.map((v) => v.id as string));
+      const orphanIds = [...new Set(shares.filter((x) => x.revoked_at === null && !known.has(x.voice_id as string)).map((x) => x.voice_id as string))];
+      const orphans = orphanIds.length
+        ? await this.q(this.db.from("voice_profiles").select("*").in("id", orphanIds).not("owner_deleted_at", "is", null).is("deleted_at", null), "read former voices")
+        : [];
+      const formerOwner = (voiceId: string) => `former:${voiceId}`;
 
       state.households = homes.map((h) => ({ id: h.id as string, name: h.name as string }));
       state.members = members.map((m) => ({
@@ -160,6 +169,10 @@ export class AccountFamilyStore implements FamilyStore {
         extraStreams: Number(e.extra_streams ?? 0),
         startsAt: e.starts_at as string,
         endsAt: str(e.ends_at),
+        tier: e.tier === "archive" ? "archive" : "family",
+        trialEndsAt: str(e.trial_ends_at),
+        trialCredits: typeof e.trial_credits === "number" ? e.trial_credits : null,
+        billingInterval: e.billing_interval === "month" || e.billing_interval === "year" ? e.billing_interval : null,
       }));
       state.favorites = favorites.map((f) => ({ childId: f.child_id as string, bookSlug: f.book_slug as string }));
       state.progress = progress.map((p) => ({
@@ -169,20 +182,24 @@ export class AccountFamilyStore implements FamilyStore {
         voiceId: str(p.voice_id),
         updatedAt: p.updated_at as string,
       }));
-      state.voices = voices.map((v) => ({
+      state.voices = [...voices, ...orphans].map((v) => ({
         id: v.id as string,
-        ownerId: v.owner_id as string,
+        ownerId: (v.owner_id as string | null) ?? formerOwner(v.id as string),
+        ownerDeleted: Boolean(v.owner_deleted_at),
         version: Number(v.version ?? 1),
         status: v.status as VoiceStatus,
         modelId: str(v.model_id),
         createdAt: v.created_at as string,
         deletedAt: str(v.deleted_at),
+        withdrawnAt: str(v.withdrawn_at),
+        cloneRetiredAt: str(v.clone_retired_at),
+        pausedAt: str(v.new_stories_paused_at),
       }));
       state.shares = shares.map((x) => ({
         id: x.id as string,
         voiceId: x.voice_id as string,
         householdId: x.household_id as string,
-        grantedBy: x.granted_by as string,
+        grantedBy: (x.granted_by as string | null) ?? formerOwner(x.voice_id as string),
         policyVersion: x.policy_version as string,
         grantedAt: x.granted_at as string,
         revokedAt: str(x.revoked_at),
@@ -350,10 +367,12 @@ export class AccountFamilyStore implements FamilyStore {
     for (const e of after.entitlements) {
       const old = before.entitlements.find((x) => x.id === e.id);
       const row = { status: e.status, extra_narrator_slots: e.extraNarratorSlots, extra_streams: e.extraStreams, ends_at: e.endsAt };
+      // The tier is written only when it is the Archive or changes, so Family rows save the same as before it existed.
+      const tier = (e.tier ?? "family") === "archive" || (old && (old.tier ?? "family") !== (e.tier ?? "family")) ? { tier: e.tier ?? "family" } : {};
       if (!old) {
-        await this.q(db.from("household_entitlements").insert({ id: e.id, household_id: e.householdId, source: e.source, starts_at: e.startsAt, ...row }), "add plan");
+        await this.q(db.from("household_entitlements").insert({ id: e.id, household_id: e.householdId, source: e.source, starts_at: e.startsAt, ...row, ...tier }), "add plan");
       } else if (JSON.stringify(old) !== JSON.stringify(e)) {
-        await this.q(db.from("household_entitlements").update(row).eq("id", e.id), "update plan");
+        await this.q(db.from("household_entitlements").update({ ...row, ...tier }).eq("id", e.id), "update plan");
       }
     }
     for (const c of after.children) {
@@ -403,11 +422,14 @@ export class AccountFamilyStore implements FamilyStore {
       );
     }
 
-    // Voice rows come from the recording flow; a change here is only a status or deletion.
+    // Voice rows come from the recording flow; a change here is only a status, deletion or pause.
     for (const v of after.voices) {
       const old = before.voices.find((x) => x.id === v.id);
-      if (old && (old.status !== v.status || old.deletedAt !== v.deletedAt)) {
-        await this.q(db.from("voice_profiles").update({ status: v.status, deleted_at: v.deletedAt }).eq("id", v.id), "update voice");
+      if (old && (old.status !== v.status || old.deletedAt !== v.deletedAt || (old.pausedAt ?? null) !== (v.pausedAt ?? null))) {
+        await this.q(
+          db.from("voice_profiles").update({ status: v.status, deleted_at: v.deletedAt, new_stories_paused_at: v.pausedAt ?? null }).eq("id", v.id),
+          "update voice",
+        );
       }
     }
     // Order matters to the database guards: a share before its slot, a slot before an approval,

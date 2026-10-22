@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AccountSettings } from "@/components/account/AccountSettings";
 import { ProfilePhoto } from "@/components/account/ProfilePhoto";
+import { VoicePermissions } from "@/components/account/VoicePermissions";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { BackLink } from "@/components/family/BackLink";
 import { FamilyOff, FamilyShell, NeedsGrownUp } from "@/components/family/FamilyShell";
@@ -45,6 +46,7 @@ export default async function AccountPage() {
         <h1 className="mt-2 font-display text-4xl font-semibold">Account settings</h1>
       </div>
       <ProfilePhoto name={name} tint={tint} avatarUrl={avatarUrl} />
+      <VoicePermissions />
       <AccountSettings name={name} email={user.email} blockers={await deletionBlockers(db, user.id)} />
     </FamilyShell>
   );

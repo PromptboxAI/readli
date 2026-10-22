@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { VOICE_CONSENTS } from "@/lib/content/voice-consents";
+import { REQUIRED_AGREEMENT_STATEMENTS } from "@/lib/content/voice-agreement";
 import { ProviderRefCipher } from "@/lib/server/provider-ref";
+import { acceptVoiceAgreement, MemoryVoiceAgreementStore, requestJurisdiction, setThirdPartyLicensing } from "./agreements";
 import { VoiceProviderError } from "./provider";
 import { StubVoiceProvider } from "./stub";
 import {
   AccountVoiceError,
   accountVoiceSample,
   cleanupStaleCandidates,
+  consentPurposes,
   createAccountVoice,
   createVoiceCandidate,
   deleteAccountVoice,
   discardVoiceCandidate,
+  ensureClone,
+  expectedTranscript,
   keepVoiceCandidate,
   MemoryAccountVoiceStore,
   switchVoiceModel,
@@ -21,6 +25,8 @@ import {
 const limits = { minRecordingMs: 59_000, maxRecordingMs: 150_000, maxRecordingBytes: 25 * 1024 * 1024 };
 const owner = { id: "11111111-2222-3333-4444-555555555555", name: "Grandma June" };
 
+let agreementId: string | null = null;
+
 function take(over: Partial<TakeUpload> = {}): TakeUpload {
   // ~24 KB/s, like a real 192 kbps take, so the server's silence check passes.
   return {
@@ -30,8 +36,10 @@ function take(over: Partial<TakeUpload> = {}): TakeUpload {
     pauseCount: 0,
     deviceClass: "phone",
     scriptOffsetEnd: 900,
-    consents: VOICE_CONSENTS,
+    agreementId: agreementId,
     removeBackgroundNoise: false,
+    qc: { speechMs: 60_000, issues: [] },
+    userAgent: "test",
     ...over,
   };
 }
@@ -44,35 +52,42 @@ class RecordingProvider extends StubVoiceProvider {
   }
 }
 
-function setup() {
+const contributor = { id: owner.id, name: owner.name, email: "june@example.com", jurisdiction: "US-NY" };
+
+async function setup(thirdPartyLicensing = false) {
   const store = new MemoryAccountVoiceStore();
+  const agreements = new MemoryVoiceAgreementStore();
   const provider = new RecordingProvider();
-  return { store, provider, deps: { store, provider, limits } };
+  agreementId = (await acceptVoiceAgreement(agreements, contributor, { statements: REQUIRED_AGREEMENT_STATEMENTS, thirdPartyLicensing, userAgent: null })).id;
+  return { store, agreements, provider, deps: { store, agreements, provider, limits } };
 }
 
 describe("account voices", () => {
   it("saves the take and consent, clones with the speaker's noise choice and saves a ready voice", async () => {
-    const { store, provider, deps } = setup();
+    const { store, provider, deps } = await setup();
     const voice = await createAccountVoice(deps, owner, take());
     expect(voice.status).toBe("ready");
     expect(provider.created).toEqual([{ removeBackgroundNoise: false }]);
     expect(store.takes).toHaveLength(1);
-    expect(store.receipts[0]).toMatchObject({ ownerId: owner.id, statements: VOICE_CONSENTS, removeBackgroundNoise: false });
+    expect(store.receipts[0]).toMatchObject({ ownerId: owner.id, agreementId, removeBackgroundNoise: false });
+    expect(store.takes[0]).toMatchObject({ agreementId, language: "en", transcript: expectedTranscript(900) });
     expect(await store.providerVoiceId(voice.id)).toBe("stub-voice-1");
   });
 
-  it("refuses without every consent, and refuses takes under a minute", async () => {
-    const { store, deps } = setup();
-    const noConsent = await createAccountVoice(deps, owner, take({ consents: VOICE_CONSENTS.slice(1) })).catch((e: unknown) => e);
+  it("refuses without an agreement in force, and refuses takes under a minute", async () => {
+    const { store, deps } = await setup();
+    const noConsent = await createAccountVoice(deps, owner, take({ agreementId: null })).catch((e: unknown) => e);
     expect(noConsent).toBeInstanceOf(AccountVoiceError);
     expect((noConsent as AccountVoiceError).code).toBe("consent_required");
+    const someoneElses = await createAccountVoice(deps, { id: "other", name: "Someone" }, take()).catch((e: unknown) => e);
+    expect((someoneElses as AccountVoiceError).code).toBe("consent_required");
     const short = await createAccountVoice(deps, owner, take({ durationMs: 30_000 })).catch((e: unknown) => e);
     expect((short as AccountVoiceError).code).toBe("too_short");
     expect(store.takes).toHaveLength(0);
   });
 
   it("recording again keeps the same voice and removes the old provider voice", async () => {
-    const { store, provider, deps } = setup();
+    const { store, provider, deps } = await setup();
     const first = await createAccountVoice(deps, owner, take());
     const second = await createAccountVoice(deps, owner, take({ removeBackgroundNoise: true }));
     expect(second.id).toBe(first.id);
@@ -82,7 +97,7 @@ describe("account voices", () => {
   });
 
   it("hides provider errors and keeps the old voice when a clone fails", async () => {
-    const { store, deps } = setup();
+    const { store, deps } = await setup();
     const first = await createAccountVoice(deps, owner, take());
     const failing = { ...deps, provider: Object.assign(new StubVoiceProvider(), { createInstantVoice: async () => { throw new VoiceProviderError("quota 401", 401); } }) };
     const err = await createAccountVoice(failing, owner, take()).catch((e: unknown) => e);
@@ -92,20 +107,31 @@ describe("account voices", () => {
   });
 
   it("plays a sample only once the owner has a voice", async () => {
-    const { deps } = setup();
+    const { deps } = await setup();
     expect(((await accountVoiceSample(deps, owner.id).catch((e: unknown) => e)) as AccountVoiceError).code).toBe("no_voice");
     await createAccountVoice(deps, owner, take());
     expect((await accountVoiceSample(deps, owner.id)).standIn).toBe(true);
   });
 
-  it("deletes the voice at the provider and in Readli, and a new recording makes a fresh voice", async () => {
-    const { store, provider, deps } = setup();
+  it("deleting retires the clone and withdraws the voice, keeps its recordings out of training, and a new recording makes a fresh voice", async () => {
+    const { store, provider, deps } = await setup();
     const first = await createAccountVoice(deps, owner, take());
-    await deleteAccountVoice(deps, owner.id);
+    let stopped: string | null = null;
+    store.onWithdraw = async (voiceId) => {
+      stopped = voiceId;
+      return 2;
+    };
+    expect(await deleteAccountVoice(deps, owner.id)).toEqual({ stoppedJobs: 2, voiceId: first.id });
+    expect(stopped).toBe(first.id);
     expect(provider.deleted).toEqual(["stub-voice-1"]);
     expect(await store.findVoice(owner.id)).toBeNull();
     expect(await store.providerVoiceId(first.id)).toBeNull();
-    expect(store.takes).toHaveLength(0);
+    expect(store.voices.get(first.id)).toMatchObject({ status: "withdrawn", providerVoiceId: null });
+    // The original recording stays (for the record of what was authorized), but never for training or re-cloning.
+    expect(store.takes).toHaveLength(1);
+    expect(store.takes[0]).toMatchObject({ voiceId: first.id, excludedFromTraining: true });
+    expect(await store.recloneSource(first.id)).toBeNull();
+    expect(store.events.map((e) => e.action)).toEqual(["clone_created", "voice_withdrawn"]);
     expect(((await accountVoiceSample(deps, owner.id).catch((e: unknown) => e)) as AccountVoiceError).code).toBe("no_voice");
 
     const again = await createAccountVoice(deps, owner, take());
@@ -113,8 +139,33 @@ describe("account voices", () => {
     expect(again.version).toBe(1);
   });
 
+  it("re-recording keeps the same voice with a new version and logs the upgrade", async () => {
+    const { store, deps } = await setup();
+    const first = await createAccountVoice(deps, owner, take());
+    const second = await createAccountVoice(deps, owner, take());
+    expect(second).toMatchObject({ id: first.id, version: 2 });
+    expect(store.events.at(-1)).toMatchObject({ action: "voice_version_upgraded", detail: { from: 1, to: 2 } });
+  });
+
+  it("re-makes a retired clone from the original recording only while authorization is valid", async () => {
+    const { store, provider, deps } = await setup();
+    const voice = await createAccountVoice(deps, owner, take());
+    store.retireClone(voice.id);
+    expect(await store.providerVoiceId(voice.id)).toBeNull();
+    // A sample (or narration) re-clones it.
+    expect((await accountVoiceSample(deps, owner.id)).standIn).toBe(true);
+    expect(await store.providerVoiceId(voice.id)).toBe("stub-voice-2");
+    expect(provider.created).toHaveLength(2);
+    expect(store.events.at(-1)).toMatchObject({ action: "clone_reactivated", voiceId: voice.id });
+    // Without a valid authorization it is never re-made.
+    store.retireClone(voice.id);
+    store.authorized = () => false;
+    expect(((await ensureClone(deps, voice.id).catch((e: unknown) => e)) as AccountVoiceError).code).toBe("voice_unavailable");
+    expect(provider.created).toHaveLength(2);
+  });
+
   it("keeps the voice when the provider can't delete it, and says when there is nothing to delete", async () => {
-    const { store, deps } = setup();
+    const { store, deps } = await setup();
     const first = await createAccountVoice(deps, owner, take());
     const failing = { ...deps, provider: Object.assign(new StubVoiceProvider(), { deleteVoice: async () => { throw new Error("down"); } }) };
     expect(((await deleteAccountVoice(failing, owner.id).catch((e: unknown) => e)) as AccountVoiceError).code).toBe("delete_failed");
@@ -124,7 +175,7 @@ describe("account voices", () => {
   });
 
   it("keeps the working voice in use until the new recording is kept", async () => {
-    const { store, provider, deps } = setup();
+    const { store, provider, deps } = await setup();
     const first = await createAccountVoice(deps, owner, take());
     await createVoiceCandidate(deps, owner, take({ removeBackgroundNoise: true }));
     expect(await store.providerVoiceId(first.id)).toBe("stub-voice-1");
@@ -140,7 +191,7 @@ describe("account voices", () => {
   });
 
   it("discarding a new recording leaves the working voice and removes the trial clone and take", async () => {
-    const { store, provider, deps } = setup();
+    const { store, provider, deps } = await setup();
     const first = await createAccountVoice(deps, owner, take());
     const takesBefore = store.takes.length;
     await createVoiceCandidate(deps, owner, take());
@@ -152,7 +203,7 @@ describe("account voices", () => {
   });
 
   it("a second trial replaces the first, and day-old trials are cleared", async () => {
-    const { store, provider, deps } = setup();
+    const { store, provider, deps } = await setup();
     await createVoiceCandidate(deps, owner, take());
     await createVoiceCandidate(deps, owner, take());
     expect(provider.deleted).toEqual(["stub-voice-1"]);
@@ -170,9 +221,68 @@ describe("account voices", () => {
   });
 });
 
+describe("voice recording agreement", () => {
+  it("needs every required line before recording, and licensing to others starts off", async () => {
+    const agreements = new MemoryVoiceAgreementStore();
+    await expect(acceptVoiceAgreement(agreements, contributor, { statements: REQUIRED_AGREEMENT_STATEMENTS.slice(1), thirdPartyLicensing: false, userAgent: null })).rejects.toMatchObject({ code: "agreement_required" });
+    const a = await acceptVoiceAgreement(agreements, contributor, { statements: REQUIRED_AGREEMENT_STATEMENTS, thirdPartyLicensing: false, userAgent: null });
+    expect(a.rights).toEqual({ service: true, readliDevelopment: true, thirdPartyLicensing: false });
+    expect(agreements.rows[0]).toMatchObject({ contributorEmail: "june@example.com", source: "pre_recording", adultOwnerDeclared: true });
+    expect(consentPurposes(a)).toEqual(["create", "narrate_for_shared_families", "readli_development"]);
+  });
+
+  it("keeps every licensing change as history, and the latest row is in force", async () => {
+    const agreements = new MemoryVoiceAgreementStore();
+    const first = await acceptVoiceAgreement(agreements, contributor, { statements: REQUIRED_AGREEMENT_STATEMENTS, thirdPartyLicensing: true, userAgent: null });
+    const off = await setThirdPartyLicensing(agreements, contributor, false, null);
+    expect(off.rights.thirdPartyLicensing).toBe(false);
+    expect(agreements.rows[1]).toMatchObject({ event: "updated", source: "settings", supersedesId: first.id });
+    const history = await agreements.history(contributor.id);
+    expect(history.map((h) => h.rights.thirdPartyLicensing)).toEqual([false, true]);
+  });
+
+  it("offers licensing to other companies only in eligible US locations, and records where", async () => {
+    const agreements = new MemoryVoiceAgreementStore();
+    const illinois = { ...contributor, jurisdiction: "US-IL" };
+    await expect(acceptVoiceAgreement(agreements, illinois, { statements: REQUIRED_AGREEMENT_STATEMENTS, thirdPartyLicensing: true, userAgent: null })).rejects.toMatchObject({ code: "licensing_unavailable" });
+    await acceptVoiceAgreement(agreements, illinois, { statements: REQUIRED_AGREEMENT_STATEMENTS, thirdPartyLicensing: false, userAgent: null });
+    await expect(setThirdPartyLicensing(agreements, { ...contributor, jurisdiction: null }, true, null)).rejects.toMatchObject({ code: "licensing_unavailable" });
+    await expect(setThirdPartyLicensing(agreements, { ...contributor, jurisdiction: "GB" }, true, null)).rejects.toMatchObject({ code: "licensing_unavailable" });
+    const on = await setThirdPartyLicensing(agreements, contributor, true, null);
+    expect(on.rights.thirdPartyLicensing).toBe(true);
+    expect(agreements.rows.map((r) => r.jurisdiction)).toEqual(["US-IL", "US-NY"]);
+    expect(requestJurisdiction(new Headers({ "x-vercel-ip-country": "US", "x-vercel-ip-country-region": "ny" }))).toBe("US-NY");
+    expect(requestJurisdiction(new Headers())).toBeNull();
+  });
+
+  it("can't turn licensing on before agreeing to record", async () => {
+    await expect(setThirdPartyLicensing(new MemoryVoiceAgreementStore(), contributor, true, null)).rejects.toMatchObject({ code: "no_agreement" });
+  });
+
+  it("a recording made after a licensing change uses the newest agreement", async () => {
+    const { deps, agreements } = await setup(true);
+    const updated = await setThirdPartyLicensing(agreements, contributor, false, null);
+    const stale = await createAccountVoice(deps, owner, take()).catch((e: unknown) => e);
+    expect((stale as AccountVoiceError).code).toBe("consent_required");
+    agreementId = updated.id;
+    expect((await createAccountVoice(deps, owner, take())).status).toBe("ready");
+  });
+});
+
+describe("keeping a new recording", () => {
+  it("checks the agreement again when the voice is kept", async () => {
+    const { store, agreements, deps } = await setup(true);
+    await createVoiceCandidate(deps, owner, take());
+    await setThirdPartyLicensing(agreements, contributor, false, null);
+    const stale = await keepVoiceCandidate(deps, owner).catch((e: unknown) => e);
+    expect((stale as AccountVoiceError).code).toBe("consent_required");
+    expect(await store.findVoice(owner.id)).toBeNull();
+  });
+});
+
 describe("voice reading models", () => {
   it("new voices get the newest model; older voices keep theirs until the owner switches", async () => {
-    const { store, deps } = setup();
+    const { store, deps } = await setup();
     const newer = { ...deps, newVoiceModel: "eleven_v5" };
     const voice = await createAccountVoice({ ...deps, newVoiceModel: "eleven_v4" }, owner, take());
     expect(voice.modelId).toBe("eleven_v4");

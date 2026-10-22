@@ -2,7 +2,9 @@ import { after, NextResponse } from "next/server";
 import { jsonBody, withFamily } from "@/lib/family/http";
 import { guardianHousehold } from "@/lib/family/service";
 import { familyProvider } from "@/lib/family/session";
+import { accountDb } from "@/lib/family/account-store";
 import { cancelGeneration, prepareView, quoteGeneration, requestGeneration, runPendingJobs, type GenerationRequest } from "@/lib/narration/narration";
+import { spendPause } from "@/lib/narration/spend-guard";
 import { fail } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +56,9 @@ export async function POST(req: Request, { params }: Params) {
     if (body.confirm !== true) return NextResponse.json({ quote: await quoteGeneration(store, actor, householdId, request) });
     const provider = familyProvider(session);
     if (!provider) return fail(503, "narration_off", "Preparing stories isn't switched on yet.");
+    const db = session.account ? accountDb() : null;
+    const paused = db ? await spendPause(db, store.plan.generationLimits) : null;
+    if (paused) return fail(503, paused.code, paused.message);
     const result = await requestGeneration(store, actor, householdId, request);
     // Background generation; the job is resumable if the worker stops partway.
     if (result.job) after(() => runPendingJobs(store, provider, { householdId, budgetMs: WORK_BUDGET_MS }));

@@ -49,9 +49,11 @@ interface TeleprompterRecorderProps {
    */
   onTake?: (take: TakeDetails) => void;
   takeActionLabel?: string;
+  /** Shown under a story once the guest has heard it in their voice, such as the free-trial sign-up. */
+  afterListen?: React.ReactNode;
 }
 
-export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose a story" }: TeleprompterRecorderProps) {
+export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose a story", afterListen }: TeleprompterRecorderProps) {
   const [state, dispatch] = useReducer(recorderReducer, initialRecorderState, (s) =>
     onTake ? { ...s, status: "ready" as const, consent: { adultOwner: true, processing: true } } : s,
   );
@@ -426,6 +428,7 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
             key={take.details.takeNumber}
             take={take.details}
             heading="Your take is in. Pick a story to hear it."
+            afterListen={afterListen}
             onRecordAgain={() => {
               startOver("feedback");
               window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
@@ -460,7 +463,7 @@ function ConsentStep({
       </h1>
       <p>
         You&apos;ll read one short story script aloud for at least 1 minute, ideally 1 to 2. We use that recording only to make a
-        short private preview in your voice. It is never public and is deleted automatically within 24 hours unless you
+        short private preview in your voice. It is never public and is deleted automatically within 48 hours unless you
         choose to save it.
       </p>
       <label className="flex min-h-11 gap-3">

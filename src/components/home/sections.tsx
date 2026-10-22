@@ -215,7 +215,7 @@ export function TryYourVoice() {
               <rect x="5" y="11" width="14" height="10" rx="2" />
               <path d="M8 11V7a4 4 0 0 1 8 0v4" />
             </svg>
-            Your recording stays private and is deleted within 24 hours unless you choose to save it.
+            Your recording stays private and is deleted within 48 hours unless you choose to save it.
           </p>
         </div>
         <DemoBookShelf />
@@ -422,6 +422,7 @@ export function SiteFooter() {
     { href: "/pricing", label: "Pricing" },
     { href: "/privacy", label: "Privacy" },
     { href: "/terms", label: "Terms" },
+    { href: "/voice-agreement", label: "Voice Agreement" },
     { href: "/help", label: "Help" },
     { href: "/accessibility", label: "Accessibility" },
     { href: "/parents/safety", label: "Parent Safety" },

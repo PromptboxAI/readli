@@ -50,13 +50,15 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
  * Turns the finished take into a voice and reads demo passages in it (PRD F-01, brief §6). Each
  * story read in a voice is kept, so replays are instant and never use up a preview.
  */
-export function VoicePreview({ take, heading, onRecordAgain }: { take: TakeDetails; heading: string; onRecordAgain?: () => void }) {
+export function VoicePreview({ take, heading, onRecordAgain, afterListen }: { take: TakeDetails; heading: string; onRecordAgain?: () => void; afterListen?: React.ReactNode }) {
   const [mode, setMode] = useState<Mode>("loading");
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [previewsLeft, setPreviewsLeft] = useState<number | null>(null);
   const [previewsAllowed, setPreviewsAllowed] = useState<number | null>(null);
   const [playing, setPlaying] = useState<Played | null>(null);
+  /** A story has played to the end, so the guest has heard their voice: only then is saving it offered. */
+  const [heardOne, setHeardOne] = useState(false);
   const [tipsOpen, setTipsOpen] = useState(false);
   /** Stories already read, by voice ("take:clean-up") and book. */
   const heard = useRef(new Map<string, Played>());
@@ -211,7 +213,15 @@ export function VoicePreview({ take, heading, onRecordAgain }: { take: TakeDetai
               {playing.book.title} · read by you
             </p>
             <p className="text-sm text-white/85">Noise clean-up {playing.cleanUp ? "on" : "off"}</p>
-            <audio key={playing.url} controls autoPlay src={playing.url} className="w-full" aria-label={`${playing.book.title}, read in your voice`} />
+            <audio
+              key={playing.url}
+              controls
+              autoPlay
+              src={playing.url}
+              onEnded={() => setHeardOne(true)}
+              className="w-full"
+              aria-label={`${playing.book.title}, read in your voice`}
+            />
             {playing.standIn && (
               <p className="rounded-xl bg-sunshine px-3 py-2 text-sm font-semibold text-ink">
                 Test mode: this is a stand-in sound, not your voice.
@@ -225,6 +235,9 @@ export function VoicePreview({ take, heading, onRecordAgain }: { take: TakeDetai
           </div>
         </div>
       )}
+
+      {/* Never while a story is being made or read, and never in place of the free stories (Kevin, 2026-10-21). */}
+      {!busy && (heardOne || previewsLeft === 0) && afterListen}
 
       {error && (
         <p role="alert" className="rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold">
@@ -281,7 +294,7 @@ export function VoicePreview({ take, heading, onRecordAgain }: { take: TakeDetai
       <p className="text-sm text-muted">
         {mode === "off"
           ? "We never play a stock voice as if it were yours."
-          : "Your recording and voice are deleted within 24 hours. We never play a stock voice as if it were yours."}
+          : "Your recording and voice are deleted within 48 hours. We never play a stock voice as if it were yours."}
       </p>
       <RecordingTipsDialog open={tipsOpen} onClose={() => setTipsOpen(false)} onRecordAgain={onRecordAgain} where="guest_preview" />
     </div>

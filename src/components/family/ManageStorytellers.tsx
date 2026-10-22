@@ -20,6 +20,12 @@ function statusText(s: StorytellerView, child: string): { badge: string; tone: s
       return { badge: "Needs a narrator slot", tone: "bg-sky/60", note: "Shared with your family. Add them to a narrator slot to approve them." };
     case "processing":
       return { badge: "Voice still being made", tone: "bg-lavender/70", note: "You can approve it once it's ready and shared." };
+    case "stories_only":
+      return {
+        badge: "Prepared stories only",
+        tone: "bg-sky/40",
+        note: `${s.ownerName} deleted their voice. ${child} keeps the stories already prepared in it, but no new ones can be made.`,
+      };
   }
 }
 
@@ -32,7 +38,7 @@ export function ManageStorytellers({ initial }: { initial: ManageStorytellersVie
   const child = view.child.nickname;
   const available = view.storytellers.filter((s) => s.status === "available");
   const groups: { title: string; items: StorytellerView[] }[] = [
-    { title: `Storytellers ${child} can hear`, items: view.storytellers.filter((s) => s.status === "approved") },
+    { title: `Storytellers ${child} can hear`, items: view.storytellers.filter((s) => s.status === "approved" || s.status === "stories_only") },
     { title: "Shared with your family", items: available },
     { title: "Not in a narrator slot", items: view.storytellers.filter((s) => s.status === "needs_slot") },
     { title: "Waiting for the storyteller", items: view.storytellers.filter((s) => s.status === "waiting_for_owner" || s.status === "processing") },
@@ -108,9 +114,10 @@ export function ManageStorytellers({ initial }: { initial: ManageStorytellersVie
             <ul className="flex flex-col gap-3">
               {g.items.map((s) => {
                 const t = statusText(s, child);
-                const locked = s.status !== "approved" && s.status !== "available";
+                const on = s.status === "approved" || s.status === "stories_only";
+                const locked = !on && s.status !== "available";
                 return (
-                  <li key={s.voiceId} data-testid={`storyteller-${s.voiceId}`} className={`flex items-center gap-4 rounded-3xl p-4 ${s.status === "approved" ? "bg-mint/40" : locked ? "bg-ink/5" : "bg-surface ring-2 ring-ink/10"}`}>
+                  <li key={s.voiceId} data-testid={`storyteller-${s.voiceId}`} className={`flex items-center gap-4 rounded-3xl p-4 ${on ? "bg-mint/40" : locked ? "bg-ink/5" : "bg-surface ring-2 ring-ink/10"}`}>
                     <StorytellerAvatar name={s.ownerName} avatarUrl={s.avatarUrl} tint={s.tint} muted={locked} />
                     <div className="min-w-0 flex-1">
                       <p className="font-display text-xl font-semibold">{s.ownerName}</p>
@@ -124,7 +131,7 @@ export function ManageStorytellers({ initial }: { initial: ManageStorytellersVie
                       )}
                     </div>
                     <Toggle
-                      checked={s.status === "approved"}
+                      checked={on}
                       disabled={locked || saving}
                       label={`${s.ownerName} for ${child}`}
                       onChange={(on) =>

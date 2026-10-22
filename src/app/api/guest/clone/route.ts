@@ -34,10 +34,14 @@ export async function POST(req: Request) {
       name: `Readli guest ${guest.id.slice(0, 8)}`,
       audio: recording.audio,
       filename: `take.${fileExtension(recording.mimeType)}`,
-      description: "Readli guest demo voice. Deleted automatically within 24 hours.",
+      description: "Readli guest demo voice. Deleted automatically within 48 hours.",
       removeBackgroundNoise,
     });
-    await deps.store.setVoice(guest.id, voiceId);
+    // If the voice can't be recorded for cleanup, delete it now rather than leave it at the provider.
+    await deps.store.setVoice(guest.id, voiceId).catch(async (err: unknown) => {
+      await deps.provider.deleteVoice(voiceId).catch((e) => console.error("unrecorded guest voice delete failed", e));
+      throw err;
+    });
     await recordVoiceEvent(deps.config, { name: "voice_cloned", guestSessionId: guest.id, properties: { surface: "guest", removeBackgroundNoise } });
   } catch (err) {
     console.error("clone failed", err);

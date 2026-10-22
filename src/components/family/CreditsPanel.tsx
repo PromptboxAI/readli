@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { buttonPrimary } from "@/components/brand/buttons";
+import { CREDIT_PACK_REFUND_NOTICE } from "@/lib/content/billing-policy";
 import type { CreditPack } from "@/lib/family/plan";
 
 const n = (x: number) => x.toLocaleString("en-US");
@@ -56,6 +57,9 @@ export function CreditsPanel({ packs, need, returnTo, canBuy, simulated }: { pac
           </li>
         ))}
       </ul>
+      <p className="text-sm text-muted" data-testid="pack-refund-policy">
+        {CREDIT_PACK_REFUND_NOTICE}
+      </p>
       <p role="status" aria-live="polite" className={message ? "font-semibold" : "sr-only"}>
         {message}
       </p>

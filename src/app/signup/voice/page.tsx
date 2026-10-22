@@ -21,6 +21,7 @@ const STEPS = [
 export default async function VoiceSignupPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const p = await searchParams;
   const invited = typeof p.invite === "string" && p.invite.length > 0;
+  const fromDemo = p.from === "demo";
   const accounts = familyAccountsEnabled();
   const acceptHref = `/login?next=${encodeURIComponent(`/voice?invite=${String(p.invite)}`)}`;
   return (
@@ -57,6 +58,11 @@ export default async function VoiceSignupPage({ searchParams }: { searchParams: 
             )}
           </p>
         </section>
+      )}
+      {fromDemo && (
+        <p className="rounded-2xl bg-mint/50 p-4 font-semibold" data-testid="demo-take-note">
+          Your demo recording is kept on this device. After you sign up, you can save it as your voice. No subscription or card needed.
+        </p>
       )}
       <PreviewNote>Readli Voice accounts are coming soon, so nothing here is saved yet.</PreviewNote>
 

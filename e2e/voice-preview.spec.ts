@@ -25,6 +25,15 @@ test("a finished take becomes a voice and reads four stories, with free replays"
   await expect(preview.getByLabel("The Tale of Peter Rabbit, read in your voice")).toHaveAttribute("src", /^blob:/);
   await expect(preview.getByText("Test mode: this is a stand-in sound, not your voice.")).toBeVisible();
   await expect(preview.getByTestId("preview-counter")).toContainText("1 of 4 stories explored");
+  // Once a story has played to the end, saving the voice for free comes first; the Family trial is second, with its terms.
+  const trial = preview.getByTestId("demo-trial");
+  await expect(trial).toBeVisible({ timeout: 15_000 });
+  await expect(trial).toContainText("no subscription and no card");
+  await expect(trial.getByRole("link", { name: "Save My Voice — Free" })).toHaveAttribute("href", "/signup/voice?from=demo");
+  await expect(trial.getByRole("link", { name: "Start My 14-Day Family Trial" })).toHaveAttribute("href", "/signup/family?from=demo");
+  await expect(trial.getByTestId("trial-terms")).toContainText("A card is required to start");
+  // The free stories carry on underneath.
+  await expect(preview.getByRole("article", { name: "Winnie-the-Pooh" }).getByRole("button", { name: "Hear this passage" })).toBeEnabled();
   await page.screenshot({ path: `e2e/screenshots/try-preview-${info.project.name}.png` });
 
   // Second preview with noise clean-up flipped re-makes the voice from the saved take, then the free limit is reached.

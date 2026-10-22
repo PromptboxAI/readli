@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     return fail(400, "consent_required", "Please confirm both statements before recording.");
   }
 
-  // Opportunistic cleanup keeps deletion close to the 24-hour promise between cron runs.
+  // Opportunistic cleanup removes expired demos between daily cron runs, well within the 48-hour promise.
   await cleanupExpiredGuests(deps, 5).catch(() => undefined);
 
   const session = (await currentGuest(deps)) ?? (await startGuest(deps));

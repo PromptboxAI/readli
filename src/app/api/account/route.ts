@@ -3,7 +3,7 @@ import { jsonBody } from "@/lib/family/http";
 import { PermissionError } from "@/lib/family/service";
 import { currentSession, requireFullSignIn, setSession } from "@/lib/family/session";
 import { DELETE_CONFIRMATION, deleteAccount, updateDisplayName } from "@/lib/account/privacy";
-import { voiceProvider, withAccount } from "@/lib/account/server";
+import { deletionBilling, voiceProvider, withAccount } from "@/lib/account/server";
 import { providerRefCipher } from "@/lib/server/provider-ref";
 import { fail } from "@/lib/server/http";
 
@@ -18,7 +18,7 @@ export async function PATCH(req: Request) {
   });
 }
 
-/** Deletes the signed-in grown-up's account, their voice and the audio made from it, then signs them out. */
+/** Deletes the signed-in grown-up's account: stops renewals, deletes their voice and recordings, then signs them out. */
 export async function DELETE(req: Request) {
   const { confirm } = await jsonBody(req);
   try {
@@ -29,7 +29,7 @@ export async function DELETE(req: Request) {
   }
   return withAccount(async ({ db, user }) => {
     if (confirm !== DELETE_CONFIRMATION) return fail(400, "confirm_required", `Type ${DELETE_CONFIRMATION} to confirm.`);
-    const result = await deleteAccount({ db, provider: voiceProvider(), refs: providerRefCipher() }, user.id);
+    const result = await deleteAccount({ db, provider: voiceProvider(), refs: providerRefCipher(), billing: deletionBilling() }, user.id);
     if (!result.deleted) {
       return fail(409, "deletion_blocked", "There's something to sort out before your account can be deleted.", { blockers: result.blockers });
     }
