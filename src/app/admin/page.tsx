@@ -7,7 +7,7 @@ import { adminOverview, filterFamilies, type AdminFamily } from "@/lib/admin/ove
 import { accountDb } from "@/lib/family/account-store";
 import { serverConfig } from "@/lib/server/config";
 import { fetchProviderModels } from "@/lib/voice/model-watch";
-import { endTesterPlanAction, grantTesterPlanAction } from "./actions";
+import { endTesterPlanAction, grantTesterPlanAction, removeEmptyFamilyAction } from "./actions";
 
 export const metadata: Metadata = { title: "Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -37,7 +37,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const db = gate.preview ? null : accountDb();
   const overview = db ? await adminOverview(db) : null;
   const t = overview?.totals;
-  const families = overview ? filterFamilies(overview.families, q) : [];
+  const found = overview ? filterFamilies(overview.families, q) : [];
+  // Free storytellers sent through family setup by mistake aren't testers, so they're listed apart.
+  const families = found.filter((f) => !f.storytellerFor);
+  const storytellers = found.filter((f) => f.storytellerFor);
   const ok = param(params, "ok");
   const err = param(params, "err");
   const config = serverConfig();
@@ -115,6 +118,28 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               </ul>
             )}
           </section>
+
+          {storytellers.length > 0 && (
+            <section className="flex flex-col gap-4" aria-labelledby="storytellers-h" data-testid="admin-storyteller-families">
+              <h2 id="storytellers-h" className="font-display text-2xl font-semibold">Storytellers with an empty family</h2>
+              <p>
+                These grown-ups read for another family on a free Readli Voice account, but were sent through family setup and named a family
+                of their own. It has no kids and no plan. Removing it leaves their account, their voice and the family they read for alone.
+              </p>
+              <ul className="flex flex-col gap-3">
+                {storytellers.map((f) => (
+                  <li key={f.id} className="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
+                    <div className="min-w-0">
+                      <p className="font-semibold">{f.name}</p>
+                      <p className="break-all text-sm text-muted">{f.ownerEmail ?? "Owner email unknown"}</p>
+                      <p className="text-sm">Storyteller for {f.storytellerFor!.join(", ")} · since {day(f.createdAt)}</p>
+                    </div>
+                    <RemoveEmpty family={f} q={q} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </>
       )}
     </AdultPage>
@@ -132,6 +157,8 @@ function FamilyRow({ family: f, q }: { family: AdminFamily; q: string }) {
           {f.plan ? `${SOURCE[f.plan.source] ?? f.plan.source} plan${f.plan.endsAt ? ` until ${day(f.plan.endsAt)}` : ""}` : "No plan"}
         </p>
       </div>
+      <div className="flex flex-wrap items-center gap-2">
+      {f.empty && <RemoveEmpty family={f} q={q} />}
       {!f.plan ? (
         <form action={grantTesterPlanAction} className="flex flex-wrap items-center gap-2">
           <input type="hidden" name="householdId" value={f.id} />
@@ -153,6 +180,19 @@ function FamilyRow({ family: f, q }: { family: AdminFamily; q: string }) {
           <button className={buttonSecondary}>End tester plan</button>
         </form>
       ) : null}
+      </div>
     </li>
+  );
+}
+
+function RemoveEmpty({ family: f, q }: { family: AdminFamily; q: string }) {
+  return (
+    <form action={removeEmptyFamilyAction}>
+      <input type="hidden" name="householdId" value={f.id} />
+      <input type="hidden" name="q" value={q} />
+      <button className={buttonSecondary} aria-label={`Remove the empty family ${f.name}`}>
+        Remove empty family
+      </button>
+    </form>
   );
 }

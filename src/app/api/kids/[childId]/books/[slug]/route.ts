@@ -15,7 +15,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ childId:
   return withFamily(async ({ store, actor }) => {
     const narrators = await narratorsFor(store, actor, childId);
     const readiness = await kidsReadiness(store, actor, childId, slug);
-    const texts = bookTexts(slug, readiness.map((r) => r.revision), have);
+    const texts = bookTexts(slug, readiness.map((r) => r.revision), store.plan.narrationModelId, have);
     return NextResponse.json({ narrators, readiness, texts }, { headers: { "cache-control": "no-store" } });
   });
 }

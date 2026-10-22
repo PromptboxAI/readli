@@ -15,7 +15,8 @@ export type InviteStatus =
   | "ready_shared"
   | "revoked"
   | "expired"
-  | "withdrawn";
+  | "withdrawn"
+  | "declined";
 
 export const INVITE_TTL_DAYS = 14;
 
@@ -41,6 +42,11 @@ export interface FamilyInvite {
   email: string | null;
   status: InviteStatus;
   createdAt: Date;
+  expiresAt?: string;
+  /** The invitation went out by email at least once. */
+  emailed?: boolean;
+  /** It can be emailed again now: email is on here, the address is on file and resends remain. */
+  canResend?: boolean;
 }
 
 export const INVITE_STATUS: Record<InviteStatus, { label: string; next: string }> = {
@@ -55,6 +61,7 @@ export const INVITE_STATUS: Record<InviteStatus, { label: string; next: string }
   revoked: { label: "Voice not shared", next: "They've chosen not to share their voice right now." },
   expired: { label: "Invitation expired", next: "Send a fresh link whenever you're ready." },
   withdrawn: { label: "Invitation withdrawn", next: "That link no longer works." },
+  declined: { label: "Declined", next: "They said no thanks. We won't email them again for your family." },
 };
 
 export function isExpired(invite: FamilyInvite, now: Date): boolean {

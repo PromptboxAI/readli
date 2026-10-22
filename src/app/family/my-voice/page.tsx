@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { buttonSecondary } from "@/components/brand/buttons";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
 import { AccountVoiceControls } from "@/components/family/AccountVoiceControls";
@@ -26,6 +27,10 @@ export default async function MyVoicePage() {
   const user = deps ? await currentAdult() : null;
   const recording = deps && user ? await deps.store.findVoice(user.id).catch(() => null) : null;
   const model = deps && user ? await voiceModelStatus(deps, user.id).catch(() => null) : null;
+  const me = page.session.actor.adultId;
+  const parent = (page.state?.members ?? []).some((m) => m.adultId === me && m.role === "guardian" && m.removedAt === null);
+  // Storytellers have their own free Readli Voice home, outside the family portal.
+  if (page.session.account && !parent) redirect("/voice");
   return (
     <FamilyShell>
       <PreviewNote />
@@ -35,11 +40,22 @@ export default async function MyVoicePage() {
       {user && <AccountVoiceControls voice={recording && { status: recording.status, version: recording.version, updatedAt: recording.updatedAt }} />}
       {recording?.status === "ready" && (
         <section className="flex flex-col items-start gap-3 rounded-[var(--radius-panel)] bg-sky/40 p-6" data-testid="invite-family-card">
-          <h2 className="font-display text-2xl font-semibold">Invite your family</h2>
-          <p className="max-w-2xl">Send the grown-ups in your family a short story in your voice. They can listen without an account and start a free Readli Family trial.</p>
+          <h2 className="font-display text-2xl font-semibold">Share your voice with another family</h2>
+          <p className="max-w-2xl">
+            Invite another family to connect your voice. Their parents choose which children hear you, and you can stop sharing at any time.
+          </p>
           <Link href="/voice/invite" className={buttonSecondary}>
-            Invite your family
+            Share my voice
           </Link>
+          {parent && (
+            <p className="text-sm">
+              Adding someone to your own family?{" "}
+              <Link href="/family/narrators#invite" className="font-semibold underline">
+                Invite a storyteller
+              </Link>{" "}
+              from Family storytellers.
+            </p>
+          )}
         </section>
       )}
       <h2 className="font-display text-2xl font-semibold">Who can use it</h2>

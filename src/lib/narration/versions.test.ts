@@ -168,7 +168,7 @@ describe("existing audiobooks keep playing", () => {
     expect(kids.readiness).toBe("ready");
     expect(kids.revision).toBe(GOLDILOCKS_OLD);
     // The read-along is the narrated text, not today's.
-    const texts = bookTexts(GOLDILOCKS, [kids.revision]);
+    const texts = bookTexts(GOLDILOCKS, [kids.revision], store.plan.narrationModelId);
     expect(texts.texts[GOLDILOCKS_OLD]!.sentences).toEqual(old.sentences.map((s) => s.text));
 
     await startListening(store, maya, "maya", clock);

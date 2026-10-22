@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { FamilyOff, NeedsGrownUp } from "@/components/family/FamilyShell";
 import { KidsPlayer } from "@/components/family/KidsPlayer";
@@ -31,23 +30,17 @@ export default async function KidsListen({ params }: { params: Promise<{ slug: s
   const voiceId = narrators.find((n) => n.voiceId === saved?.voiceId)?.voiceId ?? narrators[0]?.voiceId ?? null;
   // The saved place, counted in the text this narrator's audiobook reads.
   const resume = await kidsResume(store, session.actor, child.id, book.slug, voiceId);
-  const texts = bookTexts(book.slug, readiness.map((r) => r.revision));
+  const texts = bookTexts(book.slug, readiness.map((r) => r.revision), store.plan.narrationModelId);
   return (
-    <main className="mx-auto flex min-h-dvh max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6">
-      <Link href="/kids" className="self-start font-display font-semibold underline underline-offset-4">
-        ← My stories
-      </Link>
-      <h1 className="font-display text-4xl font-semibold">{book.title}</h1>
-      <KidsPlayer
-        childId={child.id}
-        childName={child.nickname}
-        book={{ slug: book.slug, title: book.title }}
-        texts={texts}
-        initialReadiness={readiness}
-        initialNarrators={narrators}
-        resume={resume}
-        preview={!session.account}
-      />
-    </main>
+    <KidsPlayer
+      childId={child.id}
+      childName={child.nickname}
+      book={{ slug: book.slug, title: book.title, coverUrl: book.coverUrl }}
+      texts={texts}
+      initialReadiness={readiness}
+      initialNarrators={narrators}
+      resume={resume}
+      preview={!session.account}
+    />
   );
 }

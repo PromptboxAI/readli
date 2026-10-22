@@ -197,7 +197,7 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
         <li className="flex gap-3 px-4 py-3">
           <span className="font-bold text-muted">2</span>
           <span>
-            <strong>Prepare.</strong> The whole book, or one chapter at a time.
+            <strong>Prepare.</strong> {view.chapterGenerationEnabled ? "The whole book, or one chapter at a time." : "The whole story in one go."}
           </span>
         </li>
         <li className="flex gap-3 px-4 py-3">

@@ -4,6 +4,7 @@ import { voiceSettings } from "@/lib/voice/elevenlabs";
 import type { VoiceProvider } from "@/lib/voice/provider";
 import type { Actor, CreditLot, FamilyState, NarrationJob, NarrationLibrary, NarrationSegment } from "@/lib/family/model";
 import { activeChild, activeEntitlement, activeShare, activeSlot, childVoiceAccess, isActiveMember, liveSlots, narratorSlotCount, readyVoice } from "@/lib/family/permissions";
+import { calledIn } from "@/lib/family/names";
 import type { PlanConfig } from "@/lib/family/plan";
 import {
   actorLabel,
@@ -340,7 +341,7 @@ export function creditHistory(state: FamilyState, householdId: string) {
   for (const job of state.jobs.filter((j) => j.householdId === householdId)) {
     const library = state.libraries.find((l) => l.key === job.libraryKey);
     const text = library ? (libraryText(library) ?? bookText(library.bookSlug)) : null;
-    const owner = library ? state.adults.find((a) => a.id === state.voices.find((v) => v.id === library.voiceId)?.ownerId) : null;
+    const owner = library ? calledIn(state, state.adults.find((a) => a.id === state.voices.find((v) => v.id === library.voiceId)?.ownerId), householdId) : null;
     const entries = state.ledger.filter((e) => e.jobId === job.id);
     const sum = (kind: string) => entries.filter((e) => e.kind === kind).reduce((n, e) => n + e.credits, 0);
     const spent = job.status === "queued" || job.status === "running" ? sum("reserve") - sum("refund") : sum("commit");
@@ -476,7 +477,7 @@ function unavailableReason(state: FamilyState, plan: PlanConfig, householdId: st
 
 function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, text: BookText, voiceId: string, available: number, viewerId?: string): PrepareVoiceView {
   const v = state.voices.find((x) => x.id === voiceId)!;
-  const owner = state.adults.find((a) => a.id === v.ownerId)!;
+  const owner = calledIn(state, state.adults.find((a) => a.id === v.ownerId), householdId)!;
   const kids = state.children.filter((c) => c.householdId === householdId && c.deletedAt === null);
   const heard = narrationFor(state, plan, v.id, text, householdId);
   const { library, status } = heard;
@@ -723,7 +724,8 @@ export async function requestGeneration(
     const lots = spendableLots(s, store.plan, householdId, at);
     const available = lots.reduce((n, l) => n + l.left, 0);
     if (q.credits > available) {
-      throw new PermissionError(402, "not_enough_credits", "Not enough Readli credits for this. Get more credits or prepare a chapter at a time.", {
+      const tip = store.plan.chapterGenerationEnabled && text.chapters.length > 1 ? "Get more credits or prepare a chapter at a time." : "Get more credits or try a shorter story.";
+      throw new PermissionError(402, "not_enough_credits", `Not enough Readli credits for this. ${tip}`, {
         needed: q.credits,
         available,
         extra: q.credits - available,
@@ -910,7 +912,7 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
     job.status = allReady ? "done" : "failed";
     job.finishedAt = at;
     settleUnfinished(s, job, at);
-    const owner = voice ? s.adults.find((a) => a.id === voice.ownerId) : null;
+    const owner = voice ? calledIn(s, s.adults.find((a) => a.id === voice.ownerId), job.householdId) : null;
     const status = libraryStatus(s, library, text);
     s.notifications.push({
       id: randomUUID(),
@@ -966,17 +968,18 @@ export interface KidsNarratorReadiness {
 /** The read-along text of each revision narrators read, keyed by revision; `current` is today's. */
 export interface BookTexts {
   current: string;
-  texts: Record<string, { sentences: string[]; sentenceIds: string[] }>;
+  /** Each text's sentences, their ids, and roughly how long each takes to read aloud (for the time bar). */
+  texts: Record<string, { sentences: string[]; sentenceIds: string[]; seconds: number[] }>;
 }
 
 /** Texts for these revisions of a book, leaving out the ones the player already has. */
-export function bookTexts(slug: string, revisions: string[], have: string[] = []): BookTexts {
+export function bookTexts(slug: string, revisions: string[], modelId: string, have: string[] = []): BookTexts {
   const today = bookText(slug)!;
   const texts: BookTexts["texts"] = {};
   for (const r of new Set([today.revision, ...revisions])) {
     if (have.includes(r)) continue;
     const t = bookTextAt(slug, r);
-    if (t) texts[r] = { sentences: t.sentences.map((x) => x.text), sentenceIds: t.sentences.map((x) => x.id) };
+    if (t) texts[r] = { sentences: t.sentences.map((x) => x.text), sentenceIds: t.sentences.map((x) => x.id), seconds: t.sentences.map((x) => estimateSeconds(x.text.length, modelId)) };
   }
   return { current: today.revision, texts };
 }
@@ -1191,7 +1194,7 @@ export async function listenView(store: FamilyStore, actor: Actor | null, househ
   const voices = householdVoiceIds(state, householdId)
     .filter((id) => guardianVoiceAccess(state, store.plan, householdId, id))
     .map((id): ListenVoice => {
-      const owner = state.adults.find((a) => a.id === voiceOwnerOf(state, id));
+      const owner = calledIn(state, state.adults.find((a) => a.id === voiceOwnerOf(state, id)), householdId);
       const heard = narrationFor(state, store.plan, id, text, householdId);
       const readySentenceIds = heard.status.readySentenceIds;
       return {
@@ -1212,7 +1215,7 @@ export async function listenView(store: FamilyStore, actor: Actor | null, househ
     sentences: text.sentences.map((x) => x.text),
     sentenceIds: text.sentences.map((x) => x.id),
     voices,
-    texts: bookTexts(slug, voices.map((v) => v.revision)),
+    texts: bookTexts(slug, voices.map((v) => v.revision), store.plan.narrationModelId),
   };
 }
 

@@ -29,7 +29,7 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
  * listen to a sample and keep it. The voice is saved privately; sharing happens per family. A new
  * recording stays a candidate until "Keep my voice", so a working voice is never lost to a worse one.
  */
-export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
+export function AccountVoiceSetup({ hasVoice, next, parent = false }: { hasVoice: boolean; next?: string; parent?: boolean }) {
   const [step, setStep] = useState(0);
   const [agreed, setAgreed] = useState<boolean[]>(VOICE_CONSENTS.map(() => false));
   const [take, setTake] = useState<TakeDetails | null>(null);
@@ -189,6 +189,8 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
 
           {sample && !busy && (
             <div className="flex flex-col gap-2 rounded-2xl bg-surface p-4">
+              <p className="font-semibold">A story read by your Readli voice</p>
+              <p className="text-sm text-muted">This is new narration made from your recording, not the recording itself.</p>
               <audio key={sample.url} controls autoPlay src={sample.url} className="w-full" aria-label="A sample of your Readli voice" />
               <p className="text-sm text-muted">Noise clean-up {sample.cleanUp ? "on" : "off"}</p>
               {sample.standIn && <p className="text-sm font-semibold">Test mode: this is a stand-in sound, not your voice.</p>}
@@ -227,12 +229,14 @@ export function AccountVoiceSetup({ hasVoice }: { hasVoice: boolean }) {
           <h2 className="font-display text-3xl font-semibold">Your voice is ready</h2>
           <p className="max-w-md">It&apos;s private. Nobody can use it until you share it with a family, and their parents approve it for each child.</p>
           <div className="flex flex-wrap justify-center gap-3">
-            <Link href="/family/my-voice" className={buttonPrimary}>
-              Choose who can use it
+            <Link href={next ?? "/voice"} className={buttonPrimary}>
+              {next ? "Continue" : "Choose who can use it"}
             </Link>
-            <Link href="/family" className={buttonQuiet}>
-              Back to my family
-            </Link>
+            {parent && !next && (
+              <Link href="/family" className={buttonQuiet}>
+                Back to my family
+              </Link>
+            )}
           </div>
         </section>
       )}

@@ -33,7 +33,8 @@ const GROWN_UP_API = [
   "/api/invites",
   "/api/invites/inv-1",
   "/api/invites/accept",
-  "/api/people/user-1/photo",
+  "/api/people/user-1",
+  "/api/people/user-1/photo/extra",
   "/api/admin/anything",
   "/api/invitations",
   "/api/invitations/inv-1",
@@ -41,6 +42,7 @@ const GROWN_UP_API = [
   "/api/invitations/preview/approve",
   "/api/invitations/respond",
   "/api/gifts/preview",
+  "/api/family/requests/req-1",
 ];
 
 describe("Kids Mode routes", () => {
@@ -58,6 +60,7 @@ describe("Kids Mode routes", () => {
       "/api/kids/narrations",
       "/api/narration/audio/token",
       "/api/family/session",
+      "/api/people/user-1/photo",
     ]) {
       expect(kidsModeRoute(path), path).toBe("allow");
     }

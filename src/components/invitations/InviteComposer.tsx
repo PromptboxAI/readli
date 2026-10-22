@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { buttonPrimary, buttonQuiet, buttonSecondary } from "@/components/brand/buttons";
-import { MESSAGE_MAX, SEND_RESULT_MESSAGES, normalizeEmail, type SendResult } from "@/lib/invitations/invitations";
+import { DEFAULT_CONTRIBUTOR_MESSAGE, MESSAGE_MAX, SEND_RESULT_MESSAGES, normalizeEmail, type SendResult } from "@/lib/invitations/invitations";
 
 const RELATIONSHIPS = ["Son or daughter", "Grandchild's parent", "Husband or wife", "Significant other", "Partner", "Sibling", "Niece or nephew", "Friend of the family", "Other"];
 const field = "w-full rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/20 focus:outline-none focus:ring-ink";
@@ -98,8 +98,8 @@ export function InviteComposer({ maxPerSend, linkDays, shareConsent, adultsConse
 
       <label className="flex flex-col gap-1">
         <span className="font-display text-xl font-semibold">A note from you (optional)</span>
-        <textarea className={field} rows={3} maxLength={MESSAGE_MAX} value={message} onChange={(e) => setMessage(e.target.value)} disabled={Boolean(disabled)} />
-        <span className="text-sm text-muted">Shown in the email and on your preview page.</span>
+        <textarea className={field} rows={3} maxLength={MESSAGE_MAX} value={message} onChange={(e) => setMessage(e.target.value)} disabled={Boolean(disabled)} placeholder={DEFAULT_CONTRIBUTOR_MESSAGE} />
+        <span className="text-sm text-muted">Shown in the email and on your invitation page. Leave it blank to send the words above.</span>
       </label>
 
       <div className="flex flex-col gap-3">

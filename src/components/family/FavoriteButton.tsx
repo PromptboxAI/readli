@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 
-/** Heart toggle for one child's favourite stories. */
+/** Heart toggle for one child's favorite stories. Favorites only sort the shelf; they never change who may read or cost credits. */
 export function FavoriteButton({ childId, bookSlug, title, initial }: { childId: string; bookSlug: string; title: string; initial: boolean }) {
   const [on, setOn] = useState(initial);
   return (
     <button
       type="button"
       aria-pressed={on}
-      aria-label={`Favourite ${title}`}
+      aria-label={`Favorite: ${title}`}
       onClick={async () => {
         const next = !on;
         setOn(next);

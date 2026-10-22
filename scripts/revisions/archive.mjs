@@ -39,8 +39,9 @@ const note = (book, commit, published) => {
   const key = `${book.slug}:${book.revision}`;
   const was = seen.get(key);
   if (was) {
-    // Chapter titles and the book title aren't narrated and can change within a revision; the words can't.
-    const words = (b) => JSON.stringify(b.chapters.map((c) => c.sentences));
+    // Chapter titles, the book title and where a story is split into parts aren't narrated and can
+    // change within a revision; the sentences can't.
+    const words = (b) => JSON.stringify(b.chapters.flatMap((c) => c.sentences));
     if (words(was.book) !== words(book) || was.book.edition !== book.edition) throw new Error(`${key} built two different texts`);
     was.book = { ...book };
     was.lastSeen = commit.at > was.lastSeen ? commit.at : was.lastSeen;
