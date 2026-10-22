@@ -147,11 +147,13 @@ test("the player opens in Listen mode, switches to Read-along at the same place,
   await bar.focus();
   await page.keyboard.press("End");
   await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence (\d+) of \1$/);
-  const home = page.waitForResponse((r) => r.url().includes("/api/kids/maya/progress") && r.request().method() === "PUT" && r.request().postDataJSON().sentence === 0);
   await page.keyboard.press("Home");
   await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 1 of/);
   await expect(page.getByTestId("player-page")).toHaveText(/Page 1 of/);
-  await home;
+  // Only a story with some listening in it waits in Continue listening.
+  const moved = page.waitForResponse((r) => r.url().includes("/api/kids/maya/progress") && r.request().method() === "PUT" && r.request().postDataJSON().sentence === 1);
+  await page.getByRole("button", { name: "Next" }).click();
+  await moved;
 
   // Back on the bookshelf, the story waits in Continue listening.
   await page.getByRole("link", { name: "My stories" }).click();
