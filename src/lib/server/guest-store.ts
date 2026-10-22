@@ -49,9 +49,10 @@ export interface GuestStore {
   /** Database kill switch (feature_flags.demo_audio). */
   demoAudioEnabled(): Promise<boolean>;
   /** Guests whose session had expired at `asOfIso` (default now), with everything left to delete. */
-  listExpired(limit: number, asOfIso?: string): Promise<ExpiredGuest[]>;
+  /** `onlySessionId` limits it to one session, for the staging deletion check. */
+  listExpired(limit: number, asOfIso?: string, onlySessionId?: string): Promise<ExpiredGuest[]>;
   /** Guests whose session expired before this time and still aren't deleted. */
-  overdueCount(expiredBeforeIso: string): Promise<number>;
+  overdueCount(expiredBeforeIso: string, onlySessionId?: string): Promise<number>;
   /**
    * Records how far a guest's deletion got: provider voices marked deleted are not deleted again, and
    * failed ones show which step to retry. The encrypted reference stays until the session row goes.
@@ -159,9 +160,9 @@ export class MemoryGuestStore implements GuestStore {
     return true;
   }
 
-  async listExpired(limit: number, asOfIso = new Date().toISOString()) {
+  async listExpired(limit: number, asOfIso = new Date().toISOString(), onlySessionId?: string) {
     return [...this.guests.values()]
-      .filter((g) => Date.parse(g.session.expiresAt) <= Date.parse(asOfIso))
+      .filter((g) => Date.parse(g.session.expiresAt) <= Date.parse(asOfIso) && (!onlySessionId || g.session.id === onlySessionId))
       .slice(0, limit)
       .map((g) => ({
         sessionId: g.session.id,
@@ -170,8 +171,8 @@ export class MemoryGuestStore implements GuestStore {
       }));
   }
 
-  async overdueCount(expiredBeforeIso: string) {
-    return [...this.guests.values()].filter((g) => g.session.expiresAt < expiredBeforeIso).length;
+  async overdueCount(expiredBeforeIso: string, onlySessionId?: string) {
+    return [...this.guests.values()].filter((g) => g.session.expiresAt < expiredBeforeIso && (!onlySessionId || g.session.id === onlySessionId)).length;
   }
 
   async markDeletion(sessionId: string, _kind: "provider_voice", state: "deleted" | "failed") {
@@ -430,9 +431,11 @@ export class SupabaseGuestStore implements GuestStore {
     return row?.enabled === true;
   }
 
-  async listExpired(limit: number, asOfIso = new Date().toISOString()) {
+  async listExpired(limit: number, asOfIso = new Date().toISOString(), onlySessionId?: string) {
+    let query = this.db.from("guest_sessions").select("id").lte("expires_at", asOfIso);
+    if (onlySessionId) query = query.eq("id", onlySessionId);
     const sessions = await this.must<Row[]>(
-      this.db.from("guest_sessions").select("id").lte("expires_at", asOfIso).order("expires_at").limit(limit),
+      query.order("expires_at").limit(limit),
       "list expired guests",
     );
     const out: ExpiredGuest[] = [];
@@ -468,8 +471,10 @@ export class SupabaseGuestStore implements GuestStore {
     }
   }
 
-  async overdueCount(expiredBeforeIso: string) {
-    const { count, error } = await this.db.from("guest_sessions").select("id", { count: "exact", head: true }).lt("expires_at", expiredBeforeIso);
+  async overdueCount(expiredBeforeIso: string, onlySessionId?: string) {
+    let query = this.db.from("guest_sessions").select("id", { count: "exact", head: true }).lt("expires_at", expiredBeforeIso);
+    if (onlySessionId) query = query.eq("id", onlySessionId);
+    const { count, error } = await query;
     if (error) throw new Error(`count overdue guests: ${error.message}`);
     return count ?? 0;
   }

@@ -82,10 +82,15 @@ describe("demo deletion end to end", () => {
     const { store, tables, files } = setup();
     const provider = new StubVoiceProvider();
     const own = await demo(store, tables, "clone-own", 25);
-    const other = await demo(store, tables, "clone-other", 30);
+    const other = await demo(store, tables, "clone-other", 50);
+    // A row the check can't decrypt (say, copied from another project) would fail the run if it were read.
+    const otherVoice = (tables.guest_assets ?? []).find((r) => r.guest_session_id === other && r.kind === "provider_voice")!;
+    const otherRef = otherVoice.provider_ref_encrypted;
+    otherVoice.provider_ref_encrypted = "not-decryptable";
     const scoped = scopeCleanupTo(store, provider, own, "clone-own");
 
-    expect((await cleanupExpiredGuests({ config, ...scoped })).deleted).toBe(1);
+    // Only its own demo counts: the other one is past 48 hours but isn't reported as overdue.
+    expect(await cleanupExpiredGuests({ config, ...scoped })).toEqual({ deleted: 1, failed: 0, backlog: false, overdue: 0 });
     expect(provider.deleted).toEqual(["clone-own"]);
     expect((tables.guest_sessions ?? []).some((r) => r.id === own)).toBe(false);
     // Another expired demo is left alone, with its files, rows and clone.
@@ -97,6 +102,8 @@ describe("demo deletion end to end", () => {
     await expect(scoped.store.deleteSession(other)).rejects.toThrow(/Refusing/);
     await expect(scoped.store.markDeletion(other, "provider_voice", "deleted")).rejects.toThrow(/Refusing/);
     expect(provider.deleted).toEqual(["clone-own"]);
+    expect(otherVoice.deletion_state).not.toBe("deleted");
+    otherVoice.provider_ref_encrypted = otherRef;
   });
 
   it("also deletes a stray file in the demo's folder that has no database row", async () => {

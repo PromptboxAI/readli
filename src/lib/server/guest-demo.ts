@@ -116,15 +116,16 @@ export async function cleanupExpiredGuests(deps: GuestDemoDeps, limit = 50, budg
 
 /**
  * A store and provider that clean-up can use only on one demo session and its clone, for the staging
- * deletion check: other expired demos are invisible, and any delete naming another session, file or
- * voice throws instead of running.
+ * deletion check: other demos are never read (their rows aren't even fetched), and any delete naming
+ * another session, file or voice throws instead of running.
  */
 export function scopeCleanupTo(store: GuestStore, provider: VoiceProvider, sessionId: string, voiceId: string): { store: GuestStore; provider: VoiceProvider } {
   const refuse = (what: string): never => {
     throw new Error(`Refusing to delete ${what}: it wasn't created by this check.`);
   };
   const scopedStore: GuestStore = Object.assign(Object.create(store) as GuestStore, {
-    listExpired: async (limit: number, asOfIso?: string) => (await store.listExpired(1000, asOfIso)).filter((g) => g.sessionId === sessionId).slice(0, limit),
+    listExpired: (limit: number, asOfIso?: string) => store.listExpired(limit, asOfIso, sessionId),
+    overdueCount: (expiredBeforeIso: string) => store.overdueCount(expiredBeforeIso, sessionId),
     markDeletion: async (id: string, kind: "provider_voice", state: "deleted" | "failed") => (id === sessionId ? store.markDeletion(id, kind, state) : refuse(`session ${id}`)),
     deleteStorage: async (keys: string[]) => {
       const other = keys.find((k) => !k.startsWith(`${sessionId}/`));
