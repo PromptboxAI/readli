@@ -225,13 +225,24 @@ describe("signup and pricing amendment", () => {
     state.voices.push({ id: "voice-andrea", ownerId: "andrea", version: 1, status: "ready", createdAt: clock().toISOString(), deletedAt: null });
     const andrea: Actor = { kind: "adult", adultId: "andrea" };
 
-    await setHouseholdShare(store, andrea, { voiceId: "voice-andrea", householdId: H, shared: true, policyVersion: "p" }, clock);
-    expect(state.notifications.at(-1)).toMatchObject({ householdId: H, href: "/family/narrators" });
-    expect(state.notifications.at(-1)!.text).toContain("Andrea shared their voice");
+    // Called "Mommy" in this family before sharing: the parents' notice uses it, once, and links to her card.
+    await setStorytellerNickname(store, andrea, H, "andrea", "Mommy");
+    const notice = await setHouseholdShare(store, andrea, { voiceId: "voice-andrea", householdId: H, shared: true, policyVersion: "p" }, clock);
+    expect(notice).toMatchObject({ title: "Mommy is ready to read!", cta: "Add Mommy to My Family", href: "/family/narrators?add=voice-andrea" });
+    expect(state.notifications.at(-1)).toMatchObject({ householdId: H, href: "/family/narrators?add=voice-andrea", readAt: null });
+    expect(state.notifications.at(-1)!.text).toContain("Andrea (Mommy) recorded a voice and shared it with");
     expect(state.slots.some((s) => s.voiceId === "voice-andrea")).toBe(false);
+    // Sharing again changes nothing and tells no one twice.
+    const count = state.notifications.length;
+    expect(await setHouseholdShare(store, andrea, { voiceId: "voice-andrea", householdId: H, shared: true, policyVersion: "p" }, clock)).toBeNull();
+    expect(state.notifications.length).toBe(count);
+    await setStorytellerNickname(store, mom, H, "andrea", "");
 
-    // Only this family's parents can set it, and it stays within this family.
-    await rejects(setStorytellerNickname(store, andrea, H, "andrea", "Queen"), 403);
+    // She can choose her own name in this family, and the parents can change it; she can't rename anyone else.
+    await setStorytellerNickname(store, andrea, H, "andrea", "Queen");
+    expect(state.members.find((m) => m.householdId === H && m.adultId === "andrea")!.nickname).toBe("Queen");
+    expect(state.members.find((m) => m.householdId === H2 && m.adultId === "andrea")!.nickname ?? null).toBeNull();
+    await rejects(setStorytellerNickname(store, andrea, H, "sara", "Queen"), 403);
     await rejects(setStorytellerNickname(store, mom, H, "andrea", "x".repeat(41)), 400, "nickname_too_long");
     await setStorytellerNickname(store, mom, H, "andrea", "  Mommy ");
     const card = (await narratorSlots(store, mom, H, clock)).shared.find((n) => n.voiceId === "voice-andrea")!;

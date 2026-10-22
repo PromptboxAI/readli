@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { buttonSecondary } from "@/components/brand/buttons";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
 import { AccountVoiceControls } from "@/components/family/AccountVoiceControls";
@@ -28,6 +29,8 @@ export default async function MyVoicePage() {
   const model = deps && user ? await voiceModelStatus(deps, user.id).catch(() => null) : null;
   const me = page.session.actor.adultId;
   const parent = (page.state?.members ?? []).some((m) => m.adultId === me && m.role === "guardian" && m.removedAt === null);
+  // Storytellers have their own free Readli Voice home, outside the family portal.
+  if (page.session.account && !parent) redirect("/voice");
   return (
     <FamilyShell>
       <PreviewNote />

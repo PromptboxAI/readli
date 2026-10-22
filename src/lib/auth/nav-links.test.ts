@@ -40,7 +40,7 @@ describe("header for each account", () => {
 
   it("never offers My Family just for being signed in", () => {
     const voice = adult({ plan: "none", hadFamily: false }, true);
-    expect(primaryAction(voice)).toEqual({ href: "/family/my-voice", label: "My Voice" });
+    expect(primaryAction(voice)).toEqual({ href: "/voice", label: "My Voice" });
     expect(labels(voice)).toEqual(["My Voice", "Account settings", "Help", "Start a free Family trial"]);
     expect(labels(adult({ plan: "none", hadFamily: true }))).not.toContain("Start a free Family trial");
   });

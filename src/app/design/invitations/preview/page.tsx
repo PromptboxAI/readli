@@ -44,7 +44,7 @@ export default async function VoicePreviewDesign() {
               </h2>
               <p>Sign in and add June to your Family Circle. No new account, no extra charge to connect.</p>
               <a href="/design/invitations/accept" className={`${buttonSecondary} w-fit`}>
-                Sign in to add June
+                Connect June&apos;s voice
               </a>
             </section>
             <section className="flex flex-col gap-2 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10" aria-labelledby="how-h">

@@ -63,7 +63,7 @@ describe("family invitations", () => {
       reportUrl: "https://readli.ai/v/respond/r?action=report",
       linkDays: 14,
     });
-    expect(email.subject).toBe("June <Walker> recorded a story for your family on Readli");
+    expect(email.subject).toBe("June <Walker> wants to read stories to your family on Readli");
     expect(email.html).toContain("June &lt;Walker&gt;");
     expect(email.html).not.toMatch(/<img/i);
     expect(email.html).toContain("https://readli.ai/v/tok");

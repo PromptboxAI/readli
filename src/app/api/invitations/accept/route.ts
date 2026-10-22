@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { jsonBody, withFamily } from "@/lib/family/http";
 import { guardianHousehold } from "@/lib/family/service";
-import { invitationContext } from "@/lib/invitations/context";
+import { invitationContext, requestOrigin } from "@/lib/invitations/context";
 import { ACCEPT_MESSAGES, INVITE_COOKIE, acceptInvitation } from "@/lib/invitations/server";
 import { fail } from "@/lib/server/http";
 
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     if (!session.account || actor.kind !== "adult") return fail(403, "not_guardian", ACCEPT_MESSAGES.not_guardian);
     const householdId = await guardianHousehold(store, actor);
     if (!householdId) return fail(403, "not_guardian", ACCEPT_MESSAGES.not_guardian);
-    const result = await acceptInvitation(ctx.db, String(token ?? ""), actor.adultId, householdId);
+    const result = await acceptInvitation(ctx.db, String(token ?? ""), actor.adultId, householdId, { mailer: ctx.mailer, origin: await requestOrigin() });
     if (result !== "accepted") return fail(409, result, ACCEPT_MESSAGES[result]);
     const response = NextResponse.json({ ok: true, householdId });
     response.cookies.delete(INVITE_COOKIE);

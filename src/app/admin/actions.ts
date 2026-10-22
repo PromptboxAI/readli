@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { accountDb } from "@/lib/family/account-store";
 import { requireAdmin, type AdminUser } from "@/lib/admin/access";
-import { AdminActionError, endTesterPlan, grantTesterPlan, parseTesterDays } from "@/lib/admin/tester-plans";
+import { AdminActionError, endTesterPlan, grantTesterPlan, parseTesterDays, removeEmptyFamily } from "@/lib/admin/tester-plans";
 
 /** Runs an admin change after re-checking who is asking, then returns to /admin with the outcome. */
 async function asAdmin(run: (ctx: { db: SupabaseClient; admin: AdminUser }) => Promise<string>, back: string) {
@@ -63,4 +63,8 @@ export async function updateCostSettingsAction(form: FormData) {
     outcome = error ? `err=${encodeURIComponent(`Couldn't save: ${error.message}`)}` : `ok=${encodeURIComponent("Saved the cost settings.")}`;
   }
   redirect(`/admin/finance?${outcome}`);
+}
+
+export async function removeEmptyFamilyAction(form: FormData) {
+  await asAdmin(async ({ db, admin }) => `Removed ${await removeEmptyFamily(db, admin, field(form, "householdId"))}. The grown-up's account and voice are unchanged.`, field(form, "q"));
 }

@@ -33,14 +33,14 @@ export function primaryAction(nav: NavState): NavLink | null {
   if (nav.kind === "kids") return { href: "/kids", label: "Readli Kids" };
   if (nav.kind === "visitor") return { href: "/try", label: "Try It Free" };
   // A Family account reaches My Family from the account menu, so the header doesn't repeat it as a button.
-  return nav.family.plan === "none" ? { href: "/family/my-voice", label: "My Voice" } : null;
+  return nav.family.plan === "none" ? { href: "/voice", label: "My Voice" } : null;
 }
 
 /** The account menu, showing only places this account can open. Sign out is added by the menu itself. */
 export function accountLinks(nav: Extract<NavState, { kind: "adult" }>): NavLink[] {
   const links: NavLink[] = [];
   if (nav.family.plan !== "none") links.push({ href: "/family", label: "My Family" });
-  links.push({ href: "/family/my-voice", label: "My Voice" }, { href: "/family/account", label: "Account settings" }, { href: "/help", label: "Help" });
+  links.push({ href: nav.family.plan === "none" ? "/voice" : "/family/my-voice", label: "My Voice" }, { href: "/family/account", label: "Account settings" }, { href: "/help", label: "Help" });
   if (nav.family.plan === "trial") links.push({ href: "/family/billing", label: "Choose a plan", tone: "offer" });
   if (nav.trialOffered) links.push({ href: "/signup/family", label: "Start a free Family trial", tone: "offer" });
   return links;

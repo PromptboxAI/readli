@@ -11,6 +11,7 @@ import { paymentsOn } from "@/lib/billing/config";
 import { annualSavingsPercent, pricing } from "@/lib/content/pricing";
 import { formatPrice } from "@/lib/family/plan";
 import { invitationContext } from "@/lib/invitations/context";
+import { DEFAULT_CONTRIBUTOR_MESSAGE } from "@/lib/invitations/invitations";
 import { landingFor } from "@/lib/invitations/server";
 
 export const metadata: Metadata = { title: "A story for your family | Readli", robots: { index: false, follow: false }, referrer: "no-referrer" };
@@ -54,8 +55,10 @@ export default async function InvitationPreviewPage({ params }: { params: Promis
       <OpenedBeacon token={token} />
       <section className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-sky/40 p-6 sm:p-10" data-testid="invitation-preview">
         {landing.recipientName && <p className="font-display text-lg font-semibold text-coral-deep">An invitation for {landing.recipientName}</p>}
-        <h1 className="font-display text-4xl font-semibold leading-tight sm:text-5xl">{name} recorded a story for your family</h1>
-        {landing.message && <blockquote className="whitespace-pre-line rounded-2xl bg-surface/80 px-5 py-4 text-lg italic">&ldquo;{landing.message}&rdquo;</blockquote>}
+        <h1 className="font-display text-4xl font-semibold leading-tight sm:text-5xl">
+          {landing.hasPreview ? `${name} recorded a story for your family` : `${name} wants to read stories to your family`}
+        </h1>
+        <blockquote className="whitespace-pre-line rounded-2xl bg-surface/80 px-5 py-4 text-lg italic">&ldquo;{landing.message || DEFAULT_CONTRIBUTOR_MESSAGE}&rdquo;</blockquote>
         {landing.hasPreview && landing.book ? (
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             {landing.book.coverUrl && <Image src={landing.book.coverUrl} alt={`Cover of ${landing.book.title}`} width={120} height={160} className="w-28 shrink-0 rounded-2xl shadow-md" />}
@@ -64,10 +67,8 @@ export default async function InvitationPreviewPage({ params }: { params: Promis
               <PlayButton label={`${name} reads ${landing.book.title}`} endpoint="/api/invitations/play" body={{ token }} testId="play-preview" />
             </div>
           </div>
-        ) : (
-          <p className="rounded-2xl bg-surface/80 p-4">{name}&apos;s preview isn&apos;t available right now. You can still start your family below.</p>
-        )}
-        <p className="text-sm">{name} chose this passage to share. It was read with their Readli voice; their original recordings stay private.</p>
+        ) : null}
+        {landing.hasPreview && <p className="text-sm">{name} chose this passage to share. It was read with their Readli voice; their original recordings stay private.</p>}
       </section>
 
       <section className="flex flex-col gap-2">
@@ -95,9 +96,9 @@ export default async function InvitationPreviewPage({ params }: { params: Promis
             <h2 id="have-h" className="font-display text-2xl font-semibold">
               Already have Readli Family?
             </h2>
-            <p>Sign in and add {name} to your Family Circle. No new account, no extra charge to connect.</p>
+            <p>Sign in and connect {name}&apos;s voice to your family. No new account, no extra charge to connect.</p>
             <Link href={`/v/${token}/connect`} className={`${buttonSecondary} w-fit`} data-testid="connect-existing">
-              Sign in to add {name}
+              Connect {name}&apos;s voice
             </Link>
           </section>
           <section className="flex flex-col gap-2 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10" aria-labelledby="how-h">

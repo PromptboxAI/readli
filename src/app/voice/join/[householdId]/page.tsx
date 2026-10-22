@@ -33,8 +33,8 @@ export default async function JoinStepsPage({ params }: { params: Promise<{ hous
         <section role="alert" className="flex flex-col items-start gap-3 rounded-[var(--radius-panel)] bg-coral/20 p-6">
           <h1 className="font-display text-2xl font-semibold">You&apos;re not part of that family yet</h1>
           <p>Open the invitation link the family sent you to join them first.</p>
-          <Link href="/family/my-voice" className={buttonPrimary}>
-            My voice
+          <Link href="/voice" className={buttonPrimary}>
+            My Readli Voice home
           </Link>
         </section>
       </AdultPage>
@@ -53,6 +53,7 @@ export default async function JoinStepsPage({ params }: { params: Promise<{ hous
         familyName={family.name}
         voice={voice ? { id: voice.voiceId, ready: voice.status === "ready" } : null}
         shared={shared}
+        nickname={state.members.find((m) => m.householdId === householdId && m.adultId === user.id && m.removedAt === null)?.nickname ?? ""}
         recordHref={`/voice/record?next=${encodeURIComponent(here)}`}
       />
     </AdultPage>

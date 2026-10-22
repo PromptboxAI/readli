@@ -4,6 +4,13 @@ import { useId, useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { RELATIONSHIPS, type FamilyInvite } from "@/lib/invites/family-invites";
 
+/** Why an invitation wasn't emailed; mirrors EMAIL_MESSAGES on the server. */
+const NOT_EMAILED: Record<string, string> = {
+  suppressed: "asked not to get Readli invitations, so we didn't email them.",
+  daily_limit: "wasn't emailed because you've reached today's email limit.",
+  failed: "wasn't emailed because something went wrong on our side.",
+};
+
 export type SavedInvite = Omit<FamilyInvite, "createdAt"> & { createdAt: string | Date };
 
 const field = "min-h-12 w-full rounded-2xl border-[3px] border-ink/20 bg-surface px-4 text-lg focus:border-ink";
@@ -20,7 +27,7 @@ export function InviteStoryteller({ live, initialName = "", onSent, onClose }: {
   const [relationship, setRelationship] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [sent, setSent] = useState<{ name: string; link: string | null } | null>(null);
+  const [sent, setSent] = useState<{ name: string; link: string | null; email: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
   const emailOk = email.trim() === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -33,7 +40,7 @@ export function InviteStoryteller({ live, initialName = "", onSent, onClose }: {
     if (!live) {
       const invite: SavedInvite = { id: `preview-${Date.now()}`, name: name.trim() || email.trim().split("@")[0]!, relationship, email: null, status: "invited", createdAt: new Date() };
       onSent(invite);
-      setSent({ name: invite.name, link: null });
+      setSent({ name: invite.name, link: null, email: "off" });
       return;
     }
     setBusy(true);
@@ -42,7 +49,7 @@ export function InviteStoryteller({ live, initialName = "", onSent, onClose }: {
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error?.message ?? "That didn't work. Please try again.");
       onSent(body.invite as SavedInvite);
-      setSent({ name: body.invite.name as string, link: body.link as string });
+      setSent({ name: body.invite.name as string, link: body.link as string, email: typeof body.email === "string" ? body.email : "off" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "That didn't work. Please try again.");
     } finally {
@@ -69,7 +76,15 @@ export function InviteStoryteller({ live, initialName = "", onSent, onClose }: {
         <h3 className="font-display text-2xl font-semibold">Invitation ready for {sent.name}</h3>
         {sent.link ? (
           <>
-            <p>Email sending isn&apos;t switched on yet, so send {sent.name} this private link by text or email. It works once and expires in 14 days.</p>
+            {sent.email === "sent" ? (
+              <p data-testid="invite-emailed">We emailed {sent.name} the invitation. You can also send them this private link yourself. It works once and expires in 14 days.</p>
+            ) : sent.email in NOT_EMAILED ? (
+              <p>
+                {sent.name} {NOT_EMAILED[sent.email]} You can send them this private link by text or email. It works once and expires in 14 days.
+              </p>
+            ) : (
+              <p>Email sending isn&apos;t switched on yet, so send {sent.name} this private link by text or email. It works once and expires in 14 days.</p>
+            )}
             <p className="w-full break-all rounded-2xl bg-surface p-3 font-mono text-sm" data-testid="invite-link">
               {sent.link}
             </p>
