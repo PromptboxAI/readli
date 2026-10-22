@@ -8,6 +8,8 @@
  * or boxing his ear. Just So Stories keeps only its seven gentlest tales.
  * Kevin, 2026-10-12: Raggedy Ann Stories has light edits to dated passages (Dinah's description, and the
  * "Indian doll" is a scout doll). A Child's Garden of Verses leaves out six poems with dated lines.
+ * Kevin, 2026-10-22: every text is scanned for outdated or now-offensive words before it is added
+ * (src/lib/content/language-check.ts; run `npm run scan:language -- <book.json>` on a new import).
  */
 import type { CatalogBook } from "../catalog";
 import AChildsGardenOfVerses from "./a-childs-garden-of-verses.json";
