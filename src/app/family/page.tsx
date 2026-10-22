@@ -11,6 +11,7 @@ import { SetKidsPin } from "@/components/family/SetKidsPin";
 import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
 import { FamilyBookshelf, KidCards, StorytellersCard } from "@/components/family/HomeShelf";
 import { HomeNotice } from "@/components/family/HomeNotice";
+import { StoryRequests } from "@/components/family/StoryRequests";
 import { demoFamilyState } from "@/lib/family/demo-family";
 import { familyHome, homeNotice, noticeText } from "@/lib/family/home";
 import { planConfig } from "@/lib/family/plan";
@@ -246,6 +247,8 @@ export default async function FamilyHome() {
                 </p>
               )}
             </section>
+
+            {view && view.requests.length > 0 && <StoryRequests requests={view.requests} />}
 
             {view && (
               <section id="bookshelf" className="flex scroll-mt-24 flex-col gap-3" aria-labelledby="bookshelf-h">

@@ -716,3 +716,48 @@ export async function setFavorite(store: FamilyStore, actor: Actor | null, child
   });
   return childFavorites(store, actor, childId);
 }
+
+// Story requests: a child asks, a grown-up decides --------------------------
+
+/** Open requests per child, so a curious child can't flood the grown-ups. */
+export const MAX_OPEN_REQUESTS = 10;
+
+/** The books this child has asked for that nobody has dealt with yet. */
+export async function childRequests(store: FamilyStore, actor: Actor | null, childId: string): Promise<string[]> {
+  const state = await store.read();
+  requireChildAccess(state, actor, childId);
+  return (state.requests ?? []).filter((r) => r.childId === childId && r.resolvedAt === null).map((r) => r.bookSlug);
+}
+
+/**
+ * A child asks a grown-up for a book. It only records the wish for the family's grown-ups to see on
+ * Family Home; nothing is prepared and no credits are spent until a grown-up chooses to.
+ */
+export async function requestStory(store: FamilyStore, actor: Actor | null, childId: string, bookSlug: string, clock: Clock = now): Promise<string[]> {
+  const state = await store.read();
+  requireChildAccess(state, actor, childId);
+  const child = activeChild(state, childId);
+  if (!child) throw new PermissionError(404, "no_child", "That profile isn't here.");
+  const open = (state.requests ?? []).filter((r) => r.childId === childId && r.resolvedAt === null);
+  if (!open.some((r) => r.bookSlug === bookSlug)) {
+    if (open.length >= MAX_OPEN_REQUESTS) throw new PermissionError(429, "too_many_requests", "You've asked for lots of stories. A grown-up will look at them soon.");
+    const at = clock().toISOString();
+    await store.write((s) => {
+      s.requests = [...(s.requests ?? []), { id: randomUUID(), householdId: child.householdId, childId, bookSlug, at, resolvedAt: null }];
+    });
+  }
+  return childRequests(store, actor, childId);
+}
+
+/** A parent or guardian of the family clears a request from Family Home. */
+export async function dismissStoryRequest(store: FamilyStore, actor: Actor | null, requestId: string, clock: Clock = now): Promise<void> {
+  const state = await store.read();
+  const request = (state.requests ?? []).find((r) => r.id === requestId);
+  if (!request) throw new PermissionError(404, "no_request", "That request isn't here any more.");
+  requireHouseholdGuardian(state, actor, request.householdId);
+  const at = clock().toISOString();
+  await store.write((s) => {
+    const r = (s.requests ?? []).find((x) => x.id === requestId);
+    if (r && r.resolvedAt === null) r.resolvedAt = at;
+  });
+}

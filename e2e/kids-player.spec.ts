@@ -56,6 +56,38 @@ test("Continue listening isn't repeated in Ready to listen, and a finished story
   await expect(page.getByTestId("kids-ready").getByRole("link", { name: /The Lion and the Mouse/ })).toBeVisible();
 });
 
+test("a child asks a grown-up for a story, and it waits on Family Home with a way to prepare it", async ({ page, context, browser }, info) => {
+  await signIn(page, "adult:sara");
+  const parent = await context.cookies();
+  await signIn(page, "child:maya");
+  await page.goto("/kids/discover");
+  await page.getByTestId("ask-thumbelina").click();
+  await expect(page.getByTestId("asked-thumbelina")).toBeVisible();
+  // Asking only sends the request: the book still isn't playable and nothing here prepares it.
+  await expect(page.getByTestId("discover-books").getByRole("link")).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByTestId("asked-thumbelina")).toBeVisible();
+  await noOverflow(page);
+  await page.screenshot({ path: `e2e/screenshots/kids-asked-${info.project.name}.png`, fullPage: true });
+  // The family Home is out of reach in Kids Mode.
+  expect((await page.request.delete("/api/family/requests/anything")).status()).toBeGreaterThanOrEqual(400);
+
+  const grownUp = await browser.newContext({ viewport: page.viewportSize() ?? undefined });
+  await grownUp.addCookies(parent);
+  const home = await grownUp.newPage();
+  await home.goto("/family");
+  const request = home.getByTestId("request-thumbelina");
+  await expect(request).toContainText("Maya would like Thumbelina");
+  await expect(home.getByTestId("prepare-thumbelina")).toHaveAttribute("href", "/family/books/thumbelina");
+  await noOverflow(home);
+  await home.screenshot({ path: `e2e/screenshots/home-requests-${info.project.name}.png`, fullPage: true });
+  await request.getByRole("button", { name: /Dismiss Maya's request/ }).click();
+  await expect(request).toHaveCount(0);
+  await home.reload();
+  await expect(home.getByTestId("story-requests")).toHaveCount(0);
+  await grownUp.close();
+});
+
 test("the player opens in Listen mode, switches to Read-along at the same place, and remembers it", async ({ page }, info) => {
   await signIn(page, "adult:sara");
   await signIn(page, "child:maya");
