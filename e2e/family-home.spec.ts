@@ -19,9 +19,22 @@ test("the family home leads with the kids, stories and storytellers", async ({ p
   await expect(kids).toContainText("Leo");
   await expect(kids.getByRole("button", { name: "Open Maya's Readli Kids" })).toBeVisible();
 
-  // Mom's voice is prepared for the homepage stories in the preview.
-  await expect(page.getByTestId("shelf-ready").getByTestId("home-book-the-lion-and-the-mouse")).toContainText("Ready with Mom");
-  await expect(page.getByTestId("shelf-new")).toBeVisible();
+  // Every card opens Readli Kids from the same place, and says where that child is.
+  await expect(kids).toHaveAttribute("data-layout", "detailed");
+  await expect(kids.getByRole("button", { name: /Readli Kids/ })).toHaveCount(2);
+  await expect(page.getByTestId("kids-mode-note")).toContainText("family PIN");
+
+  // Mom's voice is prepared for the homepage stories in the preview: one row per book, with each child's place.
+  const lion = page.getByTestId("shelf-book-the-lion-and-the-mouse");
+  await expect(lion).toHaveAttribute("data-state", "ready");
+  await expect(lion).toContainText("Read by Mom");
+  await expect(lion).toContainText("Maya · not started");
+  // A book carries no status of its own, only each child's place.
+  for (const label of ["Ready to play", "In progress", "Completed"]) await expect(lion).not.toContainText(label);
+  // Find your next story leads to Books: a slim strip on phones and tablets, a card beside the kids on desktop.
+  const next = info.project.name === "desktop" ? page.getByTestId("next-story") : page.getByTestId("next-story-strip");
+  await expect(next.getByRole("link", { name: "Browse Books" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Invite a storyteller" })).toHaveAttribute("href", "/family/narrators#invite");
 
   const storytellers = page.getByTestId("home-storytellers");
   await expect(storytellers).toContainText("Approved for every child");
@@ -38,15 +51,15 @@ test("parent controls gather the admin pages", async ({ page }, info) => {
   await page.goto("/family");
   const nav = page.getByRole("navigation", { name: "Readli Family" });
   await expect(nav.getByRole("link")).toHaveText(["Home", "Books", "Family", "Parent Controls"]);
-  await expect(page.getByTestId("home-controls").getByRole("link", { name: /Readli credits/ })).toContainText("left");
-  await page.getByTestId("home-controls").getByRole("link", { name: "Open Parent Controls" }).click();
+  await nav.getByRole("link", { name: "Parent Controls" }).click();
   await expect(page.getByRole("heading", { name: "Parent Controls" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Parent Controls" })).toHaveAttribute("aria-current", "page");
   const controls = page.getByTestId("parent-controls");
-  for (const name of ["Kids profiles", "Family storytellers", "My Voice", "Readli credits", "Plan and billing", "Kids Mode PIN and devices", "Account settings", "Help"]) {
+  for (const name of ["Kids profiles", "Family storytellers", "My Voice", "Readli credits", "Plan and billing", "Kids devices and PIN", "Account settings", "Help"]) {
     await expect(controls.getByRole("link", { name: new RegExp(name) })).toBeVisible();
   }
   await expect(controls.getByRole("link", { name: /Kids profiles/ })).toContainText("2 of 6");
+  await expect(controls.getByRole("link", { name: /Readli credits/ })).toContainText("left");
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/parent-controls-${info.project.name}.png`, fullPage: true });
 });
@@ -100,7 +113,7 @@ test("Back after approving a storyteller shows the change, not a stale page", as
   await page.goto("/family");
   const dad = page.getByTestId("home-storytellers").getByRole("link", { name: /Dad/ });
   await expect(dad).toContainText("Approved for Leo");
-  await page.getByRole("link", { name: "Manage storytellers" }).first().click();
+  await page.goto("/family/kids/maya/storytellers");
   await expect(page.getByRole("heading", { name: "Manage storytellers for Maya" })).toBeVisible();
   await page.getByRole("switch", { name: "Dad for Maya" }).click();
   await expect(page.getByTestId("storyteller-voice-ben")).toContainText("Approved for Maya");
@@ -169,4 +182,36 @@ test("a book page sets up a storyteller in place, prepares the audiobook and pla
   await ready.getByRole("link", { name: "Play now" }).click();
   await expect(page).toHaveURL(/\/family\/books\/the-princess-and-the-pea\/listen\?voice=voice-priya/);
   await expect(page.getByTestId("grown-up-player")).toBeVisible();
+});
+
+test("Kids devices separates temporary Kids Mode from a registered device", async ({ page }, info) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/devices");
+  await expect(page.getByRole("heading", { name: "Kids devices and PIN" })).toBeVisible();
+  const modes = page.getByTestId("kids-modes");
+  await expect(modes).toContainText("Temporary");
+  await expect(modes).toContainText("Ends on its own after 12 hours, and never registers a device");
+  await expect(modes).toContainText("Stays set up");
+  await expect(modes).toContainText("Ends after 90 days unused");
+  await expect(page.getByRole("heading", { name: "Family PIN" })).toBeVisible();
+  await noOverflow(page);
+  await page.screenshot({ path: `e2e/screenshots/kids-devices-${info.project.name}.png`, fullPage: true });
+});
+
+test("six kids stay easy to tell apart, each one tap from Readli Kids, without sideways scrolling", async ({ page }, info) => {
+  await signIn(page, "adult:sara");
+  for (const name of ["Ava", "Ben", "Cleo", "Dev"]) expect((await page.request.post("/api/family/children", { data: { nickname: name } })).status()).toBe(200);
+  await page.goto("/family");
+  const kids = page.getByTestId("home-kids");
+  await expect(kids).toHaveAttribute("data-layout", "compact");
+  await expect(page.getByText("6 of 6 profiles")).toBeVisible();
+  for (const name of ["Maya", "Leo", "Ava", "Ben", "Cleo", "Dev"]) {
+    await expect(kids.getByRole("button", { name: `Open ${name}'s Readli Kids` })).toBeVisible();
+  }
+  // Every Open Readli Kids button in a row lines up, whether or not that child started a story.
+  const tops = await kids.getByRole("button", { name: /Readli Kids/ }).evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().bottom)));
+  const columns = info.project.name === "desktop" ? 3 : 2;
+  for (let i = 0; i < tops.length; i += columns) expect(new Set(tops.slice(i, i + columns)).size).toBe(1);
+  await noOverflow(page);
+  await page.screenshot({ path: `e2e/screenshots/family-home-6-kids-${info.project.name}.png`, fullPage: true });
 });

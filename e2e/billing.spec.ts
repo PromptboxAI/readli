@@ -9,7 +9,7 @@ async function noOverflow(page: Page) {
 test("a parent sees their plan and slots, and billing stays switched off", async ({ page }, info) => {
   const res = await page.request.post("/api/family/session", { data: { as: "adult:sara" } });
   expect(res.status()).toBe(200);
-  await page.goto("/family");
+  await page.goto("/family/controls");
   await page.getByRole("link", { name: "Plan and billing" }).click();
   await expect(page.getByRole("heading", { name: "Plan and billing" })).toBeVisible();
   const plan = page.getByTestId("current-plan");

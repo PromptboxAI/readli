@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { KidsDevices } from "@/components/family/KidsDevices";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
-import { listDevices } from "@/lib/family/devices";
+import { DEVICE_IDLE_DAYS, listDevices } from "@/lib/family/devices";
 import { familyPage, guardianChildren } from "@/lib/family/page-data";
 import { guardianHousehold } from "@/lib/family/service";
-import { deviceRegistry, familyStore } from "@/lib/family/session";
+import { deviceRegistry, familyStore, TEMPORARY_KIDS_HOURS } from "@/lib/family/session";
 import { BackLink } from "@/components/family/BackLink";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Kids devices | Readli" };
+export const metadata: Metadata = { title: "Kids devices and PIN | Readli" };
 
 export default async function KidsDevicesPage() {
   const page = await familyPage();
@@ -30,6 +30,8 @@ export default async function KidsDevicesPage() {
         kids={kids}
         initialDevices={await listDevices(registry, page.state, session.actor, householdId)}
         pinSet={Boolean(await registry.pinHash(householdId))}
+        temporaryHours={TEMPORARY_KIDS_HOURS}
+        idleDays={DEVICE_IDLE_DAYS}
       />
     </FamilyShell>
   );

@@ -30,6 +30,7 @@ export function emptyFamilyState(): FamilyState {
     ledger: [],
     usage: [],
     notifications: [],
+    requests: [],
     plays: [],
   };
 }
@@ -136,6 +137,7 @@ export class AccountFamilyStore implements FamilyStore {
         joinedAt: m.joined_at as string,
         removedAt: str(m.removed_at),
         nickname: str(m.storyteller_nickname),
+        noticesSeenThrough: str(m.notices_seen_through),
       }));
       state.adults = people.map((id) => ({
         id,
@@ -216,6 +218,18 @@ export class AccountFamilyStore implements FamilyStore {
         lastSeenAt: x.last_seen_at as string,
         endedAt: str(x.ended_at),
       }));
+      // Story requests arrived after launch; until their table exists, a family simply has none.
+      const asked = await this.db.from("story_requests").select("*").in("household_id", homeIds);
+      state.requests = asked.error
+        ? []
+        : ((asked.data ?? []) as Row[]).map((r) => ({
+            id: r.id as string,
+            householdId: r.household_id as string,
+            childId: r.child_id as string,
+            bookSlug: r.book_slug as string,
+            at: r.requested_at as string,
+            resolvedAt: str(r.resolved_at),
+          }));
       state.notifications = notices
         .map((n) => ({ id: n.id as string, householdId: n.household_id as string, text: n.text as string, href: n.href as string, at: n.at as string, readAt: str(n.read_at) }))
         .sort((a, b) => a.at.localeCompare(b.at));
@@ -353,6 +367,15 @@ export class AccountFamilyStore implements FamilyStore {
           "save nickname",
         );
       }
+      if (old && (old.noticesSeenThrough ?? null) !== (m.noticesSeenThrough ?? null)) {
+        // Dismissing Home's notice is a convenience: until the column's migration runs, it just doesn't stick.
+        const { error } = await db
+          .from("household_members")
+          .update({ notices_seen_through: m.noticesSeenThrough ?? null })
+          .eq("household_id", m.householdId)
+          .eq("user_id", m.adultId);
+        if (error) console.warn(`save notice dismissal: ${error.message}`);
+      }
     }
     for (const e of after.entitlements) {
       const old = before.entitlements.find((x) => x.id === e.id);
@@ -459,6 +482,13 @@ export class AccountFamilyStore implements FamilyStore {
       at: x.at,
       read_at: x.readAt,
     }), (x) => ({ read_at: x.readAt }));
+    await this.sync(before.requests ?? [], after.requests ?? [], "story_requests", "save story request", (x) => ({
+      household_id: x.householdId,
+      child_id: x.childId,
+      book_slug: x.bookSlug,
+      requested_at: x.at,
+      resolved_at: x.resolvedAt,
+    }), (x) => ({ resolved_at: x.resolvedAt }));
 
     await this.saveNarration(before, after);
 

@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { bookText } from "@/lib/narration/text";
 import { demoFamilyState, DEMO_HOUSEHOLD_ID } from "./demo-family";
-import { familyHome } from "./home";
+import { familyHome, homeNotice, noticeText } from "./home";
 import type { FamilyState } from "./model";
 
 const SLUG = "the-lion-and-the-mouse";
 
 /** Stores every sentence of one book in Mom's voice, as a finished narration. */
-function withReadyBook(state: FamilyState, slug = SLUG): FamilyState {
+function withReadyBook(state: FamilyState, slug = SLUG, voiceId = "voice-sara"): FamilyState {
   const text = bookText(slug)!;
-  const key = `lib-${slug}`;
-  state.libraries.push({ key, voiceId: "voice-sara", voiceVersion: 1, bookSlug: slug, edition: text.edition, textRevision: text.revision, modelId: "m", configHash: "c", scope: "shared", createdAt: "2026-10-01T00:00:00Z" });
+  const key = `lib-${slug}-${voiceId}`;
+  state.libraries.push({ key, voiceId, voiceVersion: 1, bookSlug: slug, edition: text.edition, textRevision: text.revision, modelId: "m", configHash: "c", scope: "shared", createdAt: "2026-10-01T00:00:00Z" });
   for (const s of text.sentences) {
     state.segments.push({ libraryKey: key, sentenceId: s.id, ordinal: s.ordinal, status: "ready", jobId: null, storageKey: `audio/${s.id}`, characters: s.text.length, durationMs: 1000, providerCredits: 1, attempts: 1, error: null, readyAt: "2026-10-01T00:00:00Z" });
   }
@@ -95,5 +95,62 @@ describe("family home", () => {
     const cards = familyHome(state, DEMO_HOUSEHOLD_ID).storytellers;
     expect(cards.find((s) => s.voiceId === "voice-priya")).toMatchObject({ tone: "none", href: "/family/narrators" });
     expect(cards.find((s) => s.voiceId === "voice-ben")).toMatchObject({ tone: "none", href: "/family/kids" });
+  });
+
+  it("puts every prepared book on the bookshelf once, with all its narrators and each child's own place", () => {
+    const state = withReadyBook(withReadyBook(demoFamilyState()), SLUG, "voice-ben");
+    const total = bookText(SLUG)!.sentences.length;
+    let shelf = familyHome(state, DEMO_HOUSEHOLD_ID).shelf;
+    expect(shelf.map((b) => b.slug)).toEqual([SLUG]);
+    expect(shelf[0]!.narrators.map((n) => n.name)).toEqual(["Mom", "Dad"]);
+    // Prepared but nobody has listened: ready, whatever the narration job said.
+    expect(shelf[0]!.state).toBe("ready");
+    expect(shelf[0]!.kids).toEqual([
+      { id: "maya", name: "Maya", percent: null },
+      { id: "leo", name: "Leo", percent: null },
+    ]);
+
+    state.progress.push({ childId: "maya", bookSlug: SLUG, sentence: Math.round(total / 2), voiceId: "voice-sara", updatedAt: "2026-10-12T19:00:00Z" });
+    const view = familyHome(state, DEMO_HOUSEHOLD_ID);
+    shelf = view.shelf;
+    expect(shelf[0]!.state).toBe("progress");
+    expect(shelf[0]!.kids.find((k) => k.id === "maya")?.percent).toBeGreaterThan(0);
+    expect(shelf[0]!.kids.find((k) => k.id === "leo")?.percent).toBeNull();
+    expect(view.kids.find((k) => k.id === "maya")).toMatchObject({ current: { slug: SLUG, narrator: "Mom" }, readyCount: 1, notStarted: 0 });
+    expect(view.kids.find((k) => k.id === "leo")).toMatchObject({ current: null, readyCount: 1, notStarted: 1, suggested: "The Lion and the Mouse" });
+  });
+
+  it("calls a book completed only when a child reached its end", () => {
+    const state = withReadyBook(demoFamilyState());
+    const sentences = bookText(SLUG)!.sentences;
+    const last = sentences.at(-1)!.text === "The End." ? sentences.length - 2 : sentences.length - 1;
+    state.progress.push({ childId: "maya", bookSlug: SLUG, sentence: last, voiceId: "voice-sara", updatedAt: "2026-10-12T19:00:00Z" });
+    const view = familyHome(state, DEMO_HOUSEHOLD_ID);
+    expect(view.shelf[0]).toMatchObject({ state: "done" });
+    expect(view.shelf[0]!.kids.find((k) => k.id === "maya")?.percent).toBe(100);
+    // A finished story isn't the one Maya is in the middle of.
+    expect(view.kids.find((k) => k.id === "maya")?.current).toBeNull();
+  });
+
+  it("combines new readings into one notice that each grown-up dismisses for themselves and that expires after a week", () => {
+    const state = demoFamilyState();
+    const note = (text: string, slug: string, at: string) => ({ id: `${slug}-${at}`, householdId: DEMO_HOUSEHOLD_ID, text, href: `/family/books/${slug}`, at, readAt: null });
+    state.notifications.push(
+      note("Mom's reading of The Lion and the Mouse is ready.", SLUG, "2026-10-20T10:00:00Z"),
+      note("Mom's reading of The Elves and the Shoemaker is ready.", "the-elves-and-the-shoemaker", "2026-10-20T11:00:00Z"),
+      note("Mom's reading of The Tortoise and the Hare is ready.", "the-tortoise-and-the-hare", "2026-10-01T11:00:00Z"),
+    );
+    const now = new Date("2026-10-21T12:00:00Z");
+    const mom = homeNotice(state, DEMO_HOUSEHOLD_ID, "sara", now)!;
+    // The three-week-old one has expired; its audiobook isn't touched.
+    expect(noticeText(mom)).toBe("2 new readings ready: The Lion and the Mouse and The Elves and the Shoemaker, read by Mom.");
+    expect(mom.through).toBe("2026-10-20T11:00:00Z");
+    state.members.find((m) => m.adultId === "sara")!.noticesSeenThrough = mom.through;
+    expect(homeNotice(state, DEMO_HOUSEHOLD_ID, "sara", now)).toBeNull();
+    expect(homeNotice(state, DEMO_HOUSEHOLD_ID, "ben", now)).not.toBeNull();
+    // A reading that finishes later shows again.
+    state.notifications.push(note("Dad's reading of The Lion and the Mouse is ready.", SLUG, "2026-10-21T09:00:00Z"));
+    expect(noticeText(homeNotice(state, DEMO_HOUSEHOLD_ID, "sara", now)!)).toBe("New reading ready: The Lion and the Mouse, read by Dad.");
+    expect(homeNotice(state, DEMO_HOUSEHOLD_ID, "sara", new Date("2026-10-29T12:00:00Z"))).toBeNull();
   });
 });
