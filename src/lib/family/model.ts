@@ -139,6 +139,8 @@ export interface FamilyState {
   ledger: CreditEntry[];
   usage: ProviderUsage[];
   notifications: FamilyNotification[];
+  /** Stories a child asked a grown-up to get ready. Optional so states saved before requests existed still load. */
+  requests?: StoryRequest[];
   /** Playback URL issues and cache hits, for the admin dashboard. */
   plays: { libraryKey: string; sentenceId: string; householdId: string; childId: string; at: string }[];
 }
@@ -313,6 +315,17 @@ export interface ProviderUsage {
   durationMs: number;
   bytes: number;
   at: string;
+}
+
+/** A child asking a grown-up for a book that isn't ready for them. Only a grown-up can prepare it. */
+export interface StoryRequest {
+  id: string;
+  householdId: string;
+  childId: string;
+  bookSlug: string;
+  at: string;
+  /** Set when a grown-up dismisses it. A request also stops showing once the book is ready for the child. */
+  resolvedAt: string | null;
 }
 
 export interface FamilyNotification {

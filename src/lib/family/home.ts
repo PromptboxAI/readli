@@ -89,6 +89,19 @@ export interface HomeStoryteller {
   href: string;
 }
 
+/** A child asked a grown-up for a book that isn't ready for them yet. */
+export interface HomeRequest {
+  id: string;
+  childName: string;
+  slug: string;
+  title: string;
+  coverUrl: string | null;
+  tint: string;
+  at: string;
+  /** The book's page, where a grown-up chooses a narrator and prepares it. */
+  href: string;
+}
+
 export interface FamilyHomeView {
   kids: HomeKid[];
   continueListening: HomeBook[];
@@ -96,6 +109,8 @@ export interface FamilyHomeView {
   fresh: HomeBook[];
   /** Every prepared audiobook a child of this family may hear, one entry per book. */
   shelf: ShelfBook[];
+  /** Open story requests from the kids, newest first. */
+  requests: HomeRequest[];
   storytellers: HomeStoryteller[];
 }
 
@@ -225,6 +240,18 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
   const order: ShelfState[] = ["progress", "ready", "done"];
   shelf.sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state) || (b.touchedAt ?? "").localeCompare(a.touchedAt ?? "") || a.minutes - b.minutes);
 
+  // A request drops off Home once the book is on that child's shelf, as well as when a grown-up clears it.
+  const requests: HomeRequest[] = (state.requests ?? [])
+    .filter((r) => r.householdId === householdId && r.resolvedAt === null && kidIds.has(r.childId))
+    .filter((r) => !shelf.some((b) => b.slug === r.bookSlug && b.kids.some((k) => k.id === r.childId)))
+    .sort((a, b) => b.at.localeCompare(a.at))
+    .flatMap((r) => {
+      const book = findCatalogBook(r.bookSlug);
+      const kid = kids.find((k) => k.id === r.childId);
+      if (!book || !kid) return [];
+      return [{ id: r.id, childName: kid.nickname, slug: book.slug, title: book.title, coverUrl: book.coverUrl, tint: book.tint, at: r.at, href: `/family/books/${book.slug}` }];
+    });
+
   const fresh: HomeBook[] = [...NEW_BOOKS, ...MORE_BOOKS_ON_PHONES]
     .filter((b, i, all) => all.findIndex((x) => x.slug === b.slug) === i)
     .slice(0, 8)
@@ -287,6 +314,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     ready,
     fresh,
     shelf,
+    requests,
     storytellers,
   };
 }

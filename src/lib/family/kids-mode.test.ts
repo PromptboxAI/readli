@@ -41,6 +41,7 @@ const GROWN_UP_API = [
   "/api/invitations/preview/approve",
   "/api/invitations/respond",
   "/api/gifts/preview",
+  "/api/family/requests/req-1",
 ];
 
 describe("Kids Mode routes", () => {
