@@ -610,7 +610,7 @@ async function tellContributor(db: SupabaseClient, mailer: Mailer, origin: strin
     ]);
     const to = data?.user?.email;
     if (!to) return;
-    const email = connectedEmail({ contributorName: name, familyName: (home?.name as string) ?? "A family", manageUrl: `${origin.replace(/\/$/, "")}/family/my-voice` });
+    const email = connectedEmail({ contributorName: name, familyName: (home?.name as string) ?? "A family", manageUrl: `${origin.replace(/\/$/, "")}/voice` });
     await mailer.send({ ...email, to });
   } catch (err) {
     console.error("connected email failed", contributorId, err);

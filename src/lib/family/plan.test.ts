@@ -230,8 +230,11 @@ describe("signup and pricing amendment", () => {
     expect(state.notifications.at(-1)!.text).toContain("Andrea shared their voice");
     expect(state.slots.some((s) => s.voiceId === "voice-andrea")).toBe(false);
 
-    // Only this family's parents can set it, and it stays within this family.
-    await rejects(setStorytellerNickname(store, andrea, H, "andrea", "Queen"), 403);
+    // She can choose her own name in this family, and the parents can change it; she can't rename anyone else.
+    await setStorytellerNickname(store, andrea, H, "andrea", "Queen");
+    expect(state.members.find((m) => m.householdId === H && m.adultId === "andrea")!.nickname).toBe("Queen");
+    expect(state.members.find((m) => m.householdId === H2 && m.adultId === "andrea")!.nickname ?? null).toBeNull();
+    await rejects(setStorytellerNickname(store, andrea, H, "sara", "Queen"), 403);
     await rejects(setStorytellerNickname(store, mom, H, "andrea", "x".repeat(41)), 400, "nickname_too_long");
     await setStorytellerNickname(store, mom, H, "andrea", "  Mommy ");
     const card = (await narratorSlots(store, mom, H, clock)).shared.find((n) => n.voiceId === "voice-andrea")!;

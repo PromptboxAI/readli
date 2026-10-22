@@ -226,7 +226,7 @@ describe("family invitations on the server", () => {
     expect(await acceptInvitation(db, tok, "kevin", "h1", { mailer, origin: "https://readli.ai" })).toBe("accepted");
     expect(mailer.sent).toHaveLength(1);
     expect(mailer.sent[0]).toMatchObject({ to: "andrea@example.com", subject: "The Godfrey family connected your Readli voice" });
-    expect(mailer.sent[0]!.text).toContain("https://readli.ai/family/my-voice");
+    expect(mailer.sent[0]!.text).toContain("https://readli.ai/voice");
     tables.voice_invitations![0]!.accepted_at = "2026-10-21";
     await acceptInvitation(db, tok, "kevin", "h1", { mailer, origin: "https://readli.ai" });
     expect(mailer.sent).toHaveLength(1);

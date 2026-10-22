@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { CreateFamily } from "@/components/family/CreateFamily";
 import { InviteActions } from "@/components/invites/InviteActions";
 import { FamilyRewardsCard } from "@/components/rewards/FamilyRewardsCard";
@@ -20,6 +21,9 @@ import { activeEntitlement, liveSlots, narratorSlotCount } from "@/lib/family/pe
 import { deviceRegistry, familyPreviewEnabled, TEMPORARY_KIDS_HOURS } from "@/lib/family/session";
 import { authConfigured } from "@/lib/auth/supabase";
 import { carriedInvitationToken } from "@/lib/invitations/context";
+import { pendingJoinPath } from "@/lib/invites/pending";
+import { isParent, isStorytellerOnly } from "@/lib/family/storyteller";
+import { accountVoiceDeps } from "@/lib/voice/account-voices";
 import { serverConfig } from "@/lib/server/config";
 import { creditBalance, displayCredits } from "@/lib/narration/credits";
 
@@ -36,7 +40,7 @@ function SignOutButton() {
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Readli Family" };
 
-export default async function FamilyHome() {
+export default async function FamilyHome({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   const { session, state } = page;
@@ -100,6 +104,15 @@ export default async function FamilyHome() {
     );
   }
 
+  if (account && !isParent(state, adult.id)) {
+    // Storytellers have a free Readli Voice account, not a family: never send them into family setup.
+    const pending = await pendingJoinPath(adult.id);
+    if (pending) redirect(pending);
+    const startingFamily = (await searchParams).start === "1";
+    const deps = startingFamily || isStorytellerOnly(state, adult.id) ? null : accountVoiceDeps(serverConfig());
+    const ownVoice = deps ? await deps.store.findVoice(adult.id).catch(() => null) : null;
+    if (!startingFamily && (isStorytellerOnly(state, adult.id) || ownVoice)) redirect("/voice");
+  }
   const kids = guardianChildren(state, adult.id);
   if (account && !state.members.some((m) => m.adultId === adult.id && m.removedAt === null)) {
     return (

@@ -515,7 +515,9 @@ export const NICKNAME_MAX = 40;
  */
 export async function setStorytellerNickname(store: FamilyStore, actor: Actor | null, householdId: string, adultId: string, nickname: string): Promise<void> {
   const state = await store.read();
-  requireHouseholdGuardian(state, actor, householdId);
+  // A storyteller may choose their own name in a family; the family's parents can change it too.
+  const self = actor?.kind === "adult" && actor.adultId === adultId;
+  if (!self) requireHouseholdGuardian(state, actor, householdId);
   if (!isActiveMember(state, adultId, householdId)) throw new PermissionError(404, "not_member", "That storyteller isn't part of your family.");
   const value = nickname.replace(/\s+/g, " ").trim();
   if (value.length > NICKNAME_MAX) throw new PermissionError(400, "nickname_too_long", `Keep it to ${NICKNAME_MAX} characters.`);
