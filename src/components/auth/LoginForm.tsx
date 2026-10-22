@@ -61,7 +61,7 @@ export function LoginForm({ next, onSentChange }: { next: string; onSentChange?:
 
   if (state === "sent") {
     return (
-      <div role="status" className="flex w-full max-w-[420px] flex-col gap-2 rounded-[var(--radius-panel)] bg-mint/50 p-5 text-left sm:p-6">
+      <div role="status" className="flex w-full flex-col gap-2 rounded-[var(--radius-panel)] bg-mint/50 p-5 text-left sm:p-6">
         {!onSentChange && <p className="font-display text-2xl font-semibold">Check your email</p>}
         <p>
           We sent a sign-in link to <strong>{email.trim()}</strong>. Open it on any device to continue.
