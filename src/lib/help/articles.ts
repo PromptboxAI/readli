@@ -244,7 +244,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     question: "What happens when a book requires more narration credits than I have?",
     status: "draft",
     answer: [
-      "Readli tells you how many credits the whole book needs before anything starts. If you don't have enough, you can prepare a single chapter or a shorter story instead, or wait for next month's credits.",
+      "Readli tells you how many credits the whole book needs before anything starts. If you don't have enough, you can prepare a single chapter (in books with chapters) or a shorter story instead, or wait for next month's credits.",
     ],
     keywords: ["out of credits", "not enough", "balance"],
     related: ["generate-one-chapter", "monthly-narration-credits", "buy-more-credits"],

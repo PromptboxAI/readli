@@ -57,7 +57,7 @@ export async function familyLibrary(store: FamilyStore, actor: Actor | null, hou
   const collections = [
     { id: "quick", title: "Quick Stories", description: `Under ${plan.quickStoryMaxMinutes} minutes to listen.`, books: all.filter((c) => c.minutes <= plan.quickStoryMaxMinutes) },
     { id: "bedtime", title: "Bedtime Favorites", description: "Gentle stories for winding down.", books: pick(plan.bedtimeFavorites) },
-    { id: "longer", title: "Longer Adventures", description: "Prepare these a chapter at a time.", books: all.filter((c) => c.minutes > plan.quickStoryMaxMinutes) },
+    { id: "longer", title: "Longer Adventures", description: "Longer stories and chapter books.", books: all.filter((c) => c.minutes > plan.quickStoryMaxMinutes) },
     { id: "fits", title: "Stories You Can Create With Your Balance", description: "Enough credits for a whole book in one of your family's voices.", books: all.filter((c) => has(c, "available")) },
     { id: "prepared", title: "Already Prepared for Your Family", description: "Ready to play now, no credits needed.", books: all.filter((c) => has(c, "ready", "partial")) },
   ];
