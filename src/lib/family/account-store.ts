@@ -135,6 +135,7 @@ export class AccountFamilyStore implements FamilyStore {
         role: m.role as "guardian" | "member",
         joinedAt: m.joined_at as string,
         removedAt: str(m.removed_at),
+        noticesSeenThrough: str(m.notices_seen_through),
       }));
       state.adults = people.map((id) => ({
         id,
@@ -345,6 +346,15 @@ export class AccountFamilyStore implements FamilyStore {
           db.from("household_members").update({ role: m.role, removed_at: m.removedAt }).eq("household_id", m.householdId).eq("user_id", m.adultId),
           "update member",
         );
+      }
+      if (old && (old.noticesSeenThrough ?? null) !== (m.noticesSeenThrough ?? null)) {
+        // Dismissing Home's notice is a convenience: until the column's migration runs, it just doesn't stick.
+        const { error } = await db
+          .from("household_members")
+          .update({ notices_seen_through: m.noticesSeenThrough ?? null })
+          .eq("household_id", m.householdId)
+          .eq("user_id", m.adultId);
+        if (error) console.warn(`save notice dismissal: ${error.message}`);
       }
     }
     for (const e of after.entitlements) {
