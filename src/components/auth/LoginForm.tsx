@@ -10,11 +10,18 @@ function client() {
   return createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 }
 
-/** Email link or Google. New grown-ups get an account the first time they sign in. */
-export function LoginForm({ next }: { next: string }) {
+/**
+ * Email link or Google. New grown-ups get an account the first time they sign in.
+ * Pass onSentChange when the page owns the heading: it then shows "Check your email" itself and the card drops its title.
+ */
+export function LoginForm({ next, onSentChange }: { next: string; onSentChange?: (sent: boolean) => void }) {
   const id = useId();
   const [email, setEmail] = useState("");
-  const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
+  const [state, setStateRaw] = useState<"idle" | "sending" | "sent">("idle");
+  const setState = (s: "idle" | "sending" | "sent") => {
+    setStateRaw(s);
+    onSentChange?.(s === "sent");
+  };
   const [error, setError] = useState<string | null>(null);
   const [toGoogle, setToGoogle] = useState(false);
   // Coming back from Google with the Back button restores this page from cache; reset the button.
@@ -54,8 +61,8 @@ export function LoginForm({ next }: { next: string }) {
 
   if (state === "sent") {
     return (
-      <div role="status" className="flex flex-col gap-2 rounded-[var(--radius-panel)] bg-mint/50 p-6 text-left">
-        <p className="font-display text-2xl font-semibold">Check your email</p>
+      <div role="status" className="flex w-full max-w-[420px] flex-col gap-2 rounded-[var(--radius-panel)] bg-mint/50 p-5 text-left sm:p-6">
+        {!onSentChange && <p className="font-display text-2xl font-semibold">Check your email</p>}
         <p>
           We sent a sign-in link to <strong>{email.trim()}</strong>. Open it on any device to continue.
         </p>
