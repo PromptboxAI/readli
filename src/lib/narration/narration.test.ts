@@ -30,7 +30,7 @@ import {
   runJob,
 } from "./narration";
 import { creditBalance } from "./credits";
-import { bookText } from "./text";
+import { bookText, withoutTheEnd } from "./text";
 
 /** Voice Narration Libraries, Pre-Generation & Instant Narrator Switching amendment: required tests. */
 const mom: Actor = { kind: "adult", adultId: "sara" };
@@ -326,7 +326,7 @@ describe("each voice keeps its own reading model", () => {
   it("a book only partly prepared on the old model is finished on the new one", async () => {
     const { state, store } = family();
     june(state).modelId = "eleven_v4";
-    await prepareJune(store, new CountingProvider((t) => t === text.sentences.at(-1)!.text));
+    await prepareJune(store, new CountingProvider((t) => t === withoutTheEnd(text).sentences.at(-1)!.text));
     june(state).modelId = "eleven_v5";
     expect(library(state).modelId).toBe("eleven_v5");
   });
@@ -347,6 +347,21 @@ describe("prepare page", () => {
     expect((await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-sara")!.fix).toBeNull();
     for (const e of state.entitlements) e.endsAt = "2026-01-01T00:00:00Z";
     expect((await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-sara")!.fix?.href).toBe("/family/billing");
+  });
+
+  it("calls a book prepared before The End was added Ready, everywhere, with nothing left to pay", async () => {
+    const { state, store } = family();
+    await prepareJune(store);
+    const end = text.sentences.at(-1)!;
+    state.segments = state.segments.filter((x) => x.sentenceId !== end.id);
+    const june = (await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-june")!;
+    expect(june.availability).toBe("ready");
+    expect(june.missingCredits).toBe(0);
+    expect(june.chapters.every((c) => c.readiness === "ready")).toBe(true);
+    expect((await kidsReadiness(store, maya, "maya", BOOK)).find((r) => r.voiceId === "voice-june")!.readiness).toBe("ready");
+    // The rest of the story still counts: missing a story line keeps it Partly ready.
+    state.segments = state.segments.filter((x) => x.sentenceId !== text.sentences[0]!.id);
+    expect((await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-june")!.availability).toBe("partial");
   });
 });
 

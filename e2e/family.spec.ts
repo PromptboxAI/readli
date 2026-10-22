@@ -2,6 +2,10 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 
 /** Amendment 002: two-key family voice permissions, end to end against the preview family. */
 
+async function noOverflow(page: Page) {
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+}
+
 async function signIn(page: Page, who: string) {
   const res = await page.request.post("/api/family/session", { data: { as: who } });
   expect(res.status(), who).toBe(200);
@@ -258,9 +262,9 @@ test("kids can only switch to a storyteller whose reading is prepared at their p
 test("a parent prepares narration ahead of time and is told when it's ready", async ({ page }) => {
   await signIn(page, "adult:sara");
   await page.goto("/family");
-  await page.getByRole("link", { name: "Family library", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Your family library" })).toBeVisible();
-  await page.getByTestId("collection-all").getByTestId("book-the-princess-and-the-pea").click();
+  await page.getByRole("navigation", { name: "Readli Family" }).getByRole("link", { name: "Books" }).click();
+  await expect(page.getByRole("heading", { name: "Books", exact: true })).toBeVisible();
+  await page.getByTestId("catalog").getByTestId("book-the-princess-and-the-pea").click();
   await expect(page.getByRole("heading", { name: "The Princess and the Pea" })).toBeVisible();
 
   // One status per narrator, in the narrator list.
@@ -292,15 +296,42 @@ test("a parent prepares narration ahead of time and is told when it's ready", as
   await expect(page.getByTestId("notifications")).toContainText("Grandma June's reading of The Princess and the Pea is ready.");
 });
 
-test("the library leads with short stories and keeps longer books visible", async ({ page }) => {
+test("Books is one catalog with search, simple filters and each book's cost in the chosen voice", async ({ page }, info) => {
   await signIn(page, "adult:sara");
   await page.goto("/family/books");
-  for (const id of ["quick", "bedtime", "longer", "fits", "prepared"]) await expect(page.getByTestId(`collection-${id}`)).toBeVisible();
-  await expect(page.getByTestId("collection-longer").getByTestId("book-aesops-fables-retold")).toBeVisible();
-  await expect(page.getByTestId("collection-fits").getByTestId("book-aesops-fables-retold")).toHaveCount(0);
-  await expect(page.getByTestId("collection-all").getByTestId("book-aesops-fables-retold")).toContainText("More credits needed");
-  await expect(page.getByTestId("collection-prepared").getByTestId("book-the-lion-and-the-mouse")).toBeVisible();
-  await expect(page.getByTestId("collection-all").getByTestId("book-the-velveteen-rabbit")).toBeVisible();
+  const catalog = page.getByTestId("catalog");
+  const book = (slug: string) => catalog.getByTestId(`book-${slug}`);
+  // Every book shows by default, shortest first, including ones the family can't afford yet.
+  await expect(book("aesops-fables-retold")).toContainText("More credits needed");
+  await expect(book("the-lion-and-the-mouse").getByTestId("cost")).toContainText("Ready · free to play");
+  await expect(catalog.getByTestId("catalog-count")).toContainText("Showing 12 of");
+  await noOverflow(page);
+  await page.screenshot({ path: `e2e/screenshots/books-catalog-${info.project.name}.png`, fullPage: true });
+
+  const filter = (name: string) => catalog.getByRole("group", { name: "Filters" }).getByRole("button", { name });
+  await filter("Ready to play").click();
+  await expect(filter("Ready to play")).toHaveAttribute("aria-pressed", "true");
+  await expect(book("the-lion-and-the-mouse")).toBeVisible();
+  await expect(book("aesops-fables-retold")).toHaveCount(0);
+  await filter("Longer adventures").click();
+  await expect(book("aesops-fables-retold")).toBeVisible();
+  await filter("Fits my credits").click();
+  await expect(book("aesops-fables-retold")).toHaveCount(0);
+  await filter("All").click();
+
+  await catalog.getByRole("searchbox", { name: "Search books" }).fill("velveteen");
+  await expect(book("the-lion-and-the-mouse")).toHaveCount(0);
+  await catalog.getByRole("searchbox", { name: "Search books" }).fill("zzz");
+  await expect(catalog.getByTestId("catalog-empty")).toBeVisible();
+
+  // Opening a book and coming back keeps the same view.
+  await catalog.getByRole("searchbox", { name: "Search books" }).fill("");
+  await filter("Quick stories").click();
+  await book("the-lion-and-the-mouse").click();
+  await expect(page).toHaveURL(/\/family\/books\/the-lion-and-the-mouse$/);
+  await page.goBack();
+  await expect(filter("Quick stories")).toHaveAttribute("aria-pressed", "true");
+  await expect(book("aesops-fables-retold")).toHaveCount(0);
 });
 
 test("short on credits: prepare a chapter, or buy credits and come straight back to confirm", async ({ page }) => {

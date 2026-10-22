@@ -18,7 +18,8 @@ import {
 import { estimateSeconds, modelCost } from "./costs";
 import { creditBalance, creditsFor, creditUnits, draw, spendableLots, type CreditBalance } from "./credits";
 import { CATALOG, findCatalogBook } from "@/lib/library/catalog";
-import { bookCharacters, bookText, type BookText } from "./text";
+import { THE_END } from "@/lib/content/the-end";
+import { bookCharacters, bookText, type BookText, withoutTheEnd } from "./text";
 
 /**
  * Voice narration libraries (Voice Narration Libraries, Pre-Generation & Instant Narrator Switching
@@ -53,6 +54,7 @@ export function voiceModel(state: FamilyState, plan: PlanConfig, voiceId: string
  *
  * A book fully prepared under an earlier model or settings keeps playing that audio, so switching
  * a voice to a new model never makes finished books look unprepared. New books use the voice's model.
+ * A book finished before "The End." was added still counts, so only that sentence is left to prepare.
  */
 export function libraryFor(state: FamilyState, plan: PlanConfig, voiceId: string, text: BookText, householdId: string): NarrationLibrary {
   const voice = state.voices.find((v) => v.id === voiceId)!;
@@ -70,7 +72,7 @@ export function libraryFor(state: FamilyState, plan: PlanConfig, voiceId: string
       l.edition === text.edition &&
       l.textRevision === text.revision &&
       l.scope === scope &&
-      libraryStatus(state, l, text).readiness === "ready",
+      libraryStatus(state, l, withoutTheEnd(text)).readiness === "ready",
   );
   return (
     finished ?? {
@@ -115,14 +117,32 @@ export interface LibraryStatus {
   missingCharacters: number;
 }
 
+/**
+ * The closing "The End." when the rest of the story is stored and that line isn't. Audio prepared before
+ * every story gained it simply finishes without it (the players stop there), so the book is still Ready.
+ */
+function unpreparedEnd(segs: Map<string, NarrationSegment>, state: FamilyState, text: BookText): string | null {
+  const end = text.sentences.at(-1);
+  if (end?.text !== THE_END) return null;
+  const stored = (id: string) => {
+    const seg = segs.get(id);
+    return seg?.status === "ready" && Boolean(seg.storageKey);
+  };
+  const seg = segs.get(end.id);
+  if (stored(end.id) || (seg && activeJob(state, seg.jobId))) return null;
+  return text.sentences.every((s) => s === end || stored(s.id)) ? end.id : null;
+}
+
 /** Ready only counts segments whose audio is stored; a book is Ready only when every segment is. */
 export function libraryStatus(state: FamilyState, library: NarrationLibrary, text: BookText): LibraryStatus {
   const segs = segmentsOf(state, library.key);
+  const skip = unpreparedEnd(segs, state, text);
   let ready = 0;
   let inProgress = 0;
   let missingCharacters = 0;
   const readySentenceIds: string[] = [];
   for (const s of text.sentences) {
+    if (s.id === skip) continue;
     const seg = segs.get(s.id);
     if (seg?.status === "ready" && seg.storageKey) {
       ready += 1;
@@ -133,7 +153,7 @@ export function libraryStatus(state: FamilyState, library: NarrationLibrary, tex
       missingCharacters += s.text.length;
     }
   }
-  const total = text.sentences.length;
+  const total = text.sentences.length - (skip ? 1 : 0);
   const readiness: Readiness = ready === total ? "ready" : inProgress > 0 ? "preparing" : ready > 0 ? "partial" : "not_prepared";
   return { readiness, readySentenceIds, total, ready, inProgress, missingCharacters };
 }
@@ -290,18 +310,20 @@ export interface PrepareBookView {
 
 function missingByChapter(state: FamilyState, plan: PlanConfig, library: NarrationLibrary, text: BookText): ChapterView[] {
   const segs = segmentsOf(state, library.key);
+  const skip = unpreparedEnd(segs, state, text);
   const byId = new Map(text.sentences.map((x) => [x.id, x]));
   return text.chapters.map((c) => {
     let ready = 0;
     let preparing = 0;
     let credits = 0;
-    for (const id of c.sentenceIds) {
+    const ids = c.sentenceIds.filter((id) => id !== skip);
+    for (const id of ids) {
       const seg = segs.get(id);
       if (seg?.status === "ready" && seg.storageKey) ready += 1;
       else if (seg && activeJob(state, seg.jobId)) preparing += 1;
       else credits += creditsFor(byId.get(id)!.text.length);
     }
-    const total = c.sentenceIds.length;
+    const total = ids.length;
     const readiness: Readiness = ready === total ? "ready" : preparing > 0 ? "preparing" : ready > 0 ? "partial" : "not_prepared";
     return { number: c.number, title: c.title, readiness, sentences: total, ready, credits };
   });

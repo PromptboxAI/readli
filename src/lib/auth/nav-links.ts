@@ -28,11 +28,12 @@ export function familyAccess(plans: Plan[], at = new Date().toISOString()): Fami
   return { plan: "none", hadFamily: plans.length > 0 };
 }
 
-/** The main button: the most useful next place for this account. */
-export function primaryAction(nav: NavState): NavLink {
+/** The main button: the most useful next place for this account, or none when the account menu already holds it. */
+export function primaryAction(nav: NavState): NavLink | null {
   if (nav.kind === "kids") return { href: "/kids", label: "Readli Kids" };
   if (nav.kind === "visitor") return { href: "/try", label: "Try It Free" };
-  return nav.family.plan === "none" ? { href: "/family/my-voice", label: "My Voice" } : { href: "/family", label: "My Family" };
+  // A Family account reaches My Family from the account menu, so the header doesn't repeat it as a button.
+  return nav.family.plan === "none" ? { href: "/family/my-voice", label: "My Voice" } : null;
 }
 
 /** The account menu, showing only places this account can open. Sign out is added by the menu itself. */

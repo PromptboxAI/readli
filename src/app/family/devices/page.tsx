@@ -25,7 +25,7 @@ export default async function KidsDevicesPage() {
   return (
     <FamilyShell>
       <PreviewNote />
-      <BackLink href="/family/controls" label="Parent controls" />
+      <BackLink href="/family/controls" label="Parent Controls" />
       <KidsDevices
         kids={kids}
         initialDevices={await listDevices(registry, page.state, session.actor, householdId)}

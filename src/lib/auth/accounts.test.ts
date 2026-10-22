@@ -32,6 +32,8 @@ function fakeDb(tables: Record<string, Row[]> = {}) {
   const t = (name: string) => (tables[name] ??= []);
   const builder = (name: string) => {
     let filters: [string, unknown, "eq" | "in" | "gte" | "free"][] = [];
+    let sort: string[] = [];
+    let window: [number, number] | null = null;
     let op: { kind: "select" } | { kind: "update"; values: Row } | { kind: "delete" } = { kind: "select" };
     const match = (r: Row) =>
       filters.every(([k, v, how]) =>
@@ -48,7 +50,12 @@ function fakeDb(tables: Record<string, Row[]> = {}) {
       if (op.kind === "update") for (const r of hit) Object.assign(r, op.values);
       if (op.kind === "update") return { data: hit.map((r) => ({ ...r })), error: null };
       if (op.kind === "delete") tables[name] = t(name).filter((r) => !match(r));
-      return { data: op.kind === "select" ? t(name).filter(match).map((r) => ({ ...r })) : null, error: null };
+      if (op.kind !== "select") return { data: null, error: null };
+      const rows = t(name).filter(match);
+      if (sort.length) rows.sort((a, b) => sort.reduce((n, k) => n || String(a[k]).localeCompare(String(b[k])), 0));
+      // Like Supabase: a range picks rows, and no request returns more than 1,000.
+      const [from, to] = window ?? [0, rows.length - 1];
+      return { data: rows.slice(from, Math.min(to + 1, from + 1000)).map((r) => ({ ...r })), error: null };
     };
     const q = {
       select: () => q,
@@ -58,6 +65,8 @@ function fakeDb(tables: Record<string, Row[]> = {}) {
       gte: (k: string, v: unknown) => ((filters = [...filters, [k, v, "gte"]]), q),
       // Only the job lease uses or(); a lease is free unless it ends in the future.
       or: () => ((filters = [...filters, ["lease_until", null, "free"]]), q),
+      order: (k: string) => ((sort = [...sort, k]), q),
+      range: (from: number, to: number) => ((window = [from, to]), q),
       update: (values: Row) => ((op = { kind: "update", values }), q),
       delete: () => ((op = { kind: "delete" }), q),
       insert: (rows: Row | Row[]) => {
@@ -208,6 +217,16 @@ describe("real family accounts", () => {
     const token = url.split("/").pop()!;
     expect((await readPlayback(new AccountFamilyStore(db, ME, DEFAULT_PLAN, audio), kid, token, "k")).contentType).toBe("audio/wav");
     expect(tables.narration_plays).toHaveLength(1);
+
+    // A family with lots of prepared audio reads every sentence back, past Supabase's 1,000 rows a request.
+    const other = { ...tables.narration_libraries![0]!, key: "0-another-book", book_slug: "heidi" };
+    tables.narration_libraries!.unshift(other);
+    tables.narration_segments!.unshift(
+      ...Array.from({ length: 1500 }, (_, i) => ({ ...tables.narration_segments![0]!, library_key: other.key, sentence_id: `heidi.x.${i}` })),
+    );
+    const busy = new AccountFamilyStore(db, ME, DEFAULT_PLAN, audio);
+    expect((await busy.read()).segments).toHaveLength(tables.narration_segments!.length);
+    expect((await kidsReadiness(busy, kid, maya, "the-lion-and-the-mouse"))[0]).toMatchObject({ voiceId: VOICE, readiness: "ready" });
   });
 
   it("a second family request returns the grown-up's existing family", async () => {

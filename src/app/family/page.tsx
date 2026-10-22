@@ -19,6 +19,7 @@ import { deviceRegistry, familyPreviewEnabled } from "@/lib/family/session";
 import { authConfigured } from "@/lib/auth/supabase";
 import { carriedInvitationToken } from "@/lib/invitations/context";
 import { serverConfig } from "@/lib/server/config";
+import { creditBalance, displayCredits } from "@/lib/narration/credits";
 
 function SignOutButton() {
   return (
@@ -128,6 +129,8 @@ export default async function FamilyHome() {
   const familyName = account && home ? state.households.find((h) => h.id === home)?.name : null;
   const pinRegistry = isGuardian && home ? deviceRegistry(Boolean(account)) : null;
   const needsPin = Boolean(pinRegistry && kids.length > 0 && !(await pinRegistry.pinHash(home!)));
+  const balance = isGuardian && home ? creditBalance(state, planConfig(), home) : null;
+  const credits = balance ? displayCredits(balance.available, balance.unitsPerCredit).toLocaleString("en-US") : null;
   return (
     <FamilyShell>
       <div className="flex items-center gap-4">
@@ -261,20 +264,22 @@ export default async function FamilyHome() {
         </section>
       )}
 
-      <section className="flex flex-col gap-3 rounded-panel bg-surface p-5" aria-labelledby="my-voice-h">
-        <h2 id="my-voice-h" className="font-display text-2xl font-semibold">Your voice</h2>
-        <p>Your voice is private until you share it. You decide which families can use it, and you can record it again at any time.</p>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/family/my-voice" className={buttonSecondary}>
-            My voice
-          </Link>
-          {account && (
-            <Link href="/voice/record" className="self-center font-semibold underline underline-offset-4">
-              Record or re-record my voice
+      {!isGuardian && (
+        <section className="flex flex-col gap-3 rounded-panel bg-surface p-5" aria-labelledby="my-voice-h">
+          <h2 id="my-voice-h" className="font-display text-2xl font-semibold">Your voice</h2>
+          <p>Your voice is private until you share it. You decide which families can use it, and you can record it again at any time.</p>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/family/my-voice" className={buttonSecondary}>
+              My voice
             </Link>
-          )}
-        </div>
-      </section>
+            {account && (
+              <Link href="/voice/record" className="self-center font-semibold underline underline-offset-4">
+                Record or re-record my voice
+              </Link>
+            )}
+          </div>
+        </section>
+      )}
 
       {isGuardian && !account && (
         <section className="flex flex-col gap-3" aria-labelledby="invite-h">
@@ -286,46 +291,36 @@ export default async function FamilyHome() {
 
       {isGuardian && (
         <section className="flex flex-col gap-3" aria-labelledby="controls-h">
-          <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <h2 id="controls-h" className="font-display text-2xl font-semibold">Parent controls</h2>
-            <Link href="/family/controls" className="font-display font-semibold text-coral-deep underline-offset-4 hover:underline">
-              All parent controls
-            </Link>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link href="/family/books" className={buttonSecondary}>
-              Family library
-            </Link>
-            <Link href="/family/billing" className={buttonSecondary}>
-              Plan and billing
-            </Link>
-            <Link href="/family/credits" className={buttonSecondary}>
-              Readli credits
-            </Link>
-            <Link href="/family/narrators" className={buttonSecondary}>
-              Narrator slots
-            </Link>
-          </div>
+          <h2 id="controls-h" className="font-display text-2xl font-semibold">Parent controls</h2>
+          <ul className="divide-y-2 divide-ink/5 overflow-hidden rounded-3xl bg-surface ring-2 ring-ink/10 lg:max-w-2xl" data-testid="home-controls">
+            {[
+              { href: "/family/devices", label: "Kids Mode PIN and devices" },
+              { href: "/family/credits", label: "Readli credits", value: credits === null ? undefined : `${credits} left` },
+              { href: "/family/billing", label: "Plan and billing" },
+              { href: "/family/controls", label: "Open Parent Controls" },
+            ].map((c) => (
+              <li key={c.href}>
+                <Link href={c.href} className="flex min-h-14 items-center gap-4 px-4 py-3 font-display font-semibold hover:bg-ivory">
+                  <span className="flex-1">{c.label}</span>
+                  {c.value && <span className="text-muted">{c.value}</span>}
+                  <span aria-hidden="true" className="text-muted">
+                    ›
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        {account ? (
-          <>
-            <Link href="/family/account" className={buttonSecondary}>
-              Account settings
-            </Link>
-            <SignOutButton />
-          </>
-        ) : (
-          <>
-            <SessionButton as={null} next="/family" className={buttonSecondary}>
-              Sign out
-            </SessionButton>
-            <ResetButton />
-          </>
-        )}
-      </div>
+      {!account && (
+        <div className="flex flex-wrap gap-2">
+          <SessionButton as={null} next="/family" className={buttonSecondary}>
+            Sign out
+          </SessionButton>
+          <ResetButton />
+        </div>
+      )}
     </FamilyShell>
   );
 }

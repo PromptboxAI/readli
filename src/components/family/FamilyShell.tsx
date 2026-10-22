@@ -18,7 +18,7 @@ export async function FamilyShell({ children, portal = true, wide = false }: { c
   const width = wide ? "max-w-6xl" : "max-w-4xl";
   const nav = portal ? await navState() : null;
   if (nav?.kind === "adult" && nav.family.plan !== "none") {
-    const account = { name: nav.name, email: nav.email, initials: accountInitials(nav.name), badge: accountBadge(nav), links: accountLinks(nav) };
+    const account = { name: nav.name, email: nav.email, initials: accountInitials(nav.name), avatarUrl: nav.avatarUrl ?? null, badge: accountBadge(nav), links: accountLinks(nav) };
     return (
       <>
         <ReloadOnRestore />
@@ -26,7 +26,7 @@ export async function FamilyShell({ children, portal = true, wide = false }: { c
         <main className={`mx-auto flex ${width} flex-col gap-8 px-4 py-12 sm:px-6`}>{children}</main>
         <SiteFooter />
         {/* Room for the phone bottom bar, so it never covers the footer. */}
-        <div aria-hidden="true" className="h-20 md:hidden" />
+        <div aria-hidden="true" className="h-[calc(5rem+env(safe-area-inset-bottom))] md:hidden" />
       </>
     );
   }

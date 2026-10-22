@@ -36,12 +36,13 @@ describe("family home", () => {
   it("shows a story as ready only when every sentence is stored in a voice shared with the family", () => {
     const state = withReadyBook(demoFamilyState());
     expect(familyHome(state, DEMO_HOUSEHOLD_ID).ready.map((b) => [b.slug, b.detail])).toEqual([[SLUG, "Ready with Mom"]]);
-    state.segments.pop();
+    // A missing story line keeps it off the shelf (a missing closing "The End." alone doesn't).
+    state.segments.shift();
     expect(familyHome(state, DEMO_HOUSEHOLD_ID).ready).toEqual([]);
   });
 
   it("puts each child's latest story first in Continue listening, with who reads it and how far along", () => {
-    const state = demoFamilyState();
+    const state = withReadyBook(demoFamilyState());
     const total = bookText(SLUG)!.sentences.length;
     state.progress.push(
       { childId: "maya", bookSlug: SLUG, sentence: Math.round(total / 2), voiceId: "voice-sara", updatedAt: "2026-10-12T19:00:00Z" },
@@ -53,6 +54,16 @@ describe("family home", () => {
     expect(view.kids.find((k) => k.id === "maya")?.nowPlaying).toBe("The Lion and the Mouse");
     // A story not started yet isn't "continue".
     expect(view.kids.find((k) => k.id === "leo")?.nowPlaying).toBeNull();
+  });
+
+  it("leaves out a story a child paged through before any of it was prepared in that voice", () => {
+    const state = demoFamilyState();
+    state.progress.push({ childId: "maya", bookSlug: SLUG, sentence: 1, voiceId: "voice-sara", updatedAt: "2026-10-12T19:00:00Z" });
+    const before = familyHome(state, DEMO_HOUSEHOLD_ID);
+    expect(before.continueListening).toEqual([]);
+    expect(before.kids.find((k) => k.id === "maya")?.nowPlaying).toBeNull();
+    withReadyBook(state);
+    expect(familyHome(state, DEMO_HOUSEHOLD_ID).continueListening.map((b) => b.slug)).toEqual([SLUG]);
   });
 
   it("never shows another household's kids", () => {

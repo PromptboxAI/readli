@@ -41,7 +41,7 @@ export default async function AccountPage() {
   return (
     <FamilyShell>
       <div>
-        <BackLink href="/family/controls" label="Parent controls" />
+        <BackLink href="/family/controls" label="Parent Controls" />
         <h1 className="mt-2 font-display text-4xl font-semibold">Account settings</h1>
       </div>
       <ProfilePhoto name={name} tint={tint} avatarUrl={avatarUrl} />
