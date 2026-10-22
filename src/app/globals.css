@@ -19,6 +19,10 @@
   --color-wood: #e8b479;
   --color-wood-deep: #b97d45;
   --color-bookcase: #f7e6cc;
+  --color-night: #1f1a2b;
+  --color-night-line: #3a3149;
+  --color-night-ink: #f6ecdc;
+  --color-night-muted: #b8acc6;
 
   --font-display: var(--font-fredoka), ui-rounded, system-ui, sans-serif;
   --font-sans: var(--font-nunito-sans), system-ui, sans-serif;
