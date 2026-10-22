@@ -29,6 +29,8 @@ test("the family home leads with the kids, stories and storytellers", async ({ p
   await expect(lion).toHaveAttribute("data-state", "ready");
   await expect(lion).toContainText("Read by Mom");
   await expect(lion).toContainText("Maya · not started");
+  // A book carries no status of its own, only each child's place.
+  for (const label of ["Ready to play", "In progress", "Completed"]) await expect(lion).not.toContainText(label);
   // Find your next story leads to Books: a slim strip on phones and tablets, a card beside the kids on desktop.
   const next = info.project.name === "desktop" ? page.getByTestId("next-story") : page.getByTestId("next-story-strip");
   await expect(next.getByRole("link", { name: "Browse Books" })).toBeVisible();

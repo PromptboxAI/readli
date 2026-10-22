@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { SessionButton } from "@/components/family/SessionButton";
 import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
-import type { HomeKid, HomeStoryteller, ShelfBook, ShelfKid, ShelfState } from "@/lib/family/home";
+import type { HomeKid, HomeStoryteller, ShelfBook, ShelfKid } from "@/lib/family/home";
 
 function names(list: string[]): string {
   if (list.length <= 1) return list.join("");
@@ -104,12 +104,6 @@ function CompactKid({ kid }: { kid: HomeKid }) {
   );
 }
 
-const BADGE: Record<ShelfState, { label: string; className: string }> = {
-  progress: { label: "In progress", className: "bg-sunshine/50" },
-  ready: { label: "Ready to play", className: "bg-mint/50 text-mint-deep" },
-  done: { label: "Completed", className: "bg-sky/30" },
-};
-
 function kidChips(kids: ShelfKid[]): string[] {
   const place = (k: ShelfKid) => `${k.name} · ${k.percent === null ? "not started" : k.percent === 100 ? "finished" : `${k.percent}%`}`;
   // With three or more kids, the ones who haven't started are counted rather than listed.
@@ -120,8 +114,9 @@ function kidChips(kids: ShelfKid[]): string[] {
 }
 
 /**
- * Every prepared audiobook the kids may hear, one row per book with its narrators grouped. Listen
- * opens the grown-up player; each child's own place shows beside it and only moves in Readli Kids.
+ * Every prepared audiobook the kids may hear, one row per book with its narrators grouped. A book has
+ * no status of its own: each child's place shows beside it and only moves in Readli Kids. Listen opens
+ * the grown-up player.
  */
 export function FamilyBookshelf({ books }: { books: ShelfBook[] }) {
   return (
@@ -137,7 +132,6 @@ export function FamilyBookshelf({ books }: { books: ShelfBook[] }) {
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-4">
             <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-              <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${BADGE[b.state].className}`}>{BADGE[b.state].label}</span>
               <p className="font-display text-xl font-semibold leading-tight">{b.title}</p>
               <p className="text-sm text-muted">
                 Read by {names(b.narrators.map((n) => n.name))} · about {b.minutes} min
