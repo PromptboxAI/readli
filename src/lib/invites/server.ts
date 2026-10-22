@@ -68,11 +68,14 @@ export async function listInvites(db: SupabaseClient, householdId: string): Prom
 
 export async function createInvite(
   db: SupabaseClient,
-  input: { householdId: string; inviterId: string; name: string; relationship: string },
+  input: { householdId: string; inviterId: string; name: string; relationship: string; email?: string; emailHash?: string | null },
   now = new Date(),
 ): Promise<{ invite: FamilyInvite; token: string }> {
-  const name = input.name.trim().slice(0, 120);
-  if (!name) throw new InviteError(400, "name_required", "Tell us who you're inviting.");
+  const email = input.email?.trim() ?? "";
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new InviteError(400, "bad_email", "Check the email address.");
+  // The name is optional when there's an email: the part before the @ stands in until it's set.
+  const name = (input.name.trim() || email.split("@")[0] || "").slice(0, 120);
+  if (!name) throw new InviteError(400, "name_required", "Add their email or their name.");
   const relationship = (RELATIONSHIPS as readonly string[]).includes(input.relationship) ? input.relationship : null;
   const token = newInviteToken();
   const row = {
@@ -81,6 +84,7 @@ export async function createInvite(
     token_hash: hashInviteToken(token),
     invitee_name: name,
     relationship_label: relationship,
+    recipient_email_hash: email ? (input.emailHash ?? null) : null,
     expires_at: new Date(now.getTime() + INVITE_TTL_DAYS * 86_400_000).toISOString(),
   };
   const [saved] = await q(db.from("household_invitations").insert(row).select("id, invitee_name, relationship_label, expires_at, accepted_at, revoked_at, created_at"), "save invitation");
