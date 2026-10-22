@@ -18,7 +18,7 @@ export function testerPlanEnd(days: TesterPlanDays, at = new Date()): string | n
 
 export class AdminActionError extends Error {}
 
-async function log(db: SupabaseClient, admin: AdminUser, action: "tester_plan_granted" | "tester_plan_ended", householdId: string, detail: Record<string, unknown>) {
+async function log(db: SupabaseClient, admin: AdminUser, action: "tester_plan_granted" | "tester_plan_ended" | "empty_family_removed", householdId: string, detail: Record<string, unknown>) {
   const { error } = await db.from("admin_actions").insert({ admin_id: admin.id, admin_email: admin.email, action, household_id: householdId, detail });
   if (error) throw new Error(`log admin action: ${error.message}`);
 }
@@ -60,4 +60,28 @@ export async function endTesterPlan(db: SupabaseClient, admin: AdminUser, entitl
   const { error: updateError } = await db.from("household_entitlements").update({ status: "canceled", ends_at: at.toISOString() }).eq("id", entitlementId);
   if (updateError) throw new Error(`end tester plan: ${updateError.message}`);
   await log(db, admin, "tester_plan_ended", plan.household_id as string, { entitlementId });
+}
+
+/**
+ * Removes a family with no kids, no plan and no one but its owner, such as a free storyteller who
+ * was sent through family setup by mistake. Their account and voice are untouched.
+ */
+export async function removeEmptyFamily(db: SupabaseClient, admin: AdminUser, householdId: string, at = new Date()): Promise<string> {
+  const { data: home, error } = await db.from("households").select("id, name, created_by").eq("id", householdId).maybeSingle();
+  if (error) throw new Error(`read family: ${error.message}`);
+  if (!home) throw new AdminActionError("That family no longer exists.");
+  const [kids, members, plans] = await Promise.all([
+    db.from("child_profiles").select("id").eq("household_id", householdId).is("deleted_at", null),
+    db.from("household_members").select("user_id").eq("household_id", householdId).is("removed_at", null),
+    db.from("household_entitlements").select("id, household_id, source, status, starts_at, ends_at").eq("household_id", householdId).eq("status", "active"),
+  ]);
+  for (const r of [kids, members, plans]) if (r.error) throw new Error(`read family: ${r.error.message}`);
+  if ((kids.data ?? []).length > 0) throw new AdminActionError(`${home.name} has kids profiles, so it can't be removed here.`);
+  if ((members.data ?? []).length > 1) throw new AdminActionError(`${home.name} has other grown-ups in it, so it can't be removed here.`);
+  if (livePlan(plans.data ?? [], householdId, at)) throw new AdminActionError(`${home.name} has a Family plan, so it can't be removed here.`);
+  // Logged first: the log keeps the name and id after the family is gone.
+  await log(db, admin, "empty_family_removed", householdId, { name: home.name, ownerId: home.created_by });
+  const { error: deleteError } = await db.from("households").delete().eq("id", householdId);
+  if (deleteError) throw new Error(`remove family: ${deleteError.message}`);
+  return home.name as string;
 }
