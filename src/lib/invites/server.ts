@@ -113,6 +113,8 @@ export interface InviteLanding {
   inviteeName: string;
   status: InviteStatus;
   alreadyMember: boolean;
+  /** Only for someone already in the family, so the join page can take them to their next step. */
+  householdId: string | null;
 }
 
 /** What someone opening a link sees. Never reveals more than the family's name and who invited them. */
@@ -136,6 +138,7 @@ export async function inviteForToken(db: SupabaseClient, token: string, userId: 
     inviteeName: inv.invitee_name as string,
     status: statusOf(inv, now),
     alreadyMember: member.length > 0,
+    householdId: member.length > 0 ? (inv.household_id as string) : null,
   };
 }
 

@@ -94,8 +94,8 @@ describe("family invitations for real accounts", () => {
       adult_profiles: [{ user_id: "u1", display_name: "Sara" }],
       household_members: [{ household_id: "h1", user_id: "u1", removed_at: null }],
     });
-    expect(await inviteForToken(db, "tok", "u2", NOW)).toEqual({ familyName: "The Riveras", inviterName: "Sara", inviteeName: "June", status: "invited", alreadyMember: false });
-    expect((await inviteForToken(db, "tok", "u1", NOW))?.alreadyMember).toBe(true);
+    expect(await inviteForToken(db, "tok", "u2", NOW)).toEqual({ familyName: "The Riveras", inviterName: "Sara", inviteeName: "June", status: "invited", alreadyMember: false, householdId: null });
+    expect(await inviteForToken(db, "tok", "u1", NOW)).toMatchObject({ alreadyMember: true, householdId: "h1" });
     expect(await inviteForToken(db, "nope", null, NOW)).toBeNull();
   });
 
