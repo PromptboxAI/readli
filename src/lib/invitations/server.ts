@@ -643,11 +643,15 @@ export async function recordInvitationBilling(db: SupabaseClient, input: { invit
 // Gift pages reuse the giver's approved preview
 // ---------------------------------------------------------------------------
 
+/**
+ * A gift's personal giver, whose approved preview may play on its page. Complimentary memberships have
+ * none: the admin who issued them is not the sender, and their voice must never reach a winner.
+ */
 async function giftGiver(db: SupabaseClient, code: string): Promise<{ id: string; giverId: string } | null> {
   const normalized = normalizeGiftCode(code);
   if (!normalized) return null;
-  const [gift] = await q(db.from("gifts").select("id, giver_id, status").eq("code_hash", hashGiftCode(normalized)).limit(1), "read gift");
-  if (!gift || gift.status === "cancelled") return null;
+  const [gift] = await q(db.from("gifts").select("id, giver_id, status, complimentary_for").eq("code_hash", hashGiftCode(normalized)).limit(1), "read gift");
+  if (!gift || gift.status === "cancelled" || gift.complimentary_for) return null;
   return { id: gift.id as string, giverId: gift.giver_id as string };
 }
 
