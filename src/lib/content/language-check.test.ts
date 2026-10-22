@@ -21,7 +21,7 @@ describe("outdated-language scanner", () => {
 
   it("quotes the sentence each word sits in", () => {
     const [finding] = scanChapters([{ title: "Ch", text: "It was late. Everything is queer to-day! Then she slept." }]);
-    expect(finding.passage).toBe("Everything is queer to-day!");
+    expect(finding?.passage).toBe("Everything is queer to-day!");
   });
 
   it("gives every term a reason and a replacement", () => {
