@@ -7,6 +7,7 @@ import { activeChild } from "@/lib/family/permissions";
 import { familyPage } from "@/lib/family/page-data";
 import { childBookState, narratorsFor } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
+import { estimateSeconds } from "@/lib/narration/costs";
 import { kidsReadiness } from "@/lib/narration/narration";
 import { bookText } from "@/lib/narration/text";
 
@@ -36,6 +37,7 @@ export default async function KidsListen({ params }: { params: Promise<{ slug: s
       book={{ slug: book.slug, title: book.title, coverUrl: book.coverUrl }}
       sentences={text.sentences.map((x) => x.text)}
       sentenceIds={text.sentences.map((x) => x.id)}
+      sentenceSeconds={text.sentences.map((x) => estimateSeconds(x.text.length, store.plan.narrationModelId))}
       initialReadiness={readiness}
       initialNarrators={narrators}
       resume={resume}
