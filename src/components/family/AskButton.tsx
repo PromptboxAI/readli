@@ -9,7 +9,7 @@ export function AskButton({ childId, bookSlug, title, initial }: { childId: stri
   if (asked) {
     return (
       <span className="inline-flex min-h-11 items-center justify-center rounded-full bg-mint-deep px-3 font-display text-sm font-semibold text-white" data-testid={`asked-${bookSlug}`}>
-        Asked ✓<span className="sr-only">: a grown-up will see you'd like {title}</span>
+        Asked ✓<span className="sr-only">: a grown-up will see you&apos;d like {title}</span>
       </span>
     );
   }
