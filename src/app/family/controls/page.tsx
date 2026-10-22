@@ -55,8 +55,8 @@ export default async function ParentControls() {
       controls: [
         {
           href: "/family/devices",
-          title: "Kids Mode PIN and devices",
-          text: "The PIN for leaving Kids Mode, and Readli Kids iPads and phones",
+          title: "Kids devices and PIN",
+          text: "Register a child\u2019s own iPad or phone, and set the family PIN that leaves Kids Mode",
           value: devices === null ? undefined : `${hasPin ? "PIN set · " : ""}${devices} ${devices === 1 ? "device" : "devices"}`,
         },
       ],
@@ -106,8 +106,8 @@ export default async function ParentControls() {
         {column([groups[1]!, groups[3]!])}
       </div>
       <p className="max-w-3xl text-sm text-muted">
-        Billing changes, deleting a voice or your account, and changing who a voice is shared with always need you to sign in again, never just the Kids
-        Mode PIN. None of these open on a Readli Kids device.
+        Billing changes, deleting a voice or your account, and changing who a voice is shared with always need you to sign in again, never just the family
+        PIN. None of these open on a Readli Kids device.
       </p>
     </FamilyShell>
   );

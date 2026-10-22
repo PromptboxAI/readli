@@ -7,8 +7,21 @@ import type { DeviceView } from "@/lib/family/devices";
 const when = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 const STATUS: Record<DeviceView["status"], string> = { active: "Active", revoked: "Ended", expired: "Ended after 90 days unused" };
 
-/** Readli Family → Kids devices: set up this device, see and end the others, and set the grown-up PIN. */
-export function KidsDevices({ kids, initialDevices, pinSet }: { kids: { id: string; nickname: string }[]; initialDevices: DeviceView[]; pinSet: boolean }) {
+/** Readli Family → Kids devices and PIN: the two ways to use Readli Kids, the family PIN, registering this device and ending others. */
+export function KidsDevices({
+  kids,
+  initialDevices,
+  pinSet,
+  temporaryHours,
+  idleDays,
+}: {
+  kids: { id: string; nickname: string }[];
+  initialDevices: DeviceView[];
+  pinSet: boolean;
+  /** How long Kids Mode on a browser lasts, and how long a registered device may sit unused. */
+  temporaryHours: number;
+  idleDays: number;
+}) {
   const [devices, setDevices] = useState(initialDevices);
   const [hasPin, setHasPin] = useState(pinSet);
   const [pin, setPin] = useState("");
@@ -31,7 +44,7 @@ export function KidsDevices({ kids, initialDevices, pinSet }: { kids: { id: stri
     if (await call("/api/family/kids-pin", { method: "PUT", body: JSON.stringify({ pin }) })) {
       setHasPin(true);
       setPin("");
-      setMessage("Grown-up PIN saved.");
+      setMessage("Family PIN saved.");
     }
   };
   const end = async (d: DeviceView) => {
@@ -51,12 +64,52 @@ export function KidsDevices({ kids, initialDevices, pinSet }: { kids: { id: stri
   return (
     <div className="flex flex-col gap-8" data-testid="kids-devices">
       <div className="flex flex-col gap-3">
-        <h1 className="font-display text-4xl font-semibold">Kids devices</h1>
-        <p className="max-w-2xl text-lg">
-          Set up an iPad or phone for Readli Kids. The device only gets your kids&apos; bookshelves, never your account. It stays set up
-          while it&apos;s used and ends after {90} days unused, or whenever you end it here.
-        </p>
+        <h1 className="font-display text-4xl font-semibold">Kids devices and PIN</h1>
       </div>
+
+      <section aria-labelledby="modes-h" className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-5 ring-2 ring-ink/10" data-testid="kids-modes">
+        <h2 id="modes-h" className="font-display text-2xl font-semibold">
+          Two ways to use Readli Kids
+        </h2>
+        <div className="grid gap-5 md:grid-cols-2">
+          {[
+            {
+              title: "Kids Mode on this browser",
+              tag: "Temporary",
+              tone: "bg-ink/5",
+              lines: [
+                "Starts from Open Readli Kids on a child\u2019s card",
+                "One child, this browser only",
+                "A grown-up leaves it with the family PIN",
+                `Ends on its own after ${temporaryHours} hours, and never registers a device`,
+              ],
+            },
+            {
+              title: "Registered kids device",
+              tag: "Stays set up",
+              tone: "bg-mint/50 text-mint-deep",
+              lines: [
+                "Set up below on the child\u2019s own iPad or phone",
+                "Opens only Readli Kids for the kids you choose, never your account",
+                "A grown-up leaves it only with the family PIN",
+                `Ends after ${idleDays} days unused, or when you end it here`,
+              ],
+            },
+          ].map((m) => (
+            <div key={m.title} className="flex min-w-0 flex-col gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-display text-lg font-semibold">{m.title}</h3>
+                <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${m.tone}`}>{m.tag}</span>
+              </div>
+              <ul className="flex list-disc flex-col gap-1 pl-5 text-muted">
+                {m.lines.map((l) => (
+                  <li key={l}>{l}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <p role="status" aria-live="polite" className={message ? "rounded-2xl bg-ivory p-3 font-semibold ring-2 ring-ink/10" : "sr-only"}>
         {message}
@@ -64,11 +117,11 @@ export function KidsDevices({ kids, initialDevices, pinSet }: { kids: { id: stri
 
       <section aria-labelledby="pin-h" className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-5 ring-2 ring-ink/10">
         <h2 id="pin-h" className="font-display text-2xl font-semibold">
-          Grown-up PIN
+          Family PIN
         </h2>
         <p>
-          {hasPin ? "Your family has a PIN. " : "No PIN yet. "}A 4-digit PIN lets a grown-up leave Readli Kids on a device. It doesn&apos;t
-          sign you in or unlock billing, voices or sharing; those always need your sign-in.
+          {hasPin ? "Your family has a PIN. " : "No PIN yet. "}The 4-digit family PIN lets a grown-up leave Readli Kids, on a kids device or in
+          Kids Mode on this browser. It never signs you in or unlocks billing, voices or sharing; those always need your sign-in.
         </p>
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 font-semibold">
@@ -92,7 +145,7 @@ export function KidsDevices({ kids, initialDevices, pinSet }: { kids: { id: stri
 
       <section aria-labelledby="setup-h" className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-5 ring-2 ring-ink/10">
         <h2 id="setup-h" className="font-display text-2xl font-semibold">
-          Set up this device
+          Register this device for Readli Kids
         </h2>
         {kids.length === 0 ? (
           <p>Add a kids profile first.</p>
