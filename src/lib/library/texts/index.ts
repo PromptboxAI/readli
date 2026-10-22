@@ -10,6 +10,8 @@
  * "Indian doll" is a scout doll). A Child's Garden of Verses leaves out six poems with dated lines.
  * Kevin, 2026-10-22: every text is scanned for outdated or now-offensive words before it is added
  * (src/lib/content/language-check.ts; run `npm run scan:language -- <book.json>` on a new import).
+ * The first scan's words were all replaced by hand (Cinder-girl, Robin Redbreast, Tom Tiptoe-mouse,
+ * Cheshire Kitty, Heidi's "Land of Knots", queer to strange or odd, and so on); keep them on re-import.
  */
 import type { CatalogBook } from "../catalog";
 import AChildsGardenOfVerses from "./a-childs-garden-of-verses.json";
