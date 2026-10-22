@@ -17,13 +17,43 @@ test("the kids bookshelf shows ready stories first and keeps the rest for a grow
   await expect(page.getByRole("heading", { name: "Hi Maya! Pick a story." })).toBeVisible();
   const mine = page.getByRole("region", { name: "Ready to listen" });
   await expect(mine.getByRole("link", { name: /The Lion and the Mouse/ })).toContainText("with Mom");
-  // A book nobody has prepared is never offered as playable: no link, no controls.
-  const later = page.getByRole("region", { name: "Discover more stories" });
-  await expect(later).toContainText("Aesop's Fables");
-  await expect(later.getByRole("link")).toHaveCount(0);
   await expect(page.getByTestId("kids-continue")).toHaveCount(0);
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/kids-home-${info.project.name}.png`, fullPage: true });
+
+  // Unprepared books wait behind one small Discover entry, never as playable stories.
+  await page.getByTestId("kids-discover").click();
+  await expect(page).toHaveURL(/\/kids\/discover$/);
+  await expect(page.getByTestId("discover-aesops-fables-retold")).toContainText("Aesop's Fables");
+  await expect(page.getByTestId("discover-books").getByRole("link")).toHaveCount(0);
+  await noOverflow(page);
+  await page.screenshot({ path: `e2e/screenshots/kids-discover-${info.project.name}.png`, fullPage: true });
+  await page.getByTestId("back-link").click();
+  await expect(page).toHaveURL(/\/kids$/);
+});
+
+test("Continue listening isn't repeated in Ready to listen, and a finished story leaves it", async ({ page, context, browser }) => {
+  await signIn(page, "adult:sara");
+  const parent = await context.cookies();
+  await signIn(page, "child:maya");
+  const save = (sentence: number) => page.request.put("/api/kids/maya/progress", { data: { bookSlug: "the-lion-and-the-mouse", sentence, voiceId: "voice-sara" } });
+  expect((await save(2)).status()).toBe(200);
+  await page.goto("/kids");
+  await expect(page.getByTestId("kids-continue")).toContainText("The Lion and the Mouse");
+  await expect(page.getByRole("link", { name: /The Lion and the Mouse/ })).toHaveCount(1);
+  // Each child's shelf is their own: Maya's place doesn't show on Leo's.
+  const tablet = await browser.newContext();
+  await tablet.addCookies(parent);
+  const leo = await tablet.newPage();
+  await signIn(leo, "child:leo");
+  await leo.goto("/kids");
+  await expect(leo.getByRole("heading", { name: "Hi Leo! Pick a story." })).toBeVisible();
+  await expect(leo.getByTestId("kids-continue")).toHaveCount(0);
+  await tablet.close();
+  expect((await save(500)).status()).toBe(200);
+  await page.goto("/kids");
+  await expect(page.getByTestId("kids-continue")).toHaveCount(0);
+  await expect(page.getByTestId("kids-ready").getByRole("link", { name: /The Lion and the Mouse/ })).toBeVisible();
 });
 
 test("the player opens in Listen mode, switches to Read-along at the same place, and remembers it", async ({ page }, info) => {

@@ -6,15 +6,12 @@ import { FamilyOff, FamilyShell, GrownUpSignIn, NeedsGrownUp } from "@/component
 import { KidsDeviceFooter, ListenerPicker, TemporaryKidsExit } from "@/components/family/KidsDeviceControls";
 import { cookies } from "next/headers";
 import { KIDS_COOKIE } from "@/lib/family/kids-mode";
-import { CATALOG } from "@/lib/library/catalog";
 import { familyStore } from "@/lib/family/session";
-import { narratorsFor } from "@/lib/family/service";
 import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
-import { bookText } from "@/lib/narration/text";
 import { pageCount, pageOf } from "@/lib/player/pages";
-import { kidsReadiness } from "@/lib/narration/narration";
 import { activeChild } from "@/lib/family/permissions";
 import { familyPage } from "@/lib/family/page-data";
+import { kidsShelf } from "@/lib/kids/shelf";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Readli Kids" };
@@ -41,28 +38,13 @@ export default async function KidsHome() {
     );
   }
   if (!child) return <NeedsGrownUp text="A grown-up opens your Readli Kids bookshelf for you." />;
-  const favorites = new Set(page.state!.favorites.filter((f) => f.childId === child.id).map((f) => f.bookSlug));
   // Kids browse the family's books and listen to what's already prepared; they can't start generation.
   const store = (await familyStore(page.session!))!;
-  const narrators = await narratorsFor(store, actor!, child.id);
-  const nameOf = new Map(narrators.map((n) => [n.voiceId, n]));
-  const books = await Promise.all(
-    CATALOG.map(async (b) => {
-      const readiness = await kidsReadiness(store, actor!, child.id, b.slug);
-      // Ready only when a voice this child may hear has every sentence of the book stored.
-      const voices = readiness.filter((r) => r.readiness === "ready").map((r) => nameOf.get(r.voiceId)?.name).filter((n): n is string => Boolean(n));
-      return { book: b, voices };
-    }),
-  );
-  const ready = books.filter((b) => b.voices.length > 0);
-  const waiting = books.filter((b) => b.voices.length === 0);
-  // The story this child was last in the middle of, if it can still be played.
-  const last = page.state!.progress
-    .filter((p) => p.childId === child.id && p.sentence > 0 && ready.some((b) => b.book.slug === p.bookSlug))
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-  const resume = last ? ready.find((b) => b.book.slug === last.bookSlug)!.book : null;
-  const reader = last?.voiceId ? nameOf.get(last.voiceId) : undefined;
-  const total = resume ? (bookText(resume.slug)?.sentences.length ?? 1) : 1;
+  const { resume: shelfResume, ready, waiting } = await kidsShelf(store, actor!, page.state!, child.id);
+  const resume = shelfResume?.book ?? null;
+  const last = shelfResume?.progress;
+  const reader = shelfResume?.reader;
+  const total = shelfResume?.total ?? 1;
   return (
     <main className="mx-auto flex min-h-dvh max-w-5xl flex-col gap-8 px-4 py-8 sm:px-6">
       <div className="flex items-center gap-4">
@@ -97,47 +79,59 @@ export default async function KidsHome() {
         </Link>
       )}
 
-      <section className="flex flex-col gap-4" aria-labelledby="my-stories-h" data-testid="kids-ready">
-        <h2 id="my-stories-h" className="font-display text-2xl font-semibold">Ready to listen</h2>
-        {ready.length === 0 && (
-          <div className="flex flex-col items-center gap-3 rounded-[28px] bg-surface p-8 text-center ring-2 ring-ink/10" data-testid="kids-empty">
-            <ReadiMascot size={120} decorative />
-            <p className="font-display text-2xl font-semibold">No stories ready yet</p>
-            <p className="max-w-md text-lg">Ask a grown-up to get a story ready for you. It will be right here when it&apos;s done.</p>
-          </div>
-        )}
-        <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
-          {ready.map(({ book: b, voices }) => (
-            <li key={b.slug} className="relative">
-              <Link href={`/kids/listen/${b.slug}`} className="group flex flex-col gap-2">
-                <Cover url={b.coverUrl} tint={b.tint} title={b.title} />
-                <span className="font-display text-lg leading-tight font-semibold">{b.title}</span>
-                <span className="text-sm text-muted">
-                  <span className="sr-only">Ready to listen, </span>with {voices.join(" or ")}
+      {/* The story in Continue listening isn't repeated here; with nothing else ready, the section steps aside. */}
+      {(ready.length > 0 || !resume) && (
+        <section className="flex flex-col gap-4" aria-labelledby="my-stories-h" data-testid="kids-ready">
+          <h2 id="my-stories-h" className="font-display text-2xl font-semibold">Ready to listen</h2>
+          {ready.length === 0 && (
+            <div className="flex flex-col items-center gap-3 rounded-[28px] bg-surface p-8 text-center ring-2 ring-ink/10" data-testid="kids-empty">
+              <ReadiMascot size={120} decorative />
+              <p className="font-display text-2xl font-semibold">No stories ready yet</p>
+              <p className="max-w-md text-lg">Ask a grown-up to get a story ready for you. It will be right here when it&apos;s done.</p>
+            </div>
+          )}
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
+            {ready.map(({ book: b, voices, favorite }) => (
+              <li key={b.slug} className="relative">
+                <Link href={`/kids/listen/${b.slug}`} className="group flex flex-col gap-2">
+                  <Cover url={b.coverUrl} tint={b.tint} title={b.title} />
+                  <span className="font-display text-lg leading-tight font-semibold">{b.title}</span>
+                  <span className="text-sm text-muted">
+                    <span className="sr-only">Ready to listen, </span>with {voices.join(" or ")}
+                  </span>
+                </Link>
+                <span className="absolute top-2 right-2 rounded-full bg-surface/90">
+                  <FavoriteButton childId={child.id} bookSlug={b.slug} title={b.title} initial={favorite} />
                 </span>
-              </Link>
-              <span className="absolute top-2 right-2 rounded-full bg-surface/90">
-                <FavoriteButton childId={child.id} bookSlug={b.slug} title={b.title} initial={favorites.has(b.slug)} />
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {waiting.length > 0 && (
-        <section className="flex flex-col gap-4" aria-labelledby="ask-h" data-testid="kids-discover">
-          <h2 id="ask-h" className="font-display text-2xl font-semibold">Discover more stories</h2>
-          <p className="text-muted">These aren&apos;t ready yet. A grown-up can get them ready for you.</p>
-          <ul className="grid grid-cols-3 gap-4 sm:grid-cols-4 lg:grid-cols-6">
-            {waiting.map(({ book: b }) => (
-              <li key={b.slug} className="flex flex-col gap-1.5 opacity-75" aria-label={`${b.title}: a grown-up can get this one ready`}>
-                <Cover url={b.coverUrl} tint={b.tint} title={b.title} />
-                <span className="font-display text-sm leading-tight font-semibold">{b.title}</span>
-                <span className="text-xs text-muted">Not ready yet</span>
               </li>
             ))}
           </ul>
         </section>
+      )}
+
+      {waiting.length > 0 && (
+        <Link
+          href="/kids/discover"
+          className="grid items-center gap-3 rounded-3xl bg-surface p-4 outline-2 -outline-offset-2 outline-ink/20 outline-dashed sm:grid-cols-[auto_1fr_auto] sm:gap-6 sm:px-5"
+          data-testid="kids-discover"
+        >
+          <span className="flex" aria-hidden="true">
+            {waiting.slice(0, 5).map((b) => (
+              <span key={b.slug} className="-mr-1.5 w-12 overflow-hidden rounded-lg border-2 border-surface shadow-[0_2px_0_rgb(40_53_72/0.12)]">
+                <Cover url={b.coverUrl} tint={b.tint} title="" />
+              </span>
+            ))}
+          </span>
+          <span className="flex flex-col">
+            <span className="font-display text-xl font-semibold">Discover more stories</span>
+            <span className="text-muted">
+              {waiting.length} more {waiting.length === 1 ? "story" : "stories"} a grown-up can get ready for you.
+            </span>
+          </span>
+          <span className="inline-flex min-h-12 items-center self-start rounded-full border-[3px] border-ink px-5 font-display text-lg font-semibold sm:self-center">
+            Take a look
+          </span>
+        </Link>
       )}
 
       {device ? (
