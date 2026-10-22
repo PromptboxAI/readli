@@ -10,6 +10,20 @@ async function noOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 }
 
+/** The player fits one screen with nothing to scroll, and the whole cover shows at its own shape. */
+async function fitsOneScreen(page: Page) {
+  const player = page.getByTestId("kids-player");
+  expect(await player.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(0);
+  expect(await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)).toBeLessThanOrEqual(0);
+  const view = page.viewportSize()!;
+  const cover = (await page.getByTestId("player-cover").boundingBox())!;
+  expect(cover.y).toBeGreaterThanOrEqual(0);
+  expect(cover.y + cover.height).toBeLessThanOrEqual(view.height);
+  expect(Math.abs(cover.width / cover.height - 3 / 4)).toBeLessThan(0.02);
+  const play = (await page.getByRole("button", { name: "Play" }).boundingBox())!;
+  expect(play.y + play.height).toBeLessThanOrEqual(view.height);
+}
+
 test("the kids bookshelf shows ready stories first and keeps the rest for a grown-up", async ({ page }, info) => {
   await signIn(page, "adult:sara");
   await signIn(page, "child:maya");
@@ -95,20 +109,24 @@ test("the player opens in Listen mode, switches to Read-along at the same place,
   const player = page.getByTestId("kids-player");
   await expect(player).toHaveAttribute("data-mode", "listen");
   await expect(page.getByRole("heading", { name: "The Lion and the Mouse" })).toBeVisible();
-  await expect(player).toContainText(/Mom is reading · page 1 of \d+/);
+  await expect(player).toContainText("Mom is reading");
+  await expect(page.getByTestId("player-page")).toHaveText(/Page 1 of \d+/);
+  await expect(page.getByRole("slider", { name: "Story time" })).toHaveAttribute("aria-valuetext", /^0:00 of \d+:\d\d, page 1 of \d+$/);
   await noOverflow(page);
+  await fitsOneScreen(page);
   await page.screenshot({ path: `e2e/screenshots/player-listen-${info.project.name}.png` });
 
   await page.getByRole("button", { name: "Next" }).click();
   const saved = page.waitForResponse((r) => r.url().includes("/api/kids/maya/progress") && r.request().method() === "PUT");
   await page.getByRole("button", { name: "Next" }).click();
   await saved;
-  await page.getByRole("button", { name: "Show pictures and words" }).click();
+  await page.getByRole("button", { name: "Read along" }).click();
   await expect(player).toHaveAttribute("data-mode", "read");
   await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/);
   await expect(player.locator("[data-current]")).toBeVisible();
   await expect(page.getByTestId("current-narrator")).toHaveText("Mom");
   await noOverflow(page);
+  await fitsOneScreen(page);
   await page.screenshot({ path: `e2e/screenshots/player-read-${info.project.name}.png` });
 
   // The sleep timer cycles off, 15, 30, 45 and off again.
@@ -123,6 +141,19 @@ test("the player opens in Listen mode, switches to Read-along at the same place,
   await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/);
   await page.getByRole("button", { name: "Just listen" }).first().click();
   await expect(player).toHaveAttribute("data-mode", "listen");
+
+  // Dragging the time bar jumps to the sentence under it; End and Home do the same from the keyboard.
+  const bar = page.getByRole("slider", { name: "Story time" });
+  await bar.focus();
+  await page.keyboard.press("End");
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence (\d+) of \1$/);
+  await page.keyboard.press("Home");
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 1 of/);
+  await expect(page.getByTestId("player-page")).toHaveText(/Page 1 of/);
+  // Only a story with some listening in it waits in Continue listening.
+  const moved = page.waitForResponse((r) => r.url().includes("/api/kids/maya/progress") && r.request().method() === "PUT" && r.request().postDataJSON().sentence === 1);
+  await page.getByRole("button", { name: "Next" }).click();
+  await moved;
 
   // Back on the bookshelf, the story waits in Continue listening.
   await page.getByRole("link", { name: "My stories" }).click();
