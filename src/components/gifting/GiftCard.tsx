@@ -8,7 +8,7 @@ export function GiftCard({ plan, to, from, message, open = false }: { plan: Gift
       <span aria-hidden="true" className="absolute -left-6 -top-6 size-24 rounded-full bg-sunshine/60" />
       <span aria-hidden="true" className="absolute -bottom-8 -right-4 size-28 rounded-[40%] bg-mint/70" />
       <GiftBoxArt className="relative w-28" open={open} />
-      <p className="relative font-display text-lg">For {to}</p>
+      {to && <p className="relative font-display text-lg">For {to}</p>}
       <p className="relative font-display text-3xl font-semibold">
         {plan.kind === "recurring" ? "Readli, every month" : `${plan.name} of Readli`}
       </p>

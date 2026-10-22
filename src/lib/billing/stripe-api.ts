@@ -47,13 +47,17 @@ export class StripeApi {
     this.fetchImpl = fetchImpl;
   }
 
-  private async call<T>(method: "GET" | "POST", path: string, params: Params = {}): Promise<T> {
+  private async call<T>(method: "GET" | "POST", path: string, params: Params = {}, idempotencyKey?: string): Promise<T> {
     if (this.config.mode === "off" || !this.config.secretKey) throw new StripeError(503, "Payments are switched off.");
     const body = encodeForm(params);
     const url = `https://api.stripe.com/v1/${path}${method === "GET" && body ? `?${body}` : ""}`;
     const res = await this.fetchImpl(url, {
       method,
-      headers: { authorization: `Bearer ${this.config.secretKey}`, "content-type": "application/x-www-form-urlencoded" },
+      headers: {
+        authorization: `Bearer ${this.config.secretKey}`,
+        "content-type": "application/x-www-form-urlencoded",
+        ...(idempotencyKey ? { "idempotency-key": idempotencyKey } : {}),
+      },
       body: method === "POST" ? body : undefined,
     });
     const json = (await res.json().catch(() => ({}))) as T & { error?: { message?: string } };
@@ -84,4 +88,25 @@ export class StripeApi {
   async createPortalSession(customer: string, returnUrl: string): Promise<{ url: string }> {
     return this.call("POST", "billing_portal/sessions", { customer, return_url: returnUrl });
   }
+
+  async getSubscription(id: string): Promise<StripeSubscription> {
+    return this.call("GET", `subscriptions/${encodeURIComponent(id)}`);
+  }
+
+  /**
+   * Gives a subscriber free time without a charge or a credit: Stripe bills nothing until `trialEnd`
+   * (seconds), then the plan carries on as before. The key makes a retry a no-op.
+   */
+  async pauseBillingUntil(id: string, trialEnd: number, idempotencyKey: string): Promise<StripeSubscription> {
+    return this.call("POST", `subscriptions/${encodeURIComponent(id)}`, { trial_end: trialEnd, proration_behavior: "none" }, idempotencyKey);
+  }
+}
+
+export interface StripeSubscription {
+  id: string;
+  status: string;
+  cancel_at_period_end?: boolean;
+  current_period_end?: number;
+  trial_end?: number | null;
+  items?: { data?: { current_period_end?: number }[] };
 }
