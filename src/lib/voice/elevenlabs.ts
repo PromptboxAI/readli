@@ -115,8 +115,8 @@ export class ElevenLabsProvider implements VoiceProvider {
     try {
       await this.call(`/voices/${encodeURIComponent(voiceId)}`, { method: "DELETE" });
     } catch (err) {
-      // Already gone counts as deleted.
-      if (err instanceof VoiceProviderError && err.status === 404) return;
+      // Already gone counts as deleted. ElevenLabs answers a missing voice with 400 voice_not_found, not 404.
+      if (err instanceof VoiceProviderError && (err.status === 404 || (err.status === 400 && /voice_not_found|voice_does_not_exist/.test(err.message)))) return;
       throw err;
     }
   }

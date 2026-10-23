@@ -118,6 +118,11 @@ describe("ElevenLabs provider", () => {
 
     const gone = new ElevenLabsProvider("key", "m", (async () => new Response("", { status: 404 })) as typeof fetch);
     await expect(gone.deleteVoice("v")).resolves.toBeUndefined();
+    const missing = new ElevenLabsProvider("key", "m", (async () =>
+      new Response(JSON.stringify({ detail: { type: "not_found", code: "voice_not_found", status: "voice_does_not_exist" } }), { status: 400 })) as typeof fetch);
+    await expect(missing.deleteVoice("v")).resolves.toBeUndefined();
+    const rejected = new ElevenLabsProvider("key", "m", (async () => new Response("bad request", { status: 400 })) as typeof fetch);
+    await expect(rejected.deleteVoice("v")).rejects.toBeInstanceOf(VoiceProviderError);
   });
 
   it("reads with Eleven v4 by default, sending only the sliders v4 has", async () => {
