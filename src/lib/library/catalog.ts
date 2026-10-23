@@ -71,6 +71,11 @@ const ADDED: readonly UpcomingBook[] = [
   { slug: "the-queen-bee", title: "The Queen Bee", author: "The Brothers Grimm", firstPublished: 1812, approxMinutes: 4 },
   { slug: "five-peas-from-one-pod", title: "Five Peas from One Pod", author: "Hans Christian Andersen", firstPublished: 1852, approxMinutes: 7 },
   { slug: "the-three-sillies", title: "The Three Sillies", author: "Traditional", firstPublished: 1890, approxMinutes: 9 },
+  { slug: "the-leaping-match", title: "The Leaping Match", author: "Hans Christian Andersen", firstPublished: 1845, approxMinutes: 4 },
+  { slug: "the-happy-family", title: "The Happy Family", author: "Hans Christian Andersen", firstPublished: 1847, approxMinutes: 7 },
+  { slug: "the-darning-needle", title: "The Darning-Needle", author: "Hans Christian Andersen", firstPublished: 1845, approxMinutes: 7 },
+  { slug: "little-tuk", title: "Little Tuk", author: "Hans Christian Andersen", firstPublished: 1847, approxMinutes: 9 },
+  { slug: "gudbrand-on-the-hill-side", title: "Gudbrand on the Hill-side", author: "Asbjørnsen and Moe", firstPublished: 1843, approxMinutes: 8 },
 ].map((b) => ({ ...b, coverUrl: `/covers/${b.slug}.webp` }));
 
 export const CATALOG: readonly CatalogBook[] = [

@@ -29,17 +29,22 @@ import AlicesAdventuresInWonderland from "./alices-adventures-in-wonderland.json
 import Cinderella from "./cinderella.json";
 import FivePeasFromOnePod from "./five-peas-from-one-pod.json";
 import GoldilocksAndTheThreeBears from "./goldilocks-and-the-three-bears.json";
+import GudbrandOnTheHillSide from "./gudbrand-on-the-hill-side.json";
 import Heidi from "./heidi.json";
 import JustSoStories from "./just-so-stories.json";
+import LittleTuk from "./little-tuk.json";
 import MotherHolle from "./mother-holle.json";
 import RaggedyAnnStories from "./raggedy-ann-stories.json";
 import SleepingBeauty from "./sleeping-beauty.json";
 import TheBremenTownMusicians from "./the-bremen-town-musicians.json";
+import TheDarningNeedle from "./the-darning-needle.json";
 import TheElvesAndTheShoemaker from "./the-elves-and-the-shoemaker.json";
 import TheEmperorsNewClothes from "./the-emperors-new-clothes.json";
 import TheGingerbreadMan from "./the-gingerbread-man.json";
 import TheGoldenGoose from "./the-golden-goose.json";
+import TheHappyFamily from "./the-happy-family.json";
 import TheJumblies from "./the-jumblies.json";
+import TheLeapingMatch from "./the-leaping-match.json";
 import TheLionAndTheMouse from "./the-lion-and-the-mouse.json";
 import TheLittleRedHen from "./the-little-red-hen.json";
 import TheOwlAndThePussyCat from "./the-owl-and-the-pussy-cat.json";
@@ -70,17 +75,22 @@ export const LIBRARY_TEXTS: Record<string, Pick<CatalogBook, "edition" | "chapte
   "cinderella": Cinderella,
   "five-peas-from-one-pod": FivePeasFromOnePod,
   "goldilocks-and-the-three-bears": GoldilocksAndTheThreeBears,
+  "gudbrand-on-the-hill-side": GudbrandOnTheHillSide,
   "heidi": Heidi,
   "just-so-stories": JustSoStories,
+  "little-tuk": LittleTuk,
   "mother-holle": MotherHolle,
   "raggedy-ann-stories": RaggedyAnnStories,
   "sleeping-beauty": SleepingBeauty,
   "the-bremen-town-musicians": TheBremenTownMusicians,
+  "the-darning-needle": TheDarningNeedle,
   "the-elves-and-the-shoemaker": TheElvesAndTheShoemaker,
   "the-emperors-new-clothes": TheEmperorsNewClothes,
   "the-gingerbread-man": TheGingerbreadMan,
   "the-golden-goose": TheGoldenGoose,
+  "the-happy-family": TheHappyFamily,
   "the-jumblies": TheJumblies,
+  "the-leaping-match": TheLeapingMatch,
   "the-lion-and-the-mouse": TheLionAndTheMouse,
   "the-little-red-hen": TheLittleRedHen,
   "the-owl-and-the-pussy-cat": TheOwlAndThePussyCat,
