@@ -39,13 +39,14 @@ describe("every story closes with The End", () => {
 });
 
 describe("long stories split into parts", () => {
-  // Revisions and sentence counts from before the split: splitting at a paragraph keeps every sentence id.
+  // Splitting at a paragraph keeps the revision and every sentence id. Revisions are after the
+  // 2026-10-22 language fixes (turkey-cock, queer, Cinder-slut...), which changed the words, not the parts.
   const SPLIT = [
-    ["the-ugly-duckling", "0e718ff695f9", 106, 4],
-    ["thumbelina", "81e49318a6ca", 201, 4],
-    ["the-velveteen-rabbit", "32815e09f55b", 214, 4],
-    ["cinderella", "e41d91f4209f", 100, 2],
-    ["the-emperors-new-clothes", "ddc67a3e0e27", 97, 2],
+    ["the-ugly-duckling", "f2a6c717f137", 106, 4],
+    ["thumbelina", "d0b5f61601d9", 201, 4],
+    ["the-velveteen-rabbit", "29ea7731ccb2", 214, 4],
+    ["cinderella", "7a139598fe80", 100, 2],
+    ["the-emperors-new-clothes", "29d7f1eb9f34", 97, 2],
   ] as const;
 
   it("can be prepared a part at a time, and audio already prepared still lines up", () => {

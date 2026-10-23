@@ -7,9 +7,20 @@ import s3 from "./snapshots/the-three-little-pigs.6f525ed657d6.json";
 import s4 from "./snapshots/the-three-little-pigs.b95bb8109234.json";
 import s5 from "./snapshots/the-princess-and-the-pea.ac77d5495d2e.json";
 import s6 from "./snapshots/alices-adventures-in-wonderland.61bd65bb4a36.json";
-import s7 from "./snapshots/goldilocks-and-the-three-bears.d04c4d1afbb1.json";
-import s8 from "./snapshots/the-owl-and-the-pussy-cat.39fd1d8bcca2.json";
-import s9 from "./snapshots/raggedy-ann-stories.3b6e48ec3d15.json";
+import s7 from "./snapshots/alices-adventures-in-wonderland.727842a44470.json";
+import s8 from "./snapshots/goldilocks-and-the-three-bears.d04c4d1afbb1.json";
+import s9 from "./snapshots/the-velveteen-rabbit.32815e09f55b.json";
+import s10 from "./snapshots/the-ugly-duckling.0e718ff695f9.json";
+import s11 from "./snapshots/cinderella.e41d91f4209f.json";
+import s12 from "./snapshots/thumbelina.81e49318a6ca.json";
+import s13 from "./snapshots/the-emperors-new-clothes.ddc67a3e0e27.json";
+import s14 from "./snapshots/the-tale-of-mrs-tiggy-winkle.88fab42b11ba.json";
+import s15 from "./snapshots/the-owl-and-the-pussy-cat.39fd1d8bcca2.json";
+import s16 from "./snapshots/just-so-stories.173f4e80e76f.json";
+import s17 from "./snapshots/heidi.d323776239b3.json";
+import s18 from "./snapshots/raggedy-ann-stories.3b6e48ec3d15.json";
+import s19 from "./snapshots/raggedy-ann-stories.00e1924797cd.json";
+import s20 from "./snapshots/a-childs-garden-of-verses.28a4e51d1a11.json";
 
 export const SNAPSHOTS: Record<string, RevisionSnapshot> = {
   "the-tale-of-peter-rabbit:b3e7d9445524": s0,
@@ -19,7 +30,18 @@ export const SNAPSHOTS: Record<string, RevisionSnapshot> = {
   "the-three-little-pigs:b95bb8109234": s4,
   "the-princess-and-the-pea:ac77d5495d2e": s5,
   "alices-adventures-in-wonderland:61bd65bb4a36": s6,
-  "goldilocks-and-the-three-bears:d04c4d1afbb1": s7,
-  "the-owl-and-the-pussy-cat:39fd1d8bcca2": s8,
-  "raggedy-ann-stories:3b6e48ec3d15": s9,
+  "alices-adventures-in-wonderland:727842a44470": s7,
+  "goldilocks-and-the-three-bears:d04c4d1afbb1": s8,
+  "the-velveteen-rabbit:32815e09f55b": s9,
+  "the-ugly-duckling:0e718ff695f9": s10,
+  "cinderella:e41d91f4209f": s11,
+  "thumbelina:81e49318a6ca": s12,
+  "the-emperors-new-clothes:ddc67a3e0e27": s13,
+  "the-tale-of-mrs-tiggy-winkle:88fab42b11ba": s14,
+  "the-owl-and-the-pussy-cat:39fd1d8bcca2": s15,
+  "just-so-stories:173f4e80e76f": s16,
+  "heidi:d323776239b3": s17,
+  "raggedy-ann-stories:3b6e48ec3d15": s18,
+  "raggedy-ann-stories:00e1924797cd": s19,
+  "a-childs-garden-of-verses:28a4e51d1a11": s20,
 };

@@ -11,6 +11,10 @@
  * Kevin, 2026-10-22: stories of 10 minutes or more that have no chapters of their own are split into
  * parts at natural breaks, so a family can try one part before spending credits on the whole story.
  * Split only between paragraphs where a sentence ends, so the revision and every sentence id stay the same.
+ * Kevin, 2026-10-22: every text is scanned for outdated or now-offensive words before it is added
+ * (src/lib/content/language-check.ts; run `npm run scan:language -- <book.json>` on a new import).
+ * The first scan's words were all replaced by hand (Cinder-girl, Robin Redbreast, Tom Tiptoe-mouse,
+ * Cheshire Kitty, Heidi's "Land of Knots", queer to strange or odd, and so on); keep them on re-import.
  */
 import type { CatalogBook } from "../catalog";
 import AChildsGardenOfVerses from "./a-childs-garden-of-verses.json";

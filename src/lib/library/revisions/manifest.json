@@ -135,10 +135,21 @@
    "revision": "727842a44470",
    "edition": "gutenberg-11",
    "firstSeen": "2026-10-11T00:44:23+00:00",
+   "lastSeen": "2026-10-22T23:40:37+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 1291
+  },
+  {
+   "slug": "alices-adventures-in-wonderland",
+   "revision": "7acd9047f27d",
+   "edition": "gutenberg-11",
+   "firstSeen": "2026-10-22T16:57:17+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 1291
+   "sentences": 1293,
+   "correction": true
   }
  ],
  "aesops-fables-retold": [
@@ -217,10 +228,21 @@
    "revision": "32815e09f55b",
    "edition": "gutenberg-11757",
    "firstSeen": "2026-10-11T00:44:23+00:00",
+   "lastSeen": "2026-10-22T23:40:37+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 214
+  },
+  {
+   "slug": "the-velveteen-rabbit",
+   "revision": "29ea7731ccb2",
+   "edition": "gutenberg-11757",
+   "firstSeen": "2026-10-22T16:57:17+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 214
+   "sentences": 214,
+   "correction": true
   }
  ],
  "the-ugly-duckling": [
@@ -229,10 +251,21 @@
    "revision": "0e718ff695f9",
    "edition": "gutenberg-66688",
    "firstSeen": "2026-10-11T00:44:23+00:00",
+   "lastSeen": "2026-10-22T23:40:37+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 106
+  },
+  {
+   "slug": "the-ugly-duckling",
+   "revision": "f2a6c717f137",
+   "edition": "gutenberg-66688",
+   "firstSeen": "2026-10-22T16:57:17+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 106
+   "sentences": 106,
+   "correction": true
   }
  ],
  "cinderella": [
@@ -241,10 +274,21 @@
    "revision": "e41d91f4209f",
    "edition": "gutenberg-31431",
    "firstSeen": "2026-10-12T00:57:17+00:00",
+   "lastSeen": "2026-10-22T23:40:37+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 100
+  },
+  {
+   "slug": "cinderella",
+   "revision": "7a139598fe80",
+   "edition": "gutenberg-31431",
+   "firstSeen": "2026-10-22T16:57:17+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 100
+   "sentences": 100,
+   "correction": true
   }
  ],
  "thumbelina": [
@@ -253,10 +297,21 @@
    "revision": "81e49318a6ca",
    "edition": "gutenberg-32571",
    "firstSeen": "2026-10-12T00:57:17+00:00",
+   "lastSeen": "2026-10-22T23:40:37+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 201
+  },
+  {
+   "slug": "thumbelina",
+   "revision": "d0b5f61601d9",
+   "edition": "gutenberg-32571",
+   "firstSeen": "2026-10-22T16:57:17+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 201
+   "sentences": 201,
+   "correction": true
   }
  ],
  "the-emperors-new-clothes": [
@@ -265,10 +320,21 @@
    "revision": "ddc67a3e0e27",
    "edition": "gutenberg-32572",
    "firstSeen": "2026-10-12T00:57:17+00:00",
+   "lastSeen": "2026-10-22T23:40:37+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 97
+  },
+  {
+   "slug": "the-emperors-new-clothes",
+   "revision": "29d7f1eb9f34",
+   "edition": "gutenberg-32572",
+   "firstSeen": "2026-10-22T16:57:17+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 97
+   "sentences": 97,
+   "correction": true
   }
  ],
  "the-tale-of-mrs-tiggy-winkle": [
@@ -277,10 +343,21 @@
    "revision": "88fab42b11ba",
    "edition": "gutenberg-12103",
    "firstSeen": "2026-10-12T00:57:17+00:00",
+   "lastSeen": "2026-10-22T23:40:37+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 80
+  },
+  {
+   "slug": "the-tale-of-mrs-tiggy-winkle",
+   "revision": "39ab10d9ba4c",
+   "edition": "gutenberg-12103",
+   "firstSeen": "2026-10-22T16:57:17+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 80
+   "sentences": 80,
+   "correction": true
   }
  ],
  "the-owl-and-the-pussy-cat": [
@@ -348,10 +425,21 @@
    "revision": "173f4e80e76f",
    "edition": "gutenberg-2781",
    "firstSeen": "2026-10-12T00:57:17+00:00",
+   "lastSeen": "2026-10-22T23:40:37+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 665
+  },
+  {
+   "slug": "just-so-stories",
+   "revision": "0b32d4bce204",
+   "edition": "gutenberg-2781",
+   "firstSeen": "2026-10-22T16:57:17+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 665
+   "sentences": 665,
+   "correction": true
   }
  ],
  "heidi": [
@@ -360,10 +448,21 @@
    "revision": "d323776239b3",
    "edition": "gutenberg-20781",
    "firstSeen": "2026-10-12T00:57:17+00:00",
+   "lastSeen": "2026-10-22T23:40:37+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 3508
+  },
+  {
+   "slug": "heidi",
+   "revision": "ba21cf3ee7d4",
+   "edition": "gutenberg-20781",
+   "firstSeen": "2026-10-22T16:57:17+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 3508
+   "sentences": 3508,
+   "correction": true
   }
  ],
  "raggedy-ann-stories": [
@@ -382,10 +481,21 @@
    "revision": "00e1924797cd",
    "edition": "gutenberg-18190",
    "firstSeen": "2026-10-12T13:33:30+00:00",
+   "lastSeen": "2026-10-22T23:40:37+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 912
+  },
+  {
+   "slug": "raggedy-ann-stories",
+   "revision": "ae805e32aed9",
+   "edition": "gutenberg-18190",
+   "firstSeen": "2026-10-22T16:57:17+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 912
+   "sentences": 912,
+   "correction": true
   }
  ],
  "a-childs-garden-of-verses": [
@@ -394,10 +504,21 @@
    "revision": "28a4e51d1a11",
    "edition": "gutenberg-25617",
    "firstSeen": "2026-10-12T13:40:10+00:00",
+   "lastSeen": "2026-10-22T23:40:37+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 136
+  },
+  {
+   "slug": "a-childs-garden-of-verses",
+   "revision": "e90b74585ac9",
+   "edition": "gutenberg-25617",
+   "firstSeen": "2026-10-22T16:57:17+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 136
+   "sentences": 136,
+   "correction": true
   }
  ]
 }
