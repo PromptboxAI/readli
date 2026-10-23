@@ -505,19 +505,25 @@ function UpdateAvailable({ update, preparing, busy, onEstimate }: { update: Book
   }
   const cost = update.free || update.credits === 0 ? "Free" : `${n(update.credits)} credits`;
   return (
-    <div className="flex flex-col gap-2 border-t border-ink/10 pt-3 text-sm" data-testid="book-update">
-      <p>
-        An updated version of this story is available.{" "}
-        <button type="button" className="font-semibold underline underline-offset-4" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-          See what changed
+    <div className="flex flex-col gap-3 border-t border-ink/10 pt-3 text-sm" data-testid="book-update">
+      <div className="flex flex-col gap-0.5">
+        <p className="font-semibold">An updated version of this story is available</p>
+        <p className="text-muted">
+          {update.changed === 1 ? "1 line reads differently." : `${update.changed} lines read differently.`}{" "}
+          {update.free ? "This is a Readli correction, so updating is free." : "Lines that haven't changed are reused at no cost."} Your current
+          audiobook keeps playing until the update is ready.
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <button type="button" className={btnSecondary} disabled={busy} onClick={onEstimate} data-testid="book-update-start">
+          Update audiobook · <span data-testid="book-update-cost">{cost}</span>
         </button>
-      </p>
+        <button type="button" className="font-semibold underline underline-offset-4" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          {open ? "Hide what changed" : "See what changed"}
+        </button>
+      </div>
       {open && (
         <div className="flex flex-col gap-2 rounded-lg bg-ivory p-3" data-testid="book-update-details">
-          <p className="text-muted">
-            {update.changed === 1 ? "1 line reads differently." : `${update.changed} lines read differently.`}{" "}
-            {update.free ? "This is a Readli correction, so updating is free." : "Lines that haven't changed are reused at no cost."}
-          </p>
           {update.before.length > 0 && (
             <div>
               <p className="font-semibold">Your audiobook says</p>
@@ -538,12 +544,6 @@ function UpdateAvailable({ update, preparing, busy, onEstimate }: { update: Book
               </ul>
             </div>
           )}
-          <p>
-            Cost: <span className="font-semibold" data-testid="book-update-cost">{cost}</span>. Your current audiobook keeps playing until the update is ready.
-          </p>
-          <button type="button" className={`${btnSecondary} self-start`} disabled={busy} onClick={onEstimate}>
-            Update audiobook
-          </button>
         </div>
       )}
     </div>
