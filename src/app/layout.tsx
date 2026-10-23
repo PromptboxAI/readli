@@ -16,7 +16,16 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
   // Preview deployments stay out of search results; production pages opt out one by one.
   robots: indexable() ? undefined : { index: false, follow: false },
+  verification: siteVerification(),
 };
+
+/** Search Console and Bing Webmaster Tools ownership tags, set from Vercel env vars once Kevin has the codes. */
+function siteVerification(): Metadata["verification"] {
+  const google = process.env.GOOGLE_SITE_VERIFICATION;
+  const bing = process.env.BING_SITE_VERIFICATION;
+  if (!google && !bing) return undefined;
+  return { ...(google ? { google } : {}), ...(bing ? { other: { "msvalidate.01": bing } } : {}) };
+}
 
 export const viewport: Viewport = {
   themeColor: "#FFF9ED",

@@ -22,7 +22,7 @@ export default async function RecordingTipsPage({ searchParams }: { searchParams
     <>
       <SiteHeader />
       <main className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-12 sm:px-6">
-        <RecordingTipsContent />
+        <RecordingTipsContent asPage />
         <Link href={back.href} className={`${buttonPrimary} w-fit`}>
           {back.label}
         </Link>

@@ -50,6 +50,7 @@ test("footer links to help without dropping the legal and safety pages", async (
   await page.goto("/");
   const footer = page.locator("footer");
   for (const [name, href] of [
+    ["Library", "/books"],
     ["Help", "/help"],
     ["Privacy", "/privacy"],
     ["Terms", "/terms"],
@@ -57,4 +58,9 @@ test("footer links to help without dropping the legal and safety pages", async (
     ["Parent Safety", "/parents/safety"],
   ] as const)
     await expect(footer.getByRole("link", { name, exact: true })).toHaveAttribute("href", href);
+});
+
+test("the recording tips page has its own top-level heading", async ({ page }) => {
+  await page.goto("/help/recording-tips");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tips for a better voice recording");
 });

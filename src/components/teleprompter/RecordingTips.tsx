@@ -49,13 +49,15 @@ const TIPS: { heading: string; points: string[] }[] = [
   },
 ];
 
-export function RecordingTipsContent({ headingId }: { headingId?: string }) {
+/** `asPage` makes the heading the page's h1, for the standalone /help/recording-tips page. */
+export function RecordingTipsContent({ headingId, asPage = false }: { headingId?: string; asPage?: boolean }) {
   const embed = tutorialEmbedUrl();
+  const Heading = asPage ? "h1" : "h2";
   return (
     <div className="flex flex-col gap-5">
-      <h2 id={headingId} className="font-display text-2xl font-semibold sm:text-3xl">
+      <Heading id={headingId} className="font-display text-2xl font-semibold sm:text-3xl">
         Tips for a better voice recording
-      </h2>
+      </Heading>
       {embed ? (
         <div className="relative aspect-video overflow-hidden rounded-2xl bg-ink/10">
           <iframe
