@@ -225,7 +225,7 @@ export function KidsPlayer({
     const fit = () => {
       let scale = 1;
       card.style.setProperty("--fit", "1");
-      while (scale > 0.6 && card.scrollHeight > card.clientHeight) {
+      while (scale > 0.5 && card.scrollHeight > card.clientHeight) {
         scale -= 0.05;
         card.style.setProperty("--fit", scale.toFixed(2));
       }
@@ -551,7 +551,7 @@ export function KidsPlayer({
           ) : (
             <section className="flex min-h-0 flex-1 flex-col gap-4">
               <div className="flex items-center gap-3.5">
-                {cover("w-[84px] shrink-0 rounded-xl shadow-[0_4px_12px_rgb(40_53_72/0.2)] sm:w-[150px] sm:rounded-[18px]")}
+                {cover("w-[84px] shrink-0 rounded-xl shadow-[0_4px_12px_rgb(40_53_72/0.2)] sm:w-[110px] tall:w-[150px] tall:rounded-[18px]")}
                 <div className="flex min-w-0 flex-col gap-1.5">
                   <h1 className="font-display text-[22px] leading-tight font-semibold text-balance sm:text-3xl">{book.title}</h1>
                   {reading}
@@ -560,9 +560,9 @@ export function KidsPlayer({
               <div
                 ref={pageCard}
                 data-testid="read-page"
-                className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-3xl bg-surface p-[22px] ring-2 ring-ink/8 ring-inset sm:rounded-[32px] sm:p-12"
+                className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-3xl bg-surface p-[22px] ring-2 ring-ink/8 ring-inset sm:p-8 tall:rounded-[32px] tall:p-12"
               >
-                <p className="my-auto font-display text-[calc(21px*var(--fit,1))] leading-[1.4] font-medium text-pretty sm:text-[calc(34px*var(--fit,1))]">
+                <p className="my-auto font-display text-[length:calc(21px*var(--fit,1))] leading-[1.4] font-medium text-pretty sm:text-[length:calc(27px*var(--fit,1))] tall:text-[length:calc(34px*var(--fit,1))]">
                   {sentences.slice(first, last).map((s, k) => {
                     const i = first + k;
                     return (
