@@ -23,11 +23,12 @@ describe("QR codes", () => {
     const qr = encodeQr("https://readli.ai/claim#ABCD-EFGH-JKMN");
     expect(qr.version).toBe(3);
     expect(qr.size).toBe(29);
-    for (const [cx, cy] of [
+    const centers: [number, number][] = [
       [3, 3],
       [qr.size - 4, 3],
       [3, qr.size - 4],
-    ]) {
+    ];
+    for (const [cx, cy] of centers) {
       expect(qr.modules[cy]![cx]).toBe(true);
       expect(qr.modules[cy - 2]![cx]).toBe(false);
       expect(qr.modules[cy - 3]![cx]).toBe(true);

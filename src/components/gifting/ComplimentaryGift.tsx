@@ -87,7 +87,6 @@ export function ClaimFromLink() {
     const c = fromHash ?? stashed();
     if (c) void lookUp(c);
     else setChecking(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loaded && code) return <ComplimentaryGift code={code} gift={loaded.gift} viewer={loaded.viewer} />;
