@@ -13,9 +13,11 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
  */
 
 const STEP_MS = 6000;
-const BOOK = { title: "The Tale of Peter Rabbit", cover: "/covers/the-tale-of-peter-rabbit.webp" };
-/** Genuine approved sample, served from /public. Until it is added the play button stays hidden. */
-const SAMPLE_SRC: string | null = null;
+const BOOK = { title: "The Three Billy Goats Gruff", short: "Billy Goats Gruff", cover: "/covers/the-three-billy-goats-gruff.webp" };
+/** Kevin's own Readli voice reading page 1, trimmed from his screen recording (2026-10-23). */
+const SAMPLE_SRC = "/samples/grandpa-kevin-billy-goats-gruff.mp3";
+/** Pressing play stops the journey moving on, so the sample isn't cut off mid-sentence. */
+const SAMPLE_PLAY_EVENT = "readli:journey-sample-play";
 
 const GRANDPA = { name: "Grandpa Kevin", portrait: "/family-voices/grandpa.webp" };
 const HOUSEHOLDS = [
@@ -50,36 +52,37 @@ function Cover({ w = 56 }: { w?: number }) {
 function SamplePlayer() {
   const audio = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
+  useEffect(() => {
+    const a = audio.current;
+    return () => a?.pause();
+  }, []);
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-ivory p-2.5 ring-1 ring-ink/10">
-      {SAMPLE_SRC ? (
-        <>
-          <audio ref={audio} src={SAMPLE_SRC} preload="none" onEnded={() => setPlaying(false)} />
-          <button
-            type="button"
-            onClick={() => {
-              const a = audio.current;
-              if (!a) return;
-              if (a.paused) void a.play().then(() => setPlaying(true));
-              else {
-                a.pause();
-                setPlaying(false);
-              }
-            }}
-            className="grid size-11 shrink-0 place-items-center rounded-full bg-coral-deep text-white"
-            aria-label={playing ? "Pause Grandpa Kevin's sample" : "Play Grandpa Kevin's sample"}
-          >
-            {playing ? "❚❚" : "▶"}
-          </button>
-        </>
-      ) : (
-        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-coral-deep text-white" aria-hidden="true">
-          ▶
-        </span>
-      )}
+      <audio ref={audio} src={SAMPLE_SRC} preload="none" onEnded={() => setPlaying(false)} />
+      <button
+        type="button"
+        onClick={() => {
+          const a = audio.current;
+          if (!a) return;
+          if (a.paused) {
+            window.dispatchEvent(new Event(SAMPLE_PLAY_EVENT));
+            void a
+              .play()
+              .then(() => setPlaying(true))
+              .catch(() => setPlaying(false));
+          } else {
+            a.pause();
+            setPlaying(false);
+          }
+        }}
+        className="grid size-11 shrink-0 place-items-center rounded-full bg-coral-deep text-white"
+        aria-label={playing ? "Pause Grandpa Kevin's sample" : "Play Grandpa Kevin's sample"}
+      >
+        {playing ? "❚❚" : "▶"}
+      </button>
       <span className="min-w-0 text-sm">
-        <span className="block font-semibold">Peter Rabbit, page 1</span>
-        <span className="block text-muted">Read by {GRANDPA.name} · 0:24</span>
+        <span className="block font-semibold">{BOOK.short}, page 1</span>
+        <span className="block text-muted">Read by {GRANDPA.name} · 0:29</span>
       </span>
     </div>
   );
@@ -138,7 +141,7 @@ const STEPS: { title: string; body: string; screen: ReactNode }[] = [
             <Initials name={h.parent.charAt(0)} tint={h.tint} />
             <span className="min-w-0 flex-1">
               <span className="block font-semibold">To {h.parent}</span>
-              <span className="block truncate text-sm text-muted">With Grandpa Kevin&apos;s Peter Rabbit sample</span>
+              <span className="block truncate text-sm text-muted">With Grandpa Kevin&apos;s {BOOK.short} sample</span>
             </span>
             <span className="shrink-0 rounded-full bg-sky/60 px-2.5 py-0.5 text-xs font-bold">Sent</span>
           </div>
@@ -165,7 +168,7 @@ const STEPS: { title: string; body: string; screen: ReactNode }[] = [
   },
   {
     title: "Each home prepares the same book",
-    body: "Both families prepare Peter Rabbit in Grandpa Kevin's voice, ready for bedtime in each house.",
+    body: `Both families prepare ${BOOK.short} in Grandpa Kevin's voice, ready for bedtime in each house.`,
     screen: (
       <Screen label="Prepare narration">
         <div className="flex items-center gap-3">
@@ -235,7 +238,12 @@ export function FamilyJourney() {
     if (!el) return;
     const io = new IntersectionObserver((entries) => setVisible(entries.some((e) => e.isIntersecting)), { threshold: 0.4 });
     io.observe(el);
-    return () => io.disconnect();
+    const stop = () => setAuto(false);
+    window.addEventListener(SAMPLE_PLAY_EVENT, stop);
+    return () => {
+      io.disconnect();
+      window.removeEventListener(SAMPLE_PLAY_EVENT, stop);
+    };
   }, []);
 
   useEffect(() => {
