@@ -61,9 +61,12 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
   const [message, setMessage] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const url = `/api/family/books/${view.book.slug}/narration`;
-  const preparing = view.voices.some((v) => v.status.readiness === "preparing");
+  // An update being prepared counts too: the old audiobook still reads as Ready while it runs.
+  const preparing = view.voices.some((v) => v.status.readiness === "preparing" || v.jobId !== null);
   const balance = view.credits.available;
   const v = view.voices.find((x) => x.voiceId === selected) ?? null;
+  // A narration with a newer version of the story to update to; the selected narrator's first.
+  const updatable = [v, ...view.voices].find((x) => x?.update && !x.jobId) ?? null;
 
   const reload = useCallback(async () => {
     const res = await fetch(url, { cache: "no-store" });
@@ -177,6 +180,28 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
         </span>
         <span className="hidden sm:inline">{view.book.title}</span>
       </nav>
+
+      {updatable && !pending && (
+        <div className="flex flex-col gap-3 rounded-2xl bg-sunshine/60 p-4 sm:flex-row sm:items-center sm:justify-between" role="status" data-testid="update-banner">
+          <p>
+            <strong>An updated version of this story is available</strong> for {updatable.name}&apos;s audiobook.{" "}
+            {updatable.update!.free || updatable.update!.credits === 0 ? "Updating is free." : `Updating costs ${n(updatable.update!.credits)} credits.`}
+          </p>
+          <button
+            type="button"
+            className={`${btnPrimary} shrink-0 self-start sm:self-center`}
+            disabled={busy}
+            onClick={() => {
+              setSelected(updatable.voiceId);
+              void estimate({ voiceId: updatable.voiceId, scope: "book" }).then(() =>
+                requestAnimationFrame(() => document.querySelector('[data-testid="confirm-generation"]')?.scrollIntoView({ behavior: "smooth", block: "center" })),
+              );
+            }}
+          >
+            Update audiobook
+          </button>
+        </div>
+      )}
 
       <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-8">
         {view.book.coverUrl ? (
@@ -505,19 +530,25 @@ function UpdateAvailable({ update, preparing, busy, onEstimate }: { update: Book
   }
   const cost = update.free || update.credits === 0 ? "Free" : `${n(update.credits)} credits`;
   return (
-    <div className="flex flex-col gap-2 border-t border-ink/10 pt-3 text-sm" data-testid="book-update">
-      <p>
-        An updated version of this story is available.{" "}
-        <button type="button" className="font-semibold underline underline-offset-4" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-          See what changed
+    <div className="flex flex-col gap-3 border-t border-ink/10 pt-3 text-sm" data-testid="book-update">
+      <div className="flex flex-col gap-0.5">
+        <p className="font-semibold">An updated version of this story is available</p>
+        <p className="text-muted">
+          {update.changed === 1 ? "1 line reads differently." : `${update.changed} lines read differently.`}{" "}
+          {update.free ? "This is a Readli correction, so updating is free." : "Lines that haven't changed are reused at no cost."} Your current
+          audiobook keeps playing until the update is ready.
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <button type="button" className={btnSecondary} disabled={busy} onClick={onEstimate} data-testid="book-update-start">
+          Update audiobook · <span data-testid="book-update-cost">{cost}</span>
         </button>
-      </p>
+        <button type="button" className="font-semibold underline underline-offset-4" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          {open ? "Hide what changed" : "See what changed"}
+        </button>
+      </div>
       {open && (
         <div className="flex flex-col gap-2 rounded-lg bg-ivory p-3" data-testid="book-update-details">
-          <p className="text-muted">
-            {update.changed === 1 ? "1 line reads differently." : `${update.changed} lines read differently.`}{" "}
-            {update.free ? "This is a Readli correction, so updating is free." : "Lines that haven't changed are reused at no cost."}
-          </p>
           {update.before.length > 0 && (
             <div>
               <p className="font-semibold">Your audiobook says</p>
@@ -538,12 +569,6 @@ function UpdateAvailable({ update, preparing, busy, onEstimate }: { update: Book
               </ul>
             </div>
           )}
-          <p>
-            Cost: <span className="font-semibold" data-testid="book-update-cost">{cost}</span>. Your current audiobook keeps playing until the update is ready.
-          </p>
-          <button type="button" className={`${btnSecondary} self-start`} disabled={busy} onClick={onEstimate}>
-            Update audiobook
-          </button>
         </div>
       )}
     </div>
