@@ -245,7 +245,7 @@ export function FamilyJourney() {
 
   return (
     <section ref={section} id="family-journey" aria-labelledby="journey-heading" className="scroll-mt-20 bg-ivory">
-      <div className="mx-auto grid max-w-6xl items-center gap-6 px-4 py-12 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:gap-12 lg:py-14">
+      <div className="mx-auto grid max-w-6xl items-center gap-5 px-4 py-10 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:gap-12 lg:py-10">
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">
             <p className="text-[13px] font-extrabold uppercase tracking-[0.16em] text-coral-deep">One voice, two homes</p>
@@ -262,7 +262,7 @@ export function FamilyJourney() {
                   type="button"
                   onClick={() => pick(i)}
                   aria-current={i === step ? "step" : undefined}
-                  className={`relative flex w-full items-start gap-3 overflow-hidden rounded-[18px] px-4 py-2.5 text-left transition-colors ${i === step ? "bg-lavender/40" : "hover:bg-ink/5"}`}
+                  className={`relative flex w-full items-start gap-3 overflow-hidden rounded-[18px] px-4 py-2 text-left transition-colors ${i === step ? "bg-lavender/40" : "hover:bg-ink/5"}`}
                 >
                   <span className={`grid size-8 shrink-0 place-items-center rounded-full font-display font-semibold ${i === step ? "bg-plum text-white" : "bg-ink/10"}`}>{i + 1}</span>
                   <span className="min-w-0 pt-1">
@@ -288,7 +288,7 @@ export function FamilyJourney() {
         </div>
 
         <div className="flex flex-col gap-4">
-          <div aria-live="polite" className="mx-auto h-[330px] w-full max-w-sm sm:h-[340px]">
+          <div aria-live="polite" className="mx-auto h-[330px] w-full max-w-sm">
             <div key={step} className="journey-screen h-full">
               {current.screen}
             </div>

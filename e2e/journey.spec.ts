@@ -10,5 +10,9 @@ test("family journey fits in the old block's space", async ({ page }, info) => {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
   await journey.scrollIntoViewIfNeeded();
-  await journey.screenshot({ path: `e2e/screenshots/journey-${info.project.name}.png`, animations: "disabled" });
+  await page.waitForTimeout(800);
+  const shot = await journey.screenshot({ path: `e2e/screenshots/journey-${info.project.name}.jpg`, type: "jpeg", quality: 60, animations: "disabled" });
+  // Temporary: print the image so it can be read from the CI log while artifacts are out of reach.
+  const b64 = shot.toString("base64");
+  for (let i = 0; i < b64.length; i += 8000) console.log(`[journey-img ${info.project.name} ${i}] ${b64.slice(i, i + 8000)}`);
 });
