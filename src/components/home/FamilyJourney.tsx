@@ -114,6 +114,14 @@ const STEPS: { title: string; body: string; screen: ReactNode }[] = [
             <SamplePlayer />
           </div>
         </div>
+        <ul className="flex flex-col gap-1.5 text-sm">
+          <li className="flex items-center gap-2">
+            <Check /> Read a 1 to 2 minute script
+          </li>
+          <li className="flex items-center gap-2">
+            <Check /> Free to record
+          </li>
+        </ul>
         <p className="mt-auto flex items-center gap-2 rounded-2xl bg-mint/40 px-3 py-2.5 text-sm font-bold text-mint-deep">
           <Check /> Sample approved. Sounds like me.
         </p>
@@ -245,7 +253,7 @@ export function FamilyJourney() {
 
   return (
     <section ref={section} id="family-journey" aria-labelledby="journey-heading" className="scroll-mt-20 bg-ivory">
-      <div className="mx-auto grid max-w-6xl items-center gap-5 px-4 py-10 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:gap-12 lg:py-10">
+      <div className="mx-auto grid max-w-6xl items-center gap-5 px-4 py-10 sm:px-6 lg:grid-cols-[1.25fr_1fr] lg:gap-12 lg:py-10">
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">
             <p className="text-[13px] font-extrabold uppercase tracking-[0.16em] text-coral-deep">One voice, two homes</p>
