@@ -10,11 +10,12 @@ import { ResetButton } from "@/components/family/ResetButton";
 import { SessionButton } from "@/components/family/SessionButton";
 import { SetKidsPin } from "@/components/family/SetKidsPin";
 import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
-import { FamilyBookshelf, KidCards, StorytellersCard } from "@/components/family/HomeShelf";
+import { FamilyBookshelf, KidCards, StorytellersCard, UnassignedBooks } from "@/components/family/HomeShelf";
 import { HomeNotice } from "@/components/family/HomeNotice";
 import { StoryRequests } from "@/components/family/StoryRequests";
 import { demoFamilyState } from "@/lib/family/demo-family";
 import { familyHome, homeNotice, noticeText } from "@/lib/family/home";
+import { homeHousehold } from "@/lib/family/service";
 import { planConfig } from "@/lib/family/plan";
 import { familyPage, guardianChildren } from "@/lib/family/page-data";
 import { activeEntitlement, liveSlots, narratorSlotCount } from "@/lib/family/permissions";
@@ -132,8 +133,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
     );
   }
   const isGuardian = state.members.some((m) => m.adultId === adult.id && m.role === "guardian" && m.removedAt === null);
-  const homes = new Set(state.members.filter((m) => m.adultId === adult.id && m.role === "guardian" && m.removedAt === null).map((m) => m.householdId));
-  const home = [...homes][0];
+  const home = homeHousehold(state, adult.id) ?? undefined;
   const entitlement = home ? activeEntitlement(state, home) : null;
   const hasPlan = Boolean(entitlement);
   const invited = account && isGuardian ? await carriedInvitationToken() : null;
@@ -290,6 +290,8 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
                 )}
               </section>
             )}
+
+            {view && view.unassigned.length > 0 && <UnassignedBooks books={view.unassigned} />}
           </div>
 
           <aside className="flex min-w-0 flex-col gap-6">

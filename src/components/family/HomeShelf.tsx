@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { SessionButton } from "@/components/family/SessionButton";
 import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
-import type { HomeKid, HomeStoryteller, ShelfBook, ShelfKid } from "@/lib/family/home";
+import type { HomeKid, HomeStoryteller, ShelfBook, ShelfKid, UnassignedBook } from "@/lib/family/home";
 
 function names(list: string[]): string {
   if (list.length <= 1) return list.join("");
@@ -208,6 +208,45 @@ export function StorytellersCard({ storytellers, slotLine }: { storytellers: Hom
       >
         <span aria-hidden="true">+</span> Invite a storyteller
       </Link>
+    </section>
+  );
+}
+
+/** Prepared audiobooks no child can hear yet, each with the one step that puts it on a bookshelf. */
+export function UnassignedBooks({ books }: { books: UnassignedBook[] }) {
+  return (
+    <section className="flex flex-col gap-3" aria-labelledby="unassigned-h" data-testid="unassigned-books">
+      <h2 id="unassigned-h" className="font-display text-2xl font-semibold">
+        Prepared, not on a bookshelf yet
+      </h2>
+      <ul className="divide-y-2 divide-ink/5 rounded-3xl bg-surface px-4 ring-2 ring-ink/10">
+        {books.map((b) => (
+          <li key={b.slug} className="flex items-center gap-4 py-4" data-testid={`unassigned-book-${b.slug}`}>
+            <span className="block w-16 shrink-0 overflow-hidden rounded-xl bg-bookcase shadow-[0_3px_0_rgba(40,53,72,0.12)] sm:w-20">
+              {b.coverUrl ? (
+                <Image src={b.coverUrl} alt="" width={80} height={107} className="aspect-[3/4] w-full object-cover" />
+              ) : (
+                <span className={`flex aspect-[3/4] w-full items-center justify-center p-2 text-center font-display text-xs font-semibold ${b.tint}`}>{b.title}</span>
+              )}
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-4">
+              <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
+                <p className="font-display text-xl font-semibold leading-tight">{b.title}</p>
+                <p className="text-sm text-muted">
+                  Read by {names(b.narrators.map((n) => n.name))} · about {b.minutes} min
+                </p>
+                <p className="text-sm font-semibold">{b.detail}</p>
+              </div>
+              <Link
+                href={b.href}
+                className="inline-flex min-h-11 shrink-0 items-center self-start rounded-xl border-2 border-ink px-5 font-display font-semibold hover:-translate-y-0.5 sm:self-center"
+              >
+                Choose who hears it<span className="sr-only">: {b.title}</span>
+              </Link>
+            </div>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
