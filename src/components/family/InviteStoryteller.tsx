@@ -18,7 +18,7 @@ const field = "min-h-12 w-full rounded-2xl border-[3px] border-ink/20 bg-surface
 /**
  * Family storytellers → Invite a storyteller. Live: saves the invitation and returns a single-use link
  * (email sending isn't switched on yet, so the parent sends it). Preview: nothing is saved or sent.
- * Inviting never uses a narrator slot and shares nothing.
+ * Inviting holds a free narrator slot for them until they join and share; it shares nothing.
  */
 export function InviteStoryteller({ live, initialName = "", onSent, onClose }: { live: boolean; initialName?: string; onSent: (invite: SavedInvite) => void; onClose: () => void }) {
   const id = useId();

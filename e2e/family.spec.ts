@@ -468,14 +468,29 @@ test("family storytellers: invite into a free slot, see who's on the way, and on
   await expect(page.getByTestId("invite-sent")).toContainText("Invitation ready for Mommy");
   await expect(page.getByTestId("invite-sent")).toContainText("nothing was sent");
 
-  // Inviting doesn't use a slot; the invitation shows as on the way and can be withdrawn.
+  // Inviting holds the free slot for them without using it; the invitation shows as on the way and can be withdrawn.
   await expect(page.getByTestId("slots-used")).toHaveText("3 of 4 slots used");
+  await expect(page.getByTestId("reserved-slot")).toContainText("Held for Mommy");
+  await expect(page.getByTestId("free-slot")).toHaveCount(0);
   const invite = page.getByTestId("on-the-way").getByRole("listitem").filter({ hasText: "Mommy" });
   await expect(invite).toContainText("Invitation sent");
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/storytellers-on-the-way-${info.project.name}.png`, fullPage: true });
   await invite.getByRole("button", { name: "Withdraw" }).click();
   await expect(page.getByTestId("on-the-way").getByRole("listitem").filter({ hasText: "Mommy" })).toHaveCount(0);
+  await expect(page.getByTestId("reserved-slot")).toHaveCount(0);
+  await expect(page.getByTestId("free-slot")).toContainText("Available");
+});
+
+test("family storytellers: a parent can remove a storyteller from the family", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/narrators");
+  const lou = page.getByTestId("slot-voice-lou");
+  await expect(lou).toContainText("Not shared yet");
+  page.once("dialog", (d) => d.accept());
+  await lou.getByRole("button", { name: "Remove from family" }).click();
+  await expect(page.getByText("Grandpa Lou was removed from your family.")).toBeVisible();
+  await expect(page.getByTestId("slot-voice-lou")).toHaveCount(0);
 });
 
 test("family storytellers: a family's nickname for a storyteller shows only in that family", async ({ page }) => {

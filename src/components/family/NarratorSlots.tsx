@@ -221,6 +221,25 @@ export function NarratorSlots({
 
   const pendingInvites = invites.filter((i) => i.status === "invited" || i.status === "expired" || i.status === "declined");
   const onTheWay = view.shared.length + view.waiting.length + view.joined.length + pendingInvites.length;
+  // Someone invited, joined or recording holds a free slot, so it isn't offered for another invitation.
+  // The slot is only used once their voice is shared and the parent adds it; a ready voice shows in the
+  // open slot's text instead.
+  const holders = [
+    ...view.waiting.filter((n) => !n.yours && n.status === "processing").map((n) => ({ key: n.voiceId, name: n.name, note: "Their voice is being made" })),
+    ...view.joined.filter((p) => !p.yours).map((p) => ({ key: p.adultId, name: p.name, note: "Joined, hasn't recorded yet" })),
+    ...pendingInvites.filter((i) => i.status === "invited").map((i) => ({ key: i.id, name: i.name, note: "Invited" })),
+  ];
+  const reserved = holders.slice(0, Math.max(free, 0));
+  const open = Math.max(free - reserved.length, 0);
+  const remove = (p: { adultId: string; name: string }) => {
+    if (!window.confirm(`Remove ${p.name} from your family? Their voice stays theirs, but your children won't hear it. You can invite them again later.`)) return;
+    void call("/api/family/narrators", { adultId: p.adultId, action: "remove" }, `${p.name} was removed from your family.`);
+  };
+  const removeButton = (p: { adultId: string; name: string }) => (
+    <button type="button" className="font-display font-semibold underline underline-offset-4" disabled={busy} onClick={() => remove(p)}>
+      Remove from family
+    </button>
+  );
   const openInvite = (name = "") => setInviting({ name });
 
   return (
@@ -229,7 +248,8 @@ export function NarratorSlots({
         <h1 className="font-display text-4xl font-semibold">Family storytellers</h1>
         <p className="max-w-2xl text-lg">
           Your plan includes {view.included} narrator slots{view.extra > 0 ? `, plus ${view.extra} you added` : ""}. Put a storyteller who has
-          shared their voice into a slot, then choose which children can hear them. Inviting someone never uses a slot.
+          shared their voice into a slot, then choose which children can hear them. An invitation holds a slot for that person; withdraw it or remove them to
+          free it.
         </p>
         <div className="flex flex-wrap gap-2" aria-hidden="true">
           {Array.from({ length: view.total }, (_, i) => (
@@ -309,11 +329,23 @@ export function NarratorSlots({
               </div>
             </li>
           ))}
-          {Array.from({ length: Math.max(free, 0) }, (_, i) => (
-            <li key={`free-${i}`} data-testid="free-slot" className="flex flex-col gap-3 rounded-3xl border-[3px] border-dashed border-coral/60 bg-ivory p-4">
+          {reserved.map((r, i) => (
+            <li key={`held-${r.key}`} data-testid="reserved-slot" className="flex flex-col gap-3 rounded-3xl border-[3px] border-dashed border-ink/30 bg-surface p-4">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-bold tracking-wider text-muted uppercase">
                   Slot {view.active.length + i + 1} · {view.active.length + i < view.included ? "included" : "added"}
+                </span>
+                <span className={`${pill} bg-lavender/60`}>Reserved</span>
+              </div>
+              <p className="font-display text-xl font-semibold">Held for {r.name}</p>
+              <p className="text-sm text-muted">{r.note}. See Storytellers on the way below.</p>
+            </li>
+          ))}
+          {Array.from({ length: open }, (_, i) => (
+            <li key={`free-${i}`} data-testid="free-slot" className="flex flex-col gap-3 rounded-3xl border-[3px] border-dashed border-coral/60 bg-ivory p-4">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-bold tracking-wider text-muted uppercase">
+                  Slot {view.active.length + reserved.length + i + 1} · {view.active.length + reserved.length + i < view.included ? "included" : "added"}
                 </span>
                 <span className={`${pill} bg-sunshine`}>Available</span>
               </div>
@@ -355,7 +387,7 @@ export function NarratorSlots({
       <section className="flex flex-col gap-3" aria-label="Storytellers on the way">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-display text-2xl font-semibold">Storytellers on the way</h2>
-          {canInvite && free <= 0 && !inviting && (
+          {canInvite && open <= 0 && !inviting && (
             <button type="button" className="font-display font-semibold underline underline-offset-4" onClick={() => openInvite()}>
               Invite a storyteller
             </button>
@@ -394,6 +426,7 @@ export function NarratorSlots({
                   Add to a slot
                 </button>
                 {rename(n)}
+                {removeButton(n)}
                 {free <= 0 && (
                   <p className="w-full text-sm" data-testid="slots-full-note">
                     {n.name}&apos;s voice is ready, but all your narrator slots are in use. Free one up, or add a slot below.
@@ -415,6 +448,7 @@ export function NarratorSlots({
                       {w.badge}
                     </span>
                   )}
+                  {!n.yours && removeButton(n)}
                   {!n.yours && <p className="w-full text-sm text-muted">{w.note(n.name)}</p>}
                 </li>
               );
@@ -427,7 +461,10 @@ export function NarratorSlots({
                     Record my voice
                   </Link>
                 ) : (
-                  <span className={`${pill} bg-sky/60`}>Joined</span>
+                  <>
+                    <span className={`${pill} bg-sky/60`}>Joined</span>
+                    {removeButton(p)}
+                  </>
                 )}
                 {!p.yours && <p className="w-full text-sm text-muted">{p.name} joined your family and hasn&apos;t recorded their voice yet.</p>}
               </li>
