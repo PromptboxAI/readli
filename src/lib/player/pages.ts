@@ -1,5 +1,8 @@
-/** How many sentences make one "page" in the Readli player. Arrows still step one sentence at a time. */
-export const SENTENCES_PER_PAGE = 4;
+/**
+ * How many sentences make one "page" in the Readli player, kept short so a page fits a phone screen
+ * without scrolling. Arrows still step one sentence at a time.
+ */
+export const SENTENCES_PER_PAGE = 2;
 
 export function pageCount(sentences: number): number {
   return Math.max(1, Math.ceil(sentences / SENTENCES_PER_PAGE));

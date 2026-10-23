@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* An iPad-sized screen, wide and tall enough for the roomiest read-along page. */
+@custom-variant tall (@media (min-width: 40rem) and (min-height: 60rem));
+
 /* Design Brief §2 starting tokens. Adjust here, not in components. */
 @theme {
   --color-ivory: #fff9ed;

@@ -161,3 +161,19 @@ test("the player opens in Listen mode, switches to Read-along at the same place,
   await expect(resume).toContainText("The Lion and the Mouse");
   await expect(resume).toContainText(/Mom is reading · page 1 of \d+/);
 });
+
+test("every read-along page fits its card without scrolling", async ({ page }, info) => {
+  await signIn(page, "adult:sara");
+  await signIn(page, "child:maya");
+  await page.goto("/kids/listen/the-tale-of-peter-rabbit");
+  await page.getByRole("button", { name: "Read along" }).click();
+  const card = page.getByTestId("read-page");
+  const next = page.getByRole("button", { name: "Next" });
+  for (let step = 0; step < 40 && (await next.isEnabled()); step++) {
+    await expect(page.locator("[data-current]")).toBeVisible();
+    await expect.poll(() => card.evaluate((el) => el.scrollHeight - el.clientHeight), { message: `sentence ${step + 1}` }).toBeLessThanOrEqual(0);
+    await next.click();
+  }
+  await noOverflow(page);
+  await page.screenshot({ path: `e2e/screenshots/player-read-fit-${info.project.name}.png` });
+});

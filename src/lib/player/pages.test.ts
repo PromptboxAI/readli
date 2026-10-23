@@ -2,15 +2,15 @@ import { describe, expect, it } from "vitest";
 import { clock, nextSleep, pageCount, pageOf, pageRange, parseMode, sentenceAt, timeline } from "./pages";
 
 describe("player pages", () => {
-  it("groups sentences into pages of four", () => {
+  it("groups sentences into pages of two", () => {
     expect(pageCount(0)).toBe(1);
-    expect(pageCount(4)).toBe(1);
-    expect(pageCount(9)).toBe(3);
+    expect(pageCount(2)).toBe(1);
+    expect(pageCount(9)).toBe(5);
     expect(pageOf(0)).toBe(0);
-    expect(pageOf(3)).toBe(0);
-    expect(pageOf(4)).toBe(1);
-    expect(pageRange(2, 9)).toEqual([8, 9]);
-    expect(pageRange(0, 9)).toEqual([0, 4]);
+    expect(pageOf(1)).toBe(0);
+    expect(pageOf(2)).toBe(1);
+    expect(pageRange(4, 9)).toEqual([8, 9]);
+    expect(pageRange(0, 9)).toEqual([0, 2]);
   });
 
   it("cycles the sleep timer off, 15, 30, 45 and back to off", () => {
