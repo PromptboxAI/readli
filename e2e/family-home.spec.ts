@@ -129,7 +129,16 @@ test("a ready story opens the grown-up player and plays stored audio", async ({ 
   await expect(page).toHaveURL(/\/family\/books\/the-lion-and-the-mouse\/listen$/);
   const player = page.getByTestId("grown-up-player");
   await expect(player.getByRole("heading", { name: "The Lion and the Mouse" })).toBeVisible();
-  await expect(player.getByRole("button", { name: /Mom/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(player.getByTestId("current-narrator")).toHaveText("Mom");
+  // The same one-screen player as Readli Kids: nothing to scroll, the page fits its card.
+  await expect(player).toHaveAttribute("data-mode", "read");
+  expect(await player.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(0);
+  await expect.poll(() => player.getByTestId("read-page").evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(0);
+  await expect(player.getByTestId("player-page")).toHaveText(/Page 1 of \d+/);
+  await page.screenshot({ path: `e2e/screenshots/grown-up-player-${test.info().project.name}.png` });
+  await player.getByRole("button", { name: /Change storyteller/ }).click();
+  await expect(player.getByRole("group", { name: "Storyteller" }).getByRole("button", { name: /Mom/ })).toHaveAttribute("aria-pressed", "true");
+  await player.getByRole("button", { name: "Done" }).click();
   const asked: number[] = [];
   page.on("request", (r) => {
     if (r.url().endsWith("/api/family/books/the-lion-and-the-mouse/listen") && r.method() === "POST") asked.push((r.postDataJSON() as { sentence: number }).sentence);

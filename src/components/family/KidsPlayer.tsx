@@ -1,52 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { isTheEnd, THE_END_PAUSE_MS } from "@/lib/content/the-end";
 import type { NarratorView } from "@/lib/family/service";
 import type { BookTexts, KidsNarratorReadiness } from "@/lib/narration/narration";
 import { mapPosition } from "@/lib/narration/positions";
-import { clock, nextSleep, pageCount, pageOf, pageRange, parseMode, sentenceAt, timeline, type PlayerMode, type SleepMinutes } from "@/lib/player/pages";
+import { nextSleep, parseMode, type PlayerMode, type SleepMinutes } from "@/lib/player/pages";
+import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, TimeBar } from "./PlayerParts";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 import { useGaplessAudio } from "./useGaplessAudio";
 
 const REFRESH_MS = 10_000;
 const MODE_KEY = "readli-player-mode";
-
-const ICONS = {
-  play: <path d="M8 5.5v13l11-6.5z" fill="currentColor" stroke="none" />,
-  pause: <path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor" stroke="none" />,
-  left: <path d="M15 5l-7 7 7 7" />,
-  down: <path d="M6 9l6 6 6-6" />,
-  prev: (
-    <>
-      <path d="M19 5v14L9 12z" fill="currentColor" />
-      <path d="M6 5v14" />
-    </>
-  ),
-  next: (
-    <>
-      <path d="M5 5v14l10-7z" fill="currentColor" />
-      <path d="M18 5v14" />
-    </>
-  ),
-  moon: <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="currentColor" stroke="none" />,
-  restart: (
-    <>
-      <path d="M4 12a8 8 0 1 0 2.4-5.7" />
-      <path d="M4 4v4.5h4.5" />
-    </>
-  ),
-};
-
-function Icon({ name, className = "size-6" }: { name: keyof typeof ICONS; className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
-      {ICONS[name]}
-    </svg>
-  );
-}
 
 const PAUSED = "Story time paused. Press Play to keep listening.";
 
@@ -106,9 +73,6 @@ export function KidsPlayer({
   const [mode, setMode] = useState<PlayerMode>("listen");
   const [sleep, setSleep] = useState<{ minutes: SleepMinutes; until: number | null }>({ minutes: null, until: null });
   const [now, setNow] = useState(() => Date.now());
-  /** Seconds into the current sentence while it plays, and where the time bar is being dragged to. */
-  const [spent, setSpent] = useState(0);
-  const [scrub, setScrub] = useState<number | null>(null);
   const voiceRef = useRef(voiceId);
   voiceRef.current = voiceId;
   const sentenceRef = useRef(sentence);
@@ -122,7 +86,6 @@ export function KidsPlayer({
   const playingRef = useRef(false);
   playingRef.current = playing;
   const listening = useRef(false);
-  const pageCard = useRef<HTMLDivElement>(null);
   const audio = useGaplessAudio({ ended: () => onEnded(), error: () => void onAudioError() });
 
   // Listen is the default; a child's last choice on this device is remembered.
@@ -206,36 +169,6 @@ export function KidsPlayer({
     setNow(t);
     setSleep({ minutes, until: minutes === null ? null : t + minutes * 60_000 });
   };
-
-  // The time bar moves on through each sentence while it plays, up to that sentence's estimated length.
-  useEffect(() => {
-    setSpent(0);
-  }, [sentence]);
-  useEffect(() => {
-    if (!playing) return;
-    const id = window.setInterval(() => setSpent((t) => Math.min(t + 1, sentenceSeconds[sentenceRef.current] ?? 0)), 1000);
-    return () => window.clearInterval(id);
-  }, [playing, sentenceSeconds]);
-
-  // A read-along page always fits its card: the words get smaller, a step at a time, before anything scrolls.
-  const pageStart = pageRange(pageOf(sentence), sentences.length)[0];
-  useLayoutEffect(() => {
-    const card = pageCard.current;
-    if (!card) return;
-    const fit = () => {
-      let scale = 1;
-      card.style.setProperty("--fit", "1");
-      while (scale > 0.5 && card.scrollHeight > card.clientHeight) {
-        scale -= 0.05;
-        card.style.setProperty("--fit", scale.toFixed(2));
-      }
-    };
-    fit();
-    void document.fonts.ready.then(fit);
-    const watch = new ResizeObserver(fit);
-    watch.observe(card);
-    return () => watch.disconnect();
-  }, [mode, pageStart]);
 
   // Each child keeps their own place and narrator in every book.
   useEffect(() => {
@@ -362,7 +295,6 @@ export function KidsPlayer({
     }
     try {
       await audio.play(key, url);
-      setSpent(0);
       setPlaying(true);
       setLoading(false);
       void prefetch(at + 1, voice);
@@ -452,28 +384,8 @@ export function KidsPlayer({
   }
 
   const currentReady = readyAt(voiceId, sentence);
-  const listen = mode === "listen";
-  const pages = pageCount(sentences.length);
-  const page = pageOf(sentence);
-  const [first, last] = pageRange(page, sentences.length);
+  const { listen, soft, faint, main, round, side } = playerTone(mode);
   const sleepLeft = sleep.until === null ? null : Math.max(1, Math.ceil((sleep.until - now) / 60_000));
-  const starts = timeline(sentenceSeconds);
-  const total = starts[starts.length - 1] ?? 0;
-  const elapsed = scrub ?? Math.min(total, (starts[sentence] ?? 0) + spent);
-  const shownPage = scrub === null ? page : pageOf(sentenceAt(starts, scrub));
-  const percent = total ? (elapsed / total) * 100 : 0;
-  const soft = listen ? "bg-white/10" : "bg-ink/8";
-  const faint = listen ? "text-night-muted" : "text-muted";
-  const round = `grid size-14 shrink-0 place-items-center rounded-full disabled:opacity-35 ${soft}`;
-  const side = `flex min-h-12 min-w-12 flex-col items-center justify-center gap-0.5 font-display text-xs font-semibold whitespace-nowrap disabled:opacity-40 ${faint}`;
-
-  /** Lets go of the time bar and jumps to the sentence under it. */
-  const commitScrub = () => {
-    if (scrub === null) return;
-    const at = sentenceAt(starts, scrub);
-    setScrub(null);
-    if (at !== sentence) goTo(at);
-  };
 
   const reading = current && (
     <p className={`flex items-center gap-2 font-bold ${faint}`}>
@@ -481,40 +393,13 @@ export function KidsPlayer({
       {current.name} is reading
     </p>
   );
-  // An empty 3:4 box sized by the layout, so the whole cover always fits without cropping or scrolling.
-  const cover = (className: string) => (
-    <div data-testid="player-cover" className={`relative grid aspect-[3/4] place-items-center overflow-hidden bg-bookcase ${className}`}>
-      {book.coverUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element -- static catalog cover art
-        <img src={book.coverUrl} alt="" className="absolute inset-0 size-full object-cover" />
-      ) : (
-        <span className="p-3 text-center font-display text-muted">{book.title}</span>
-      )}
-    </div>
-  );
 
   return (
-    <main
-      data-testid="kids-player"
-      data-mode={mode}
-      className={`flex h-dvh flex-col overflow-y-auto transition-colors ${listen ? "bg-night text-night-ink" : "bg-ivory text-ink"}`}
-    >
-      <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col gap-4 px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:gap-6 sm:px-10 sm:pt-[max(2.5rem,env(safe-area-inset-top))] sm:pb-[max(2.5rem,env(safe-area-inset-bottom))]">
+    <main data-testid="kids-player" data-mode={mode} className={`${PLAYER_MAIN} ${main}`}>
+      <div className={PLAYER_COLUMN}>
         <header className="flex items-center gap-2.5">
           {back}
-          <div role="group" aria-label="Player mode" className={`flex min-w-0 flex-1 rounded-full p-1 font-display font-semibold sm:mx-auto sm:max-w-[340px] sm:text-lg ${soft}`}>
-            {(["listen", "read"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                aria-pressed={mode === m}
-                onClick={() => switchMode(m)}
-                className={`min-h-10 flex-1 rounded-full px-1 whitespace-nowrap ${mode === m ? "bg-sunshine text-ink" : "opacity-75"}`}
-              >
-                {m === "listen" ? "Just listen" : "Read along"}
-              </button>
-            ))}
-          </div>
+          <ModeToggle mode={mode} onChange={switchMode} />
           <button
             type="button"
             onClick={() => setPicker((p) => !p)}
@@ -527,57 +412,15 @@ export function KidsPlayer({
               {current?.name ?? "Pick a storyteller"}
             </span>
             <span className="sr-only">Change storyteller</span>
-            {playing ? (
-              <span aria-hidden="true" className="flex h-4 w-[18px] items-end justify-center gap-0.5">
-                <b className="h-[7px] w-[3px] rounded-sm bg-coral motion-safe:animate-pulse" />
-                <b className="h-3.5 w-[3px] rounded-sm bg-coral motion-safe:animate-pulse" />
-                <b className="h-2.5 w-[3px] rounded-sm bg-coral motion-safe:animate-pulse" />
-              </span>
-            ) : (
-              <Icon name="down" className="size-[18px]" />
-            )}
+            {playing ? <PlayingBars /> : <Icon name="down" className="size-[18px]" />}
           </button>
         </header>
 
         <div className="relative flex min-h-0 flex-1 flex-col">
           {listen ? (
-            <section className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 text-center">
-              {cover("max-h-[470px] min-h-0 max-w-full flex-auto rounded-[22px] shadow-[0_10px_30px_rgb(0_0_0/0.3)] sm:max-h-[720px] sm:rounded-[28px]")}
-              <div className="flex flex-col items-center gap-1.5">
-                <h1 className="font-display text-[26px] leading-tight font-semibold text-balance sm:text-4xl">{book.title}</h1>
-                {reading}
-              </div>
-            </section>
+            <ListenStage coverUrl={book.coverUrl} title={book.title} byline={reading} />
           ) : (
-            <section className="flex min-h-0 flex-1 flex-col gap-4">
-              <div className="flex items-center gap-3.5">
-                {cover("w-[84px] shrink-0 rounded-xl shadow-[0_4px_12px_rgb(40_53_72/0.2)] sm:w-[110px] tall:w-[150px] tall:rounded-[18px]")}
-                <div className="flex min-w-0 flex-col gap-1.5">
-                  <h1 className="font-display text-[22px] leading-tight font-semibold text-balance sm:text-3xl">{book.title}</h1>
-                  {reading}
-                </div>
-              </div>
-              <div
-                ref={pageCard}
-                data-testid="read-page"
-                className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-3xl bg-surface p-[22px] ring-2 ring-ink/8 ring-inset sm:p-8 tall:rounded-[32px] tall:p-12"
-              >
-                <p className="my-auto font-display text-[length:calc(21px*var(--fit,1))] leading-[1.4] font-medium text-pretty sm:text-[length:calc(27px*var(--fit,1))] tall:text-[length:calc(34px*var(--fit,1))]">
-                  {sentences.slice(first, last).map((s, k) => {
-                    const i = first + k;
-                    return (
-                      <span
-                        key={i}
-                        data-current={i === sentence || undefined}
-                        className={i === sentence ? "box-decoration-clone rounded-md bg-sunshine/80 px-0.5 text-ink" : "text-ink/45"}
-                      >
-                        {s}{" "}
-                      </span>
-                    );
-                  })}
-                </p>
-              </div>
-            </section>
+            <ReadStage coverUrl={book.coverUrl} title={book.title} byline={reading} sentences={sentences} sentence={sentence} />
           )}
 
           {picker && (
@@ -623,35 +466,7 @@ export function KidsPlayer({
           </p>
         )}
 
-        <div className="mx-auto flex w-full max-w-[640px] flex-col">
-          <div className="relative flex h-8 items-center rounded-full has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-sunshine">
-            <div aria-hidden="true" className={`relative h-1.5 w-full rounded-full ${listen ? "bg-white/20" : "bg-ink/15"}`}>
-              <i className="absolute inset-y-0 left-0 rounded-full bg-coral" style={{ width: `${percent}%` }} />
-              <b className="absolute top-1/2 size-[18px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-coral shadow-[0_0_0_4px_rgb(255_121_103/0.25)]" style={{ left: `${percent}%` }} />
-            </div>
-            <input
-              type="range"
-              aria-label="Story time"
-              aria-valuetext={`${clock(elapsed)} of ${clock(total)}, page ${shownPage + 1} of ${pages}`}
-              min={0}
-              max={total}
-              step={1}
-              value={Math.round(elapsed)}
-              onChange={(e) => setScrub(Number(e.target.value))}
-              onPointerUp={commitScrub}
-              onKeyUp={commitScrub}
-              onBlur={commitScrub}
-              className="absolute inset-0 size-full cursor-pointer opacity-0"
-            />
-          </div>
-          <div className={`flex justify-between text-sm font-bold tabular-nums ${faint}`}>
-            <span>{clock(elapsed)}</span>
-            <span data-testid="player-page" className="font-semibold">
-              Page {shownPage + 1} of {pages}
-            </span>
-            <span>&minus;{clock(total - elapsed)}</span>
-          </div>
-        </div>
+        <TimeBar mode={mode} seconds={sentenceSeconds} sentence={sentence} playing={playing} onSeek={goTo} />
 
         <div className="mx-auto grid w-full max-w-[640px] grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-3.5 sm:gap-7">
           <button type="button" onClick={cycleSleep} aria-label={`Sleep timer: ${sleepLeft === null ? "Off" : `${sleepLeft}m`}`} className={`justify-self-start ${side}`}>

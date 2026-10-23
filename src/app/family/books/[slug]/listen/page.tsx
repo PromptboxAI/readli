@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
+import { FamilyOff, NeedsGrownUp } from "@/components/family/FamilyShell";
 import { GrownUpPlayer } from "@/components/family/GrownUpPlayer";
 import { familyPage } from "@/lib/family/page-data";
 import { guardianHousehold, PermissionError } from "@/lib/family/service";
@@ -22,11 +22,13 @@ export default async function ListenPage({ params, searchParams }: { params: Pro
   if (!householdId) return <NeedsGrownUp text="Only a parent or guardian can listen here." />;
   try {
     const view = await listenView(store, page.session.actor, householdId, slug);
+    // Full screen like the Readli Kids player, so the whole story fits on a phone or iPad.
     return (
-      <FamilyShell>
-        <PreviewNote />
-        <GrownUpPlayer view={view} initialVoice={view.voices.some((v) => v.voiceId === voice) ? voice! : (view.voices[0]?.voiceId ?? null)} />
-      </FamilyShell>
+      <GrownUpPlayer
+        view={view}
+        initialVoice={view.voices.some((v) => v.voiceId === voice) ? voice! : (view.voices[0]?.voiceId ?? null)}
+        preview={!page.session.account}
+      />
     );
   } catch (err) {
     if (err instanceof PermissionError && err.status === 404) notFound();
