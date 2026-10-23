@@ -64,6 +64,8 @@ export async function startGuest(deps: GuestDemoDeps): Promise<GuestSession> {
 export interface CleanupResult {
   deleted: number;
   failed: number;
+  /** Why each failure happened, so the cleanup workflow log shows it without opening Vercel. */
+  errors: string[];
 }
 
 /**
@@ -71,7 +73,7 @@ export interface CleanupResult {
  * provider voice or audio could not be removed is kept so the next run retries it.
  */
 export async function cleanupExpiredGuests(deps: GuestDemoDeps, limit = 50): Promise<CleanupResult> {
-  const result: CleanupResult = { deleted: 0, failed: 0 };
+  const result: CleanupResult = { deleted: 0, failed: 0, errors: [] };
   for (const guest of await deps.store.listExpired(limit)) {
     try {
       for (const voiceId of guest.providerVoiceIds) await deps.provider.deleteVoice(voiceId);
@@ -80,6 +82,7 @@ export async function cleanupExpiredGuests(deps: GuestDemoDeps, limit = 50): Pro
       result.deleted += 1;
     } catch (err) {
       result.failed += 1;
+      result.errors.push(`${guest.sessionId.slice(0, 8)}: ${(err instanceof Error ? err.message : String(err)).slice(0, 300)}`);
       console.error("guest cleanup failed", guest.sessionId, err);
     }
   }

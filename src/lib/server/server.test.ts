@@ -69,9 +69,22 @@ describe("memory guest store", () => {
     await store.setVoice(s.id, "voice-1");
     store.guests.get(s.id)!.session.expiresAt = new Date(Date.now() - 1000).toISOString();
     const result = await cleanupExpiredGuests({ config: serverConfig({ VOICE_PROVIDER: "stub" } as unknown as NodeJS.ProcessEnv), store, provider });
-    expect(result).toEqual({ deleted: 1, failed: 0 });
+    expect(result).toEqual({ deleted: 1, failed: 0, errors: [] });
     expect(provider.deleted).toEqual(["voice-1"]);
     expect(store.guests.size).toBe(0);
+  });
+
+  it("cleanup reports why a guest could not be deleted", async () => {
+    const store = new MemoryGuestStore();
+    const provider = new StubVoiceProvider();
+    provider.deleteVoice = async () => {
+      throw new Error("ElevenLabs DELETE failed: 400");
+    };
+    const s = await store.createSession({ tokenHash: "h3", policyVersion: "v", generationsAllowed: 2 });
+    await store.setVoice(s.id, "voice-2");
+    store.guests.get(s.id)!.session.expiresAt = new Date(Date.now() - 1000).toISOString();
+    const result = await cleanupExpiredGuests({ config: serverConfig({ VOICE_PROVIDER: "stub" } as unknown as NodeJS.ProcessEnv), store, provider });
+    expect(result).toEqual({ deleted: 0, failed: 1, errors: [`${s.id.slice(0, 8)}: ElevenLabs DELETE failed: 400`] });
   });
 });
 
