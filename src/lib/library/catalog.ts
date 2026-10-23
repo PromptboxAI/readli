@@ -76,6 +76,13 @@ const ADDED: readonly UpcomingBook[] = [
   { slug: "the-darning-needle", title: "The Darning-Needle", author: "Hans Christian Andersen", firstPublished: 1845, approxMinutes: 7 },
   { slug: "little-tuk", title: "Little Tuk", author: "Hans Christian Andersen", firstPublished: 1847, approxMinutes: 9 },
   { slug: "gudbrand-on-the-hill-side", title: "Gudbrand on the Hill-side", author: "Asbjørnsen and Moe", firstPublished: 1843, approxMinutes: 8 },
+  { slug: "mrs-redwings-speckled-egg", title: "Mrs. Redwing's Speckled Egg", author: "Thornton W. Burgess", firstPublished: 1910, approxMinutes: 4 },
+  { slug: "jerry-muskrats-party", title: "Jerry Muskrat's Party", author: "Thornton W. Burgess", firstPublished: 1910, approxMinutes: 4 },
+  { slug: "johnny-chuck-finds-the-best-thing-in-the-world", title: "Johnny Chuck Finds the Best Thing in the World", author: "Thornton W. Burgess", firstPublished: 1910, approxMinutes: 5 },
+  { slug: "the-wilful-little-breeze", title: "The Wilful Little Breeze", author: "Thornton W. Burgess", firstPublished: 1910, approxMinutes: 5 },
+  { slug: "the-white-horse-girl-and-the-blue-wind-boy", title: "The White Horse Girl and the Blue Wind Boy", author: "Carl Sandburg", firstPublished: 1922, approxMinutes: 6 },
+  { slug: "wynken-blynken-and-nod", title: "Wynken, Blynken, and Nod and Other Lullabies", author: "Eugene Field", firstPublished: 1889, approxMinutes: 6 },
+  { slug: "more-aesops-fables", title: "More Aesop's Fables", author: "Aesop", firstPublished: 1919, approxMinutes: 11 },
 ].map((b) => ({ ...b, coverUrl: `/covers/${b.slug}.webp` }));
 
 export const CATALOG: readonly CatalogBook[] = [

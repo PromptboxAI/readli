@@ -31,9 +31,13 @@ import FivePeasFromOnePod from "./five-peas-from-one-pod.json";
 import GoldilocksAndTheThreeBears from "./goldilocks-and-the-three-bears.json";
 import GudbrandOnTheHillSide from "./gudbrand-on-the-hill-side.json";
 import Heidi from "./heidi.json";
+import JerryMuskratsParty from "./jerry-muskrats-party.json";
+import JohnnyChuckFindsTheBestThingInTheWorld from "./johnny-chuck-finds-the-best-thing-in-the-world.json";
 import JustSoStories from "./just-so-stories.json";
 import LittleTuk from "./little-tuk.json";
+import MoreAesopsFables from "./more-aesops-fables.json";
 import MotherHolle from "./mother-holle.json";
+import MrsRedwingsSpeckledEgg from "./mrs-redwings-speckled-egg.json";
 import RaggedyAnnStories from "./raggedy-ann-stories.json";
 import SleepingBeauty from "./sleeping-beauty.json";
 import TheBremenTownMusicians from "./the-bremen-town-musicians.json";
@@ -63,11 +67,14 @@ import TheThreeLittlePigs from "./the-three-little-pigs.json";
 import TheThreeSillies from "./the-three-sillies.json";
 import TheUglyDuckling from "./the-ugly-duckling.json";
 import TheVelveteenRabbit from "./the-velveteen-rabbit.json";
+import TheWhiteHorseGirlAndTheBlueWindBoy from "./the-white-horse-girl-and-the-blue-wind-boy.json";
+import TheWilfulLittleBreeze from "./the-wilful-little-breeze.json";
 import Thumbelina from "./thumbelina.json";
 import TwasTheNightBeforeChristmas from "./twas-the-night-before-christmas.json";
 import UncleWiggilysChristmas from "./uncle-wiggilys-christmas.json";
 import UncleWiggilysThanksgiving from "./uncle-wiggilys-thanksgiving.json";
 import WinnieThePooh from "./winnie-the-pooh.json";
+import WynkenBlynkenAndNod from "./wynken-blynken-and-nod.json";
 
 export const LIBRARY_TEXTS: Record<string, Pick<CatalogBook, "edition" | "chapters"> | undefined> = {
   "a-childs-garden-of-verses": AChildsGardenOfVerses,
@@ -77,9 +84,13 @@ export const LIBRARY_TEXTS: Record<string, Pick<CatalogBook, "edition" | "chapte
   "goldilocks-and-the-three-bears": GoldilocksAndTheThreeBears,
   "gudbrand-on-the-hill-side": GudbrandOnTheHillSide,
   "heidi": Heidi,
+  "jerry-muskrats-party": JerryMuskratsParty,
+  "johnny-chuck-finds-the-best-thing-in-the-world": JohnnyChuckFindsTheBestThingInTheWorld,
   "just-so-stories": JustSoStories,
   "little-tuk": LittleTuk,
+  "more-aesops-fables": MoreAesopsFables,
   "mother-holle": MotherHolle,
+  "mrs-redwings-speckled-egg": MrsRedwingsSpeckledEgg,
   "raggedy-ann-stories": RaggedyAnnStories,
   "sleeping-beauty": SleepingBeauty,
   "the-bremen-town-musicians": TheBremenTownMusicians,
@@ -109,9 +120,12 @@ export const LIBRARY_TEXTS: Record<string, Pick<CatalogBook, "edition" | "chapte
   "the-three-sillies": TheThreeSillies,
   "the-ugly-duckling": TheUglyDuckling,
   "the-velveteen-rabbit": TheVelveteenRabbit,
+  "the-white-horse-girl-and-the-blue-wind-boy": TheWhiteHorseGirlAndTheBlueWindBoy,
+  "the-wilful-little-breeze": TheWilfulLittleBreeze,
   "thumbelina": Thumbelina,
   "twas-the-night-before-christmas": TwasTheNightBeforeChristmas,
   "uncle-wiggilys-christmas": UncleWiggilysChristmas,
   "uncle-wiggilys-thanksgiving": UncleWiggilysThanksgiving,
   "winnie-the-pooh": WinnieThePooh,
+  "wynken-blynken-and-nod": WynkenBlynkenAndNod,
 };
