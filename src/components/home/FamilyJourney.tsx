@@ -6,21 +6,21 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 
 /**
- * Guided journey (designer brief, 2026-10-23): one Readli Family story in five steps, about 45 seconds
+ * Guided journey (designer brief, 2026-10-23): one Readli Family story in five steps, about 30 seconds
  * when left to play. Replaces "Every family has a story" in the same spot, so the page doesn't grow.
  * Each screen redraws a real app screen (My voice, invitations, trial offer, Prepare, Kids player) with
  * the example family from the homepage tree. Marketing picture only: nothing here is interactive app UI.
  */
 
-const STEP_MS = 9000;
+const STEP_MS = 6000;
 const BOOK = { title: "The Tale of Peter Rabbit", cover: "/covers/the-tale-of-peter-rabbit.webp" };
 /** Genuine approved sample, served from /public. Until it is added the play button stays hidden. */
 const SAMPLE_SRC: string | null = null;
 
-const GRANDMA = { name: "Grandma June", initials: "J", tint: "bg-lavender" };
+const GRANDPA = { name: "Grandpa Kevin", portrait: "/family-voices/grandpa.webp" };
 const HOUSEHOLDS = [
   { name: "Sara's family", parent: "Sara", tint: "bg-coral", kids: "Maya and Leo" },
-  { name: "Priya's family", parent: "Priya", tint: "bg-sunshine", kids: "Ava" },
+  { name: "Anabel's family", parent: "Anabel", tint: "bg-sunshine", kids: "Ava" },
 ];
 
 function Initials({ name, tint, size = "size-10 text-base" }: { name: string; tint: string; size?: string }) {
@@ -29,6 +29,10 @@ function Initials({ name, tint, size = "size-10 text-base" }: { name: string; ti
       {name}
     </span>
   );
+}
+
+function Grandpa({ size = "size-10" }: { size?: string }) {
+  return <Image src={GRANDPA.portrait} alt="" width={56} height={56} className={`${size} shrink-0 rounded-full border-[3px] border-ink object-cover`} />;
 }
 
 function Check() {
@@ -63,7 +67,7 @@ function SamplePlayer() {
               }
             }}
             className="grid size-11 shrink-0 place-items-center rounded-full bg-coral-deep text-white"
-            aria-label={playing ? "Pause Grandma June's sample" : "Play Grandma June's sample"}
+            aria-label={playing ? "Pause Grandpa Kevin's sample" : "Play Grandpa Kevin's sample"}
           >
             {playing ? "❚❚" : "▶"}
           </button>
@@ -75,7 +79,7 @@ function SamplePlayer() {
       )}
       <span className="min-w-0 text-sm">
         <span className="block font-semibold">Peter Rabbit, page 1</span>
-        <span className="block text-muted">Read by {GRANDMA.name} · 0:24</span>
+        <span className="block text-muted">Read by {GRANDPA.name} · 0:24</span>
       </span>
     </div>
   );
@@ -93,12 +97,12 @@ function Screen({ label, children }: { label: string; children: ReactNode }) {
 
 const STEPS: { title: string; body: string; screen: ReactNode }[] = [
   {
-    title: "Grandma records her voice, free",
-    body: "She reads a short script, then hears and approves a real story in her own voice.",
+    title: "Grandpa records his voice, free",
+    body: "He reads a short script, then hears and approves a real story in his own voice.",
     screen: (
       <Screen label="My voice">
         <div className="flex items-center gap-3">
-          <Initials name={GRANDMA.initials} tint={GRANDMA.tint} size="size-14 text-xl" />
+          <Grandpa size="size-14" />
           <div>
             <p className="font-display text-xl font-semibold leading-tight">Your voice is ready</p>
             <p className="text-sm text-muted">Listen before you share it.</p>
@@ -117,8 +121,8 @@ const STEPS: { title: string; body: string; screen: ReactNode }[] = [
     ),
   },
   {
-    title: "She sends it to both her children",
-    body: "Sara and Priya live in different homes. Each invitation carries the same approved sample.",
+    title: "He sends it to both his children",
+    body: "Sara and Anabel live in different homes. Each invitation carries the same approved sample.",
     screen: (
       <Screen label="Invite storytellers">
         {HOUSEHOLDS.map((h) => (
@@ -126,26 +130,26 @@ const STEPS: { title: string; body: string; screen: ReactNode }[] = [
             <Initials name={h.parent.charAt(0)} tint={h.tint} />
             <span className="min-w-0 flex-1">
               <span className="block font-semibold">To {h.parent}</span>
-              <span className="block truncate text-sm text-muted">With Grandma June&apos;s Peter Rabbit sample</span>
+              <span className="block truncate text-sm text-muted">With Grandpa Kevin&apos;s Peter Rabbit sample</span>
             </span>
             <span className="shrink-0 rounded-full bg-sky/60 px-2.5 py-0.5 text-xs font-bold">Sent</span>
           </div>
         ))}
-        <p className="mt-auto text-sm text-muted">Her recordings stay private. Only the sample travels.</p>
+        <p className="mt-auto text-sm text-muted">His recordings stay private. Only the sample travels.</p>
       </Screen>
     ),
   },
   {
-    title: "Parents listen, start Family, and add Grandma",
-    body: "Sara hears the sample, starts a Readli Family trial, and turns Grandma June on for her kids.",
+    title: "Parents listen, start Family, and add Grandpa",
+    body: "Sara hears the sample, starts a Readli Family trial, and turns Grandpa Kevin on for her kids.",
     screen: (
       <Screen label="Sara's invitation">
-        <p className="font-display text-xl font-semibold leading-tight">Hear Grandma June read to your children every night</p>
+        <p className="font-display text-xl font-semibold leading-tight">Hear Grandpa Kevin read to your children every night</p>
         <SamplePlayer />
         <span className={`${buttonPrimary} pointer-events-none min-h-11 text-base`}>Start Your Free Family Trial</span>
         <div className="mt-auto flex items-center gap-3 rounded-2xl bg-ivory p-3 ring-1 ring-ink/10">
-          <Initials name={GRANDMA.initials} tint={GRANDMA.tint} />
-          <span className="min-w-0 flex-1 font-semibold">{GRANDMA.name}</span>
+          <Grandpa />
+          <span className="min-w-0 flex-1 font-semibold">{GRANDPA.name}</span>
           <span className="shrink-0 rounded-full bg-mint px-2.5 py-0.5 text-xs font-bold">Storyteller on</span>
         </div>
       </Screen>
@@ -153,14 +157,14 @@ const STEPS: { title: string; body: string; screen: ReactNode }[] = [
   },
   {
     title: "Each home prepares the same book",
-    body: "Both families prepare Peter Rabbit in Grandma June's voice, ready for bedtime in each house.",
+    body: "Both families prepare Peter Rabbit in Grandpa Kevin's voice, ready for bedtime in each house.",
     screen: (
       <Screen label="Prepare narration">
         <div className="flex items-center gap-3">
           <Cover w={48} />
           <div className="min-w-0">
             <p className="font-display text-lg font-semibold leading-tight">{BOOK.title}</p>
-            <p className="text-sm text-muted">Read by {GRANDMA.name}</p>
+            <p className="text-sm text-muted">Read by {GRANDPA.name}</p>
           </div>
         </div>
         {HOUSEHOLDS.map((h) => (
@@ -181,7 +185,7 @@ const STEPS: { title: string; body: string; screen: ReactNode }[] = [
   },
   {
     title: "Kids switch storytellers, no extra charge",
-    body: "Any voice already prepared plays free. Maya picks Grandma June tonight and Mom tomorrow.",
+    body: "Any voice already prepared plays free. Maya picks Grandpa Kevin tonight and Mom tomorrow.",
     screen: (
       <div className="flex h-full flex-col gap-3 rounded-[28px] bg-plum p-4 text-left text-white shadow-[0_24px_50px_-22px_rgba(40,53,72,0.45)] sm:p-5">
         <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-sunshine">Readli Kids</p>
@@ -193,12 +197,12 @@ const STEPS: { title: string; body: string; screen: ReactNode }[] = [
           <p className="font-display text-lg font-semibold">Who reads to you?</p>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { n: "Grandma June", i: "J", t: "bg-lavender", on: true },
+              { n: "Grandpa Kevin", i: "K", t: "bg-lavender", on: true },
               { n: "Mom", i: "S", t: "bg-coral", on: false },
               { n: "Dad", i: "B", t: "bg-sky", on: false },
             ].map((x) => (
               <span key={x.n} className={`flex flex-col items-center gap-1.5 rounded-2xl p-2 ${x.on ? "bg-sunshine" : "bg-ivory ring-2 ring-ink/10"}`}>
-                <Initials name={x.i} tint={x.t} />
+                {x.on ? <Grandpa /> : <Initials name={x.i} tint={x.t} />}
                 <span className="text-center font-display text-sm font-semibold leading-tight">{x.n}</span>
                 <span className="rounded-full bg-mint px-1.5 py-0.5 text-[10px] font-bold">Ready here</span>
               </span>
@@ -246,7 +250,7 @@ export function FamilyJourney() {
           <div className="flex flex-col gap-2">
             <p className="text-[13px] font-extrabold uppercase tracking-[0.16em] text-coral-deep">One voice, two homes</p>
             <h2 id="journey-heading" className="font-display text-3xl font-semibold sm:text-4xl">
-              How Grandma June reads to every grandchild
+              How Grandpa Kevin reads to every grandchild
             </h2>
           </div>
 
