@@ -14,6 +14,7 @@ import {
   narratorSlots,
   PermissionError,
   releaseNarrator,
+  removeStoryteller,
   setChildApprovals,
   setHouseholdShare,
   setStorytellerNickname,
@@ -212,6 +213,31 @@ describe("signup and pricing amendment", () => {
     // Stopping sharing is shown as such, not as never shared.
     await setHouseholdShare(store, andrea, { voiceId: "voice-andrea", householdId: H, shared: false, policyVersion: "p" }, clock);
     expect((await narratorSlots(store, mom, H, clock)).waiting.find((n) => n.voiceId === "voice-andrea")?.status).toBe("stopped_sharing");
+  });
+
+  it("a parent can remove a storyteller, which frees their slot and ends each child's approval", async () => {
+    const { state, store } = basePlanFamily();
+    state.adults.push({ id: "andrea", displayName: "Andrea", relationship: "Mom", avatarUrl: null, tint: "bg-sky" });
+    state.members.push({ householdId: H, adultId: "andrea", role: "member", joinedAt: clock().toISOString(), removedAt: null });
+    // Someone who joined but never recorded can be removed.
+    await removeStoryteller(store, mom, H, "andrea", clock);
+    expect((await narratorSlots(store, mom, H, clock)).joined).toHaveLength(0);
+
+    // A narrator in a slot, approved for a child: removing them frees the slot and ends the approval.
+    await activateNarrator(store, mom, H, "voice-june", clock);
+    const kid = state.children.find((c) => c.householdId === H)!.id;
+    await setChildApprovals(store, mom, kid, [{ voiceId: "voice-june", approved: true }], clock);
+    await removeStoryteller(store, mom, H, "june", clock);
+    const view = await narratorSlots(store, mom, H, clock);
+    expect(view.active).toHaveLength(0);
+    expect([...view.shared, ...view.waiting].some((n) => n.adultId === "june")).toBe(false);
+    expect(state.approvals.some((a) => a.voiceId === "voice-june" && a.childId === kid && a.revokedAt === null)).toBe(false);
+    // June's voice is still hers.
+    expect(state.voices.find((v) => v.id === "voice-june")?.deletedAt).toBeNull();
+
+    // Parents can't be removed, and only a guardian can remove anyone.
+    await rejects(removeStoryteller(store, mom, H, "sara", clock), 409, "is_guardian");
+    await rejects(removeStoryteller(store, { kind: "adult", adultId: "lou" }, H, "sara", clock), 403);
   });
 
   it("a family's nickname for a storyteller is display only, and sharing tells the parents without approving anyone", async () => {

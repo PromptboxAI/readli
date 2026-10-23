@@ -624,6 +624,39 @@ export async function releaseNarrator(store: FamilyStore, actor: Actor | null, h
 }
 
 /**
+ * Removes a storyteller from the family: they leave the household, any narrator slot their voice held
+ * is freed and every child's approval for it ends. Their voice and account stay theirs. Parents and
+ * guardians can't be removed here, and inviting them back starts over.
+ */
+export async function removeStoryteller(store: FamilyStore, actor: Actor | null, householdId: string, adultId: string, clock: Clock = now): Promise<void> {
+  const state = await store.read();
+  const viewerId = requireHouseholdGuardian(state, actor, householdId);
+  const member = state.members.find((m) => m.householdId === householdId && m.adultId === adultId && m.removedAt === null);
+  if (!member) throw new PermissionError(404, "not_member", "That storyteller isn't part of your family.");
+  if (adultId === viewerId || member.role === "guardian") throw new PermissionError(409, "is_guardian", "Parents and guardians can't be removed as storytellers.");
+  const at = clock().toISOString();
+  const voices = new Set(state.voices.filter((v) => v.ownerId === adultId).map((v) => v.id));
+  await store.write((s) => {
+    for (const m of s.members) if (m.householdId === householdId && m.adultId === adultId && m.removedAt === null) m.removedAt = at;
+    for (const a of s.slots) {
+      if (voices.has(a.voiceId) && a.householdId === householdId && a.releasedAt === null) {
+        a.releasedAt = at;
+        a.releasedBy = viewerId;
+        audit(s, viewerId, "narrator_released", at, { voiceId: a.voiceId, householdId, detail: "storyteller_removed" });
+      }
+    }
+    const kids = new Set(s.children.filter((c) => c.householdId === householdId).map((c) => c.id));
+    for (const a of s.approvals) {
+      if (voices.has(a.voiceId) && kids.has(a.childId) && a.revokedAt === null) {
+        a.revokedAt = at;
+        a.revokedBy = viewerId;
+        a.revokeReason = "slot_released";
+      }
+    }
+  });
+}
+
+/**
  * Adds one narrator slot to the household's plan. Payments aren't connected yet, so this records
  * the entitlement directly; checkout will call it once the charge succeeds.
  */
