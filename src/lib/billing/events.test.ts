@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { billingChange } from "./events";
+import { billingChange, invitationBilling } from "./events";
 
 const sub = (over: Record<string, unknown> = {}) => ({
   id: "sub_1",
@@ -81,5 +81,24 @@ describe("billingChange", () => {
     expect(billingChange(event("customer.subscription.created", sub({ metadata: {} }))).kind).toBe("ignore");
     expect(billingChange(event("invoice.created", { id: "in_1" })).kind).toBe("ignore");
     expect(billingChange({ type: "customer.subscription.created" }).kind).toBe("ignore");
+  });
+});
+
+describe("invitationBilling", () => {
+  it("credits the invitation named at checkout with the trial, then the first payment", () => {
+    const meta = { household_id: "h1", invitation_id: "inv_1" };
+    expect(invitationBilling(event("customer.subscription.created", sub({ status: "trialing", metadata: meta })))).toEqual({ householdId: "h1", invitationId: "inv_1", kind: "trial" });
+    expect(invitationBilling(event("customer.subscription.updated", sub({ metadata: meta })))).toEqual({ householdId: "h1", invitationId: "inv_1", kind: "paid" });
+  });
+
+  it("falls back to the household when checkout named no invitation", () => {
+    expect(invitationBilling(event("customer.subscription.created", sub()))).toEqual({ householdId: "h1", invitationId: null, kind: "paid" });
+  });
+
+  it("ignores ended, unpaid and non-subscription events", () => {
+    expect(invitationBilling(event("customer.subscription.deleted", sub({ status: "canceled" })))).toBeNull();
+    expect(invitationBilling(event("customer.subscription.updated", sub({ status: "past_due" })))).toBeNull();
+    expect(invitationBilling(event("customer.subscription.updated", sub({ metadata: {} })))).toBeNull();
+    expect(invitationBilling(event("checkout.session.completed", { metadata: { household_id: "h1" }, customer: "cus_1" }))).toBeNull();
   });
 });

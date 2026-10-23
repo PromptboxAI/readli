@@ -91,3 +91,18 @@ export function billingChange(event: { type: string; data?: { object?: StripeObj
 
   return { kind: "ignore", reason: `unhandled ${event.type}` };
 }
+
+/**
+ * The invite funnel step a subscription event marks for the household's storyteller invitations: a
+ * trial starting, or the first paid period. The invitation is the one named at checkout when there is
+ * one; otherwise the household's accepted invitations are credited.
+ */
+export function invitationBilling(event: { type: string; data?: { object?: StripeObject } }): { householdId: string; invitationId: string | null; kind: "trial" | "paid" } | null {
+  const obj = event.data?.object;
+  if (!obj || !event.type.startsWith("customer.subscription.") || event.type === "customer.subscription.deleted") return null;
+  const meta = (obj.metadata as StripeObject | undefined) ?? {};
+  const householdId = str(meta.household_id);
+  if (!householdId) return null;
+  const kind = obj.status === "trialing" ? "trial" : obj.status === "active" ? "paid" : null;
+  return kind ? { householdId, invitationId: str(meta.invitation_id), kind } : null;
+}
