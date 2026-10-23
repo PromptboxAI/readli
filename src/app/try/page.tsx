@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { TeleprompterRecorder } from "@/components/teleprompter/TeleprompterRecorder";
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
+import { currentGuest, effectiveMode, guestDemoDeps } from "@/lib/server/guest-demo";
 import { publicPageMetadata } from "@/lib/seo/site";
 
 export const metadata: Metadata = publicPageMetadata({
@@ -12,7 +13,15 @@ export const metadata: Metadata = publicPageMetadata({
 });
 
 /** Dedicated recording screen (Amendment 001 §A): one continuous take, no page changes. */
-export default function TryPage() {
+export default async function TryPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const p = await searchParams;
+  // Back from a signup page: reopen the stories in the voice this browser already made.
+  let resumeCleanUp: boolean | null = null;
+  if (p.resume === "1") {
+    const deps = guestDemoDeps();
+    const guest = deps && (await effectiveMode(deps).catch(() => "off")) !== "off" ? await currentGuest(deps).catch(() => null) : null;
+    if (guest?.hasVoice) resumeCleanUp = p.cleanup === "1";
+  }
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-2 sm:px-6">
@@ -22,7 +31,7 @@ export default function TryPage() {
         </Link>
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-6 sm:px-6">
-        <TeleprompterRecorder script={DEMO_SCRIPT} />
+        <TeleprompterRecorder script={DEMO_SCRIPT} resumeCleanUp={resumeCleanUp} />
       </main>
     </div>
   );

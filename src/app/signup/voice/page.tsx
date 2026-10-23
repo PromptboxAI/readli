@@ -12,6 +12,13 @@ import { familyAccountsEnabled } from "@/lib/family/session";
 
 export const metadata: Metadata = { title: "Share Your Voice | Readli", robots: { index: false } };
 
+const STEPS_FROM_TRY = [
+  ["Create your free account", "Just you. Your voice belongs to you."],
+  ["Verify it's you", "A quick identity check, so only you can make your voice."],
+  ["Use your Try recording", "No need to read again. We make your voice from the story you just read."],
+  ["Invite your family", "Approve each family that asks. Change your mind any time."],
+] as const;
+
 const STEPS = [
   ["Create your free account", "Just you. Your voice belongs to you."],
   ["Verify it's you", "A quick identity check, so only you can make your voice."],
@@ -32,7 +39,7 @@ export default async function VoiceSignupPage({ searchParams }: { searchParams: 
   return (
     <AdultPage wide>
       <header className="flex flex-col gap-2">
-        <Link href="/signup" className="w-fit font-display font-semibold underline-offset-4 hover:underline">
+        <Link href={fromTry ? `/try?resume=1${p.cleanup === "1" ? "&cleanup=1" : ""}` : "/signup"} className="w-fit font-display font-semibold underline-offset-4 hover:underline">
           ← Back
         </Link>
         <Eyebrow>Readli Voice · Free</Eyebrow>
@@ -77,7 +84,7 @@ export default async function VoiceSignupPage({ searchParams }: { searchParams: 
               How it works
             </h2>
             <ol className="flex flex-col gap-3">
-              {STEPS.map(([t, d], i) => (
+              {(fromTry ? STEPS_FROM_TRY : STEPS).map(([t, d], i) => (
                 <li key={t} className="flex gap-3">
                   <span className="grid size-9 shrink-0 place-items-center rounded-full bg-surface font-display font-semibold">{i + 1}</span>
                   <span>
@@ -95,7 +102,7 @@ export default async function VoiceSignupPage({ searchParams }: { searchParams: 
             <PlanList items={ACCOUNT_TYPES.voice.excludes} cross className="mt-3" />
             <p className="mt-3 text-sm">
               Want stories for your own kids? You can start{" "}
-              <Link href="/signup/family" className="font-semibold underline underline-offset-4">
+              <Link href={fromTry ? `/signup/family?from=try${p.cleanup === "1" ? "&cleanup=1" : ""}` : "/signup/family"} className="font-semibold underline underline-offset-4">
                 Readli Family
               </Link>{" "}
               any time and keep your voice.
