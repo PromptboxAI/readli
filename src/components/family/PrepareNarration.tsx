@@ -264,6 +264,7 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
                   busy={busy}
                   showSetup={editing || !v.shared || !v.inSlot || v.approvedFor.length === 0}
                   onEdit={() => setEditing(true)}
+                  onDone={editing && v.shared && v.inSlot && v.approvedFor.length > 0 ? () => setEditing(false) : null}
                   onShare={() => setUp(`/api/family/voices/${v.voiceId}/share`, "PUT", { householdId: view.householdId, shared: true }, "Your voice is shared with this family.")}
                   onSlot={() => setUp("/api/family/narrators", "POST", { voiceId: v.voiceId, action: "activate" }, `${v.name} is in a narrator slot.`)}
                   onApprove={(kid, approved) =>
@@ -629,6 +630,7 @@ function NarratorDetails({
   busy,
   showSetup,
   onEdit,
+  onDone,
   onShare,
   onSlot,
   onApprove,
@@ -638,6 +640,8 @@ function NarratorDetails({
   busy: boolean;
   showSetup: boolean;
   onEdit: () => void;
+  /** Closes the setup again once it is complete; null while a step is still open. */
+  onDone: (() => void) | null;
   onShare: () => void;
   onSlot: () => void;
   onApprove: (kid: PrepareVoiceView["kids"][number], approved: boolean) => void;
@@ -693,6 +697,14 @@ function NarratorDetails({
                 {" · "}
                 <button type="button" className="font-semibold underline underline-offset-4" onClick={onEdit}>
                   Change
+                </button>
+              </>
+            )}
+            {onDone && (
+              <>
+                {" · "}
+                <button type="button" className="font-semibold underline underline-offset-4" onClick={onDone} data-testid="setup-done">
+                  Done
                 </button>
               </>
             )}
