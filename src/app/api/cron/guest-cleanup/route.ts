@@ -9,7 +9,8 @@ export const maxDuration = 60;
 
 /**
  * TTL deletion of guest audio, provider voices and rows, plus account voice recordings nobody kept
- * or discarded within a day. Vercel Cron calls this with CRON_SECRET.
+ * or discarded within a day. Called hourly by the GitHub Actions guest-cleanup workflow (and daily by
+ * Vercel Cron as a backstop) with CRON_SECRET.
  */
 export async function GET(req: Request) {
   const config = serverConfig();
@@ -22,5 +23,5 @@ export async function GET(req: Request) {
   const accounts = accountVoiceDeps(effective);
   const candidates = accounts ? await cleanupStaleCandidates(accounts).catch((err) => (console.error("candidate cleanup failed", err), null)) : null;
   if (!deps) return NextResponse.json({ deleted: 0, failed: 0, skipped: "not configured", candidates });
-  return NextResponse.json({ ...(await cleanupExpiredGuests(deps)), candidates });
+  return NextResponse.json({ ...(await cleanupExpiredGuests(deps, 200)), candidates });
 }
