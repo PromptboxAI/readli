@@ -8,8 +8,11 @@ export const DEFAULT_WPM = 145;
 export const FONT_SIZES = [22, 26, 32, 40, 48] as const;
 export const DEFAULT_FONT_INDEX = 2;
 
-/** Fraction of the viewport height where the reader's eyes should rest. */
-export const READING_LINE = 0.35;
+/**
+ * Fraction of the viewport height where the reader's eyes should rest. The script starts here, so
+ * this is also the empty space above the first line; kept small so the words show at the top.
+ */
+export const READING_LINE = 0.15;
 
 /** Rounds to 5 so the 145 default stays put; the buttons still move 10 at a time. */
 export function clampWpm(wpm: number): number {

@@ -29,7 +29,7 @@ describe("scroll math", () => {
   });
 
   it("finds the sentence on the reading line", () => {
-    const tops = [350, 420, 500, 600];
+    const tops = [150, 220, 300, 400];
     expect(activeIndex(tops, 0, 1000)).toBe(0);
     expect(activeIndex(tops, 80, 1000)).toBe(1);
     expect(activeIndex(tops, 10_000, 1000)).toBe(3);
