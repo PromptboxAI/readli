@@ -260,7 +260,7 @@ export function FamilyJourney() {
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <p className="text-[13px] font-extrabold uppercase tracking-[0.16em] text-coral-deep">One voice, two homes</p>
-            <h2 id="journey-heading" className="font-display text-3xl font-semibold sm:text-4xl">
+            <h2 id="journey-heading" className="font-display text-3xl font-semibold sm:text-4xl md:text-3xl lg:text-4xl">
               One voice. Every grandchild. No distance between them.
             </h2>
             <p className="mt-1 max-w-xl text-lg text-ink/85">
@@ -289,7 +289,7 @@ export function FamilyJourney() {
             ))}
           </ol>
 
-          <div className="hidden flex-wrap gap-3 md:flex">
+          <div className="hidden flex-wrap gap-3 lg:flex">
             <Link href="/try" className={buttonPrimary}>
               Record Your Voice Free
             </Link>
@@ -306,6 +306,16 @@ export function FamilyJourney() {
             </div>
           </div>
           {nav}
+
+          {/* Tablets: the buttons sit under the screen, so the narrower text column stays short. */}
+          <div className="hidden flex-col gap-3 md:flex lg:hidden">
+            <Link href="/try" className={`${buttonPrimary} w-full`}>
+              Record Your Voice Free
+            </Link>
+            <Link href="/pricing" className={`${buttonSecondary} w-full`}>
+              Explore Readli Family
+            </Link>
+          </div>
 
           {/* Phones: the current step's words under the screen. */}
           <div className="flex flex-col items-center gap-3 text-center md:hidden">
