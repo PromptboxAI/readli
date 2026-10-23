@@ -247,4 +247,17 @@ describe("family invitations on the server", () => {
     expect(await playGiftPreview(db, code)).toBeNull();
     expect(await giftPreview(db, "nonsense")).toBeNull();
   });
+
+  it("never plays the issuing admin's voice on a complimentary membership", async () => {
+    const code = "ABCD-EFGH-JKMN";
+    const { db, tables } = fakeDb({
+      gifts: [{ id: "g1", giver_id: "admin", status: "sent", code_hash: hashGiftCode(code), complimentary_for: "fundraiser" }],
+      voice_profiles: [{ id: "v1", owner_id: "admin", status: "ready", version: 2 }],
+      voice_previews: [{ id: "p1", owner_id: "admin", voice_version: 2, approved_at: "2026-10-01", retired_at: null, book_slug: "winnie-the-pooh", storage_key: "admin/p1.mp3" }],
+      adult_profiles: [{ user_id: "admin", display_name: "Daddy" }],
+    });
+    expect(await giftPreview(db, code)).toBeNull();
+    expect(await playGiftPreview(db, code)).toBeNull();
+    expect(tables.analytics_events ?? []).toEqual([]);
+  });
 });
