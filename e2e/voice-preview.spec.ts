@@ -15,7 +15,10 @@ test("a finished take becomes a voice and reads four stories, with free replays"
   await page.getByRole("button", { name: "Finish" }).click();
   await page.getByRole("button", { name: "Choose a story" }).click();
 
+  // The stories are their own step: the teleprompter is gone, not scrolled past.
   await expect(page.getByTestId("demo-books").getByRole("article")).toHaveCount(6);
+  await expect(page.getByTestId("teleprompter")).toHaveCount(0);
+  await expect(page.getByTestId("try-steps")).toContainText("Hear a story");
   const preview = page.getByTestId("voice-preview");
   const peter = preview.getByRole("article", { name: "The Tale of Peter Rabbit" });
   await expect(peter.getByRole("button", { name: "Hear this passage" })).toBeEnabled();
@@ -25,6 +28,10 @@ test("a finished take becomes a voice and reads four stories, with free replays"
   await expect(preview.getByLabel("The Tale of Peter Rabbit, read in your voice")).toHaveAttribute("src", /^blob:/);
   await expect(preview.getByText("Test mode: this is a stand-in sound, not your voice.")).toBeVisible();
   await expect(preview.getByTestId("preview-counter")).toContainText("1 of 4 stories explored");
+  // Next steps keep the take, so nobody reads the story again.
+  const next = preview.getByTestId("try-next-steps");
+  await expect(next.getByRole("link", { name: "Share my voice, free" })).toHaveAttribute("href", /^\/signup\/voice\?from=try/);
+  await expect(next.getByRole("link", { name: "Start Readli Family" })).toHaveAttribute("href", /^\/signup\/family\?from=try/);
   await page.screenshot({ path: `e2e/screenshots/try-preview-${info.project.name}.png` });
 
   // Second preview with noise clean-up flipped re-makes the voice from the saved take, then the free limit is reached.
@@ -51,6 +58,11 @@ test("a finished take becomes a voice and reads four stories, with free replays"
   await expect(unheard.first().getByRole("button", { name: "Hear this passage" })).toBeDisabled();
   await preview.getByRole("article", { name: "Winnie-the-Pooh" }).getByRole("button", { name: "Play again" }).click();
   await expect(preview.getByText("Winnie-the-Pooh · read by you")).toBeVisible();
+
+  // The browser's back button returns to the recording, with the take still there.
+  await page.goBack();
+  await expect(page.getByTestId("teleprompter")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Choose a story" })).toBeVisible();
 });
 
 test("the server refuses previews without a session and a voice", async ({ request }) => {

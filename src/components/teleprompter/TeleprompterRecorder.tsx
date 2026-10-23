@@ -63,7 +63,6 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
   const [showBooks, setShowBooks] = useState(false);
   // Settings start collapsed on phones so the script keeps most of the screen.
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const booksRef = useRef<HTMLDivElement>(null);
   const [take, setTake] = useState<{ url: string; recorded: RecordedTake; details: TakeDetails } | null>(null);
   const [tipsOpen, setTipsOpen] = useState(false);
   // Set when the reader asked how to improve and records again, so the dashboard can count re-records.
@@ -203,9 +202,25 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  // The stories are their own screen. The browser's back button returns to the recording.
   useEffect(() => {
-    if (showBooks) booksRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth" });
-  }, [showBooks, reducedMotion]);
+    if (!showBooks) return;
+    window.scrollTo({ top: 0 });
+    const onPop = () => setShowBooks(false);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [showBooks]);
+
+  const openStories = () => {
+    window.history.pushState({ readliTry: "stories" }, "");
+    setShowBooks(true);
+  };
+
+  /** Leaves the stories screen, taking its history entry with it so Back doesn't land on it again. */
+  const closeStories = () => {
+    if ((window.history.state as { readliTry?: string } | null)?.readliTry === "stories") window.history.back();
+    else setShowBooks(false);
+  };
 
   const onProgress = useCallback(
     (p: TeleprompterProgress) => {
@@ -222,12 +237,34 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
     mic.discard();
     setTake(null);
     setNotice(null);
-    setShowBooks(false);
+    if (showBooks) closeStories();
     dispatch({ type: "start_over" });
   };
 
   if (state.status === "consent") {
     return <ConsentStep state={state} dispatch={dispatch} />;
+  }
+
+  if (showBooks && take) {
+    return (
+      <div className="flex flex-col gap-4">
+        <TryStepper step={2} />
+        <button
+          type="button"
+          className="w-fit min-h-11 font-display font-semibold underline-offset-4 hover:underline"
+          onClick={closeStories}
+        >
+          ← Back to my recording
+        </button>
+        <VoicePreview
+          key={take.details.takeNumber}
+          take={take.details}
+          heading="Pick a story to hear in your voice"
+          onRecordAgain={() => startOver("feedback")}
+          nextSteps
+        />
+      </div>
+    );
   }
 
   const blocker = finishBlocker(state);
@@ -381,7 +418,7 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
                   trackVoiceEvent("recording_used_with_warnings", { issues: take.recorded.qc.issues, surface: onTake ? "account" : "guest" });
                 }
                 if (onTake && take) onTake(take.details);
-                else setShowBooks(true);
+                else openStories();
               }}
             />
           )}
@@ -420,21 +457,25 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
         </aside>
       </div>
 
-      {showBooks && take && (
-        <div ref={booksRef} className="scroll-mt-6">
-          <VoicePreview
-            key={take.details.takeNumber}
-            take={take.details}
-            heading="Your take is in. Pick a story to hear it."
-            onRecordAgain={() => {
-              startOver("feedback");
-              window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
-            }}
-          />
-        </div>
-      )}
       <RecordingTipsDialog open={tipsOpen} onClose={() => setTipsOpen(false)} where={state.status === "review" ? "review" : "before_recording"} />
     </div>
+  );
+}
+
+/** Where a guest is on /try: record, then hear stories. Account recording has its own steps. */
+function TryStepper({ step }: { step: 1 | 2 }) {
+  return (
+    <ol className="flex items-center gap-2 text-sm font-semibold" aria-label="Steps" data-testid="try-steps">
+      {(["Record your voice", "Hear a story"] as const).map((label, i) => (
+        <li key={label} aria-current={i + 1 === step ? "step" : undefined} className="flex items-center gap-2">
+          {i > 0 && <span aria-hidden="true" className="h-0.5 w-6 bg-ink/20" />}
+          <span className={`grid size-7 place-items-center rounded-full ${i + 1 < step ? "bg-mint" : i + 1 === step ? "bg-coral text-white" : "bg-surface ring-2 ring-ink/15"}`}>
+            {i + 1 < step ? "✓" : i + 1}
+          </span>
+          <span className={i + 1 === step ? "" : "text-muted"}>{label}</span>
+        </li>
+      ))}
+    </ol>
   );
 }
 

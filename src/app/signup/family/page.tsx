@@ -14,10 +14,12 @@ import { rewardsConfig, rewardsVisible } from "@/lib/rewards/rewards";
 export const metadata: Metadata = { title: "Create a Family | Readli", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
-export default async function FamilySignupPage({ searchParams }: { searchParams: Promise<{ billing?: string | string[] }> }) {
+export default async function FamilySignupPage({ searchParams }: { searchParams: Promise<{ billing?: string | string[]; from?: string | string[] }> }) {
   const open = familyCheckoutOpen();
   const plan = await effectivePlan(accountDb());
-  const initial = (await searchParams).billing === "annual" ? "annual" : "monthly";
+  const params = await searchParams;
+  const initial = params.billing === "annual" ? "annual" : "monthly";
+  const fromTry = params.from === "try";
   const rewards = rewardsConfig();
   // The trial shows on previews for review, and in production only once the program is public.
   const showTrial = rewardsVisible(rewards);
@@ -29,6 +31,12 @@ export default async function FamilySignupPage({ searchParams }: { searchParams:
         </Link>
         <Eyebrow>Readli Family</Eyebrow>
         <h1 className="font-display text-4xl font-semibold sm:text-5xl">Create your family</h1>
+        {fromTry && (
+          <p className="max-w-2xl rounded-2xl bg-mint/50 p-4" data-testid="try-carry-note">
+            Your recording from the Try page comes with you. Start your family within 24 hours, then choose <strong>Use this recording</strong>{" "}
+            under My voice, so you won&apos;t read the story again.
+          </p>
+        )}
       </header>
       <PreviewNote>Family accounts are coming soon, so nothing here is saved or charged yet.</PreviewNote>
       <form className="grid gap-8 lg:grid-cols-[1.1fr_1fr]" aria-label="Create a Readli Family account">
