@@ -580,5 +580,65 @@
    "current": true,
    "sentences": 70
   }
+ ],
+ "uncle-wiggilys-thanksgiving": [
+  {
+   "slug": "uncle-wiggilys-thanksgiving",
+   "revision": "5735c315ef8c",
+   "edition": "gutenberg-60625",
+   "firstSeen": "2026-10-23T14:32:31+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 113
+  }
+ ],
+ "the-three-billy-goats-gruff": [
+  {
+   "slug": "the-three-billy-goats-gruff",
+   "revision": "67779c7e7525",
+   "edition": "gutenberg-8933",
+   "firstSeen": "2026-10-23T14:32:31+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 32
+  }
+ ],
+ "uncle-wiggilys-christmas": [
+  {
+   "slug": "uncle-wiggilys-christmas",
+   "revision": "cf1b0034493a",
+   "edition": "gutenberg-60625",
+   "firstSeen": "2026-10-23T14:32:31+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 138
+  }
+ ],
+ "the-tale-of-mrs-tittlemouse": [
+  {
+   "slug": "the-tale-of-mrs-tittlemouse",
+   "revision": "c67df6f00588",
+   "edition": "gutenberg-17089",
+   "firstSeen": "2026-10-23T14:32:31+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 101
+  }
+ ],
+ "mother-holle": [
+  {
+   "slug": "mother-holle",
+   "revision": "0cb560fe5865",
+   "edition": "gutenberg-52521",
+   "firstSeen": "2026-10-23T14:32:31+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 79
+  }
  ]
 }
