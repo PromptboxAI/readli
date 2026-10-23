@@ -700,5 +700,65 @@
    "current": true,
    "sentences": 79
   }
+ ],
+ "the-leaping-match": [
+  {
+   "slug": "the-leaping-match",
+   "revision": "0837afe84411",
+   "edition": "gutenberg-32571",
+   "firstSeen": "2026-10-23T14:54:05+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 33
+  }
+ ],
+ "the-happy-family": [
+  {
+   "slug": "the-happy-family",
+   "revision": "bf6fc179bbf0",
+   "edition": "gutenberg-32571",
+   "firstSeen": "2026-10-23T14:54:05+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 69
+  }
+ ],
+ "the-darning-needle": [
+  {
+   "slug": "the-darning-needle",
+   "revision": "d62e22de7abe",
+   "edition": "gutenberg-32571",
+   "firstSeen": "2026-10-23T14:54:05+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 91
+  }
+ ],
+ "little-tuk": [
+  {
+   "slug": "little-tuk",
+   "revision": "3817eeb60066",
+   "edition": "gutenberg-32571",
+   "firstSeen": "2026-10-23T14:54:05+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 93
+  }
+ ],
+ "gudbrand-on-the-hill-side": [
+  {
+   "slug": "gudbrand-on-the-hill-side",
+   "revision": "8bd0b0a68e3e",
+   "edition": "gutenberg-8933",
+   "firstSeen": "2026-10-23T14:54:05+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 70
+  }
  ]
 }
