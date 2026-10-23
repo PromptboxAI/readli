@@ -6,18 +6,15 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 
 /**
- * Guided journey (designer brief, 2026-10-23): one Readli Family story in five steps, about 30 seconds
- * when left to play. Replaces "Every family has a story" in the same spot, so the page doesn't grow.
+ * Guided journey (designer brief, 2026-10-23): one Readli Family story in five steps that visitors
+ * click through at their own pace (no autoplay, Kevin 2026-10-23). Replaces "Every family has a story" in the same spot, so the page doesn't grow.
  * Each screen redraws a real app screen (My voice, invitations, trial offer, Prepare, Kids player) with
  * the example family from the homepage tree. Marketing picture only: nothing here is interactive app UI.
  */
 
-const STEP_MS = 6000;
 const BOOK = { title: "The Three Billy Goats Gruff", short: "Billy Goats Gruff", cover: "/covers/the-three-billy-goats-gruff.webp" };
 /** Kevin's own Readli voice reading page 1, trimmed from his screen recording (2026-10-23). */
 const SAMPLE_SRC = "/samples/grandpa-kevin-billy-goats-gruff.mp3";
-/** Pressing play stops the journey moving on, so the sample isn't cut off mid-sentence. */
-const SAMPLE_PLAY_EVENT = "readli:journey-sample-play";
 
 const GRANDPA = { name: "Grandpa Kevin", portrait: "/family-voices/grandpa.webp" };
 const HOUSEHOLDS = [
@@ -65,7 +62,6 @@ function SamplePlayer() {
           const a = audio.current;
           if (!a) return;
           if (a.paused) {
-            window.dispatchEvent(new Event(SAMPLE_PLAY_EVENT));
             void a
               .play()
               .then(() => setPlaying(true))
@@ -225,42 +221,41 @@ const STEPS: { title: string; body: string; screen: ReactNode }[] = [
   },
 ];
 
+const navButton = "flex min-h-11 items-center gap-1 rounded-full px-4 font-display font-semibold disabled:opacity-35";
+
+function Arrow({ back = false }: { back?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true">
+      <path d={back ? "M15 5l-7 7 7 7" : "M9 5l7 7-7 7"} fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function FamilyJourney() {
   const [step, setStep] = useState(0);
-  const [auto, setAuto] = useState(true);
-  const section = useRef<HTMLElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  // Plays only while on screen, and never on its own for people who ask for reduced motion.
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) setAuto(false);
-    const el = section.current;
-    if (!el) return;
-    const io = new IntersectionObserver((entries) => setVisible(entries.some((e) => e.isIntersecting)), { threshold: 0.4 });
-    io.observe(el);
-    const stop = () => setAuto(false);
-    window.addEventListener(SAMPLE_PLAY_EVENT, stop);
-    return () => {
-      io.disconnect();
-      window.removeEventListener(SAMPLE_PLAY_EVENT, stop);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!auto || !visible) return;
-    const t = setTimeout(() => setStep((s) => (s + 1) % STEPS.length), STEP_MS);
-    return () => clearTimeout(t);
-  }, [auto, visible, step]);
-
   const current = STEPS[step]!;
+  const last = STEPS.length - 1;
 
-  const pick = (i: number) => {
-    setAuto(false);
-    setStep(i);
-  };
+  const nav = (
+    <div className="flex items-center justify-between gap-2">
+      <button type="button" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0} className={`${navButton} hover:bg-ink/5`}>
+        <Arrow back /> Back
+      </button>
+      <div className="flex items-center">
+        {STEPS.map((s, i) => (
+          <button key={s.title} type="button" onClick={() => setStep(i)} aria-label={`Step ${i + 1}: ${s.title}`} aria-current={i === step ? "step" : undefined} className="grid size-8 place-items-center">
+            <span className={`block h-2.5 rounded-full transition-all ${i === step ? "w-6 bg-plum" : "w-2.5 bg-ink/25"}`} />
+          </button>
+        ))}
+      </div>
+      <button type="button" onClick={() => setStep((s) => Math.min(last, s + 1))} disabled={step === last} className={`${navButton} bg-plum text-white`}>
+        Next <Arrow />
+      </button>
+    </div>
+  );
 
   return (
-    <section ref={section} id="family-journey" aria-labelledby="journey-heading" className="scroll-mt-20 bg-ivory">
+    <section id="family-journey" aria-labelledby="journey-heading" className="scroll-mt-20 bg-ivory">
       <div className="mx-auto grid max-w-6xl items-center gap-5 px-4 py-10 sm:px-6 lg:grid-cols-[1.25fr_1fr] lg:gap-12 lg:py-10">
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">
@@ -276,18 +271,15 @@ export function FamilyJourney() {
               <li key={s.title}>
                 <button
                   type="button"
-                  onClick={() => pick(i)}
+                  onClick={() => setStep(i)}
                   aria-current={i === step ? "step" : undefined}
-                  className={`relative flex w-full items-start gap-3 overflow-hidden rounded-[18px] px-4 py-2 text-left transition-colors ${i === step ? "bg-lavender/40" : "hover:bg-ink/5"}`}
+                  className={`flex w-full items-start gap-3 rounded-[18px] px-4 py-2 text-left transition-colors ${i === step ? "bg-lavender/40" : "hover:bg-ink/5"}`}
                 >
                   <span className={`grid size-8 shrink-0 place-items-center rounded-full font-display font-semibold ${i === step ? "bg-plum text-white" : "bg-ink/10"}`}>{i + 1}</span>
                   <span className="min-w-0 pt-1">
                     <span className="block font-display text-lg font-semibold leading-tight">{s.title}</span>
                     {i === step && <span className="mt-1 block text-ink/80">{s.body}</span>}
                   </span>
-                  {i === step && auto && visible && (
-                    <span key={step} aria-hidden="true" className="journey-progress absolute bottom-0 left-0 h-1 bg-plum/40" style={{ animationDuration: `${STEP_MS}ms` }} />
-                  )}
                 </button>
               </li>
             ))}
@@ -303,31 +295,25 @@ export function FamilyJourney() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-4">
-          <div aria-live="polite" className="mx-auto h-[330px] w-full max-w-sm">
+        <div className="mx-auto flex w-full max-w-sm flex-col gap-3">
+          <div aria-live="polite" className="h-[330px]">
             <div key={step} className="journey-screen h-full">
               {current.screen}
             </div>
           </div>
+          {nav}
 
-          {/* Phones and tablets: the current step's words under the screen, with dots to move between steps. */}
+          {/* Phones and tablets: the current step's words under the screen. */}
           <div className="flex flex-col items-center gap-3 text-center lg:hidden">
             <p className="font-display text-xl font-semibold">
               {step + 1}. {current.title}
             </p>
             <p className="max-w-md text-ink/80">{current.body}</p>
-            <div className="flex items-center gap-1">
-              {STEPS.map((s, i) => (
-                <button key={s.title} type="button" onClick={() => pick(i)} aria-label={`Step ${i + 1}: ${s.title}`} aria-current={i === step ? "step" : undefined} className="grid size-11 place-items-center">
-                  <span className={`block h-2.5 rounded-full transition-all ${i === step ? "w-7 bg-plum" : "w-2.5 bg-ink/25"}`} />
-                </button>
-              ))}
-            </div>
-            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-              <Link href="/try" className={`${buttonPrimary} w-full sm:w-auto`}>
+            <div className="mt-1 flex w-full flex-col gap-3">
+              <Link href="/try" className={`${buttonPrimary} w-full`}>
                 Record a voice for free
               </Link>
-              <Link href="/pricing" className={`${buttonSecondary} w-full sm:w-auto`}>
+              <Link href="/pricing" className={`${buttonSecondary} w-full`}>
                 See how Readli Family works
               </Link>
             </div>
