@@ -66,6 +66,11 @@ const ADDED: readonly UpcomingBook[] = [
   { slug: "uncle-wiggilys-christmas", title: "Uncle Wiggily's Christmas", author: "Howard R. Garis", firstPublished: 1921, approxMinutes: 10 },
   { slug: "the-tale-of-mrs-tittlemouse", title: "The Tale of Mrs. Tittlemouse", author: "Beatrix Potter", firstPublished: 1910, approxMinutes: 6 },
   { slug: "mother-holle", title: "Mother Holle", author: "The Brothers Grimm", firstPublished: 1812, approxMinutes: 6 },
+  { slug: "the-tale-of-timmy-tiptoes", title: "The Tale of Timmy Tiptoes", author: "Beatrix Potter", firstPublished: 1911, approxMinutes: 7 },
+  { slug: "the-tale-of-ginger-and-pickles", title: "The Tale of Ginger and Pickles", author: "Beatrix Potter", firstPublished: 1909, approxMinutes: 6 },
+  { slug: "the-queen-bee", title: "The Queen Bee", author: "The Brothers Grimm", firstPublished: 1812, approxMinutes: 4 },
+  { slug: "five-peas-from-one-pod", title: "Five Peas from One Pod", author: "Hans Christian Andersen", firstPublished: 1852, approxMinutes: 7 },
+  { slug: "the-three-sillies", title: "The Three Sillies", author: "Traditional", firstPublished: 1890, approxMinutes: 9 },
 ].map((b) => ({ ...b, coverUrl: `/covers/${b.slug}.webp` }));
 
 export const CATALOG: readonly CatalogBook[] = [

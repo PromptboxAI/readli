@@ -27,6 +27,7 @@ import type { CatalogBook } from "../catalog";
 import AChildsGardenOfVerses from "./a-childs-garden-of-verses.json";
 import AlicesAdventuresInWonderland from "./alices-adventures-in-wonderland.json";
 import Cinderella from "./cinderella.json";
+import FivePeasFromOnePod from "./five-peas-from-one-pod.json";
 import GoldilocksAndTheThreeBears from "./goldilocks-and-the-three-bears.json";
 import Heidi from "./heidi.json";
 import JustSoStories from "./just-so-stories.json";
@@ -43,14 +44,18 @@ import TheLionAndTheMouse from "./the-lion-and-the-mouse.json";
 import TheLittleRedHen from "./the-little-red-hen.json";
 import TheOwlAndThePussyCat from "./the-owl-and-the-pussy-cat.json";
 import ThePrincessAndThePea from "./the-princess-and-the-pea.json";
+import TheQueenBee from "./the-queen-bee.json";
+import TheTaleOfGingerAndPickles from "./the-tale-of-ginger-and-pickles.json";
 import TheTaleOfMrJeremyFisher from "./the-tale-of-mr-jeremy-fisher.json";
 import TheTaleOfMrsTiggyWinkle from "./the-tale-of-mrs-tiggy-winkle.json";
 import TheTaleOfMrsTittlemouse from "./the-tale-of-mrs-tittlemouse.json";
 import TheTaleOfPeterRabbit from "./the-tale-of-peter-rabbit.json";
+import TheTaleOfTimmyTiptoes from "./the-tale-of-timmy-tiptoes.json";
 import TheTaleOfTomKitten from "./the-tale-of-tom-kitten.json";
 import TheTaleOfTwoBadMice from "./the-tale-of-two-bad-mice.json";
 import TheThreeBillyGoatsGruff from "./the-three-billy-goats-gruff.json";
 import TheThreeLittlePigs from "./the-three-little-pigs.json";
+import TheThreeSillies from "./the-three-sillies.json";
 import TheUglyDuckling from "./the-ugly-duckling.json";
 import TheVelveteenRabbit from "./the-velveteen-rabbit.json";
 import Thumbelina from "./thumbelina.json";
@@ -63,6 +68,7 @@ export const LIBRARY_TEXTS: Record<string, Pick<CatalogBook, "edition" | "chapte
   "a-childs-garden-of-verses": AChildsGardenOfVerses,
   "alices-adventures-in-wonderland": AlicesAdventuresInWonderland,
   "cinderella": Cinderella,
+  "five-peas-from-one-pod": FivePeasFromOnePod,
   "goldilocks-and-the-three-bears": GoldilocksAndTheThreeBears,
   "heidi": Heidi,
   "just-so-stories": JustSoStories,
@@ -79,14 +85,18 @@ export const LIBRARY_TEXTS: Record<string, Pick<CatalogBook, "edition" | "chapte
   "the-little-red-hen": TheLittleRedHen,
   "the-owl-and-the-pussy-cat": TheOwlAndThePussyCat,
   "the-princess-and-the-pea": ThePrincessAndThePea,
+  "the-queen-bee": TheQueenBee,
+  "the-tale-of-ginger-and-pickles": TheTaleOfGingerAndPickles,
   "the-tale-of-mr-jeremy-fisher": TheTaleOfMrJeremyFisher,
   "the-tale-of-mrs-tiggy-winkle": TheTaleOfMrsTiggyWinkle,
   "the-tale-of-mrs-tittlemouse": TheTaleOfMrsTittlemouse,
   "the-tale-of-peter-rabbit": TheTaleOfPeterRabbit,
+  "the-tale-of-timmy-tiptoes": TheTaleOfTimmyTiptoes,
   "the-tale-of-tom-kitten": TheTaleOfTomKitten,
   "the-tale-of-two-bad-mice": TheTaleOfTwoBadMice,
   "the-three-billy-goats-gruff": TheThreeBillyGoatsGruff,
   "the-three-little-pigs": TheThreeLittlePigs,
+  "the-three-sillies": TheThreeSillies,
   "the-ugly-duckling": TheUglyDuckling,
   "the-velveteen-rabbit": TheVelveteenRabbit,
   "thumbelina": Thumbelina,

@@ -640,5 +640,65 @@
    "current": true,
    "sentences": 79
   }
+ ],
+ "the-tale-of-timmy-tiptoes": [
+  {
+   "slug": "the-tale-of-timmy-tiptoes",
+   "revision": "a29ff2ba2f99",
+   "edition": "gutenberg-14797",
+   "firstSeen": "2026-10-23T14:43:18+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 90
+  }
+ ],
+ "the-tale-of-ginger-and-pickles": [
+  {
+   "slug": "the-tale-of-ginger-and-pickles",
+   "revision": "ef34b185bafa",
+   "edition": "gutenberg-14877",
+   "firstSeen": "2026-10-23T14:43:18+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 84
+  }
+ ],
+ "the-queen-bee": [
+  {
+   "slug": "the-queen-bee",
+   "revision": "137c0e6f5cc5",
+   "edition": "gutenberg-52521",
+   "firstSeen": "2026-10-23T14:43:18+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 39
+  }
+ ],
+ "five-peas-from-one-pod": [
+  {
+   "slug": "five-peas-from-one-pod",
+   "revision": "d58e1924199a",
+   "edition": "gutenberg-32572",
+   "firstSeen": "2026-10-23T14:43:18+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 67
+  }
+ ],
+ "the-three-sillies": [
+  {
+   "slug": "the-three-sillies",
+   "revision": "4c2a5e67ba46",
+   "edition": "gutenberg-17034",
+   "firstSeen": "2026-10-23T14:43:18+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 79
+  }
  ]
 }
