@@ -760,5 +760,89 @@
    "current": true,
    "sentences": 70
   }
+ ],
+ "mrs-redwings-speckled-egg": [
+  {
+   "slug": "mrs-redwings-speckled-egg",
+   "revision": "ac94496112bc",
+   "edition": "gutenberg-2557",
+   "firstSeen": "2026-10-23T15:16:10+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 35
+  }
+ ],
+ "jerry-muskrats-party": [
+  {
+   "slug": "jerry-muskrats-party",
+   "revision": "a8fefe4eb3f2",
+   "edition": "gutenberg-2557",
+   "firstSeen": "2026-10-23T15:16:10+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 38
+  }
+ ],
+ "johnny-chuck-finds-the-best-thing-in-the-world": [
+  {
+   "slug": "johnny-chuck-finds-the-best-thing-in-the-world",
+   "revision": "9fd49acac62e",
+   "edition": "gutenberg-2557",
+   "firstSeen": "2026-10-23T15:16:10+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 56
+  }
+ ],
+ "the-wilful-little-breeze": [
+  {
+   "slug": "the-wilful-little-breeze",
+   "revision": "8ba08c0f653f",
+   "edition": "gutenberg-2557",
+   "firstSeen": "2026-10-23T15:16:10+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 55
+  }
+ ],
+ "the-white-horse-girl-and-the-blue-wind-boy": [
+  {
+   "slug": "the-white-horse-girl-and-the-blue-wind-boy",
+   "revision": "9703e21bffe5",
+   "edition": "gutenberg-27085",
+   "firstSeen": "2026-10-23T15:16:10+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 47
+  }
+ ],
+ "wynken-blynken-and-nod": [
+  {
+   "slug": "wynken-blynken-and-nod",
+   "revision": "d3df463fe810",
+   "edition": "gutenberg-54874",
+   "firstSeen": "2026-10-23T15:16:10+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 40
+  }
+ ],
+ "more-aesops-fables": [
+  {
+   "slug": "more-aesops-fables",
+   "revision": "9a3f41c8fd42",
+   "edition": "gutenberg-19994",
+   "firstSeen": "2026-10-23T15:16:10+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 124
+  }
  ]
 }
