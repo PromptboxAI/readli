@@ -22,6 +22,9 @@
  * Duck's cigar a joke; "stupid" is dull, dreary or foolish; Aesop's milkmaid is courted; Uncle Wiggily's
  * closing teasers and Thanksgiving's dated "Indians" exchange are gone; Field's garden is "dear", not "queer";
  * and the Troll swims away from the Billy Goats Gruff.
+ * Kevin, 2026-10-23: the narration model takes "said the billy-goat, with such a small voice" as a direction
+ * and reads the line too quietly to hear, so the goats speak "as politely as he could" and "a little more
+ * boldly" instead; avoid volume cues like that in narration text.
  */
 import type { CatalogBook } from "../catalog";
 import AChildsGardenOfVerses from "./a-childs-garden-of-verses.json";
