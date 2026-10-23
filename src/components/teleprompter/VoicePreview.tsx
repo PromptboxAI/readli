@@ -57,8 +57,12 @@ export function VoicePreview({
   heading,
   onRecordAgain,
   nextSteps = false,
+  resumeCleanUp = false,
 }: {
-  take: TakeDetails;
+  /** Null when coming back to the voice already saved for this guest (no new take to upload). */
+  take: TakeDetails | null;
+  /** With no take: the noise clean-up setting the saved voice was made with. */
+  resumeCleanUp?: boolean;
   heading: string;
   onRecordAgain?: () => void;
   /** After the first story, offer a Readli Voice account or Readli Family that keep this recording. */
@@ -76,10 +80,11 @@ export function VoicePreview({
   const [, setHeardCount] = useState(0);
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
   // Noise clean-up starts on only when the recorder heard a noisy room; quiet takes keep their natural sound.
-  const [cleanUp, setCleanUp] = useState(() => take.recorded.qc.issues.includes("noisy"));
+  const [cleanUp, setCleanUp] = useState(() => (take ? take.recorded.qc.issues.includes("noisy") : resumeCleanUp));
   const uploadedTake = useRef<number | null>(null);
-  /** The take and clean-up setting the current voice was made from. */
-  const voiceMadeFrom = useRef<string | null>(null);
+  const takeId = take ? String(take.takeNumber) : "saved";
+  /** The take and clean-up setting the current voice was made from. A saved voice is already made. */
+  const voiceMadeFrom = useRef<string | null>(take ? null : `saved:${resumeCleanUp}`);
   const topRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -107,14 +112,14 @@ export function VoicePreview({
     };
   }, []);
 
-  const voiceKey = `${take.takeNumber}:${cleanUp}`;
+  const voiceKey = `${takeId}:${cleanUp}`;
   const explored = new Set([...heard.current.keys()].filter((k) => k.startsWith(`${voiceKey}|`)).map((k) => k.split("|")[1]!));
 
   const ensureVoice = async (): Promise<boolean> => {
-    const voiceKey = `${take.takeNumber}:${cleanUp}`;
+    const voiceKey = `${takeId}:${cleanUp}`;
     if (voiceMadeFrom.current === voiceKey) return true;
     // Switching clean-up on or off re-makes the voice from the saved take; no need to upload again.
-    if (uploadedTake.current !== take.takeNumber) await uploadTake();
+    if (take && uploadedTake.current !== take.takeNumber) await uploadTake(take);
 
     setPhase("cloning");
     const clone = await fetch("/api/guest/clone", {
@@ -127,7 +132,7 @@ export function VoicePreview({
     return true;
   };
 
-  const uploadTake = async () => {
+  const uploadTake = async (take: TakeDetails) => {
     setPhase("saving");
     const session = await fetch("/api/guest/session", {
       method: "POST",
@@ -195,6 +200,8 @@ export function VoicePreview({
   useEffect(() => {
     if (busy || phase === "playing" || phase === "error") topRef.current?.scrollIntoView({ block: "start" });
   }, [busy, phase]);
+  // Back from signup we don't know which stories were heard, so the server says which ones replay.
+  const outOfStories = previewsLeft === 0 && take !== null;
   const disabledReason =
     mode === "loading"
       ? "Checking voice previews…"
@@ -202,7 +209,7 @@ export function VoicePreview({
         ? OFF_REASON
         : busy
           ? "One story at a time."
-          : previewsLeft === 0
+          : outOfStories
             ? "You've explored all your free stories."
             : null;
   const used = previewsLeft !== null && previewsAllowed !== null ? Math.max(0, previewsAllowed - previewsLeft) : null;
@@ -245,7 +252,7 @@ export function VoicePreview({
         </p>
       )}
 
-      {nextSteps && !busy && (playing || previewsLeft === 0) && <NextSteps cleanUp={playing?.cleanUp ?? cleanUp} />}
+      {nextSteps && !busy && (playing || previewsLeft === 0 || !take) && <NextSteps cleanUp={playing?.cleanUp ?? cleanUp} />}
 
       {mode !== "off" && (
         <label className="flex min-h-11 items-start gap-3 rounded-2xl border-2 border-ink/10 bg-surface p-4">

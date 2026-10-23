@@ -13,6 +13,9 @@ export function ScrollToTop() {
   useEffect(() => {
     if (window.location.hash) return;
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    // Late layout (images, fonts) can nudge the page after the first scroll.
+    const id = requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "instant" }));
+    return () => cancelAnimationFrame(id);
   }, [pathname]);
   return null;
 }

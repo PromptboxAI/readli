@@ -49,9 +49,14 @@ interface TeleprompterRecorderProps {
    */
   onTake?: (take: TakeDetails) => void;
   takeActionLabel?: string;
+  /**
+   * Back on /try from a signup page: this browser's guest voice is still saved, so open on the
+   * stories with it. The value is the noise clean-up setting that voice was made with.
+   */
+  resumeCleanUp?: boolean | null;
 }
 
-export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose a story" }: TeleprompterRecorderProps) {
+export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose a story", resumeCleanUp = null }: TeleprompterRecorderProps) {
   const [state, dispatch] = useReducer(recorderReducer, initialRecorderState, (s) =>
     onTake ? { ...s, status: "ready" as const, consent: { adultOwner: true, processing: true } } : s,
   );
@@ -61,6 +66,7 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
   const [fontIndex, setFontIndex] = useState(DEFAULT_FONT_INDEX);
   const [notice, setNotice] = useState<string | null>(null);
   const [showBooks, setShowBooks] = useState(false);
+  const [resumed, setResumed] = useState(resumeCleanUp !== null);
   // Settings start collapsed on phones so the script keeps most of the screen.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [take, setTake] = useState<{ url: string; recorded: RecordedTake; details: TakeDetails } | null>(null);
@@ -240,6 +246,24 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
     if (showBooks) closeStories();
     dispatch({ type: "start_over" });
   };
+
+  if (resumed && !take) {
+    return (
+      <div className="flex flex-col gap-4">
+        <TryStepper step={2} />
+        <button type="button" className="w-fit min-h-11 font-display font-semibold underline-offset-4 hover:underline" onClick={() => setResumed(false)}>
+          ← Record a new voice
+        </button>
+        <VoicePreview
+          take={null}
+          resumeCleanUp={resumeCleanUp ?? false}
+          heading="Pick a story to hear in your voice"
+          onRecordAgain={() => setResumed(false)}
+          nextSteps
+        />
+      </div>
+    );
+  }
 
   if (state.status === "consent") {
     return <ConsentStep state={state} dispatch={dispatch} />;
