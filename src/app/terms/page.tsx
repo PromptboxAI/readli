@@ -18,7 +18,6 @@ export default function TermsPage() {
       <PolicyDocument
         title="Terms of Service"
         effectiveDate={TERMS_EFFECTIVE_DATE}
-        draftNote
         intro={TERMS_INTRO}
         sections={TERMS_SECTIONS}
       />

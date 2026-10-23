@@ -1,19 +1,20 @@
 /**
- * Readli Privacy Policy, from Kevin's draft "Readli_Privacy_Policy_Readli_ai_LLC_DRAFT.docx" (2026-10-10).
- * Address and contact email come from Kevin's Terms draft; the remaining bracketed placeholders are highlighted on the page.
- * The draft's internal "Required publication details" checklist is intentionally not published.
+ * Readli Privacy Policy. Started from Kevin's draft "Readli_Privacy_Policy_Readli_ai_LLC_DRAFT.docx"
+ * (2026-10-10) and finalized for publication on 2026-10-23 to describe what the live service does. Every
+ * retention period here is enforced in code; the demo's 24 hours depends on the hourly clean-up (PR #133).
+ * Kevin's later decisions on training rights, optional licensing and keeping finished stories after a
+ * voice is withdrawn are not described until the code and Voice Agreement that carry them ship (PR #53).
+ * Change this text together with the behaviour it describes.
  */
 
 export type PolicyParagraph = { lead?: string; text: string };
 export type PolicySection = { id: string; title: string; paragraphs: PolicyParagraph[] };
 
-/** The draft says to set the real effective date when the policy is published. */
-export const PRIVACY_EFFECTIVE_DATE = "October 10, 2026";
-export const PRIVACY_IS_DRAFT = true;
+export const PRIVACY_EFFECTIVE_DATE = "October 23, 2026";
 
 export const PRIVACY_INTRO: string[] = [
-  'Readli ("Readli," "we," "our," or "us"), operated by Readli.ai LLC at 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790, provides family storytelling, children’s reading experiences, and optional AI-generated narration using voices volunteered by participating adults. This Privacy Policy describes how we collect, use, disclose, retain, and protect information when you visit readli.ai, try our voice demo, or use Readli Family, Readli Kids, and related features (together, the "Services").',
-  "Our goal is simple: private family storytelling with meaningful control over the voices and information people share. Readli Kids is designed for use through parent- or guardian-managed profiles. Adults control invitations and voice permissions. Public narrator participation, if offered, uses a separate opt-in program.",
+  'Readli ("Readli," "we," "our," or "us"), operated by Readli.ai LLC at 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790, provides family storytelling, children’s reading, and optional AI-generated narration in voices that participating adults choose to record and share. This Privacy Policy describes how we collect, use, disclose, retain, and protect information when you visit readli.ai, try our voice demo, or use Readli Family, Readli Kids, Readli Voice, and related features (together, the "Services").',
+  "Readli Kids is used only through parent- or guardian-managed profiles. Adults control invitations and voice permissions. Voice data can be sensitive and may be biometric data under the laws where you live, so this policy says plainly what happens to it.",
 ];
 
 export const PRIVACY_SECTIONS: PolicySection[] = [
@@ -23,27 +24,27 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     paragraphs: [
       {
         lead: "Account and contact data",
-        text: "adults’ name, email, authentication information, account preferences, support requests, and consent records. If sign-in providers are enabled, we receive the information you authorize them to share.",
+        text: "adults’ name, email address, sign-in information (by email link or, if you choose, Google sign-in, from which we receive your name, email address and profile picture), profile photo if you add one, preferences, support requests, and records of what you agreed to and when.",
       },
       {
         lead: "Family connections and child profiles",
-        text: "names or nicknames, profile avatars/photos, relationship labels, invitation/contact information, parental authorization, age range where needed, access permissions, and family-circle membership. We recommend nicknames rather than children’s full legal names.",
+        text: "household and family connections, relationship labels and nicknames, invitations (including the name and email address of the person you invite), and for each child profile a nickname, an icon and an age band. We ask for nicknames rather than children’s full names, and we do not ask for children’s photos, voices, or birth dates.",
       },
       {
         lead: "Voice and audio",
-        text: "audio recordings made for a temporary demo or for voice enrollment, transcripts and speech samples, voice identifiers or models, generated narrations, permission settings, verification results, and records of consent. Voice data can be sensitive and may be biometric data under applicable law.",
+        text: "recordings adults make for the voice demo or for their account voice, recording details (such as length and device type), the voice model our voice provider makes from a recording, voice previews, narration generated in a voice, sharing and approval settings, and consent records.",
       },
       {
         lead: "Reading and activity data",
-        text: "books selected, playback positions, narrator changes, bookmarks, favorites, session activity, generated audio requests, and technical troubleshooting logs.",
+        text: "books chosen, listening progress, which voice a story was played in, favorites, story requests, narration requests, and Kids Mode devices (a device name, the active child profile, when it was last used, and a hashed household PIN).",
       },
       {
         lead: "Device and website data",
-        text: "IP address, browser and device characteristics, approximate location inferred from IP, cookie identifiers where used, diagnostics, anti-abuse signals, and information needed to protect the Services.",
+        text: "IP address, browser and device information, cookies needed for sign-in and security, diagnostics, anti-abuse signals, and first-party usage events recorded by Readli itself.",
       },
       {
         lead: "Payment data",
-        text: "subscription tier, billing and transaction status, and limited payment identifiers. Full card details are normally processed by an independent payment provider rather than Readli.",
+        text: "plan, billing status, transaction records, and payment identifiers from Stripe. Card details are entered on Stripe’s checkout and are not stored by Readli.",
       },
     ],
   },
@@ -52,43 +53,41 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     title: "2. How we use information",
     paragraphs: [
       {
-        text: "We use information to create and secure accounts, operate family circles, verify consent and voice authorization, generate narrated audio, provide book playback and read-along functions, save listening progress, answer support requests, prevent fraud or impersonation, administer purchases, and comply with legal obligations.",
+        text: "We use information to create and secure accounts, run households and invitations, check consent and voice permissions, make voice models and generate narration, provide playback and read-along text, save listening progress, process payments, send service emails (such as sign-in links and invitations), answer support requests, prevent fraud and impersonation, and comply with the law.",
       },
       {
-        text: "We may analyze aggregated or appropriately de-identified performance information to improve reliability and usability. We do not use family voice recordings or child-profile information to target advertising. Any broader use of voice recordings to train a general-purpose AI model would require separate clear disclosure and, where applicable, separate consent; Readli does not claim that independent processors follow the same practices without contractual verification.",
-      },
-    ],
-  },
-  {
-    id: "voice-cloning-and-informed-consent",
-    title: "3. Voice cloning and informed consent",
-    paragraphs: [
-      {
-        text: "Voice cloning is optional. Adults who enroll a voice should receive a clear description of what is recorded, the use of ElevenLabs or other identified speech processors, who can access the synthesized narration, relevant retention practices, and how to revoke consent or delete a voice.",
+        text: "We use aggregated usage information to improve reliability and usability. We do not use family voice recordings or child-profile information for advertising.",
       },
       {
-        text: "Only an individual’s own voice may be submitted for cloning through ordinary self-service enrollment, unless a separately reviewed and lawful authorization process expressly permits otherwise. Invitations do not authorize anyone to upload or clone another person’s voice. A voice owner must affirmatively approve permitted listeners or family circles.",
-      },
-      {
-        text: "Private family voices are not made public or offered for general discovery. Participation in any future public narrator program would require a separate application, explicit license, and distinct permissions. We do not sell family voice recordings or voice models as standalone assets.",
-      },
-      {
-        text: "A cloned voice can generate new speech that the individual did not personally say. Family members should understand this distinction before recording and before authorizing others to use a voice.",
+        lead: "No AI training, licensing or sale",
+        text: "Readli does not use voice recordings, voice models, or children’s information to train or develop AI models, and does not license, sell, or share recordings or voice models with other companies for their own use. If Readli ever wants to use recordings for AI development or to license them, it will explain the change and ask for each person’s separate, express permission first.",
       },
     ],
   },
   {
-    id: "anonymous-voice-demo",
-    title: "4. Anonymous voice demo",
+    id: "voice-recording-and-consent",
+    title: "3. Voice recording and consent",
     paragraphs: [
       {
-        text: "Visitors may be able to record a short voice sample and hear a story preview without creating an account. Before recording, the demo will display an express consent notice identifying speech-processing providers and explaining processing, access, retention, and deletion.",
+        text: "Recording a voice is optional. Before Readli makes a voice from an account recording, the adult confirms that it is their own voice and that they are the only person recording, that Readli may make a private digital version of their voice to read stories, and that families can use it only after the adult shares it and the family’s parents approve it for each child. Readli stores that confirmation with the wording version and time.",
       },
       {
-        text: 'Demo recordings and temporary generated voice assets will be deleted on a defined short retention schedule of [VERIFIED PERIOD] unless the visitor creates an account and expressly chooses to save the voice, subject to technical copies, legally required retention, and processor deletion timelines. A displayed promise such as "deleted within 24 hours" will be used only after Readli verifies it is enforced across its own and provider systems.',
+        text: "To make a voice, Readli sends the recording to ElevenLabs, our voice provider, which creates a voice model that Readli uses to generate narration. Only an individual’s own voice may be recorded. Invitations do not authorize anyone to record or clone another person’s voice.",
       },
       {
-        text: "We may use short-lived tokens, IP-based abuse controls, and request limits to protect the public demo. We do not require visitors to create an account merely to hear an eligible introductory preview.",
+        text: "A cloned voice can say words the person never spoke. Family members should understand this before recording and before sharing a voice.",
+      },
+    ],
+  },
+  {
+    id: "voice-demo",
+    title: "4. Voice demo",
+    paragraphs: [
+      {
+        text: "Visitors can record a short sample and hear a story preview without an account. Before recording, the demo shows a consent notice naming ElevenLabs and explaining processing and deletion.",
+      },
+      {
+        text: "The demo recording, the demo voice model at ElevenLabs, and generated demo audio are deleted automatically within 24 hours of recording. Readli runs the deletion every hour and retries any step that fails on the next run. Short-lived tokens, IP-based limits, and request limits protect the demo.",
       },
     ],
   },
@@ -97,16 +96,13 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     title: "5. Children’s privacy and parental control",
     paragraphs: [
       {
-        text: "Children under 13 may not independently register an adult account, upload a voice for cloning, or grant voice-sharing permission. Child-facing features operate under a parent- or legal-guardian-managed profile. The parent or guardian manages which voice owners, among those who have separately consented to sharing, can appear as narrators for each individual child. A child cannot change these approvals. We aim to collect the minimum child information needed for the service.",
+        text: "Children cannot create accounts, record a voice for cloning, or grant voice-sharing permission. Child-facing features run under a profile a parent or guardian manages, and the parent or guardian chooses which storytellers, among those who have shared their voice with the household, each child can hear. A child cannot change these approvals. We collect only a nickname, an icon, an age band, and the child’s listening activity (books, progress, favorites, and story requests).",
       },
       {
-        text: "Where the Children’s Online Privacy Protection Act (COPPA) applies, we will provide required notices and obtain verifiable parental consent before collecting, using, or disclosing a child’s personal information unless a lawful exception applies. We will provide parents means to review, delete, and stop further collection of a child’s information.",
+        text: "Where the Children’s Online Privacy Protection Act (COPPA) applies, we will provide required notices and obtain verifiable parental consent before collecting a child’s personal information unless a lawful exception applies. Parents can review a child’s information, delete a child profile, and stop further collection by contacting admin@readli.ai or using family settings.",
       },
       {
-        text: "We do not sell children’s personal information or serve behavioral advertising targeted to child profiles. We will not enable third-party advertising or tracking involving children unless fully evaluated against applicable law and any required separate parental consent is obtained. Necessary service providers may process limited data to operate the approved Service.",
-      },
-      {
-        text: "Children’s face photographs, voice recordings, audio, persistent identifiers, and similar information receive particular care and are not required unless needed for an enabled, parent-approved feature. We do not intend to create or publish child voice clones in the initial family-voice program.",
+        text: "We do not sell children’s personal information, do not show advertising to children, and do not use third-party advertising or tracking in Readli Kids.",
       },
     ],
   },
@@ -115,25 +111,35 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     title: "6. Family visibility, invitations, and sharing",
     paragraphs: [
       {
-        text: "A family invitation can disclose the inviting adult’s display name and family-circle context to the invited recipient. Connected members may see approved avatar, name/nickname, relationship, and availability indicators, based on settings.",
+        text: "An invitation shows the invited person the inviting adult’s name and household. Connected family members may see each other’s names or nicknames, relationship labels, profile photos, and whether a voice is available, depending on settings.",
       },
       {
-        text: "All family voices are private by default. Joining a family circle or recording a voice does not grant another person or child permission to use it. Two independent approvals are required before a family voice appears in a child’s book or narrator selector: (1) the voice owner must expressly authorize the relevant household or recipient to use the voice, and (2) the child’s parent or authorized guardian must approve that specific voice for the child’s individual Readli Kids profile. Each newly shared voice starts disabled for every child. Both approvals can be withdrawn independently. Removing either approval removes the voice from the child’s available narrators and blocks further unauthorized generation or access to previously generated narration, subject to secure cache invalidation and applicable deletion requirements.",
+        text: "All family voices are private by default. Two independent approvals are needed before a voice appears for a child: the voice owner shares the voice with the household, and a parent or guardian approves that storyteller for that child. Each newly shared voice starts off for every child. Either approval can be withdrawn at any time. When either is withdrawn, or the household’s plan ends, stories already prepared in that voice stop playing there; they stay stored and play again if the approvals and plan are restored, unless they are deleted as section 9 describes.",
       },
     ],
   },
   {
-    id: "vendors-and-disclosures",
-    title: "7. Vendors and disclosures",
+    id: "service-providers-and-disclosures",
+    title: "7. Service providers and disclosures",
     paragraphs: [
       {
-        text: "We disclose information to vetted providers when needed for the Services, including ElevenLabs for AI voice processing, hosting/storage, authentication, payments, delivery, analytics, customer support, and security providers as actually enabled. An accurate, current provider list and applicable processor agreements will be maintained [PROVIDER-LIST URL OR CONTACT METHOD].",
+        text: "We share information only with providers that process it on Readli’s behalf to run the Services:",
+      },
+      { lead: "ElevenLabs", text: "makes voice models from recordings and generates narration." },
+      { lead: "Supabase", text: "database, file storage, and sign-in." },
+      { lead: "Vercel", text: "website hosting and scheduled jobs." },
+      { lead: "Stripe", text: "payments and billing." },
+      { lead: "Resend", text: "invitation and other service emails." },
+      { lead: "Google", text: "sign-in, only if you choose Google sign-in." },
+      {
+        lead: "Loom",
+        text: "hosts a recording-tips video shown on the recording screen; Loom may set its own cookies when the video plays.",
       },
       {
-        text: "ElevenLabs independently publishes a privacy policy describing its practices, including potential model-improvement uses and available data-use settings. We will determine the settings and contractual safeguards available for Readli’s API integration, and explain any material consequences to users before launching voice enrollment.",
+        text: "These providers have their own privacy policies, which govern their own handling of the data they receive. ElevenLabs offers account-level settings about whether customer data may be used to improve its models; Readli manages these settings by hand and does not change them automatically.",
       },
       {
-        text: "We may also disclose information with your direction; to protect rights, safety, and service integrity; to comply with law; or in a bona fide transaction involving the business, subject to applicable law and disclosed commitments. A business transaction does not authorize an unrelated sale of children’s personal information or private family voice models.",
+        text: "We may also disclose information at your direction; to protect rights, safety, and the Services; to comply with law; or in a merger, acquisition, or sale of the business, in which case the recipient remains bound by this policy and the permissions people gave. A business transfer does not authorize a separate sale of children’s personal information or family voice models.",
       },
     ],
   },
@@ -142,7 +148,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     title: "8. Cookies and analytics",
     paragraphs: [
       {
-        text: "We may use essential cookies or similar technology for login, security, playback preferences, and fraud prevention. Optional analytics or advertising tools, if deployed, will be disclosed in a cookie notice and configured to respect applicable consent requirements. We will not place behavioral advertising trackers in parent-managed child experiences without legal review and any legally required consent.",
+        text: "We use essential cookies for sign-in, security, Kids Mode devices, and the demo. Readli records its own usage events in its own database and does not use third-party analytics or advertising trackers. Fonts are served from Readli’s own site. Embedded content, such as the Loom video above, may set its provider’s cookies when you play it.",
       },
     ],
   },
@@ -150,11 +156,33 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     id: "retention-and-deletion",
     title: "9. Retention and deletion",
     paragraphs: [
+      { lead: "Voice demo", text: "deleted within 24 hours of recording, as section 4 describes." },
       {
-        text: "We retain information only as long as reasonably necessary for the purposes described above, legal obligations, security, and dispute resolution. Retention periods vary by category and will be documented before launch: [DEMO RECORDINGS], [ACTIVE VOICES], [DELETED VOICES], [CHILD PROFILES], [ACCOUNT RECORDS], [BACKUPS], [SECURITY LOGS].",
+        lead: "A new account recording you don’t keep",
+        text: "if you record a new take and neither keep nor discard it, the recording and the test voice made from it are deleted automatically within 48 hours.",
       },
       {
-        text: "Adults may request access, correction, consent withdrawal, family-permission changes, and account, child-profile, or enrolled-voice deletion through available controls or by contacting admin@readli.ai. We may verify identity or parental authority before acting. Deleting a Readli item may not immediately remove lawful backup copies or data retained by an independent processor; applicable timelines will be explained.",
+        lead: "Your account voice",
+        text: "kept while your account exists, so families you share it with can keep listening. When you keep a new recording, the earlier voice model is deleted at ElevenLabs. In-app voice deletion is temporarily unavailable while Readli improves it; to delete your voice now, email admin@readli.ai, and we will tell you what was deleted.",
+      },
+      {
+        lead: "Deleting your account",
+        text: "you can delete your account in account settings. Deletion is immediate: Readli deletes your voice model at ElevenLabs, your recordings and voice previews, narration generated in your voice for any household, your photos, households and child profiles that belong to you alone, and then your account and the data linked to it.",
+      },
+      {
+        lead: "Child profiles",
+        text: "kept until a parent or guardian deletes the profile or the household’s account is deleted. A Kids Mode device not used for 90 days loses access.",
+      },
+      {
+        lead: "Records we must keep",
+        text: "payment, tax and refund records, consent records, and security records are kept as long as the law requires or as needed to resolve disputes, even after deletion.",
+      },
+      {
+        lead: "Backups, logs and providers",
+        text: "deleted data can remain for a limited time in rolling database backups and service logs, which expire on our providers’ schedules and are not used to restore deleted data except to recover from a system failure. Providers may keep data for their own legal obligations.",
+      },
+      {
+        text: "Adults may request access, correction, consent withdrawal, or deletion through the controls in Readli or by emailing admin@readli.ai. We may verify identity or parental authority before acting.",
       },
     ],
   },
@@ -163,7 +191,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     title: "10. Security and international processing",
     paragraphs: [
       {
-        text: "We use measures appropriate to the sensitivity of voice and children’s information, such as access restrictions, encrypted transmission, and logging of privileged actions, where implemented. No system can be guaranteed fully secure. Service providers may process data outside the user’s state or country, subject to applicable safeguards.",
+        text: "We protect voice and children’s information with access restrictions, encrypted connections, private storage with short-lived playback links, encrypted provider references, and logging of administrative actions. No system can be guaranteed fully secure. Our providers may process data in the United States and other countries.",
       },
     ],
   },
@@ -172,7 +200,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     title: "11. Privacy rights",
     paragraphs: [
       {
-        text: "Depending on residence and the laws that apply, individuals may have rights to request access, correction, deletion, portability, consent withdrawal, or information about certain disclosures, and to appeal a privacy decision. Contact admin@readli.ai and we will respond as required by law. We will not discriminate against users for exercising applicable privacy rights.",
+        text: "Depending on where you live, you may have rights to access, correct, delete, or port your information, to withdraw consent, to learn about certain disclosures, and to appeal a privacy decision. Laws on biometric and voice data in some states (such as Illinois, Texas, and Washington) give additional rights, which Readli honors. Contact admin@readli.ai and we will respond as the law requires. We will not discriminate against you for exercising your rights.",
       },
     ],
   },
@@ -181,10 +209,10 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     title: "12. Changes and contact",
     paragraphs: [
       {
-        text: "We will post updated versions with an effective date and provide additional notice or obtain renewed consent if required for material changes, especially changes involving children’s information, family voice access, or voice processing.",
+        text: "We will post updated versions with a new effective date, and give additional notice or ask for renewed consent where the law requires, especially for changes involving children’s information, family voice access, or how voice recordings are used.",
       },
       {
-        text: "Privacy inquiries and parental requests: admin@readli.ai. Service support: admin@readli.ai. Legal operator: Readli.ai LLC, 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790. Website: https://readli.ai.",
+        text: "Privacy questions and parental requests: admin@readli.ai. Readli.ai LLC, 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790. https://readli.ai.",
       },
     ],
   },

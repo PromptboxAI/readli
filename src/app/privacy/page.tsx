@@ -5,7 +5,6 @@ import { SiteFooter } from "@/components/home/sections";
 import {
   PRIVACY_EFFECTIVE_DATE,
   PRIVACY_INTRO,
-  PRIVACY_IS_DRAFT,
   PRIVACY_SECTIONS,
 } from "@/lib/content/privacy-policy";
 import { publicPageMetadata } from "@/lib/seo/site";
@@ -23,7 +22,6 @@ export default function PrivacyPage() {
       <PolicyDocument
         title="Privacy Policy"
         effectiveDate={PRIVACY_EFFECTIVE_DATE}
-        draftNote={PRIVACY_IS_DRAFT || undefined}
         intro={PRIVACY_INTRO}
         sections={PRIVACY_SECTIONS}
       />
