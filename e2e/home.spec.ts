@@ -5,7 +5,7 @@ test("homepage follows the design brief order with six books under the demo", as
   const headings = await page.locator("main h2").allInnerTexts();
   expect(headings.slice(0, 2)).toEqual(["Hear your voice tell a story.", "Pick a story to hear in your voice"]);
   expect(headings).toEqual(
-    expect.arrayContaining(["How Readli Family Works", "Every family has a story. Every voice makes it special.", "Start a family library"]),
+    expect.arrayContaining(["How Readli Family Works", "How Grandma June reads to every grandchild", "Start a family library"]),
   );
   expect(headings).not.toContain("Safe for families by design");
   expect(headings).not.toContain("Your book buddy, at rest and listening");

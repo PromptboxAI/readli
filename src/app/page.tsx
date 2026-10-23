@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FamilyJourney } from "@/components/home/FamilyJourney";
 import { FamilyVoices } from "@/components/home/FamilyVoices";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import {
@@ -8,7 +9,6 @@ import {
   HowFamiliesWork,
   KidsShelf,
   SiteFooter,
-  ThreeWaysToListen,
   TryYourVoice,
 } from "@/components/home/sections";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
@@ -55,7 +55,7 @@ export default function HomePage() {
         <Hero />
         <TryYourVoice />
         <HowFamiliesWork />
-        <ThreeWaysToListen />
+        <FamilyJourney />
         <KidsShelf />
         <FamilyCircles />
         <FamilyVoices />
