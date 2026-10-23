@@ -138,13 +138,14 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
   };
 
   /** One setup step done in place (share, narrator slot, a child's approval), then the page reloads. */
-  const setUp = async (target: string, method: "POST" | "PUT", body: unknown, done: string) => {
+  const setUp = async (target: string, method: "POST" | "PUT", body: unknown, done: string): Promise<boolean> => {
     setEditing(true);
     const ok = await call({ method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) }, target);
     if (ok) {
       await reload();
       setMessage(done);
     }
+    return Boolean(ok);
   };
 
   const choose = (id: string) => {
@@ -601,19 +602,45 @@ function Confirm({
   );
 }
 
-/** A compact on/off switch for adult settings. */
-function Switch({ checked, disabled, label, onChange }: { checked: boolean; disabled?: boolean; label: string; onChange: (next: boolean) => void }) {
+/**
+ * A compact on/off switch for adult settings. It slides as soon as it is tapped and stays there
+ * while the change saves; the saved value from the server then decides, so a failed save slides
+ * it back. Other taps wait while a change is saving, without greying anything out.
+ */
+function Switch({
+  checked,
+  disabled,
+  busy,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  busy?: boolean;
+  label: string;
+  onChange: (next: boolean) => Promise<boolean>;
+}) {
+  // The tapped value until the save settles; then the server's saved value again.
+  const [pending, setPending] = useState<boolean | null>(null);
+  const shown = pending ?? checked;
+  const toggle = async () => {
+    if (busy || pending !== null) return;
+    setPending(!shown);
+    await onChange(!shown);
+    setPending(null);
+  };
   return (
     <button
       type="button"
       role="switch"
-      aria-checked={checked}
+      aria-checked={shown}
       aria-label={label}
+      aria-busy={busy || undefined}
       disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${checked ? "bg-mint-deep" : "bg-ink/25"}`}
+      onClick={toggle}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-40 ${shown ? "bg-mint-deep" : "bg-ink/25"}`}
     >
-      <span aria-hidden="true" className={`absolute size-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-[1.375rem]" : "translate-x-0.5"}`} />
+      <span aria-hidden="true" className={`absolute size-5 rounded-full bg-white shadow transition-transform duration-200 ${shown ? "translate-x-[1.375rem]" : "translate-x-0.5"}`} />
     </button>
   );
 }
@@ -644,7 +671,7 @@ function NarratorDetails({
   onDone: (() => void) | null;
   onShare: () => void;
   onSlot: () => void;
-  onApprove: (kid: PrepareVoiceView["kids"][number], approved: boolean) => void;
+  onApprove: (kid: PrepareVoiceView["kids"][number], approved: boolean) => Promise<boolean>;
 }) {
   const status = !v.shared ? "Not shared with your family yet" : !v.inSlot ? "Not in a narrator slot yet" : "Active for your family";
   const readyChapters = v.chapters.filter((c) => c.readiness === "ready").length;
@@ -761,7 +788,7 @@ function NarratorDetails({
                 <ul className="flex flex-col gap-2">
                   {v.kids.map((k) => (
                     <li key={k.id} className="flex items-center gap-3">
-                      <Switch checked={k.approved} disabled={busy || !v.inSlot} label={`${v.name} for ${k.name}`} onChange={(next) => onApprove(k, next)} />
+                      <Switch checked={k.approved} busy={busy} disabled={!v.inSlot} label={`${v.name} for ${k.name}`} onChange={(next) => onApprove(k, next)} />
                       <span>{k.name}</span>
                     </li>
                   ))}

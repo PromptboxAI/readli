@@ -182,6 +182,17 @@ test("a book page sets up a storyteller in place, prepares the audiobook and pla
   await expect(setup).toContainText("In a narrator slot");
   await setup.getByRole("switch", { name: "Aunt Priya for Maya" }).click();
   await expect(setup.getByRole("switch", { name: "Aunt Priya for Maya" })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByText("Maya can listen to Aunt Priya.")).toBeVisible();
+
+  // The approval is saved: after a reload it still shows, and Change opens the switches with Done to close them.
+  await page.reload();
+  await page.getByTestId("narrator-voice-priya").click();
+  await expect(priya.getByTestId("setup")).toHaveCount(0);
+  await expect(priya.locator("dt", { hasText: "Approved for" }).locator("+ dd")).toContainText("Maya");
+  await priya.getByRole("button", { name: "Change" }).click();
+  await expect(setup.getByRole("switch", { name: "Aunt Priya for Maya" })).toHaveAttribute("aria-checked", "true");
+  await priya.getByTestId("setup-done").click();
+  await expect(priya.getByTestId("setup")).toHaveCount(0);
 
   await priya.getByRole("button", { name: "Prepare whole book" }).click();
   await priya.getByTestId("confirm-generation").getByRole("button", { name: "Prepare now" }).click();
