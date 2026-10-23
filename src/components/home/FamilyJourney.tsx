@@ -221,7 +221,7 @@ const STEPS: { title: string; body: string; screen: ReactNode }[] = [
   },
 ];
 
-const navButton = "flex min-h-11 items-center gap-1 rounded-full px-4 font-display font-semibold disabled:opacity-35";
+const navButton = "flex min-h-11 shrink-0 items-center gap-1 rounded-full px-3 font-display font-semibold disabled:opacity-35";
 
 function Arrow({ back = false }: { back?: boolean }) {
   return (
@@ -237,13 +237,13 @@ export function FamilyJourney() {
   const last = STEPS.length - 1;
 
   const nav = (
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex items-center justify-between gap-1">
       <button type="button" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0} className={`${navButton} hover:bg-ink/5`}>
         <Arrow back /> Back
       </button>
       <div className="flex items-center">
         {STEPS.map((s, i) => (
-          <button key={s.title} type="button" onClick={() => setStep(i)} aria-label={`Step ${i + 1}: ${s.title}`} aria-current={i === step ? "step" : undefined} className="grid size-8 place-items-center">
+          <button key={s.title} type="button" onClick={() => setStep(i)} aria-label={`Step ${i + 1}: ${s.title}`} aria-current={i === step ? "step" : undefined} className="grid h-11 w-6 place-items-center">
             <span className={`block h-2.5 rounded-full transition-all ${i === step ? "w-6 bg-plum" : "w-2.5 bg-ink/25"}`} />
           </button>
         ))}
