@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AdultPage, PreviewNote } from "@/components/invites/AdultPage";
 import { WelcomeSteps } from "@/components/rewards/WelcomeSteps";
+import { familyAccountsEnabled } from "@/lib/family/session";
 import { rewardsVisible } from "@/lib/rewards/rewards";
 
 export const metadata: Metadata = { title: "Welcome | Readli", robots: { index: false } };
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default function WelcomePage() {
   return (
     <AdultPage>
-      <PreviewNote>This is the end of grown-up sign-up. Family accounts are coming soon.</PreviewNote>
+      {!familyAccountsEnabled() && <PreviewNote>This is the end of grown-up sign-up. Family accounts are coming soon.</PreviewNote>}
       <WelcomeSteps showRewards={rewardsVisible()} />
     </AdultPage>
   );
