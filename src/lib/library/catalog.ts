@@ -61,6 +61,11 @@ const ADDED: readonly UpcomingBook[] = [
   { slug: "the-bremen-town-musicians", title: "The Bremen Town Musicians", author: "The Brothers Grimm", firstPublished: 1819, approxMinutes: 6 },
   { slug: "the-golden-goose", title: "The Golden Goose", author: "The Brothers Grimm", firstPublished: 1812, approxMinutes: 6 },
   { slug: "the-jumblies", title: "The Jumblies and Other Nonsense Songs", author: "Edward Lear", firstPublished: 1871, approxMinutes: 9 },
+  { slug: "uncle-wiggilys-thanksgiving", title: "Uncle Wiggily's Thanksgiving", author: "Howard R. Garis", firstPublished: 1921, approxMinutes: 8 },
+  { slug: "the-three-billy-goats-gruff", title: "The Three Billy Goats Gruff", author: "Asbjørnsen and Moe", firstPublished: 1843, approxMinutes: 2 },
+  { slug: "uncle-wiggilys-christmas", title: "Uncle Wiggily's Christmas", author: "Howard R. Garis", firstPublished: 1921, approxMinutes: 10 },
+  { slug: "the-tale-of-mrs-tittlemouse", title: "The Tale of Mrs. Tittlemouse", author: "Beatrix Potter", firstPublished: 1910, approxMinutes: 6 },
+  { slug: "mother-holle", title: "Mother Holle", author: "The Brothers Grimm", firstPublished: 1812, approxMinutes: 6 },
 ].map((b) => ({ ...b, coverUrl: `/covers/${b.slug}.webp` }));
 
 export const CATALOG: readonly CatalogBook[] = [

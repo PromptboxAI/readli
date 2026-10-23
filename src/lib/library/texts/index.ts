@@ -30,6 +30,7 @@ import Cinderella from "./cinderella.json";
 import GoldilocksAndTheThreeBears from "./goldilocks-and-the-three-bears.json";
 import Heidi from "./heidi.json";
 import JustSoStories from "./just-so-stories.json";
+import MotherHolle from "./mother-holle.json";
 import RaggedyAnnStories from "./raggedy-ann-stories.json";
 import SleepingBeauty from "./sleeping-beauty.json";
 import TheBremenTownMusicians from "./the-bremen-town-musicians.json";
@@ -44,14 +45,18 @@ import TheOwlAndThePussyCat from "./the-owl-and-the-pussy-cat.json";
 import ThePrincessAndThePea from "./the-princess-and-the-pea.json";
 import TheTaleOfMrJeremyFisher from "./the-tale-of-mr-jeremy-fisher.json";
 import TheTaleOfMrsTiggyWinkle from "./the-tale-of-mrs-tiggy-winkle.json";
+import TheTaleOfMrsTittlemouse from "./the-tale-of-mrs-tittlemouse.json";
 import TheTaleOfPeterRabbit from "./the-tale-of-peter-rabbit.json";
 import TheTaleOfTomKitten from "./the-tale-of-tom-kitten.json";
 import TheTaleOfTwoBadMice from "./the-tale-of-two-bad-mice.json";
+import TheThreeBillyGoatsGruff from "./the-three-billy-goats-gruff.json";
 import TheThreeLittlePigs from "./the-three-little-pigs.json";
 import TheUglyDuckling from "./the-ugly-duckling.json";
 import TheVelveteenRabbit from "./the-velveteen-rabbit.json";
 import Thumbelina from "./thumbelina.json";
 import TwasTheNightBeforeChristmas from "./twas-the-night-before-christmas.json";
+import UncleWiggilysChristmas from "./uncle-wiggilys-christmas.json";
+import UncleWiggilysThanksgiving from "./uncle-wiggilys-thanksgiving.json";
 import WinnieThePooh from "./winnie-the-pooh.json";
 
 export const LIBRARY_TEXTS: Record<string, Pick<CatalogBook, "edition" | "chapters"> | undefined> = {
@@ -61,6 +66,7 @@ export const LIBRARY_TEXTS: Record<string, Pick<CatalogBook, "edition" | "chapte
   "goldilocks-and-the-three-bears": GoldilocksAndTheThreeBears,
   "heidi": Heidi,
   "just-so-stories": JustSoStories,
+  "mother-holle": MotherHolle,
   "raggedy-ann-stories": RaggedyAnnStories,
   "sleeping-beauty": SleepingBeauty,
   "the-bremen-town-musicians": TheBremenTownMusicians,
@@ -75,13 +81,17 @@ export const LIBRARY_TEXTS: Record<string, Pick<CatalogBook, "edition" | "chapte
   "the-princess-and-the-pea": ThePrincessAndThePea,
   "the-tale-of-mr-jeremy-fisher": TheTaleOfMrJeremyFisher,
   "the-tale-of-mrs-tiggy-winkle": TheTaleOfMrsTiggyWinkle,
+  "the-tale-of-mrs-tittlemouse": TheTaleOfMrsTittlemouse,
   "the-tale-of-peter-rabbit": TheTaleOfPeterRabbit,
   "the-tale-of-tom-kitten": TheTaleOfTomKitten,
   "the-tale-of-two-bad-mice": TheTaleOfTwoBadMice,
+  "the-three-billy-goats-gruff": TheThreeBillyGoatsGruff,
   "the-three-little-pigs": TheThreeLittlePigs,
   "the-ugly-duckling": TheUglyDuckling,
   "the-velveteen-rabbit": TheVelveteenRabbit,
   "thumbelina": Thumbelina,
   "twas-the-night-before-christmas": TwasTheNightBeforeChristmas,
+  "uncle-wiggilys-christmas": UncleWiggilysChristmas,
+  "uncle-wiggilys-thanksgiving": UncleWiggilysThanksgiving,
   "winnie-the-pooh": WinnieThePooh,
 };
