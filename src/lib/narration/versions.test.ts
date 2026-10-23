@@ -4,6 +4,7 @@ import type { Actor, FamilyState } from "@/lib/family/model";
 import { DEFAULT_PLAN } from "@/lib/family/plan";
 import { MemoryFamilyStore, PermissionError, saveChildProgress, startListening } from "@/lib/family/service";
 import { CATALOG } from "@/lib/library/catalog";
+import { familyLibrary } from "@/lib/library/discovery";
 import { revisionInfo, revisionsOf } from "@/lib/library/revisions";
 import type { SynthesizedAudio, VoiceProvider } from "@/lib/voice/provider";
 import { toneWav } from "@/lib/voice/stub";
@@ -250,6 +251,8 @@ describe("existing audiobooks keep playing", () => {
     const june = (await prepareView(store, mom, H, OWL, clock)).voices.find((v) => v.voiceId === "voice-june")!;
     expect(june.availability).toBe("ready");
     expect(june.update).toMatchObject({ free: true, credits: 0 });
+    const card = (await familyLibrary(store, mom, H)).all.find((c) => c.slug === OWL)!;
+    expect(card.narrators.find((x) => x.voiceId === "voice-june")?.update).toBe(true);
     const ledger = state.ledger.length;
     const { job, quote: q } = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: OWL, scope: "book" }, clock);
     expect(q.free).toBe(true);

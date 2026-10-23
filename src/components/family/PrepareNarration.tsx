@@ -64,6 +64,8 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
   const preparing = view.voices.some((v) => v.status.readiness === "preparing");
   const balance = view.credits.available;
   const v = view.voices.find((x) => x.voiceId === selected) ?? null;
+  // A narration with a newer version of the story to update to; the selected narrator's first.
+  const updatable = [v, ...view.voices].find((x) => x?.update && !x.jobId) ?? null;
 
   const reload = useCallback(async () => {
     const res = await fetch(url, { cache: "no-store" });
@@ -177,6 +179,28 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
         </span>
         <span className="hidden sm:inline">{view.book.title}</span>
       </nav>
+
+      {updatable && !pending && (
+        <div className="flex flex-col gap-3 rounded-2xl bg-sunshine/60 p-4 sm:flex-row sm:items-center sm:justify-between" role="status" data-testid="update-banner">
+          <p>
+            <strong>An updated version of this story is available</strong> for {updatable.name}&apos;s audiobook.{" "}
+            {updatable.update!.free || updatable.update!.credits === 0 ? "Updating is free." : `Updating costs ${n(updatable.update!.credits)} credits.`}
+          </p>
+          <button
+            type="button"
+            className={`${btnPrimary} shrink-0 self-start sm:self-center`}
+            disabled={busy}
+            onClick={() => {
+              setSelected(updatable.voiceId);
+              void estimate({ voiceId: updatable.voiceId, scope: "book" }).then(() =>
+                requestAnimationFrame(() => document.querySelector('[data-testid="confirm-generation"]')?.scrollIntoView({ behavior: "smooth", block: "center" })),
+              );
+            }}
+          >
+            Update audiobook
+          </button>
+        </div>
+      )}
 
       <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-8">
         {view.book.coverUrl ? (
