@@ -19,7 +19,8 @@ describe("scroll math", () => {
   it("clamps and rounds speed", () => {
     expect(clampWpm(10)).toBe(80);
     expect(clampWpm(500)).toBe(200);
-    expect(clampWpm(133)).toBe(130);
+    expect(clampWpm(133)).toBe(135);
+    expect(clampWpm(145 + 10)).toBe(155);
   });
 
   it("estimates remaining time", () => {
