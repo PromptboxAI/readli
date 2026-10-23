@@ -123,7 +123,7 @@ const STEPS: { title: string; body: string; screen: ReactNode }[] = [
       <Screen label="Invite storytellers">
         {HOUSEHOLDS.map((h) => (
           <div key={h.parent} className="flex items-center gap-3 rounded-2xl bg-ivory p-3 ring-1 ring-ink/10">
-            <Initials name={h.parent[0]} tint={h.tint} />
+            <Initials name={h.parent.charAt(0)} tint={h.tint} />
             <span className="min-w-0 flex-1">
               <span className="block font-semibold">To {h.parent}</span>
               <span className="block truncate text-sm text-muted">With Grandma June&apos;s Peter Rabbit sample</span>
@@ -221,7 +221,7 @@ export function FamilyJourney() {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) setAuto(false);
     const el = section.current;
     if (!el) return;
-    const io = new IntersectionObserver(([e]) => setVisible(e.isIntersecting), { threshold: 0.4 });
+    const io = new IntersectionObserver((entries) => setVisible(entries.some((e) => e.isIntersecting)), { threshold: 0.4 });
     io.observe(el);
     return () => io.disconnect();
   }, []);
@@ -231,6 +231,8 @@ export function FamilyJourney() {
     const t = setTimeout(() => setStep((s) => (s + 1) % STEPS.length), STEP_MS);
     return () => clearTimeout(t);
   }, [auto, visible, step]);
+
+  const current = STEPS[step]!;
 
   const pick = (i: number) => {
     setAuto(false);
@@ -284,16 +286,16 @@ export function FamilyJourney() {
         <div className="flex flex-col gap-4">
           <div aria-live="polite" className="mx-auto h-[330px] w-full max-w-sm sm:h-[340px]">
             <div key={step} className="journey-screen h-full">
-              {STEPS[step].screen}
+              {current.screen}
             </div>
           </div>
 
           {/* Phones and tablets: the current step's words under the screen, with dots to move between steps. */}
           <div className="flex flex-col items-center gap-3 text-center lg:hidden">
             <p className="font-display text-xl font-semibold">
-              {step + 1}. {STEPS[step].title}
+              {step + 1}. {current.title}
             </p>
-            <p className="max-w-md text-ink/80">{STEPS[step].body}</p>
+            <p className="max-w-md text-ink/80">{current.body}</p>
             <div className="flex items-center gap-1">
               {STEPS.map((s, i) => (
                 <button key={s.title} type="button" onClick={() => pick(i)} aria-label={`Step ${i + 1}: ${s.title}`} aria-current={i === step ? "step" : undefined} className="grid size-11 place-items-center">
