@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { isTheEnd, THE_END_PAUSE_MS } from "@/lib/content/the-end";
 import type { NarratorView } from "@/lib/family/service";
@@ -122,6 +122,7 @@ export function KidsPlayer({
   const playingRef = useRef(false);
   playingRef.current = playing;
   const listening = useRef(false);
+  const pageCard = useRef<HTMLDivElement>(null);
   const audio = useGaplessAudio({ ended: () => onEnded(), error: () => void onAudioError() });
 
   // Listen is the default; a child's last choice on this device is remembered.
@@ -215,6 +216,26 @@ export function KidsPlayer({
     const id = window.setInterval(() => setSpent((t) => Math.min(t + 1, sentenceSeconds[sentenceRef.current] ?? 0)), 1000);
     return () => window.clearInterval(id);
   }, [playing, sentenceSeconds]);
+
+  // A read-along page always fits its card: the words get smaller, a step at a time, before anything scrolls.
+  const pageStart = pageRange(pageOf(sentence), sentences.length)[0];
+  useLayoutEffect(() => {
+    const card = pageCard.current;
+    if (!card) return;
+    const fit = () => {
+      let scale = 1;
+      card.style.setProperty("--fit", "1");
+      while (scale > 0.6 && card.scrollHeight > card.clientHeight) {
+        scale -= 0.05;
+        card.style.setProperty("--fit", scale.toFixed(2));
+      }
+    };
+    fit();
+    void document.fonts.ready.then(fit);
+    const watch = new ResizeObserver(fit);
+    watch.observe(card);
+    return () => watch.disconnect();
+  }, [mode, pageStart]);
 
   // Each child keeps their own place and narrator in every book.
   useEffect(() => {
@@ -536,8 +557,12 @@ export function KidsPlayer({
                   {reading}
                 </div>
               </div>
-              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-3xl bg-surface p-[22px] ring-2 ring-ink/8 ring-inset sm:rounded-[32px] sm:p-12">
-                <p className="my-auto font-display text-[21px] leading-[1.4] font-medium text-pretty sm:text-[34px]">
+              <div
+                ref={pageCard}
+                data-testid="read-page"
+                className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-3xl bg-surface p-[22px] ring-2 ring-ink/8 ring-inset sm:rounded-[32px] sm:p-12"
+              >
+                <p className="my-auto font-display text-[calc(21px*var(--fit,1))] leading-[1.4] font-medium text-pretty sm:text-[calc(34px*var(--fit,1))]">
                   {sentences.slice(first, last).map((s, k) => {
                     const i = first + k;
                     return (
