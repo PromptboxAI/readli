@@ -136,7 +136,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
         text: "hosts a recording-tips video shown on the recording screen; Loom may set its own cookies when the video plays.",
       },
       {
-        text: "These providers have their own privacy policies, which govern their own handling of the data they receive. ElevenLabs offers account-level settings about whether customer data may be used to improve its models; Readli manages these settings by hand and does not change them automatically.",
+        text: "These providers have their own privacy policies, which govern their own handling of the data they receive. ElevenLabs offers an account setting that lets it use customer data to improve its models; Readli has turned that setting off for its account.",
       },
       {
         text: "We may also disclose information at your direction; to protect rights, safety, and the Services; to comply with law; or in a merger, acquisition, or sale of the business, in which case the recipient remains bound by this policy and the permissions people gave. A business transfer does not authorize a separate sale of children’s personal information or family voice models.",
