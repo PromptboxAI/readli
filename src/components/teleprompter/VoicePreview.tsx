@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { DemoBookShelf } from "@/components/books/DemoBookShelf";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import type { DemoBook } from "@/lib/content/demo-books";
@@ -50,7 +52,18 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
  * Turns the finished take into a voice and reads demo passages in it (PRD F-01, brief §6). Each
  * story read in a voice is kept, so replays are instant and never use up a preview.
  */
-export function VoicePreview({ take, heading, onRecordAgain }: { take: TakeDetails; heading: string; onRecordAgain?: () => void }) {
+export function VoicePreview({
+  take,
+  heading,
+  onRecordAgain,
+  nextSteps = false,
+}: {
+  take: TakeDetails;
+  heading: string;
+  onRecordAgain?: () => void;
+  /** After the first story, offer a Readli Voice account or Readli Family that keep this recording. */
+  nextSteps?: boolean;
+}) {
   const [mode, setMode] = useState<Mode>("loading");
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -232,6 +245,8 @@ export function VoicePreview({ take, heading, onRecordAgain }: { take: TakeDetai
         </p>
       )}
 
+      {nextSteps && !busy && (playing || previewsLeft === 0) && <NextSteps cleanUp={playing?.cleanUp ?? cleanUp} />}
+
       {mode !== "off" && (
         <label className="flex min-h-11 items-start gap-3 rounded-2xl border-2 border-ink/10 bg-surface p-4">
           <input
@@ -285,5 +300,39 @@ export function VoicePreview({ take, heading, onRecordAgain }: { take: TakeDetai
       </p>
       <RecordingTipsDialog open={tipsOpen} onClose={() => setTipsOpen(false)} onRecordAgain={onRecordAgain} where="guest_preview" />
     </div>
+  );
+}
+
+/**
+ * Where a guest goes once they've heard themselves. Both paths keep the take: signing in within the
+ * guest's 24 hours offers it on /voice/record, so nobody reads the story again.
+ */
+function NextSteps({ cleanUp }: { cleanUp: boolean }) {
+  const carry = `from=try${cleanUp ? "&cleanup=1" : ""}`;
+  return (
+    <section aria-labelledby="next-steps-heading" className="flex flex-col gap-4 rounded-panel bg-surface p-5 ring-2 ring-ink/10 sm:p-6" data-testid="try-next-steps">
+      <div className="flex flex-col gap-1">
+        <h2 id="next-steps-heading" className="font-display text-2xl font-semibold">
+          Keep your voice
+        </h2>
+        <p className="text-sm text-muted">Your recording comes with you, so you won&apos;t read the story again. Save it within 24 hours.</p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-3 rounded-2xl bg-mint/50 p-4">
+          <p className="font-display text-lg font-semibold">Read to your family&apos;s kids</p>
+          <p className="text-sm">Make a free Readli Voice account and invite the families you love. They choose which children hear you.</p>
+          <Link href={`/signup/voice?${carry}`} className={`${buttonPrimary} mt-auto w-full`}>
+            Share my voice, free
+          </Link>
+        </div>
+        <div className="flex flex-col gap-3 rounded-2xl bg-sunshine/50 p-4">
+          <p className="font-display text-lg font-semibold">Read to your own kids</p>
+          <p className="text-sm">Start Readli Family: classic stories in your voice and your storytellers&apos; voices, for every child.</p>
+          <Link href={`/signup/family?${carry}`} className={`${buttonSecondary} mt-auto w-full`}>
+            Start Readli Family
+          </Link>
+        </div>
+      </div>
+    </section>
   );
 }

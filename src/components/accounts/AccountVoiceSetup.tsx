@@ -9,6 +9,8 @@ import { TeleprompterRecorder } from "@/components/teleprompter/TeleprompterReco
 import type { TakeDetails } from "@/components/teleprompter/VoicePreview";
 import { VOICE_CONSENTS } from "@/lib/content/voice-consents";
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
+import { formatClock } from "@/lib/teleprompter/recorder-machine";
+import type { GuestTake } from "@/lib/voice/guest-handoff";
 
 const STEPS = ["Your voice, your rules", "Record", "Check it's you", "Done"] as const;
 
@@ -24,12 +26,28 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
   return body?.error?.message ?? fallback;
 }
 
+class GuestTakeGone extends Error {}
+
 /**
  * Readli Voice for a signed-in grown-up: consent, record with the teleprompter, make the voice,
  * listen to a sample and keep it. The voice is saved privately; sharing happens per family. A new
  * recording stays a candidate until "Keep my voice", so a working voice is never lost to a worse one.
  */
-export function AccountVoiceSetup({ hasVoice, next, parent = false }: { hasVoice: boolean; next?: string; parent?: boolean }) {
+export function AccountVoiceSetup({
+  hasVoice,
+  next,
+  parent = false,
+  guestTake = null,
+  guestCleanUp = false,
+}: {
+  hasVoice: boolean;
+  next?: string;
+  parent?: boolean;
+  /** A take this browser recorded on /try that can become the voice without reading again. */
+  guestTake?: GuestTake | null;
+  /** The noise clean-up setting the guest last heard their stories with. */
+  guestCleanUp?: boolean;
+}) {
   const [step, setStep] = useState(0);
   const [agreed, setAgreed] = useState<boolean[]>(VOICE_CONSENTS.map(() => false));
   const [take, setTake] = useState<TakeDetails | null>(null);
@@ -39,6 +57,9 @@ export function AccountVoiceSetup({ hasVoice, next, parent = false }: { hasVoice
   const [sample, setSample] = useState<{ url: string; cleanUp: boolean; standIn: boolean } | null>(null);
   const [tipsOpen, setTipsOpen] = useState(false);
   const [afterFeedback, setAfterFeedback] = useState(false);
+  /** Making the voice from the /try take instead of a new recording. */
+  const [fromGuest, setFromGuest] = useState(false);
+  const [guestOffer, setGuestOffer] = useState(guestTake !== null);
 
   useEffect(() => {
     return () => {
@@ -53,27 +74,48 @@ export function AccountVoiceSetup({ hasVoice, next, parent = false }: { hasVoice
     setSample(null);
     setPhase("idle");
     setError(null);
+    setFromGuest(false);
+    setStep(2);
+  };
+
+  const chooseGuestTake = () => {
+    setTake(null);
+    setFromGuest(true);
+    setCleanUp(guestCleanUp);
+    setSample(null);
+    setPhase("idle");
+    setError(null);
     setStep(2);
   };
 
   const makeVoice = async () => {
-    if (!take) return;
+    if (!take && !fromGuest) return;
     setError(null);
     setPhase("making");
     try {
-      const form = new FormData();
-      form.append("audio", take.recorded.blob, "take");
-      form.append("durationMs", String(Math.round(take.recorded.durationMs)));
-      form.append("wpm", String(take.wpm));
-      form.append("pauseCount", String(take.pauseCount));
-      form.append("deviceClass", deviceClass());
-      if (take.scriptOffsetEnd !== null) form.append("scriptOffsetEnd", String(take.scriptOffsetEnd));
-      for (const c of VOICE_CONSENTS) form.append("consent", c);
-      form.append("removeBackgroundNoise", String(cleanUp));
-      form.append("afterFeedback", String(afterFeedback));
-      for (const issue of take.recorded.qc.issues) form.append("qcIssue", issue);
-      const made = await fetch("/api/voice", { method: "POST", body: form });
-      if (!made.ok) throw new Error(await errorMessage(made, "We couldn't make your voice just now. Please try again."));
+      if (fromGuest) {
+        const made = await fetch("/api/voice/from-guest", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ consents: VOICE_CONSENTS, removeBackgroundNoise: cleanUp }),
+        });
+        if (made.status === 410) throw new GuestTakeGone(await errorMessage(made, "Your earlier recording isn't here anymore. Please record your voice again."));
+        if (!made.ok) throw new Error(await errorMessage(made, "We couldn't make your voice just now. Please try again."));
+      } else if (take) {
+        const form = new FormData();
+        form.append("audio", take.recorded.blob, "take");
+        form.append("durationMs", String(Math.round(take.recorded.durationMs)));
+        form.append("wpm", String(take.wpm));
+        form.append("pauseCount", String(take.pauseCount));
+        form.append("deviceClass", deviceClass());
+        if (take.scriptOffsetEnd !== null) form.append("scriptOffsetEnd", String(take.scriptOffsetEnd));
+        for (const c of VOICE_CONSENTS) form.append("consent", c);
+        form.append("removeBackgroundNoise", String(cleanUp));
+        form.append("afterFeedback", String(afterFeedback));
+        for (const issue of take.recorded.qc.issues) form.append("qcIssue", issue);
+        const made = await fetch("/api/voice", { method: "POST", body: form });
+        if (!made.ok) throw new Error(await errorMessage(made, "We couldn't make your voice just now. Please try again."));
+      }
 
       setPhase("sampling");
       const res = await fetch("/api/voice/sample?candidate=1", { method: "POST" });
@@ -83,6 +125,12 @@ export function AccountVoiceSetup({ hasVoice, next, parent = false }: { hasVoice
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setPhase("error");
+      if (err instanceof GuestTakeGone) {
+        // Deleted on its 24-hour schedule: back to the recorder, with the reason showing.
+        setGuestOffer(false);
+        setFromGuest(false);
+        setStep(1);
+      }
     }
   };
 
@@ -103,6 +151,9 @@ export function AccountVoiceSetup({ hasVoice, next, parent = false }: { hasVoice
   const recordAgain = (fromFeedback = false) => {
     if (sample) void fetch("/api/voice/candidate", { method: "DELETE" }).catch(() => undefined);
     if (fromFeedback) setAfterFeedback(true);
+    // Asking to record again means a new reading, not the /try take.
+    if (fromGuest) setGuestOffer(false);
+    setFromGuest(false);
     setSample(null);
     setPhase("idle");
     setError(null);
@@ -153,7 +204,35 @@ export function AccountVoiceSetup({ hasVoice, next, parent = false }: { hasVoice
         </section>
       )}
 
-      {step === 1 && (
+      {step === 1 && guestOffer && guestTake && (
+        <section className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-mint/50 p-6 sm:p-8" data-testid="guest-take-offer">
+          <h2 className="font-display text-2xl font-semibold">Use the recording you just made</h2>
+          <p>
+            You already read the story on the Try page ({formatClock(guestTake.durationMs)}). We can make your Readli voice from that
+            recording, so you don&apos;t have to read it again.
+          </p>
+          <p className="text-sm text-muted">
+            It&apos;s kept until {new Date(guestTake.expiresAt).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}, then
+            deleted. Once it&apos;s your Readli voice, your account keeps its own private copy.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" className={buttonPrimary} onClick={chooseGuestTake}>
+              Use this recording
+            </button>
+            <button type="button" className={buttonSecondary} onClick={() => setGuestOffer(false)}>
+              Record a new one
+            </button>
+          </div>
+        </section>
+      )}
+
+      {step === 1 && error && !guestOffer && (
+        <p role="alert" className="rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold">
+          {error}
+        </p>
+      )}
+
+      {step === 1 && !guestOffer && (
         <section className="flex flex-col gap-4">
           <h2 className="font-display text-2xl font-semibold">Read the story out loud</h2>
           <p>Read the whole story, about one to two minutes. Find a quiet spot and read it in your natural, warm storytime voice. Your Readli voice copies how you read.</p>
@@ -161,9 +240,10 @@ export function AccountVoiceSetup({ hasVoice, next, parent = false }: { hasVoice
         </section>
       )}
 
-      {step === 2 && take && (
+      {step === 2 && (take || fromGuest) && (
         <section className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-sky/40 p-6 sm:p-8" data-testid="account-voice-check">
           <h2 className="font-display text-2xl font-semibold">Does this sound like you?</h2>
+          {fromGuest && !sample && !busy && <p>We&apos;ll make your voice from the recording you made on the Try page, then play you a sample.</p>}
           <label className="flex items-start gap-3 rounded-2xl bg-surface p-4">
             <input
               type="checkbox"
