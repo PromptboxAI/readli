@@ -56,6 +56,11 @@ const ADDED: readonly UpcomingBook[] = [
   { slug: "a-childs-garden-of-verses", title: "A Child's Garden of Verses", author: "Robert Louis Stevenson", firstPublished: 1885, approxMinutes: 17 },
   { slug: "just-so-stories", title: "Just So Stories", author: "Rudyard Kipling", firstPublished: 1902, approxMinutes: 109 },
   { slug: "heidi", title: "Heidi", author: "Johanna Spyri", firstPublished: 1881, approxMinutes: 333 },
+  { slug: "twas-the-night-before-christmas", title: "'Twas the Night Before Christmas", author: "Clement Clarke Moore", firstPublished: 1823, approxMinutes: 3 },
+  { slug: "the-tale-of-tom-kitten", title: "The Tale of Tom Kitten", author: "Beatrix Potter", firstPublished: 1907, approxMinutes: 4 },
+  { slug: "the-bremen-town-musicians", title: "The Bremen Town Musicians", author: "The Brothers Grimm", firstPublished: 1819, approxMinutes: 6 },
+  { slug: "the-golden-goose", title: "The Golden Goose", author: "The Brothers Grimm", firstPublished: 1812, approxMinutes: 6 },
+  { slug: "the-jumblies", title: "The Jumblies and Other Nonsense Songs", author: "Edward Lear", firstPublished: 1871, approxMinutes: 9 },
 ].map((b) => ({ ...b, coverUrl: `/covers/${b.slug}.webp` }));
 
 export const CATALOG: readonly CatalogBook[] = [
