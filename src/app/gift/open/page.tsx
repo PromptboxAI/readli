@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ComplimentaryGift } from "@/components/gifting/ComplimentaryGift";
 import { GiftOpen } from "@/components/gifting/GiftOpen";
 import { GiftVoicePreview } from "@/components/invitations/GiftVoicePreview";
 import { AdultPage, PreviewNote } from "@/components/invites/AdultPage";
@@ -7,7 +8,8 @@ import { accountDb } from "@/lib/family/account-store";
 import { familyAccountsEnabled } from "@/lib/family/session";
 import { normalizeGiftCode } from "@/lib/gifting/codes";
 import { draftFromParams } from "@/lib/gifting/params";
-import { giftForCode } from "@/lib/gifting/server";
+import { complimentaryForCode, giftForCode } from "@/lib/gifting/server";
+import { giftViewer } from "@/lib/gifting/viewer";
 import { giftPreview } from "@/lib/invitations/server";
 
 export const metadata: Metadata = { title: "You've been sent a gift | Readli", robots: { index: false } };
@@ -19,6 +21,16 @@ export default async function GiftOpenPage({ searchParams }: { searchParams: Pro
   const code = typeof p.code === "string" ? normalizeGiftCode(p.code) : null;
   const db = accountDb();
   if (code && db && familyAccountsEnabled()) {
+    // Complimentary memberships (including links issued before /claim) get the winner's page, never a giver's voice.
+    const complimentary = await complimentaryForCode(db, code);
+    if (complimentary) {
+      const viewer = await giftViewer(db, (await currentAdult())?.id ?? null, complimentary.months);
+      return (
+        <AdultPage wide>
+          <ComplimentaryGift code={code} gift={complimentary} viewer={viewer} />
+        </AdultPage>
+      );
+    }
     const gift = await giftForCode(db, code);
     if (gift) {
       const [signedIn, voice] = await Promise.all([currentAdult().then(Boolean), giftPreview(db, code).catch(() => null)]);

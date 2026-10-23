@@ -53,7 +53,7 @@ export function GiftOpen({ plan, to, from, message, live }: { plan: GiftPlan; to
       <section className="flex flex-col items-center gap-5 rounded-[var(--radius-panel)] bg-sky/50 px-6 py-12 text-center">
         <GiftBoxArt className="animate-bob w-40" />
         <h1 className="font-display text-4xl font-semibold sm:text-5xl">{from} sent you a gift</h1>
-        <p className="text-lg">Hi {to}! Something storybook-shaped is waiting for you.</p>
+        <p className="text-lg">{to ? `Hi ${to}! ` : ""}Something storybook-shaped is waiting for you.</p>
         <button type="button" className={buttonPrimary} onClick={() => setStage("open")}>
           Open your gift
         </button>

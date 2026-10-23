@@ -95,16 +95,35 @@ test("admin finances page explains it needs Supabase in the preview", async ({ p
   await noOverflow(page);
 });
 
-test("admins can issue complimentary annual memberships", async ({ page }) => {
+test("admins can issue complimentary memberships for an unknown raffle winner", async ({ page }, info) => {
   await page.goto("/admin");
   await page.getByRole("link", { name: "Complimentary memberships" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Complimentary memberships" })).toBeVisible();
   const form = page.getByTestId("complimentary-form");
-  await expect(form.getByLabel("Kind")).toContainText("Promotional giveaway");
-  await form.getByLabel("Who they're for").fill("Oak Street Elementary");
-  await form.getByRole("button", { name: "Issue memberships" }).click();
+  await expect(form.getByRole("radio", { name: "12 months" })).toBeChecked();
+  await expect(form.getByLabel("Occasion")).toContainText("Raffle prize");
+  await expect(form.getByRole("radio", { name: /Unknown winner/ })).toBeChecked();
+  await expect(form.getByLabel("Recipient name")).toBeDisabled();
+  await form.getByLabel(/Event or fundraiser name/).fill("Mount Elementary Basket Dinner");
+  await expect(form).toContainText("You've won a year of Readli Family!");
+  await expect(form).toContainText("Donated by Readli for the Mount Elementary Basket Dinner.");
+  await form.getByRole("radio", { name: "3 months" }).check();
+  await expect(form).toContainText("You've won 3 months of Readli Family!");
+  await page.screenshot({ path: `e2e/screenshots/admin-complimentary-${info.project.name}.png`, fullPage: true });
+  await form.getByRole("button", { name: "Issue 1 membership" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "Complimentary memberships need sign-in" })).toBeVisible();
   await noOverflow(page);
+});
+
+test("the claim page asks for a code when there isn't one, and never shows a voice", async ({ page }, info) => {
+  await page.goto("/claim");
+  await expect(page.getByRole("heading", { name: "Claim your Readli gift" })).toBeVisible();
+  await page.getByRole("textbox", { name: "Gift code" }).fill("nope");
+  await page.getByRole("button", { name: "Find my gift" }).click();
+  await expect(page.getByText(/doesn.t look like a gift code/)).toBeVisible();
+  await expect(page.getByTestId("gift-voice-preview")).toHaveCount(0);
+  await noOverflow(page);
+  await page.screenshot({ path: `e2e/screenshots/claim-${info.project.name}.png`, fullPage: true });
 });
 
 test("admin plan settings list every configurable limit", async ({ page }, info) => {
