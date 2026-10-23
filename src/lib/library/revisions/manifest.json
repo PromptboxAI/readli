@@ -59,10 +59,21 @@
    "revision": "bf13dd18babe",
    "edition": "gutenberg-67098",
    "firstSeen": "2026-10-11T00:44:23+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 1778
+  },
+  {
+   "slug": "winnie-the-pooh",
+   "revision": "4b5e09de1cb7",
+   "edition": "gutenberg-67098",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 1778
+   "sentences": 1778,
+   "correction": true
   }
  ],
  "the-three-little-pigs": [
@@ -145,10 +156,21 @@
    "revision": "7acd9047f27d",
    "edition": "gutenberg-11",
    "firstSeen": "2026-10-22T16:57:17+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 1293,
+   "correction": true
+  },
+  {
+   "slug": "alices-adventures-in-wonderland",
+   "revision": "d874839367e0",
+   "edition": "gutenberg-11",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 1293,
+   "sentences": 1291,
    "correction": true
   }
  ],
@@ -182,10 +204,21 @@
    "revision": "a3873014f706",
    "edition": "gutenberg-25877",
    "firstSeen": "2026-10-11T00:44:23+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 57
+  },
+  {
+   "slug": "the-gingerbread-man",
+   "revision": "9b8fbcd447fd",
+   "edition": "gutenberg-25877",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 57
+   "sentences": 57,
+   "correction": true
   }
  ],
  "the-elves-and-the-shoemaker": [
@@ -216,10 +249,21 @@
    "revision": "fe5f73e2ef82",
    "edition": "gutenberg-17034",
    "firstSeen": "2026-10-11T09:07:10-04:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 55
+  },
+  {
+   "slug": "goldilocks-and-the-three-bears",
+   "revision": "81241edd0913",
+   "edition": "gutenberg-17034",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 55
+   "sentences": 55,
+   "correction": true
   }
  ],
  "the-velveteen-rabbit": [
@@ -238,6 +282,17 @@
    "revision": "29ea7731ccb2",
    "edition": "gutenberg-11757",
    "firstSeen": "2026-10-22T16:57:17+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 214,
+   "correction": true
+  },
+  {
+   "slug": "the-velveteen-rabbit",
+   "revision": "2763276bd751",
+   "edition": "gutenberg-11757",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
@@ -353,10 +408,21 @@
    "revision": "39ab10d9ba4c",
    "edition": "gutenberg-12103",
    "firstSeen": "2026-10-22T16:57:17+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 80,
+   "correction": true
+  },
+  {
+   "slug": "the-tale-of-mrs-tiggy-winkle",
+   "revision": "e550e6ee6978",
+   "edition": "gutenberg-12103",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 80,
+   "sentences": 79,
    "correction": true
   }
  ],
@@ -401,10 +467,21 @@
    "revision": "b9d3c0674c72",
    "edition": "gutenberg-45264",
    "firstSeen": "2026-10-12T00:57:17+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 57
+  },
+  {
+   "slug": "the-tale-of-two-bad-mice",
+   "revision": "7bd5bd796596",
+   "edition": "gutenberg-45264",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 57
+   "sentences": 57,
+   "correction": true
   }
  ],
  "the-tale-of-mr-jeremy-fisher": [
@@ -435,10 +512,21 @@
    "revision": "0b32d4bce204",
    "edition": "gutenberg-2781",
    "firstSeen": "2026-10-22T16:57:17+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 665,
+   "correction": true
+  },
+  {
+   "slug": "just-so-stories",
+   "revision": "0fa87d9821c9",
+   "edition": "gutenberg-2781",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 665,
+   "sentences": 663,
    "correction": true
   }
  ],
@@ -458,6 +546,17 @@
    "revision": "ba21cf3ee7d4",
    "edition": "gutenberg-20781",
    "firstSeen": "2026-10-22T16:57:17+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 3508,
+   "correction": true
+  },
+  {
+   "slug": "heidi",
+   "revision": "8b6a30e9fa66",
+   "edition": "gutenberg-20781",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
@@ -491,10 +590,21 @@
    "revision": "ae805e32aed9",
    "edition": "gutenberg-18190",
    "firstSeen": "2026-10-22T16:57:17+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 912,
+   "correction": true
+  },
+  {
+   "slug": "raggedy-ann-stories",
+   "revision": "09dbe40ab1a1",
+   "edition": "gutenberg-18190",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 912,
+   "sentences": 905,
    "correction": true
   }
  ],
@@ -551,10 +661,21 @@
    "revision": "d0af5d0a522c",
    "edition": "gutenberg-52521",
    "firstSeen": "2026-10-23T14:17:45+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 70
+  },
+  {
+   "slug": "the-bremen-town-musicians",
+   "revision": "243853250b8b",
+   "edition": "gutenberg-52521",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 70
+   "sentences": 70,
+   "correction": true
   }
  ],
  "the-golden-goose": [
@@ -587,10 +708,21 @@
    "revision": "5735c315ef8c",
    "edition": "gutenberg-60625",
    "firstSeen": "2026-10-23T14:32:31+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 113
+  },
+  {
+   "slug": "uncle-wiggilys-thanksgiving",
+   "revision": "9d848e96df92",
+   "edition": "gutenberg-60625",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 113
+   "sentences": 110,
+   "correction": true
   }
  ],
  "the-three-billy-goats-gruff": [
@@ -622,10 +754,21 @@
    "revision": "cf1b0034493a",
    "edition": "gutenberg-60625",
    "firstSeen": "2026-10-23T14:32:31+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 138
+  },
+  {
+   "slug": "uncle-wiggilys-christmas",
+   "revision": "eb5fffcd7ba5",
+   "edition": "gutenberg-60625",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 138
+   "sentences": 133,
+   "correction": true
   }
  ],
  "the-tale-of-mrs-tittlemouse": [
@@ -634,10 +777,21 @@
    "revision": "c67df6f00588",
    "edition": "gutenberg-17089",
    "firstSeen": "2026-10-23T14:32:31+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 101
+  },
+  {
+   "slug": "the-tale-of-mrs-tittlemouse",
+   "revision": "57f35f89cb42",
+   "edition": "gutenberg-17089",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 101
+   "sentences": 97,
+   "correction": true
   }
  ],
  "mother-holle": [
@@ -694,10 +848,21 @@
    "revision": "d58e1924199a",
    "edition": "gutenberg-32572",
    "firstSeen": "2026-10-23T14:43:18+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 67
+  },
+  {
+   "slug": "five-peas-from-one-pod",
+   "revision": "19fca82ee781",
+   "edition": "gutenberg-32572",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 67
+   "sentences": 67,
+   "correction": true
   }
  ],
  "the-three-sillies": [
@@ -718,10 +883,21 @@
    "revision": "0837afe84411",
    "edition": "gutenberg-32571",
    "firstSeen": "2026-10-23T14:54:05+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 33
+  },
+  {
+   "slug": "the-leaping-match",
+   "revision": "82c7f53e978c",
+   "edition": "gutenberg-32571",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 33
+   "sentences": 33,
+   "correction": true
   }
  ],
  "the-happy-family": [
@@ -730,10 +906,21 @@
    "revision": "bf6fc179bbf0",
    "edition": "gutenberg-32571",
    "firstSeen": "2026-10-23T14:54:05+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 69
+  },
+  {
+   "slug": "the-happy-family",
+   "revision": "d04624fac900",
+   "edition": "gutenberg-32571",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 69
+   "sentences": 69,
+   "correction": true
   }
  ],
  "the-darning-needle": [
@@ -742,10 +929,21 @@
    "revision": "d62e22de7abe",
    "edition": "gutenberg-32571",
    "firstSeen": "2026-10-23T14:54:05+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 91
+  },
+  {
+   "slug": "the-darning-needle",
+   "revision": "5dae799fe267",
+   "edition": "gutenberg-32571",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 91
+   "sentences": 91,
+   "correction": true
   }
  ],
  "little-tuk": [
@@ -754,10 +952,21 @@
    "revision": "3817eeb60066",
    "edition": "gutenberg-32571",
    "firstSeen": "2026-10-23T14:54:05+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 93
+  },
+  {
+   "slug": "little-tuk",
+   "revision": "59a9f5abbfae",
+   "edition": "gutenberg-32571",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 93
+   "sentences": 93,
+   "correction": true
   }
  ],
  "gudbrand-on-the-hill-side": [
@@ -802,10 +1011,21 @@
    "revision": "9fd49acac62e",
    "edition": "gutenberg-2557",
    "firstSeen": "2026-10-23T15:16:10+00:00",
+   "lastSeen": "2026-10-23T16:03:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 56
+  },
+  {
+   "slug": "johnny-chuck-finds-the-best-thing-in-the-world",
+   "revision": "14a4ff88cdb4",
+   "edition": "gutenberg-2557",
+   "firstSeen": "2026-10-23T17:45:30+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 56
+   "sentences": 56,
+   "correction": true
   }
  ],
  "the-wilful-little-breeze": [

@@ -3,47 +3,87 @@ import type { RevisionSnapshot } from "./index";
 import s0 from "./snapshots/the-tale-of-peter-rabbit.b3e7d9445524.json";
 import s1 from "./snapshots/the-lion-and-the-mouse.1b359a189a29.json";
 import s2 from "./snapshots/winnie-the-pooh.826622612796.json";
-import s3 from "./snapshots/the-three-little-pigs.6f525ed657d6.json";
-import s4 from "./snapshots/the-three-little-pigs.b95bb8109234.json";
-import s5 from "./snapshots/the-princess-and-the-pea.ac77d5495d2e.json";
-import s6 from "./snapshots/alices-adventures-in-wonderland.61bd65bb4a36.json";
-import s7 from "./snapshots/alices-adventures-in-wonderland.727842a44470.json";
-import s8 from "./snapshots/goldilocks-and-the-three-bears.d04c4d1afbb1.json";
-import s9 from "./snapshots/the-velveteen-rabbit.32815e09f55b.json";
-import s10 from "./snapshots/the-ugly-duckling.0e718ff695f9.json";
-import s11 from "./snapshots/cinderella.e41d91f4209f.json";
-import s12 from "./snapshots/thumbelina.81e49318a6ca.json";
-import s13 from "./snapshots/the-emperors-new-clothes.ddc67a3e0e27.json";
-import s14 from "./snapshots/the-tale-of-mrs-tiggy-winkle.88fab42b11ba.json";
-import s15 from "./snapshots/the-owl-and-the-pussy-cat.39fd1d8bcca2.json";
-import s16 from "./snapshots/just-so-stories.173f4e80e76f.json";
-import s17 from "./snapshots/heidi.d323776239b3.json";
-import s18 from "./snapshots/raggedy-ann-stories.3b6e48ec3d15.json";
-import s19 from "./snapshots/raggedy-ann-stories.00e1924797cd.json";
-import s20 from "./snapshots/a-childs-garden-of-verses.28a4e51d1a11.json";
-import s21 from "./snapshots/the-three-billy-goats-gruff.67779c7e7525.json";
+import s3 from "./snapshots/winnie-the-pooh.bf13dd18babe.json";
+import s4 from "./snapshots/the-three-little-pigs.6f525ed657d6.json";
+import s5 from "./snapshots/the-three-little-pigs.b95bb8109234.json";
+import s6 from "./snapshots/the-princess-and-the-pea.ac77d5495d2e.json";
+import s7 from "./snapshots/alices-adventures-in-wonderland.61bd65bb4a36.json";
+import s8 from "./snapshots/alices-adventures-in-wonderland.727842a44470.json";
+import s9 from "./snapshots/alices-adventures-in-wonderland.7acd9047f27d.json";
+import s10 from "./snapshots/the-gingerbread-man.a3873014f706.json";
+import s11 from "./snapshots/goldilocks-and-the-three-bears.d04c4d1afbb1.json";
+import s12 from "./snapshots/goldilocks-and-the-three-bears.fe5f73e2ef82.json";
+import s13 from "./snapshots/the-velveteen-rabbit.32815e09f55b.json";
+import s14 from "./snapshots/the-velveteen-rabbit.29ea7731ccb2.json";
+import s15 from "./snapshots/the-ugly-duckling.0e718ff695f9.json";
+import s16 from "./snapshots/cinderella.e41d91f4209f.json";
+import s17 from "./snapshots/thumbelina.81e49318a6ca.json";
+import s18 from "./snapshots/the-emperors-new-clothes.ddc67a3e0e27.json";
+import s19 from "./snapshots/the-tale-of-mrs-tiggy-winkle.88fab42b11ba.json";
+import s20 from "./snapshots/the-tale-of-mrs-tiggy-winkle.39ab10d9ba4c.json";
+import s21 from "./snapshots/the-owl-and-the-pussy-cat.39fd1d8bcca2.json";
+import s22 from "./snapshots/the-tale-of-two-bad-mice.b9d3c0674c72.json";
+import s23 from "./snapshots/just-so-stories.173f4e80e76f.json";
+import s24 from "./snapshots/just-so-stories.0b32d4bce204.json";
+import s25 from "./snapshots/heidi.d323776239b3.json";
+import s26 from "./snapshots/heidi.ba21cf3ee7d4.json";
+import s27 from "./snapshots/raggedy-ann-stories.3b6e48ec3d15.json";
+import s28 from "./snapshots/raggedy-ann-stories.00e1924797cd.json";
+import s29 from "./snapshots/raggedy-ann-stories.ae805e32aed9.json";
+import s30 from "./snapshots/a-childs-garden-of-verses.28a4e51d1a11.json";
+import s31 from "./snapshots/the-bremen-town-musicians.d0af5d0a522c.json";
+import s32 from "./snapshots/uncle-wiggilys-thanksgiving.5735c315ef8c.json";
+import s33 from "./snapshots/the-three-billy-goats-gruff.67779c7e7525.json";
+import s34 from "./snapshots/uncle-wiggilys-christmas.cf1b0034493a.json";
+import s35 from "./snapshots/the-tale-of-mrs-tittlemouse.c67df6f00588.json";
+import s36 from "./snapshots/five-peas-from-one-pod.d58e1924199a.json";
+import s37 from "./snapshots/the-leaping-match.0837afe84411.json";
+import s38 from "./snapshots/the-happy-family.bf6fc179bbf0.json";
+import s39 from "./snapshots/the-darning-needle.d62e22de7abe.json";
+import s40 from "./snapshots/little-tuk.3817eeb60066.json";
+import s41 from "./snapshots/johnny-chuck-finds-the-best-thing-in-the-world.9fd49acac62e.json";
 
 export const SNAPSHOTS: Record<string, RevisionSnapshot> = {
   "the-tale-of-peter-rabbit:b3e7d9445524": s0,
   "the-lion-and-the-mouse:1b359a189a29": s1,
   "winnie-the-pooh:826622612796": s2,
-  "the-three-little-pigs:6f525ed657d6": s3,
-  "the-three-little-pigs:b95bb8109234": s4,
-  "the-princess-and-the-pea:ac77d5495d2e": s5,
-  "alices-adventures-in-wonderland:61bd65bb4a36": s6,
-  "alices-adventures-in-wonderland:727842a44470": s7,
-  "goldilocks-and-the-three-bears:d04c4d1afbb1": s8,
-  "the-velveteen-rabbit:32815e09f55b": s9,
-  "the-ugly-duckling:0e718ff695f9": s10,
-  "cinderella:e41d91f4209f": s11,
-  "thumbelina:81e49318a6ca": s12,
-  "the-emperors-new-clothes:ddc67a3e0e27": s13,
-  "the-tale-of-mrs-tiggy-winkle:88fab42b11ba": s14,
-  "the-owl-and-the-pussy-cat:39fd1d8bcca2": s15,
-  "just-so-stories:173f4e80e76f": s16,
-  "heidi:d323776239b3": s17,
-  "raggedy-ann-stories:3b6e48ec3d15": s18,
-  "raggedy-ann-stories:00e1924797cd": s19,
-  "a-childs-garden-of-verses:28a4e51d1a11": s20,
-  "the-three-billy-goats-gruff:67779c7e7525": s21,
+  "winnie-the-pooh:bf13dd18babe": s3,
+  "the-three-little-pigs:6f525ed657d6": s4,
+  "the-three-little-pigs:b95bb8109234": s5,
+  "the-princess-and-the-pea:ac77d5495d2e": s6,
+  "alices-adventures-in-wonderland:61bd65bb4a36": s7,
+  "alices-adventures-in-wonderland:727842a44470": s8,
+  "alices-adventures-in-wonderland:7acd9047f27d": s9,
+  "the-gingerbread-man:a3873014f706": s10,
+  "goldilocks-and-the-three-bears:d04c4d1afbb1": s11,
+  "goldilocks-and-the-three-bears:fe5f73e2ef82": s12,
+  "the-velveteen-rabbit:32815e09f55b": s13,
+  "the-velveteen-rabbit:29ea7731ccb2": s14,
+  "the-ugly-duckling:0e718ff695f9": s15,
+  "cinderella:e41d91f4209f": s16,
+  "thumbelina:81e49318a6ca": s17,
+  "the-emperors-new-clothes:ddc67a3e0e27": s18,
+  "the-tale-of-mrs-tiggy-winkle:88fab42b11ba": s19,
+  "the-tale-of-mrs-tiggy-winkle:39ab10d9ba4c": s20,
+  "the-owl-and-the-pussy-cat:39fd1d8bcca2": s21,
+  "the-tale-of-two-bad-mice:b9d3c0674c72": s22,
+  "just-so-stories:173f4e80e76f": s23,
+  "just-so-stories:0b32d4bce204": s24,
+  "heidi:d323776239b3": s25,
+  "heidi:ba21cf3ee7d4": s26,
+  "raggedy-ann-stories:3b6e48ec3d15": s27,
+  "raggedy-ann-stories:00e1924797cd": s28,
+  "raggedy-ann-stories:ae805e32aed9": s29,
+  "a-childs-garden-of-verses:28a4e51d1a11": s30,
+  "the-bremen-town-musicians:d0af5d0a522c": s31,
+  "uncle-wiggilys-thanksgiving:5735c315ef8c": s32,
+  "the-three-billy-goats-gruff:67779c7e7525": s33,
+  "uncle-wiggilys-christmas:cf1b0034493a": s34,
+  "the-tale-of-mrs-tittlemouse:c67df6f00588": s35,
+  "five-peas-from-one-pod:d58e1924199a": s36,
+  "the-leaping-match:0837afe84411": s37,
+  "the-happy-family:bf6fc179bbf0": s38,
+  "the-darning-needle:d62e22de7abe": s39,
+  "little-tuk:3817eeb60066": s40,
+  "johnny-chuck-finds-the-best-thing-in-the-world:9fd49acac62e": s41,
 };
