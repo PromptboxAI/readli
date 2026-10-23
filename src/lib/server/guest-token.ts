@@ -2,7 +2,12 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 /** HttpOnly cookie holding the guest's random token. The database only ever sees its HMAC. */
 export const GUEST_COOKIE = "readli_guest";
-export const GUEST_TTL_MS = 24 * 60 * 60 * 1000;
+/**
+ * Guest sessions expire 21 hours after they start. Cleanup runs hourly, so with up to three hours
+ * of scheduler slack every recording is gone within the 24 hours the site promises.
+ */
+export const GUEST_TTL_MS = 21 * 60 * 60 * 1000;
+export const GUEST_DELETION_PROMISE_MS = 24 * 60 * 60 * 1000;
 
 export function newGuestToken(): string {
   return randomBytes(32).toString("base64url");

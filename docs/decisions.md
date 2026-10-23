@@ -45,7 +45,7 @@ tracked here and never assumed cleared in code.
 ## Open questions for Kevin
 
 1. Supabase project and ElevenLabs account (paid plan for cloning) so Phase 2 can call real APIs.
-2. **Guest deletion timing.** Vercel Hobby crons run at most daily, so `/api/cron/guest-cleanup` runs at 05:00 UTC and each new guest session also clears a few expired ones. To guarantee deletion within 24 hours, move to Vercel Pro (hourly cron) or shorten the guest TTL.
+2. **Guest deletion timing (resolved 2026-10-23).** Guest sessions now expire 21 hours after they start, and `.github/workflows/guest-cleanup.yml` calls `/api/cron/guest-cleanup` every hour. Recording happens after the session starts, so the worst case from recording to deletion is 21 hours plus the gap to the next run, inside the 24 hours the site promises even if GitHub delays a run by a couple of hours. The Vercel daily cron (05:00 UTC) and the opportunistic cleanup on new guest sessions stay as backstops. Needs the `CRON_SECRET` repository secret (same value as on Vercel).
 3. **Credit packs and allowance.** Pack sizes and prices (600/$2.99, 1,800/$7.99, 3,600/$14.99) are placeholders, and 30 minutes of new narration a month is provisional. Benchmark real consumption per model (`/admin/narration`) before fixing allowances and the price of extra minutes.
 4. **Passage wording.** The six passages were written from the public-domain texts without access to Project Gutenberg from the build machine. Check each against its source before launch.
 

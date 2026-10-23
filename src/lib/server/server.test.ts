@@ -5,7 +5,7 @@ import { VoiceProviderError } from "@/lib/voice/provider";
 import { serverConfig } from "./config";
 import { cleanupExpiredGuests } from "./guest-demo";
 import { MemoryGuestStore } from "./guest-store";
-import { hashGuestToken, sameHash } from "./guest-token";
+import { GUEST_DELETION_PROMISE_MS, GUEST_TTL_MS, hashGuestToken, sameHash } from "./guest-token";
 import { checkUpload } from "./recording-qc";
 
 const limits = { minRecordingMs: 30_000, maxRecordingMs: 150_000, maxRecordingBytes: 25 * 1024 * 1024 };
@@ -56,6 +56,10 @@ describe("memory guest store", () => {
     expect(await store.useGeneration(s.id)).toBe(false);
     await store.refundGeneration(s.id);
     expect(await store.useGeneration(s.id)).toBe(true);
+  });
+
+  it("guest sessions expire early enough for hourly cleanup to keep the 24-hour promise", () => {
+    expect(GUEST_TTL_MS + 3 * 60 * 60 * 1000).toBeLessThanOrEqual(GUEST_DELETION_PROMISE_MS);
   });
 
   it("cleanup deletes the provider voice and the session once expired", async () => {
