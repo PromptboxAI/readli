@@ -144,6 +144,25 @@ test("the kids player buffers the next few sentences so the story reads straight
   await page.getByRole("button", { name: "Pause" }).click();
 });
 
+test("the kids player skips a sentence whose audio won't play instead of stopping", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family");
+  await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
+  await expect(page.getByTestId("current-narrator")).toHaveText("Mom");
+
+  // The second sentence's audio is broken every time it is asked for.
+  await page.route("**/api/kids/narrations", async (route) => {
+    const { sentence } = route.request().postDataJSON() as { sentence: number };
+    if (sentence !== 1) return route.continue();
+    await route.fulfill({ json: { url: "/missing-sentence.mp3", expiresAt: new Date(Date.now() + 60_000).toISOString() } });
+  });
+  await page.getByRole("button", { name: "Play" }).click();
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/, { timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await page.getByRole("button", { name: "Pause" }).click();
+});
+
 test("the kids player keeps reading when its listening session lapses", async ({ page }) => {
   await signIn(page, "adult:sara");
   await page.goto("/family");

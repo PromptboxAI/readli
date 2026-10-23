@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
-type Handlers = { ended: () => void; error: () => void };
+type Handlers = { ended: () => void; error: (why: unknown) => void };
 
 function make(url: string) {
   const el = new Audio();
@@ -49,7 +49,7 @@ export function useGaplessAudio(handlers: Handlers) {
 
   const attach = useCallback((el: HTMLAudioElement) => {
     el.onended = () => on.current.ended();
-    el.onerror = () => on.current.error();
+    el.onerror = () => on.current.error(el.error);
     current.current = el;
   }, []);
 

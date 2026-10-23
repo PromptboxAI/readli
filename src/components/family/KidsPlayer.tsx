@@ -86,7 +86,14 @@ export function KidsPlayer({
   const playingRef = useRef(false);
   playingRef.current = playing;
   const listening = useRef(false);
-  const audio = useGaplessAudio({ ended: () => onEnded(), error: () => void onAudioError() });
+  const failures = useRef<{ key: string; count: number } | null>(null);
+  const audio = useGaplessAudio({
+    ended: () => {
+      failures.current = null;
+      onEnded();
+    },
+    error: (why) => onClipFailed(why),
+  });
 
   // Listen is the default; a child's last choice on this device is remembered.
   useEffect(() => {
@@ -305,15 +312,36 @@ export function KidsPlayer({
       setPlaying(true);
       setLoading(false);
       prefetch(at, voice);
-    } catch {
-      halt();
+    } catch (why) {
+      onClipFailed(why, at);
     }
   };
 
-  const onAudioError = async () => {
-    // The audio URL is re-checked on the server; a revoked voice fails here.
-    halt();
-    await refresh();
+  /**
+   * A sentence whose audio won't load or play is fetched once more, then skipped, so one bad clip never
+   * stops the story. The fresh fetch re-checks access on the server, so a revoked voice still stops here.
+   */
+  const onClipFailed = (why: unknown, at = sentenceRef.current) => {
+    const voice = voiceRef.current;
+    // Pausing, seeking or switching storyteller interrupts a clip that is starting; that isn't a failure.
+    if (why instanceof DOMException && why.name === "AbortError") return;
+    console.warn(`Readli: sentence ${at + 1} didn't play`, why);
+    if (!voice || (why instanceof DOMException && why.name === "NotAllowedError")) {
+      // The browser wants a tap before it plays again.
+      halt();
+      setNotice(PAUSED);
+      return;
+    }
+    const key = `${voice}:${at}`;
+    const tries = failures.current?.key === key ? failures.current.count + 1 : 1;
+    failures.current = { key, count: tries };
+    audio.clear();
+    if (tries === 1) {
+      void play(at, voice);
+    } else {
+      sentenceRef.current = at;
+      onEnded();
+    }
   };
 
   const onEnded = () => {

@@ -56,7 +56,14 @@ export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: L
   voiceRef.current = voiceId;
   const sentenceRef = useRef(sentence);
   sentenceRef.current = sentence;
-  const audio = useGaplessAudio({ ended: () => onEnded(), error: () => stop() });
+  const failures = useRef<{ key: string; count: number } | null>(null);
+  const audio = useGaplessAudio({
+    ended: () => {
+      failures.current = null;
+      onEnded();
+    },
+    error: (why) => onClipFailed(why),
+  });
 
   const voice = voices.find((v) => v.voiceId === voiceId) ?? null;
   // Counted in the text that voice reads, so a place right after switching voices checks the right sentence.
@@ -120,8 +127,32 @@ export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: L
       setPlaying(true);
       setLoading(false);
       prefetch(at, id);
-    } catch {
+    } catch (why) {
+      onClipFailed(why, at);
+    }
+  };
+
+  /** A sentence whose audio won't load or play is fetched once more, then skipped, so one bad clip never stops the story. */
+  const onClipFailed = (why: unknown, at = sentenceRef.current) => {
+    const id = voiceRef.current;
+    // Pausing, seeking or switching storyteller interrupts a clip that is starting; that isn't a failure.
+    if (why instanceof DOMException && why.name === "AbortError") return;
+    console.warn(`Readli: sentence ${at + 1} didn't play`, why);
+    if (!id || (why instanceof DOMException && why.name === "NotAllowedError")) {
+      // The browser wants a tap before it plays again.
       stop();
+      setNotice("Story paused. Press Play to keep listening.");
+      return;
+    }
+    const key = `${id}:${at}`;
+    const tries = failures.current?.key === key ? failures.current.count + 1 : 1;
+    failures.current = { key, count: tries };
+    audio.clear();
+    if (tries === 1) {
+      void play(at, id);
+    } else {
+      sentenceRef.current = at;
+      onEnded();
     }
   };
 
