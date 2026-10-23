@@ -64,6 +64,20 @@ export interface ShelfBook {
   touchedAt: string | null;
 }
 
+/** A book prepared in a family voice that no child here can hear yet, with what's missing. */
+export interface UnassignedBook {
+  slug: string;
+  title: string;
+  coverUrl: string | null;
+  tint: string;
+  narrators: HomePerson[];
+  minutes: number;
+  /** What a grown-up does next to put it on a child's bookshelf. */
+  detail: string;
+  /** The book's page, where a grown-up shares, gives a narrator slot and chooses which kids hear it. */
+  href: string;
+}
+
 export interface HomeBook {
   slug: string;
   title: string;
@@ -110,6 +124,8 @@ export interface FamilyHomeView {
   fresh: HomeBook[];
   /** Every prepared audiobook a child of this family may hear, one entry per book. */
   shelf: ShelfBook[];
+  /** Prepared audiobooks no child here can hear yet, so they don't go missing. */
+  unassigned: UnassignedBook[];
   /** Open story requests from the kids, newest first. */
   requests: HomeRequest[];
   storytellers: HomeStoryteller[];
@@ -247,6 +263,46 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       touchedAt,
     });
   }
+  // Prepared, but in a voice no child here may hear yet: a grown-up still has a step to take. Another
+  // adult's voice only counts once they've shared it with this family; your own always shows.
+  const nextStep: Record<string, (name: string) => string> = {
+    no_child: () => "Add a child to put it on a bookshelf",
+    not_shared_by_owner: () => "Share your voice with the family to put it on a bookshelf",
+    no_family_plan: () => "Needs a Readli Family plan before the kids can hear it",
+    not_activated_by_household: (name) => `Give ${name} a narrator slot, then choose which kids hear it`,
+    not_approved_for_child: () => "Choose which kids hear it",
+  };
+  const unassigned: UnassignedBook[] = [];
+  for (const book of CATALOG) {
+    const text = bookText(book.slug);
+    if (!text) continue;
+    const narrators = new Map<string, Adult | undefined>();
+    let detail = "";
+    for (const lib of state.libraries) {
+      if (lib.bookSlug !== book.slug) continue;
+      const voice = state.voices.find((v) => v.id === lib.voiceId && v.deletedAt === null && v.status === "ready");
+      if (!voice || narrators.has(voice.id) || !isActiveMember(state, voice.ownerId, householdId)) continue;
+      if (voice.ownerId !== viewerId && !activeShare(state, voice.id, householdId)) continue;
+      if (kids.some((k) => childVoiceAccess(state, k.id, voice.id, plan).allowed)) continue;
+      if (narrationFor(state, plan, voice.id, text, householdId).status.readiness !== "ready") continue;
+      const owner = adultById.get(voice.ownerId);
+      narrators.set(voice.id, owner);
+      const reason = kids.length ? childVoiceAccess(state, kids[0]!.id, voice.id, plan).reason : "no_child";
+      detail ||= (nextStep[reason] ?? nextStep.not_approved_for_child!)(owner?.displayName ?? "this storyteller");
+    }
+    if (!narrators.size) continue;
+    unassigned.push({
+      slug: book.slug,
+      title: book.title,
+      coverUrl: book.coverUrl,
+      tint: book.tint,
+      narrators: [...narrators.values()].map(person),
+      minutes: Math.max(1, Math.round(bookMinutes(text, plan))),
+      detail,
+      href: `/family/books/${book.slug}`,
+    });
+  }
+
   const order: ShelfState[] = ["progress", "ready", "done"];
   shelf.sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state) || (b.touchedAt ?? "").localeCompare(a.touchedAt ?? "") || a.minutes - b.minutes);
 
@@ -324,6 +380,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     ready,
     fresh,
     shelf,
+    unassigned,
     requests,
     storytellers,
   };

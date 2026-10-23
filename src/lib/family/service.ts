@@ -395,8 +395,18 @@ export function requireHouseholdGuardian(state: FamilyState, actor: Actor | null
 /** The first household where this adult is a guardian, for the signed-in dashboard. */
 export async function guardianHousehold(store: FamilyStore, actor: Actor | null): Promise<string | null> {
   if (actor?.kind !== "adult") return null;
-  const state = await store.read();
-  return state.members.find((m) => m.adultId === actor.adultId && m.role === "guardian" && m.removedAt === null)?.householdId ?? null;
+  return homeHousehold(await store.read(), actor.adultId);
+}
+
+/**
+ * The family a grown-up looks after, the one they joined first. Every family page uses this, so a
+ * grown-up who is a parent in two families sees the same one (its credits and bookshelves) on every
+ * page; the database returns memberships in no fixed order.
+ */
+export function homeHousehold(state: FamilyState, adultId: string): string | null {
+  const mine = state.members.filter((m) => m.adultId === adultId && m.role === "guardian" && m.removedAt === null);
+  mine.sort((a, b) => a.joinedAt.localeCompare(b.joinedAt) || a.householdId.localeCompare(b.householdId));
+  return mine[0]?.householdId ?? null;
 }
 
 /**
@@ -420,8 +430,8 @@ export async function dismissNotices(store: FamilyStore, actor: Actor | null, th
 export async function createHousehold(store: FamilyStore, actor: Actor | null, name: string, clock: Clock = now): Promise<string> {
   const adultId = requireAdult(actor);
   const state = await store.read();
-  const existing = state.members.find((m) => m.adultId === adultId && m.role === "guardian" && m.removedAt === null);
-  if (existing) return existing.householdId;
+  const existing = homeHousehold(state, adultId);
+  if (existing) return existing;
   const familyName = name.trim().slice(0, 60);
   if (!familyName) throw new PermissionError(400, "bad_name", "Give your family a name.");
   const id = randomUUID();

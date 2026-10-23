@@ -3,6 +3,7 @@
 import { displayCredits } from "@/lib/narration/credits";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Availability, BookUpdate, GenerationQuote, PrepareBookView, PrepareVoiceView } from "@/lib/narration/narration";
 import { StorytellerAvatar } from "./StorytellerAvatar";
@@ -74,6 +75,15 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
     const id = window.setInterval(reload, 1500);
     return () => window.clearInterval(id);
   }, [preparing, reload]);
+
+  // When a book finishes preparing, every page the browser kept (Home's bookshelf, the credit
+  // balance) is asked for again, so none shows the family as it was before.
+  const router = useRouter();
+  const wasPreparing = useRef(preparing);
+  useEffect(() => {
+    if (wasPreparing.current && !preparing) router.refresh();
+    wasPreparing.current = preparing;
+  }, [preparing, router]);
 
   const call = useCallback(
     async (init: RequestInit, target = url) => {
