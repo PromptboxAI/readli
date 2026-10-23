@@ -256,8 +256,8 @@ export function FamilyJourney() {
 
   return (
     <section id="family-journey" aria-labelledby="journey-heading" className="scroll-mt-20 bg-ivory">
-      <div className="mx-auto grid max-w-6xl items-center gap-5 px-4 py-10 sm:px-6 lg:grid-cols-[1.25fr_1fr] lg:gap-12 lg:py-10">
-        <div className="flex flex-col gap-5">
+      <div className="mx-auto grid max-w-6xl items-center gap-5 px-4 py-10 sm:px-6 md:grid-cols-[1.25fr_1fr] md:gap-8 md:py-9 lg:gap-12">
+        <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <p className="text-[13px] font-extrabold uppercase tracking-[0.16em] text-coral-deep">One voice, two homes</p>
             <h2 id="journey-heading" className="font-display text-3xl font-semibold sm:text-4xl">
@@ -269,15 +269,15 @@ export function FamilyJourney() {
             </p>
           </div>
 
-          {/* Desktop: all five steps, the current one opened up. */}
-          <ol className="hidden flex-col gap-1.5 lg:flex">
+          {/* Tablets and up: all five steps, the current one opened up. */}
+          <ol className="hidden flex-col gap-1 md:flex">
             {STEPS.map((s, i) => (
               <li key={s.title}>
                 <button
                   type="button"
                   onClick={() => setStep(i)}
                   aria-current={i === step ? "step" : undefined}
-                  className={`flex w-full items-start gap-3 rounded-[18px] px-4 py-2 text-left transition-colors ${i === step ? "bg-lavender/40" : "hover:bg-ink/5"}`}
+                  className={`flex w-full items-start gap-3 rounded-[18px] px-4 py-1.5 text-left transition-colors ${i === step ? "bg-lavender/40" : "hover:bg-ink/5"}`}
                 >
                   <span className={`grid size-8 shrink-0 place-items-center rounded-full font-display font-semibold ${i === step ? "bg-plum text-white" : "bg-ink/10"}`}>{i + 1}</span>
                   <span className="min-w-0 pt-1">
@@ -289,7 +289,7 @@ export function FamilyJourney() {
             ))}
           </ol>
 
-          <div className="hidden flex-wrap gap-3 lg:flex">
+          <div className="hidden flex-wrap gap-3 md:flex">
             <Link href="/try" className={buttonPrimary}>
               Record Your Voice Free
             </Link>
@@ -307,8 +307,8 @@ export function FamilyJourney() {
           </div>
           {nav}
 
-          {/* Phones and tablets: the current step's words under the screen. */}
-          <div className="flex flex-col items-center gap-3 text-center lg:hidden">
+          {/* Phones: the current step's words under the screen. */}
+          <div className="flex flex-col items-center gap-3 text-center md:hidden">
             <p className="font-display text-xl font-semibold">
               {step + 1}. {current.title}
             </p>
