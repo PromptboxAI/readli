@@ -63,6 +63,18 @@ test("a finished take becomes a voice and reads four stories, with free replays"
   await page.goBack();
   await expect(page.getByTestId("teleprompter")).toBeVisible();
   await expect(page.getByRole("button", { name: "Choose a story" })).toBeVisible();
+
+  // Back from a signup page reopens the stories in the voice already made, without recording again.
+  await page.goto("/signup/voice?from=try");
+  await expect(page.getByText("Use your Try recording")).toBeVisible();
+  await page.getByRole("link", { name: "← Back" }).click();
+  await expect(page).toHaveURL(/\/try\?resume=1/);
+  await expect(page.getByTestId("demo-books").getByRole("article")).toHaveCount(6);
+  await expect(page.getByTestId("teleprompter")).toHaveCount(0);
+  await expect(page.getByTestId("try-next-steps")).toBeVisible();
+  await page.getByTestId("voice-preview").getByRole("article", { name: "Winnie-the-Pooh" }).getByRole("button").click();
+  await expect(page.getByText("Winnie-the-Pooh · read by you")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("preview-counter")).toContainText("4 of 4 stories explored");
 });
 
 test("the server refuses previews without a session and a voice", async ({ request }) => {
