@@ -21,6 +21,7 @@ import s17 from "./snapshots/heidi.d323776239b3.json";
 import s18 from "./snapshots/raggedy-ann-stories.3b6e48ec3d15.json";
 import s19 from "./snapshots/raggedy-ann-stories.00e1924797cd.json";
 import s20 from "./snapshots/a-childs-garden-of-verses.28a4e51d1a11.json";
+import s21 from "./snapshots/the-three-billy-goats-gruff.67779c7e7525.json";
 
 export const SNAPSHOTS: Record<string, RevisionSnapshot> = {
   "the-tale-of-peter-rabbit:b3e7d9445524": s0,
@@ -44,4 +45,5 @@ export const SNAPSHOTS: Record<string, RevisionSnapshot> = {
   "raggedy-ann-stories:3b6e48ec3d15": s18,
   "raggedy-ann-stories:00e1924797cd": s19,
   "a-childs-garden-of-verses:28a4e51d1a11": s20,
+  "the-three-billy-goats-gruff:67779c7e7525": s21,
 };
