@@ -25,6 +25,12 @@
  * Kevin, 2026-10-23: the narration model takes "said the billy-goat, with such a small voice" as a direction
  * and reads the line too quietly to hear, so the goats speak "as politely as he could" and "a little more
  * boldly" instead; avoid volume cues like that in narration text.
+ * Kevin, 2026-10-23: every book was checked for lines the narration model misreads
+ * (src/lib/content/narration-check.ts), and these edits are kept on re-import: shouted capitals are in
+ * normal case (Goldilocks' bears, Potter's and Andersen's opening words, Pooh's signs and notices), quiet
+ * cues like "in a low voice" and "in his little wee voice" are gone, repeated sounds are one line
+ * ("Caw, caw!", "Buzz, buzz, buzzz!", "Ha, ha!"), and Pooh's misspelled notices and "!!!!!!" are written
+ * so a narrator can read them.
  */
 import type { CatalogBook } from "../catalog";
 import AChildsGardenOfVerses from "./a-childs-garden-of-verses.json";
