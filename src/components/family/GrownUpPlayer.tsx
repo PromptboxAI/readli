@@ -10,7 +10,7 @@ import { mapPosition } from "@/lib/narration/positions";
 import { parseMode, type PlayerMode } from "@/lib/player/pages";
 import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, TimeBar } from "./PlayerParts";
 import { StorytellerAvatar } from "./StorytellerAvatar";
-import { useGaplessAudio } from "./useGaplessAudio";
+import { AHEAD, useGaplessAudio } from "./useGaplessAudio";
 
 const MODE_KEY = "readli-grown-up-player-mode";
 
@@ -77,13 +77,20 @@ export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: L
       body: JSON.stringify({ voiceId: id, sentence: at, revision: revisionOf(id) }),
     });
 
-  /** Buffers the next sentence while this one plays, so the story flows without a pause. */
-  const prefetch = async (at: number, id: string) => {
-    if (at >= sentences.length || !readyAt(id, at)) return;
-    const res = await fetchUrl(at, id).catch(() => null);
-    if (!res?.ok || voiceRef.current !== id) return;
-    const { url } = (await res.json()) as { url: string };
-    audio.preload(`${id}:${at}`, url);
+  /** Buffers the next few prepared sentences while this one plays, so the story flows without a pause. */
+  const prefetch = (at: number, id: string) => {
+    const upcoming: { key: string; url: () => Promise<string | null> }[] = [];
+    for (let i = at + 1; i <= at + AHEAD && i < sentences.length && readyAt(id, i); i++) {
+      upcoming.push({
+        key: `${id}:${i}`,
+        url: async () => {
+          const res = await fetchUrl(i, id).catch(() => null);
+          if (!res?.ok || voiceRef.current !== id) return null;
+          return ((await res.json()) as { url: string }).url;
+        },
+      });
+    }
+    audio.preload(upcoming);
   };
 
   const play = async (at: number, id: string) => {
@@ -112,7 +119,7 @@ export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: L
       await audio.play(key, url);
       setPlaying(true);
       setLoading(false);
-      void prefetch(at + 1, id);
+      prefetch(at, id);
     } catch {
       stop();
     }

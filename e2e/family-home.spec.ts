@@ -147,8 +147,8 @@ test("a ready story opens the grown-up player and plays stored audio", async ({ 
   await player.getByRole("button", { name: "Play" }).click();
   expect((await listen).status()).toBe(200);
   await expect(player.getByRole("button", { name: "Pause" })).toBeVisible();
-  // The next sentence is buffered while this one plays, so the story reads straight through.
-  await expect.poll(() => asked).toEqual([0, 1]);
+  // The next few sentences are buffered while this one plays, so the story reads straight through.
+  await expect.poll(() => asked).toEqual([0, 1, 2, 3]);
   await expect(player.getByTestId("sentence-position")).toHaveText(/Sentence 2 of/, { timeout: 15_000 });
   await expect(player.getByRole("button", { name: "Pause" })).toBeVisible();
   // Paused partway, the story can start again from the beginning.

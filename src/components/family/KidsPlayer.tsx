@@ -10,7 +10,7 @@ import { mapPosition } from "@/lib/narration/positions";
 import { nextSleep, parseMode, type PlayerMode, type SleepMinutes } from "@/lib/player/pages";
 import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, TimeBar } from "./PlayerParts";
 import { StorytellerAvatar } from "./StorytellerAvatar";
-import { useGaplessAudio } from "./useGaplessAudio";
+import { AHEAD, useGaplessAudio } from "./useGaplessAudio";
 
 const REFRESH_MS = 10_000;
 const MODE_KEY = "readli-player-mode";
@@ -233,14 +233,21 @@ export function KidsPlayer({
       body: JSON.stringify({ childId, voiceId: voice, bookSlug: book.slug, sentence: at, revision: shownRef.current }),
     });
 
-  /** Buffers the next sentence while this one plays, so the story flows without a pause. */
-  const prefetch = async (at: number, voice: string) => {
-    if (at >= sentences.length || !readyAt(voice, at)) return;
+  /** A signed URL for one prepared sentence, or null when it can't be had right now. */
+  const urlFor = async (at: number, voice: string) => {
     const res = await fetchUrl(at, voice).catch(() => null);
     if (res && !res.ok && (await errorCode(res)) === "no_listening_session") listening.current = false;
-    if (!res?.ok || voiceRef.current !== voice) return;
-    const { url } = (await res.json()) as { url: string };
-    audio.preload(`${voice}:${at}`, url);
+    if (!res?.ok || voiceRef.current !== voice) return null;
+    return ((await res.json()) as { url: string }).url;
+  };
+
+  /** Buffers the next few prepared sentences while this one plays, so the story flows without a pause. */
+  const prefetch = (at: number, voice: string) => {
+    const upcoming: { key: string; url: () => Promise<string | null> }[] = [];
+    for (let i = at + 1; i <= at + AHEAD && i < sentences.length && readyAt(voice, i); i++) {
+      upcoming.push({ key: `${voice}:${i}`, url: () => urlFor(i, voice) });
+    }
+    audio.preload(upcoming);
   };
 
   /** Counts against the family's concurrent stories; refreshed by each sentence request. */
@@ -297,7 +304,7 @@ export function KidsPlayer({
       await audio.play(key, url);
       setPlaying(true);
       setLoading(false);
-      void prefetch(at + 1, voice);
+      prefetch(at, voice);
     } catch {
       halt();
     }

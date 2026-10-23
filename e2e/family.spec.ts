@@ -117,7 +117,7 @@ test("kids see only approved narrators and can switch without losing their place
   await expect(page).toHaveURL(/\/kids$/);
 });
 
-test("the kids player buffers the next sentence so the story reads straight through", async ({ page }) => {
+test("the kids player buffers the next few sentences so the story reads straight through", async ({ page }) => {
   await signIn(page, "adult:sara");
   await page.goto("/family");
   await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
@@ -131,11 +131,11 @@ test("the kids player buffers the next sentence so the story reads straight thro
   });
   await page.getByRole("button", { name: "Play" }).click();
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
-  // The second sentence is fetched while the first is still playing.
-  await expect.poll(() => asked).toEqual([0, 1]);
+  // The next three sentences are fetched while the first is still playing, so a short line doesn't leave a gap.
+  await expect.poll(() => asked).toEqual([0, 1, 2, 3]);
   await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 2 of/, { timeout: 15_000 });
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
-  await expect.poll(() => asked.includes(2)).toBe(true);
+  await expect.poll(() => asked.includes(4)).toBe(true);
   await page.getByRole("button", { name: "Pause" }).click();
   // Paused partway, the story can start again from the beginning.
   await page.getByRole("button", { name: "Start over" }).click();
@@ -156,7 +156,7 @@ test("the kids player keeps reading when its listening session lapses", async ({
     if (r.url().endsWith("/api/kids/narrations") && r.method() === "POST") asked.push((r.postDataJSON() as { sentence: number }).sentence);
   });
   await page.getByRole("button", { name: "Play" }).click();
-  await expect.poll(() => asked).toEqual([0, 1]);
+  await expect.poll(() => asked).toEqual([0, 1, 2, 3]);
   // The server forgets the session, as it does after the page sits idle.
   expect((await page.request.delete("/api/kids/maya/listening")).status()).toBeLessThan(300);
   await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/, { timeout: 30_000 });
