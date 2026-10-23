@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("family journey fits in the old block's space", async ({ page }, info) => {
   await page.goto("/design/journey");
   const journey = page.locator("#family-journey");
-  await expect(journey.getByRole("heading", { name: "How Grandpa Kevin reads to every grandchild" })).toBeVisible();
+  await expect(journey.getByRole("heading", { name: "One voice. Every grandchild. No distance between them." })).toBeVisible();
   const oldH = (await page.locator("#old-block").boundingBox())!.height;
   const newH = (await journey.boundingBox())!.height;
   console.log(`[journey] ${info.project.name}: old ${Math.round(oldH)}px, new ${Math.round(newH)}px`);

@@ -191,8 +191,8 @@ const STEPS: { title: string; body: string; screen: ReactNode }[] = [
     ),
   },
   {
-    title: "Kids switch storytellers, no extra charge",
-    body: "Any voice already prepared plays free. Maya picks Grandpa Kevin tonight and Mom tomorrow.",
+    title: "Switch between prepared voices at no extra cost",
+    body: "Each household prepares the voices it wants. Once a version is ready, children can replay and switch narrators as often as they like.",
     screen: (
       <div className="flex h-full flex-col gap-3 rounded-[28px] bg-plum p-4 text-left text-white shadow-[0_24px_50px_-22px_rgba(40,53,72,0.45)] sm:p-5">
         <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-sunshine">Readli Kids</p>
@@ -261,8 +261,12 @@ export function FamilyJourney() {
           <div className="flex flex-col gap-2">
             <p className="text-[13px] font-extrabold uppercase tracking-[0.16em] text-coral-deep">One voice, two homes</p>
             <h2 id="journey-heading" className="font-display text-3xl font-semibold sm:text-4xl">
-              How Grandpa Kevin reads to every grandchild
+              One voice. Every grandchild. No distance between them.
             </h2>
+            <p className="mt-1 max-w-xl text-lg text-ink/85">
+              Grandma or Grandpa records their voice once, for free. They can invite their children in different households, so every grandchild
+              can hear their stories.
+            </p>
           </div>
 
           {/* Desktop: all five steps, the current one opened up. */}
@@ -287,10 +291,10 @@ export function FamilyJourney() {
 
           <div className="hidden flex-wrap gap-3 lg:flex">
             <Link href="/try" className={buttonPrimary}>
-              Record a voice for free
+              Record Your Voice Free
             </Link>
             <Link href="/pricing" className={buttonSecondary}>
-              See how Readli Family works
+              Explore Readli Family
             </Link>
           </div>
         </div>
@@ -311,10 +315,10 @@ export function FamilyJourney() {
             <p className="max-w-md text-ink/80">{current.body}</p>
             <div className="mt-1 flex w-full flex-col gap-3">
               <Link href="/try" className={`${buttonPrimary} w-full`}>
-                Record a voice for free
+                Record Your Voice Free
               </Link>
               <Link href="/pricing" className={`${buttonSecondary} w-full`}>
-                See how Readli Family works
+                Explore Readli Family
               </Link>
             </div>
           </div>

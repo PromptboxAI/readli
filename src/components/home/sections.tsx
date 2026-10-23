@@ -236,7 +236,7 @@ const FAMILY_STEPS = [
 export function HowFamiliesWork() {
   return (
     <section id="how-it-works" aria-labelledby="how-heading" className="scroll-mt-20 bg-lavender/40">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 sm:gap-8 sm:px-6 sm:py-14">
+      <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-10 sm:gap-6 sm:px-6 sm:py-12">
         <h2 id="how-heading" className="font-display text-3xl font-semibold sm:text-4xl">
           How Readli Family Works
         </h2>
@@ -268,6 +268,9 @@ export function HowFamiliesWork() {
             ))}
           </ol>
         </div>
+        <p className="text-[15px] font-semibold text-ink/85 sm:text-base">
+          Grandparents and loved ones can start for free, too. Record your voice, invite your family, and let them listen when they&apos;re ready.
+        </p>
         <div className="flex max-w-3xl items-center gap-3.5 rounded-[20px] bg-lavender/45 px-4 py-3 sm:px-5">
           <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface/80" aria-hidden="true">
             <svg viewBox="0 0 24 24" className="size-[22px]">
