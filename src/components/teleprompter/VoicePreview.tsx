@@ -200,6 +200,8 @@ export function VoicePreview({
   useEffect(() => {
     if (busy || phase === "playing" || phase === "error") topRef.current?.scrollIntoView({ block: "start" });
   }, [busy, phase]);
+  // Back from signup we don't know which stories were heard, so the server says which ones replay.
+  const outOfStories = previewsLeft === 0 && take !== null;
   const disabledReason =
     mode === "loading"
       ? "Checking voice previews…"
@@ -207,7 +209,7 @@ export function VoicePreview({
         ? OFF_REASON
         : busy
           ? "One story at a time."
-          : previewsLeft === 0
+          : outOfStories
             ? "You've explored all your free stories."
             : null;
   const used = previewsLeft !== null && previewsAllowed !== null ? Math.max(0, previewsAllowed - previewsLeft) : null;
