@@ -61,7 +61,8 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
   const [message, setMessage] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const url = `/api/family/books/${view.book.slug}/narration`;
-  const preparing = view.voices.some((v) => v.status.readiness === "preparing");
+  // An update being prepared counts too: the old audiobook still reads as Ready while it runs.
+  const preparing = view.voices.some((v) => v.status.readiness === "preparing" || v.jobId !== null);
   const balance = view.credits.available;
   const v = view.voices.find((x) => x.voiceId === selected) ?? null;
   // A narration with a newer version of the story to update to; the selected narrator's first.
