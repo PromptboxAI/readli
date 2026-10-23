@@ -16,3 +16,16 @@ test("family journey fits in the old block's space", async ({ page }, info) => {
   const b64 = shot.toString("base64");
   for (let i = 0; i < b64.length; i += 8000) console.log(`[journey-img ${info.project.name} ${i}] ${b64.slice(i, i + 8000)}`);
 });
+
+test("demo shelf screenshot for review", async ({ page }, info) => {
+  await page.goto("/");
+  const shelf = page.getByTestId("demo-books");
+  await shelf.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(800);
+  const box = (await shelf.boundingBox())!;
+  console.log(`[shelf] ${info.project.name}: ${Math.round(box.height)}px`);
+  const shot = await shelf.screenshot({ type: "jpeg", quality: 55, animations: "disabled" });
+  // Temporary: print the image so it can be read from the CI log while artifacts are out of reach.
+  const b64 = shot.toString("base64");
+  for (let i = 0; i < b64.length; i += 8000) console.log(`[shelf-img ${info.project.name} ${i}] ${b64.slice(i, i + 8000)}`);
+});
