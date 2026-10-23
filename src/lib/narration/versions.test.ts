@@ -36,7 +36,7 @@ const KEY = "playback-test-key";
 
 // Real published revisions, rebuilt from git history (src/lib/library/revisions).
 const GOLDILOCKS = "goldilocks-and-the-three-bears";
-const GOLDILOCKS_OLD = "d04c4d1afbb1"; // the ending was rewritten: two lines read differently
+const GOLDILOCKS_OLD = "d04c4d1afbb1"; // the ending was rewritten, and later the narration fixes made it a correction
 const OWL = "the-owl-and-the-pussy-cat";
 const OWL_OLD = "39fd1d8bcca2"; // "Pussy" became "Kitty", marked a Readli correction
 const LION = "the-lion-and-the-mouse";
@@ -185,52 +185,62 @@ describe("existing audiobooks keep playing", () => {
 
   it("offers the update with what changed and the real cost, only lines that changed are charged", async () => {
     const { state, store } = family();
-    await seedFinished(state, store, GOLDILOCKS, GOLDILOCKS_OLD);
-    const changed = changedLines(GOLDILOCKS_OLD, bookText(GOLDILOCKS)!.revision, GOLDILOCKS);
-    expect(changed.length).toBe(2);
+    await seedFinished(state, store, PIGS, PIGS_OLD);
+    const changed = changedLines(PIGS_OLD, bookText(PIGS)!.revision, PIGS);
+    expect(changed.length).toBe(1);
 
-    const june = (await prepareView(store, mom, H, GOLDILOCKS, clock)).voices.find((v) => v.voiceId === "voice-june")!;
+    const june = (await prepareView(store, mom, H, PIGS, clock)).voices.find((v) => v.voiceId === "voice-june")!;
     expect(june.update).not.toBeNull();
     expect(june.update!.free).toBe(false);
     expect(june.update!.after).toEqual(changed.map((s) => s.text));
-    expect(june.update!.before.length).toBe(2);
 
-    const q = quote(state, store.plan, H, { voiceId: "voice-june", bookSlug: GOLDILOCKS, scope: "book" });
+    const q = quote(state, store.plan, H, { voiceId: "voice-june", bookSlug: PIGS, scope: "book" });
     expect(q.sentenceIds).toEqual(changed.map((s) => s.id));
-    expect(q.reusedReady).toBe(bookText(GOLDILOCKS)!.sentences.length - 2);
+    expect(q.reusedReady).toBe(bookText(PIGS)!.sentences.length - 1);
     expect(june.update!.credits).toBe(q.credits);
     expect(q.credits).toBeGreaterThan(0);
   });
 
+  it("Goldilocks' rewritten lines are a free Readli correction for families with the earlier text", async () => {
+    const { state, store } = family();
+    await seedFinished(state, store, GOLDILOCKS, GOLDILOCKS_OLD);
+    const changed = changedLines(GOLDILOCKS_OLD, bookText(GOLDILOCKS)!.revision, GOLDILOCKS);
+    const june = (await prepareView(store, mom, H, GOLDILOCKS, clock)).voices.find((v) => v.voiceId === "voice-june")!;
+    expect(june.update).toMatchObject({ free: true, credits: 0 });
+    expect(june.update!.after).toEqual(changed.map((s) => s.text));
+    const q = quote(state, store.plan, H, { voiceId: "voice-june", bookSlug: GOLDILOCKS, scope: "book" });
+    expect(q.sentenceIds).toEqual(changed.map((s) => s.id));
+  });
+
   it("an update generates only the changed lines, keeps the old audiobook until it is finished, and then takes over", async () => {
     const { state, store } = family();
-    const { library: oldLibrary } = await seedFinished(state, store, GOLDILOCKS, GOLDILOCKS_OLD);
-    const today = bookText(GOLDILOCKS)!;
+    const { library: oldLibrary } = await seedFinished(state, store, PIGS, PIGS_OLD);
+    const today = bookText(PIGS)!;
     const oldKeys = state.segments.filter((s) => s.libraryKey === oldLibrary.key).map((s) => s.storageKey);
 
-    const { job, quote: q } = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: GOLDILOCKS, scope: "book" }, clock);
+    const { job, quote: q } = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: PIGS, scope: "book" }, clock);
     expect(job).not.toBeNull();
     expect(charged(state)).toBe(q.credits);
     // While the update is being made, the family still hears the finished audiobook.
-    expect(narrationFor(state, store.plan, "voice-june", today, H).text.revision).toBe(GOLDILOCKS_OLD);
+    expect(narrationFor(state, store.plan, "voice-june", today, H).text.revision).toBe(PIGS_OLD);
 
     const provider = new CountingProvider();
     await runJob(store, provider, job!.id, clock);
-    expect(provider.calls.length).toBe(2);
+    expect(provider.calls.length).toBe(1);
     const heard = narrationFor(state, store.plan, "voice-june", today, H);
     expect(heard.text.revision).toBe(today.revision);
     expect(heard.status.readiness).toBe("ready");
     // Reused sentences point at the same stored file; nothing was copied or deleted.
     const reused = state.segments.filter((s) => s.libraryKey === heard.library.key && oldKeys.includes(s.storageKey));
-    expect(reused.length).toBe(today.sentences.length - 2);
+    expect(reused.length).toBe(today.sentences.length - 1);
     for (const k of oldKeys) expect(await store.audio.exists(k!)).toBe(true);
     expect(state.segments.filter((s) => s.libraryKey === oldLibrary.key).every((s) => s.status === "ready")).toBe(true);
 
     // A player still showing the old text keeps playing it; it is never cut off mid-story.
     await startListening(store, maya, "maya", clock);
-    await authorizePlayback(store, maya, { childId: "maya", voiceId: "voice-june", bookSlug: GOLDILOCKS, sentence: 3, revision: GOLDILOCKS_OLD }, KEY, clock);
+    await authorizePlayback(store, maya, { childId: "maya", voiceId: "voice-june", bookSlug: PIGS, sentence: 3, revision: PIGS_OLD }, KEY, clock);
     // Asking again costs nothing and makes nothing.
-    const again = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: GOLDILOCKS, scope: "book" }, clock);
+    const again = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: PIGS, scope: "book" }, clock);
     expect(again.job).toBeNull();
     expect(again.quote.credits).toBe(0);
   });
