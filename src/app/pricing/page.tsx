@@ -6,13 +6,36 @@ import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { annualSavingsPercent, monthlyTotalCents, pricing, type Pricing } from "@/lib/content/pricing";
 import { formatPrice as dollars } from "@/lib/family/plan";
-import { publicPageMetadata } from "@/lib/seo/site";
+import { SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
 
-export const metadata: Metadata = publicPageMetadata({
-  title: "Pricing | Readli",
-  description: "Readli Family is $19.99 a month with two family storytellers and 40 narration credits. Readli Voice is always free.",
-  path: "/pricing",
-});
+/** Built from the saved prices, so search results never show a price the page no longer does. */
+export async function generateMetadata(): Promise<Metadata> {
+  const P = await pricing();
+  return publicPageMetadata({
+    title: "Pricing | Readli",
+    description: `Readli Family is ${dollars(P.familyMonthlyCents)} a month with ${P.includedNarratorSlots} family storytellers and ${P.monthlyCredits} narration credits. Readli Voice is always free.`,
+    path: "/pricing",
+  });
+}
+
+/** The plans as schema.org offers, matching the prices shown on the page. */
+function pricingLd(P: Pricing) {
+  const usd = (cents: number) => (cents / 100).toFixed(2);
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    name: "Readli",
+    url: SITE_URL,
+    applicationCategory: "EntertainmentApplication",
+    operatingSystem: "Web",
+    publisher: { "@id": `${SITE_URL}/#organization` },
+    offers: [
+      { "@type": "Offer", name: "Readli Family, monthly", price: usd(P.familyMonthlyCents), priceCurrency: "USD", url: absoluteUrl("/pricing") },
+      { "@type": "Offer", name: "Readli Family, annual", price: usd(P.familyAnnualCents), priceCurrency: "USD", url: absoluteUrl("/pricing") },
+      { "@type": "Offer", name: "Readli Voice", price: "0", priceCurrency: "USD", url: absoluteUrl("/pricing") },
+    ],
+  };
+}
 
 // Shows the prices an admin saved, so it renders per request.
 export const dynamic = "force-dynamic";
@@ -53,6 +76,7 @@ export default async function PricingPage() {
     <>
       <SiteHeader />
       <main className="flex flex-col">
+        <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(pricingLd(P))} />
         <section aria-labelledby="pricing-heading" className="bg-sunshine/35 px-4 pb-10 pt-12 sm:px-6 sm:pt-16">
           <div className="mx-auto flex max-w-3xl flex-col items-center gap-3 text-center">
             <h1 id="pricing-heading" className="font-display text-4xl font-semibold sm:text-5xl">

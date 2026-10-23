@@ -418,6 +418,7 @@ export function FinalCta() {
 
 export function SiteFooter() {
   const links = [
+    { href: "/books", label: "Library" },
     { href: "/company", label: "Company" },
     { href: "/pricing", label: "Pricing" },
     { href: "/privacy", label: "Privacy" },

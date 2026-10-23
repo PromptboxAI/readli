@@ -45,6 +45,7 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
     "@context": "https://schema.org",
     "@type": "Book",
     name: book.title,
+    description: bookDescription(book),
     author: { "@type": "Person", name: book.author },
     ...(book.firstPublished ? { datePublished: String(book.firstPublished) } : {}),
     ...(book.coverUrl ? { image: absoluteUrl(book.coverUrl) } : {}),
@@ -52,11 +53,20 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
     inLanguage: "en",
     audience: { "@type": "PeopleAudience", audienceType: "Children" },
   };
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "The Readli Library", item: absoluteUrl("/books") },
+      { "@type": "ListItem", position: 2, name: book.title },
+    ],
+  };
   return (
     <>
       <SiteHeader />
       <main className="mx-auto grid max-w-5xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(bookLd)} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(breadcrumbLd)} />
         {book.coverUrl ? (
           <Image src={book.coverUrl} alt="" width={450} height={600} priority className="aspect-[3/4] w-full max-w-sm rounded-3xl object-cover" />
         ) : (
