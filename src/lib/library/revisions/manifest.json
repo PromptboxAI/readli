@@ -520,5 +520,65 @@
    "sentences": 136,
    "correction": true
   }
+ ],
+ "twas-the-night-before-christmas": [
+  {
+   "slug": "twas-the-night-before-christmas",
+   "revision": "6c1fd97d5acb",
+   "edition": "gutenberg-68631",
+   "firstSeen": "2026-10-23T14:17:45+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 16
+  }
+ ],
+ "the-tale-of-tom-kitten": [
+  {
+   "slug": "the-tale-of-tom-kitten",
+   "revision": "8906add6a7e5",
+   "edition": "gutenberg-14837",
+   "firstSeen": "2026-10-23T14:17:45+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 47
+  }
+ ],
+ "the-bremen-town-musicians": [
+  {
+   "slug": "the-bremen-town-musicians",
+   "revision": "d0af5d0a522c",
+   "edition": "gutenberg-52521",
+   "firstSeen": "2026-10-23T14:17:45+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 70
+  }
+ ],
+ "the-golden-goose": [
+  {
+   "slug": "the-golden-goose",
+   "revision": "cc670eb11b42",
+   "edition": "gutenberg-52521",
+   "firstSeen": "2026-10-23T14:17:45+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 67
+  }
+ ],
+ "the-jumblies": [
+  {
+   "slug": "the-jumblies",
+   "revision": "e2fcd8c6c646",
+   "edition": "gutenberg-13647",
+   "firstSeen": "2026-10-23T14:17:45+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 70
+  }
  ]
 }
