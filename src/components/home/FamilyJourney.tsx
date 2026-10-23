@@ -128,7 +128,7 @@ const STEPS: { title: string; body: string; screen: ReactNode }[] = [
     ),
   },
   {
-    title: "He sends it to both his children",
+    title: "He invites both families with a sample of his voice",
     body: "Sara and Annabel live in different homes. Each invitation carries the same approved sample.",
     screen: (
       <Screen label="Invite storytellers">
@@ -264,8 +264,8 @@ export function FamilyJourney() {
               One voice. Every grandchild. No distance between them.
             </h2>
             <p className="mt-1 max-w-xl text-lg text-ink/85">
-              Grandma or Grandpa records their voice once, for free. They can invite their children in different households, so every grandchild
-              can hear their stories.
+              Grandma or Grandpa records once, for free, and invites family members in different households. Every grandchild can then enjoy
+              stories in their voice.
             </p>
           </div>
 
