@@ -20,7 +20,7 @@ const SAMPLE_SRC: string | null = null;
 const GRANDPA = { name: "Grandpa Kevin", portrait: "/family-voices/grandpa.webp" };
 const HOUSEHOLDS = [
   { name: "Sara's family", parent: "Sara", tint: "bg-coral", kids: "Maya and Leo" },
-  { name: "Anabel's family", parent: "Anabel", tint: "bg-sunshine", kids: "Ava" },
+  { name: "Annabel's family", parent: "Annabel", tint: "bg-sunshine", kids: "Ava" },
 ];
 
 function Initials({ name, tint, size = "size-10 text-base" }: { name: string; tint: string; size?: string }) {
@@ -122,7 +122,7 @@ const STEPS: { title: string; body: string; screen: ReactNode }[] = [
   },
   {
     title: "He sends it to both his children",
-    body: "Sara and Anabel live in different homes. Each invitation carries the same approved sample.",
+    body: "Sara and Annabel live in different homes. Each invitation carries the same approved sample.",
     screen: (
       <Screen label="Invite storytellers">
         {HOUSEHOLDS.map((h) => (
