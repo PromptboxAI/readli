@@ -452,6 +452,11 @@ test("family storytellers: invite into a free slot, see who's on the way, and on
 
   await page.getByTestId("slot-voice-rose").getByRole("button", { name: "Free up this slot" }).click();
   await expect(page.getByTestId("slots-used")).toHaveText("3 of 4 slots used");
+  // Uncle Sam's voice is still being made, so the freed slot is held for him until he's removed.
+  await expect(page.getByTestId("reserved-slot")).toContainText("Held for Uncle Sam");
+  page.once("dialog", (d) => d.accept());
+  await page.getByTestId("slot-voice-sam").getByRole("button", { name: "Remove from family" }).click();
+  await expect(page.getByText("Uncle Sam was removed from your family.")).toBeVisible();
   const freeSlot = page.getByTestId("free-slot");
   await expect(freeSlot).toContainText("Available");
   // With an included slot open, there's no upsell.
