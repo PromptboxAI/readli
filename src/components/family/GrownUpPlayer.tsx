@@ -12,6 +12,7 @@ import { chapterReady, type Track } from "@/lib/player/tracks";
 import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, TimeBar } from "./PlayerParts";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 import { AHEAD, useGaplessAudio } from "./useGaplessAudio";
+import { usePlaceSaver } from "./usePlaceSaver";
 import { useTrackAudio } from "./useTrackAudio";
 
 const MODE_KEY = "readli-grown-up-player-mode";
@@ -24,7 +25,18 @@ const MODE_KEY = "readli-grown-up-player-mode";
  * words shown are the text the chosen voice's audiobook reads. It shares the Readli Kids player's
  * one-screen layout: Listen shows the whole cover, Read-along shows the page being read.
  */
-export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: ListenView; initialVoice: string | null; preview?: boolean }) {
+export function GrownUpPlayer({
+  view,
+  initialVoice,
+  resume = 0,
+  preview = false,
+}: {
+  view: ListenView;
+  initialVoice: string | null;
+  /** This grown-up's own saved place, counted in the text `initialVoice` reads. */
+  resume?: number;
+  preview?: boolean;
+}) {
   const { book, voices, texts } = view;
   const [voiceId, setVoiceId] = useState(initialVoice);
   const revisionOf = (id: string | null) => {
@@ -33,7 +45,7 @@ export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: L
   };
   const [shown, setShown] = useState(() => revisionOf(initialVoice));
   const { sentences, sentenceIds, seconds } = texts.texts[shown] ?? texts.texts[texts.current]!;
-  const [sentence, setSentence] = useState(0);
+  const [sentence, setSentence] = useState(Math.max(0, Math.min(resume, sentences.length - 1)));
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -82,6 +94,28 @@ export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: L
   // Chapters that play sentence by sentence because their track couldn't be had, and the last track that failed to play.
   const noTrack = useRef(new Set<string>());
   const trackFailed = useRef<string | null>(null);
+
+  // A grown-up's place is their own, apart from every child's. Opening a book saves nothing; a place this
+  // device couldn't save last time is sent first, and picked up if it's the newest.
+  const moved = useRef(false);
+  const places = usePlaceSaver(`/api/family/books/${book.slug}/progress`, `readli-place:adult:${view.householdId}:${book.slug}`, {}, (place) => {
+    const id = voices.find((v) => v.voiceId === place.voiceId)?.voiceId;
+    const to = texts.texts[place.textRevision];
+    if (moved.current || playing || loading || !id || !to || revisionOf(id) !== place.textRevision) return;
+    setVoiceId(id);
+    voiceRef.current = id;
+    setShown(place.textRevision);
+    const at = Math.max(0, Math.min(place.sentence, to.sentences.length - 1));
+    setSentence(at);
+    sentenceRef.current = at;
+  });
+  const opening = useRef({ sentence, voiceId, shown });
+  useEffect(() => {
+    const o = opening.current;
+    if (!moved.current && o.sentence === sentence && o.voiceId === voiceId && o.shown === shown) return;
+    moved.current = true;
+    places.save({ sentence, voiceId, textRevision: shown });
+  }, [places, sentence, voiceId, shown]);
 
   const voice = voices.find((v) => v.voiceId === voiceId) ?? null;
   // Counted in the text that voice reads, so a place right after switching voices checks the right sentence.

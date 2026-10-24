@@ -12,6 +12,7 @@ import { chapterReady, type Track } from "@/lib/player/tracks";
 import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, TimeBar } from "./PlayerParts";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 import { AHEAD, useGaplessAudio } from "./useGaplessAudio";
+import { usePlaceSaver } from "./usePlaceSaver";
 import { useTrackAudio } from "./useTrackAudio";
 
 const REFRESH_MS = 10_000;
@@ -202,15 +203,28 @@ export function KidsPlayer({
     setSleep({ minutes, until: minutes === null ? null : t + minutes * 60_000 });
   };
 
-  // Each child keeps their own place and narrator in every book.
+  // Each child keeps their own place and narrator in every book. Opening a book saves nothing; a place
+  // this device couldn't save last time is sent first, and picked up if it's the newest.
+  const moved = useRef(false);
+  const places = usePlaceSaver(`/api/kids/${childId}/progress`, `readli-place:${childId}:${book.slug}`, { bookSlug: book.slug }, (place) => {
+    if (moved.current || playingRef.current || listening.current) return;
+    const id = narrators.find((n) => n.voiceId === place.voiceId)?.voiceId;
+    const to = textsRef.current[place.textRevision];
+    if (!id || !to) return;
+    setVoiceId(id);
+    voiceRef.current = id;
+    showRevision(place.textRevision);
+    const at = Math.max(0, Math.min(place.sentence, to.sentences.length - 1));
+    setSentence(at);
+    sentenceRef.current = at;
+  });
+  const opening = useRef({ sentence, voiceId, shown });
   useEffect(() => {
-    void fetch(`/api/kids/${childId}/progress`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ bookSlug: book.slug, sentence, voiceId, textRevision: shown }),
-      keepalive: true,
-    });
-  }, [childId, book.slug, sentence, voiceId, shown]);
+    const o = opening.current;
+    if (!moved.current && o.sentence === sentence && o.voiceId === voiceId && o.shown === shown) return;
+    moved.current = true;
+    places.save({ sentence, voiceId, textRevision: shown });
+  }, [places, sentence, voiceId, shown]);
 
   /** Asks the server who this child may hear and what is prepared; drops a narrator no longer allowed. */
   const refresh = useCallback(async () => {

@@ -197,6 +197,28 @@ test("a prepared chapter plays as one track, follows the voice sentence by sente
   await expect(page.getByRole("button", { name: "Play" })).toBeVisible();
 });
 
+test("a place that couldn't be saved is kept on the device and sent when the player opens again", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await signIn(page, "child:maya");
+  await page.goto("/kids/listen/the-lion-and-the-mouse");
+  await page.waitForLoadState("networkidle");
+  // The connection drops: saves don't get through.
+  await page.route("**/api/kids/maya/progress", (route) => route.abort());
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 4 of/);
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem("readli-place:maya:the-lion-and-the-mouse"))).toContain('"sentence":3');
+
+  // Back online: opening the book sends the kept place first, and the story picks up there.
+  await page.unroute("**/api/kids/maya/progress");
+  const sent = page.waitForResponse((r) => r.url().endsWith("/api/kids/maya/progress") && r.request().postDataJSON().sentence === 3);
+  await page.reload();
+  expect(await (await sent).json()).toMatchObject({ saved: true });
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 4 of/);
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem("readli-place:maya:the-lion-and-the-mouse"))).toBeNull();
+});
+
 test("every read-along page fits its card without scrolling", async ({ page }, info) => {
   await signIn(page, "adult:sara");
   await signIn(page, "child:maya");
