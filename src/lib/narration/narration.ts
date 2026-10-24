@@ -23,6 +23,9 @@ import { THE_END } from "@/lib/content/the-end";
 import { revisionInfo } from "@/lib/library/revisions";
 import { mapPosition, spokenForm } from "./positions";
 import { bookCharacters, bookText, bookTextAt, type BookText, withoutTheEnd } from "./text";
+import type { ByteRange } from "./storage";
+import { chapterTrack, chapterTrackPlan, tracksFolder, type ChapterTrack, type TrackPlan } from "./tracks";
+import { JoinError } from "@/lib/audio/join";
 
 /**
  * Voice narration libraries (Voice Narration Libraries, Pre-Generation & Instant Narrator Switching
@@ -1059,6 +1062,8 @@ interface PlaybackClaims {
   h?: string;
   v: string;
   exp: number;
+  /** For a chapter track: where the track's audio is stored. `sid` is empty then. */
+  t?: string;
 }
 
 function sign(body: string, key: string) {
@@ -1124,7 +1129,7 @@ export async function authorizePlayback(
  * Serves stored audio for a signed playback URL. The signature and expiry are checked, then every
  * permission gate again, so a revocation stops playback even inside the URL's lifetime.
  */
-export async function readPlayback(store: FamilyStore, actor: Actor | null, token: string, key: string, at = Date.now()) {
+export async function readPlayback(store: FamilyStore, actor: Actor | null, token: string, key: string, at = Date.now(), range?: ByteRange) {
   const claims = verifyPlayback(token, key, at);
   if (!claims || !actor) throw NOT_AVAILABLE;
   const state = await store.read();
@@ -1143,10 +1148,129 @@ export async function readPlayback(store: FamilyStore, actor: Actor | null, toke
     }
     if (!childVoiceAccess(state, claims.c, claims.v, store.plan).allowed) throw NOT_AVAILABLE;
   }
+  if (claims.t) {
+    // A chapter track lives as long as its narration does; deleting the voice deletes both.
+    const object = state.libraries.some((l) => l.key === claims.lk) ? await store.audio.get(claims.t, range) : null;
+    if (!object) throw NOT_AVAILABLE;
+    return object;
+  }
   const seg = segmentsOf(state, claims.lk).get(claims.sid);
-  const object = seg?.status === "ready" && seg.storageKey ? await store.audio.get(seg.storageKey) : null;
+  const object = seg?.status === "ready" && seg.storageKey ? await store.audio.get(seg.storageKey, range) : null;
   if (!object) throw NOT_AVAILABLE;
   return object;
+}
+
+// ---------------------------------------------------------------------------
+// Chapter tracks
+// ---------------------------------------------------------------------------
+
+/** A chapter track a player may play: its URL and where each sentence starts in it. */
+export interface TrackGrant {
+  url: string;
+  expiresAt: string;
+  chapter: number;
+  /** The text the track reads (a key of the player's texts). */
+  revision: string;
+  contentType: string;
+  durationMs: number;
+  sentences: { index: number; startMs: number; durationMs: number }[];
+}
+
+/**
+ * A track URL lasts the track's whole length plus this, since the browser keeps asking for parts of it
+ * while it plays. Every request still re-checks permission, so a revocation stops it straight away.
+ */
+const TRACK_URL_GRACE_MS = 30 * 60_000;
+
+const CHAPTER_NOT_READY = () => new PermissionError(409, "not_prepared", "This chapter isn't fully prepared in that voice yet.");
+
+/** The plan for a chapter of the narration a player is showing, or a not-prepared error. */
+function trackPlanFor(state: FamilyState, plan: PlanConfig, voiceId: string, slug: string, householdId: string, chapter: number, revision?: string) {
+  const today = bookText(slug);
+  if (!today) throw new PermissionError(400, "bad_chapter", "That chapter doesn't exist.");
+  const { library, text } = narrationShown(state, plan, voiceId, today, householdId, revision);
+  if (!text.chapters.some((c) => c.number === chapter)) throw new PermissionError(400, "bad_chapter", "That chapter doesn't exist.");
+  const trackPlan = chapterTrackPlan(state, library, text, chapter);
+  if (!trackPlan) throw CHAPTER_NOT_READY();
+  return { library, text, trackPlan };
+}
+
+/** Builds (or reads) the track; clips that can't be joined are reported as not prepared, so the player keeps going sentence by sentence. */
+async function trackFor(store: FamilyStore, trackPlan: TrackPlan): Promise<ChapterTrack> {
+  try {
+    return await chapterTrack(store.audio, trackPlan);
+  } catch (err) {
+    if (err instanceof JoinError) {
+      console.warn(`Readli: chapter track ${trackPlan.id} couldn't be assembled: ${err.message}`);
+      throw new PermissionError(409, "track_unavailable", "This chapter plays sentence by sentence for now.");
+    }
+    throw err;
+  }
+}
+
+function grant(track: ChapterTrack, revision: string, claims: Omit<PlaybackClaims, "exp" | "sid" | "t">, audioKey: string, key: string, at: number): TrackGrant {
+  const exp = at + track.durationMs + TRACK_URL_GRACE_MS;
+  const token = signPlayback({ ...claims, sid: "", t: audioKey, exp }, key);
+  return {
+    url: `/api/narration/audio/${token}`,
+    expiresAt: new Date(exp).toISOString(),
+    chapter: track.chapter,
+    revision,
+    contentType: track.contentType,
+    durationMs: track.durationMs,
+    sentences: track.sentences.map(({ index, startMs, durationMs }) => ({ index, startMs, durationMs })),
+  };
+}
+
+/**
+ * A URL for one fully prepared chapter as a single continuous track, for a child, after the same gates
+ * as a sentence: owner share, reading entitlement, narrator slot, this child's approval and a live
+ * listening session. Assembling the track only reads stored audio: no voice provider, no credits.
+ */
+export async function authorizeChapterTrack(
+  store: FamilyStore,
+  actor: Actor | null,
+  input: { childId: string; voiceId: string; bookSlug: string; chapter: number; revision?: string },
+  key: string,
+  clock: Clock = now,
+): Promise<TrackGrant> {
+  const state = await store.read();
+  requireChildAccess(state, actor, input.childId);
+  const child = activeChild(state, input.childId)!;
+  const access = childVoiceAccess(state, input.childId, input.voiceId, store.plan);
+  const at = clock();
+  if (!access.allowed) {
+    await store.write((s) => audit(s, actorLabel(actor!), "narration_denied", at.toISOString(), { voiceId: input.voiceId, childId: input.childId, detail: access.reason }));
+    throw NOT_AVAILABLE;
+  }
+  if (!liveSession(state, input.childId, store.plan, at.toISOString())) {
+    throw new PermissionError(409, "no_listening_session", "Press play to start listening.");
+  }
+  const { library, text, trackPlan } = trackPlanFor(state, store.plan, input.voiceId, input.bookSlug, child.householdId, input.chapter, input.revision);
+  const track = await trackFor(store, trackPlan);
+  await store.write((s) => {
+    const session = liveSession(s, input.childId, store.plan, at.toISOString());
+    if (session) session.lastSeenAt = at.toISOString();
+    // The whole chapter is delivered, so each of its sentences counts as played, as when they came one by one.
+    for (const c of trackPlan.clips) s.plays.push({ libraryKey: library.key, sentenceId: c.sentenceId, householdId: child.householdId, childId: input.childId, at: at.toISOString() });
+  });
+  return grant(track, text.revision, { lk: library.key, c: input.childId, v: input.voiceId }, trackPlan.audioKey, key, at.getTime());
+}
+
+/** The same for a grown-up listening in the Parent Portal: a live plan, the owner's share and a narrator slot. */
+export async function authorizeGuardianChapterTrack(
+  store: FamilyStore,
+  actor: Actor | null,
+  input: { householdId: string; voiceId: string; bookSlug: string; chapter: number; revision?: string },
+  key: string,
+  clock: Clock = now,
+): Promise<TrackGrant> {
+  const state = await store.read();
+  requireHouseholdGuardian(state, actor, input.householdId);
+  if (!guardianVoiceAccess(state, store.plan, input.householdId, input.voiceId)) throw NOT_AVAILABLE;
+  const { library, text, trackPlan } = trackPlanFor(state, store.plan, input.voiceId, input.bookSlug, input.householdId, input.chapter, input.revision);
+  const track = await trackFor(store, trackPlan);
+  return grant(track, text.revision, { lk: library.key, c: "", h: input.householdId, v: input.voiceId }, trackPlan.audioKey, key, clock().getTime());
 }
 
 // ---------------------------------------------------------------------------
@@ -1264,6 +1388,8 @@ export async function deleteVoiceNarrations(store: FamilyStore, voiceId: string,
   // Audio another narration still points at (a reused sentence) is never deleted from under it.
   const stillUsed = new Set(state.segments.filter((s) => !keys.has(s.libraryKey) && s.storageKey).map((s) => s.storageKey!));
   const storageKeys = [...new Set(state.segments.filter((s) => keys.has(s.libraryKey) && s.storageKey).map((s) => s.storageKey!))].filter((k) => !stillUsed.has(k));
+  // Chapter tracks join that voice's clips, so they go with them.
+  for (const k of keys) storageKeys.push(...(await store.audio.list(tracksFolder(k))));
   await store.audio.delete(storageKeys);
   const at = clock().toISOString();
   await store.write((s) => {
