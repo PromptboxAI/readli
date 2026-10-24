@@ -19,6 +19,7 @@ import {
   setChildApprovals,
   setHouseholdShare,
   setStorytellerNickname,
+  setStorytellerRelationship,
   startListening,
   stopListening,
 } from "./service";
@@ -327,6 +328,37 @@ describe("signup and pricing amendment", () => {
     juneInKims.relationship = null;
     expect((await narratorSlots(store, kim, H2, clock)).active.find((n) => n.voiceId === "voice-june")!.relationship).toBe("");
     expect((await narratorSlots(store, mom, H, clock)).active.find((n) => n.voiceId === "voice-june")!.relationship).toBe("Mom's mom");
+  });
+
+  it("parents can change or clear a member's relationship label, in their own family only, and it grants nothing", async () => {
+    const { state, store } = basePlanFamily();
+    addSecondHousehold(state);
+    const kim: Actor = { kind: "adult", adultId: "kim" };
+    const june: Actor = { kind: "adult", adultId: "june" };
+    const before = JSON.stringify({ slots: state.slots, approvals: state.approvals, shares: state.shares });
+
+    await setStorytellerRelationship(store, mom, H, "june", "  Nanny   June ");
+    expect(state.members.find((m) => m.householdId === H && m.adultId === "june")!.relationship).toBe("Nanny June");
+    expect(state.members.find((m) => m.householdId === H2 && m.adultId === "june")!.relationship ?? null).toBeNull();
+    expect((await narratorSlots(store, mom, H, clock)).shared.find((n) => n.voiceId === "voice-june")!.relationship).toBe("Nanny June");
+
+    // Caregiver, any free text, or no label at all.
+    await setStorytellerRelationship(store, mom, H, "june", "Caregiver");
+    expect(state.members.find((m) => m.householdId === H && m.adultId === "june")!.relationship).toBe("Caregiver");
+    await setStorytellerRelationship(store, mom, H, "june", "");
+    expect(state.members.find((m) => m.householdId === H && m.adultId === "june")!.relationship).toBeNull();
+    expect((await narratorSlots(store, mom, H, clock)).shared.find((n) => n.voiceId === "voice-june")!.relationship).toBe("");
+    await setStorytellerRelationship(store, mom, H, "june", "y".repeat(60));
+    expect(state.members.find((m) => m.householdId === H && m.adultId === "june")!.relationship).toBe("y".repeat(40));
+
+    // Only that family's parents: not the storyteller, not another family's parent, not for a non-member.
+    await rejects(setStorytellerRelationship(store, june, H, "june", "Queen"), 403);
+    await rejects(setStorytellerRelationship(store, kim, H, "june", "Mom"), 403);
+    await rejects(setStorytellerRelationship(store, mom, H, "kim", "Aunt"), 404);
+
+    // Labels never share a voice, use a slot or approve a child.
+    expect(JSON.stringify({ slots: state.slots, approvals: state.approvals, shares: state.shares })).toBe(before);
+    expect(childVoiceAccess(state, "maya", "voice-june", store.plan).allowed).toBe(false);
   });
 
   it("free contributor households get no kids profiles", async () => {

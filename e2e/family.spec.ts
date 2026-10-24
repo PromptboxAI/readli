@@ -502,7 +502,7 @@ test("family storytellers: a family's nickname for a storyteller shows only in t
   await signIn(page, "adult:sara");
   await page.goto("/family/narrators");
   const june = page.getByTestId("slot-voice-june");
-  await june.getByRole("button", { name: "Change what we call them" }).click();
+  await june.getByRole("button", { name: "Edit name or relationship" }).click();
   await june.getByLabel("What your family calls Grandma June").fill("Gigi");
   await june.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Your family will see Grandma June as Gigi.")).toBeVisible();
@@ -511,10 +511,36 @@ test("family storytellers: a family's nickname for a storyteller shows only in t
   await noOverflow(page);
 
   // Clearing it brings back her own name.
-  await june.getByRole("button", { name: "Change what we call them" }).click();
+  await june.getByRole("button", { name: "Edit name or relationship" }).click();
   await june.getByLabel("What your family calls Grandma June").fill("");
   await june.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Your family will see Grandma June's own name again.")).toBeVisible();
+});
+
+test("family storytellers: a parent can change or clear a storyteller's relationship label", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/narrators");
+  const june = page.getByTestId("slot-voice-june");
+  await expect(june).toContainText("Mom's mom");
+  await june.getByRole("button", { name: "Edit name or relationship" }).click();
+  await june.getByText("Caregiver", { exact: true }).click();
+  await june.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Grandma June is now shown as Caregiver. It's only a label.")).toBeVisible();
+  await expect(june).toContainText("Caregiver");
+  await expect(june).not.toContainText("Mom's mom");
+
+  // Their own words, then no label at all.
+  await june.getByRole("button", { name: "Edit name or relationship" }).click();
+  await june.getByText("Other…", { exact: true }).click();
+  await june.getByLabel("In your own words").fill("Nana J");
+  await june.getByRole("button", { name: "Save" }).click();
+  await expect(june).toContainText("Nana J");
+  await june.getByRole("button", { name: "Edit name or relationship" }).click();
+  await june.getByText("No label", { exact: true }).click();
+  await june.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Grandma June no longer has a relationship label.")).toBeVisible();
+  await expect(june).not.toContainText("Nana J");
+  await noOverflow(page);
 });
 
 test("Home's invite link opens the invite form on Family storytellers", async ({ page }) => {
