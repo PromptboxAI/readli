@@ -10,12 +10,14 @@ import { toneWav } from "@/lib/voice/stub";
 import { DEFAULT_PLAN } from "@/lib/family/plan";
 import {
   activateNarrator,
+  adultBookPlace,
   createChildProfile,
   createHousehold,
   grantEntitlement,
   myVoices,
   narratorsFor,
   releaseNarrator,
+  saveAdultProgress,
   saveChildProgress,
   setChildApprovals,
   setFavorite,
@@ -28,7 +30,7 @@ import { displayName, safeNext } from "./supabase";
 type Row = Record<string, unknown>;
 
 /** Just enough of the Supabase query builder to check what the account store saves. */
-function fakeDb(tables: Record<string, Row[]> = {}) {
+function fakeDb(tables: Record<string, Row[]> = {}, options: { missingPlaceFunctions?: boolean } = {}) {
   const t = (name: string) => (tables[name] ??= []);
   const builder = (name: string) => {
     let filters: [string, unknown, "eq" | "in" | "gte" | "free"][] = [];
@@ -86,7 +88,21 @@ function fakeDb(tables: Record<string, Row[]> = {}) {
     };
     return q;
   };
-  return { db: { from: builder } as unknown as SupabaseClient, tables };
+  // The two newest-wins place functions from migration 20261024100000, or none before it has run.
+  const places = { child_book_progress: ["child_id", "book_slug"], adult_book_progress: ["user_id", "household_id", "book_slug"] };
+  const rpc = async (fn: string, a: Row) => {
+    const table = fn === "save_child_place" ? "child_book_progress" : fn === "save_adult_place" ? "adult_book_progress" : null;
+    if (!table || options.missingPlaceFunctions) return { data: null, error: { code: "PGRST202", message: `Could not find the function public.${fn}` } };
+    const row: Row = { sentence: a.p_sentence, voice_id: a.p_voice, text_revision: a.p_revision, listened_at: a.p_listened_at, updated_at: new Date().toISOString(), book_slug: a.p_book };
+    if (table === "child_book_progress") row.child_id = a.p_child;
+    else Object.assign(row, { user_id: a.p_user, household_id: a.p_household });
+    const old = t(table).find((x) => places[table].every((k) => x[k] === row[k]));
+    if (old && old.listened_at && String(old.listened_at) > String(row.listened_at)) return { data: false, error: null };
+    if (old) Object.assign(old, row);
+    else t(table).push(row);
+    return { data: true, error: null };
+  };
+  return { db: { from: builder, rpc } as unknown as SupabaseClient, tables };
 }
 
 const ME = { id: "11111111-1111-4111-8111-111111111111", name: "Sara" };
@@ -263,5 +279,51 @@ describe("real family accounts", () => {
   it("names a new grown-up from Google, their sign-up name or their email", () => {
     expect(displayName({ email: "sara@example.com", user_metadata: { full_name: "Sara Rivera" } })).toBe("Sara Rivera");
     expect(displayName({ email: "sara@example.com", user_metadata: {} })).toBe("sara");
+  });
+});
+
+describe("saved listening places in a real family account", () => {
+  const heard = (s: number) => new Date(Date.parse("2026-10-24T12:00:00Z") + s * 1000).toISOString();
+
+  async function family(options: { missingPlaceFunctions?: boolean } = {}) {
+    const { db, tables } = fakeDb({}, options);
+    const store = new AccountFamilyStore(db, ME, DEFAULT_PLAN);
+    const home = await createHousehold(store, ADULT, "The Rivera family");
+    await grantEntitlement(store, home, { source: "gift", months: 12 });
+    const maya = await createChildProfile(store, ADULT, home, "Maya");
+    return { db, tables, home, maya };
+  }
+
+  it("saves the place heard last even when an older save arrives later, and reads it back", async () => {
+    const { db, tables, maya } = await family();
+    const child = { kind: "child" as const, childId: maya };
+    // Two requests, each with its own snapshot of the family, as two saves racing each other would be.
+    const a = new AccountFamilyStore(db, ME, DEFAULT_PLAN);
+    const b = new AccountFamilyStore(db, ME, DEFAULT_PLAN);
+    await a.read();
+    await b.read();
+    await saveChildProgress(a, child, { childId: maya, bookSlug: "peter-rabbit", sentence: 9, voiceId: null, listenedAt: heard(90) });
+    await saveChildProgress(b, child, { childId: maya, bookSlug: "peter-rabbit", sentence: 3, voiceId: null, listenedAt: heard(30) });
+    expect(tables.child_book_progress).toMatchObject([{ child_id: maya, sentence: 9, listened_at: heard(90) }]);
+    const fresh = await new AccountFamilyStore(db, ME, DEFAULT_PLAN).read();
+    expect(fresh.progress).toMatchObject([{ childId: maya, sentence: 9, listenedAt: heard(90) }]);
+  });
+
+  it("keeps a grown-up's own place apart from the child's", async () => {
+    const { db, tables, home, maya } = await family();
+    await saveChildProgress(new AccountFamilyStore(db, ME, DEFAULT_PLAN), { kind: "child", childId: maya }, { childId: maya, bookSlug: "peter-rabbit", sentence: 2, voiceId: null, listenedAt: heard(1) });
+    await saveAdultProgress(new AccountFamilyStore(db, ME, DEFAULT_PLAN), ADULT, { householdId: home, bookSlug: "peter-rabbit", sentence: 12, voiceId: null, textRevision: null, listenedAt: heard(2) });
+    await saveAdultProgress(new AccountFamilyStore(db, ME, DEFAULT_PLAN), ADULT, { householdId: home, bookSlug: "peter-rabbit", sentence: 1, voiceId: null, textRevision: null, listenedAt: heard(0) });
+    expect(tables.adult_book_progress).toMatchObject([{ user_id: ME.id, household_id: home, book_slug: "peter-rabbit", sentence: 12 }]);
+    expect(tables.child_book_progress).toMatchObject([{ child_id: maya, sentence: 2 }]);
+    expect(await adultBookPlace(new AccountFamilyStore(db, ME, DEFAULT_PLAN), ADULT, home, "peter-rabbit")).toMatchObject({ sentence: 12, listenedAt: heard(2) });
+  });
+
+  it("still saves a child's place before the migration has run, and skips a grown-up's", async () => {
+    const { db, tables, home, maya } = await family({ missingPlaceFunctions: true });
+    await saveChildProgress(new AccountFamilyStore(db, ME, DEFAULT_PLAN), { kind: "child", childId: maya }, { childId: maya, bookSlug: "peter-rabbit", sentence: 4, voiceId: null, listenedAt: heard(1) });
+    expect(tables.child_book_progress).toMatchObject([{ child_id: maya, sentence: 4 }]);
+    await saveAdultProgress(new AccountFamilyStore(db, ME, DEFAULT_PLAN), ADULT, { householdId: home, bookSlug: "peter-rabbit", sentence: 5, voiceId: null, textRevision: null });
+    expect(tables.adult_book_progress ?? []).toEqual([]);
   });
 });

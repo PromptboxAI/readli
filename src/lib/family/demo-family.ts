@@ -82,6 +82,7 @@ export function demoFamilyState(): FamilyState {
     })),
     sessions: [],
     progress: [],
+    adultProgress: [],
     favorites: [],
     libraries: [],
     segments: [],

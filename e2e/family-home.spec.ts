@@ -238,3 +238,24 @@ test("six kids stay easy to tell apart, each one tap from Readli Kids, without s
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/family-home-6-kids-${info.project.name}.png`, fullPage: true });
 });
+
+test("a grown-up picks up where they left off, without moving a child's place", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/books/the-lion-and-the-mouse/listen");
+  const player = page.getByTestId("grown-up-player");
+  await expect(player.getByTestId("sentence-position")).toHaveText(/Sentence 1 of/);
+  // Opening a book saves nothing; moving does.
+  const saved = page.waitForResponse((r) => r.url().endsWith("/api/family/books/the-lion-and-the-mouse/progress") && r.request().postDataJSON().sentence === 2);
+  await player.getByRole("button", { name: "Next" }).click();
+  await player.getByRole("button", { name: "Next" }).click();
+  const res = await saved;
+  expect(await res.json()).toMatchObject({ saved: true });
+  expect(res.request().postDataJSON()).toMatchObject({ voiceId: "voice-sara", listenedAt: expect.any(Number), sentAt: expect.any(Number) });
+  await page.reload();
+  await expect(player.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/);
+
+  // Maya's own place in the same book is untouched.
+  await signIn(page, "child:maya");
+  await page.goto("/kids/listen/the-lion-and-the-mouse");
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 1 of/);
+});

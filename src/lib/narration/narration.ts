@@ -1063,6 +1063,19 @@ export async function kidsResume(store: FamilyStore, actor: Actor | null, childI
   return { sentence: resumePlace(state, child.householdId, place, narrationFor(state, store.plan, voiceId, today, child.householdId)).sentence, voiceId };
 }
 
+/**
+ * A grown-up's own saved place and narrator in a book, counted in the text that narrator reads. It is
+ * kept apart from every child's place, so listening in the Parent Portal never moves a child's.
+ */
+export async function adultResume(store: FamilyStore, actor: Actor | null, householdId: string, slug: string, voiceId: string | null) {
+  const state = await store.read();
+  const adultId = requireHouseholdGuardian(state, actor, householdId);
+  const place = state.adultProgress?.find((p) => p.adultId === adultId && p.householdId === householdId && p.bookSlug === slug);
+  const today = bookText(slug);
+  if (!place || !today || !voiceId || !state.voices.some((v) => v.id === voiceId)) return { sentence: 0, voiceId };
+  return { sentence: resumePlace(state, householdId, place, narrationFor(state, store.plan, voiceId, today, householdId)).sentence, voiceId };
+}
+
 interface PlaybackClaims {
   lk: string;
   sid: string;
