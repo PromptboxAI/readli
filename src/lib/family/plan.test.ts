@@ -361,6 +361,23 @@ describe("signup and pricing amendment", () => {
     expect(childVoiceAccess(state, "maya", "voice-june", store.plan).allowed).toBe(false);
   });
 
+  it("the Family Circle's data says which children can hear each narrator, using every permission check", async () => {
+    const { state, store } = basePlanFamily();
+    await activateNarrator(store, mom, H, "voice-june", clock);
+    let view = await narratorSlots(store, mom, H, clock);
+    expect(view.children.map((c) => c.nickname)).toEqual(["Maya", "Leo"]);
+    // In a slot but nobody switched on: no child can hear her.
+    expect(view.active.find((n) => n.voiceId === "voice-june")!.canHear).toEqual([]);
+    await setChildApprovals(store, mom, "maya", [{ voiceId: "voice-june", approved: true }], clock);
+    view = await narratorSlots(store, mom, H, clock);
+    expect(view.active.find((n) => n.voiceId === "voice-june")!.canHear).toEqual(["maya"]);
+    // If June stops sharing, the circle stops showing Maya can hear her, without anyone else acting.
+    await setHouseholdShare(store, { kind: "adult", adultId: "june" }, { voiceId: "voice-june", householdId: H, shared: false, policyVersion: "p" }, clock);
+    view = await narratorSlots(store, mom, H, clock);
+    expect(view.active.find((n) => n.voiceId === "voice-june")?.canHear ?? []).toEqual([]);
+    expect(state.children.some((c) => c.deletedAt === null && c.householdId !== H)).toBe(false);
+  });
+
   it("free contributor households get no kids profiles", async () => {
     const { state, store } = basePlanFamily();
     addSecondHousehold(state);
