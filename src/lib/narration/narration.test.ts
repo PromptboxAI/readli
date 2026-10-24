@@ -70,7 +70,7 @@ function family(plan: PlanConfig = DEFAULT_PLAN) {
 /** A second paying household where Grandma June is also a member; her voice is shared there too. */
 async function addSecondHousehold(state: FamilyState, store: MemoryFamilyStore) {
   state.households.push({ id: H2, name: "Kim's family" });
-  state.adults.push({ id: "kim", displayName: "Kim", relationship: "June's daughter-in-law", avatarUrl: null, tint: "bg-mint" });
+  state.adults.push({ id: "kim", displayName: "Kim", avatarUrl: null, tint: "bg-mint" });
   state.members.push(
     { householdId: H2, adultId: "kim", role: "guardian", joinedAt: "2026-10-01T00:00:00Z", removedAt: null },
     { householdId: H2, adultId: "june", role: "member", joinedAt: "2026-10-01T00:00:00Z", removedAt: null },

@@ -8,6 +8,7 @@ import {
   addNarratorSlot,
   createChildProfile,
   grantEntitlement,
+  manageStorytellers,
   MemoryFamilyStore,
   narratorsFor,
   myVoices,
@@ -43,7 +44,7 @@ function basePlanFamily() {
 /** A second, separately paying household: Kim (guardian) with child Ivy. Grandma June belongs to both. */
 function addSecondHousehold(state: FamilyState) {
   state.households.push({ id: H2, name: "Kim's family" });
-  state.adults.push({ id: "kim", displayName: "Kim", relationship: "June's daughter-in-law", avatarUrl: null, tint: "bg-mint" });
+  state.adults.push({ id: "kim", displayName: "Kim", avatarUrl: null, tint: "bg-mint" });
   state.members.push(
     { householdId: H2, adultId: "kim", role: "guardian", joinedAt: "2026-10-01T00:00:00Z", removedAt: null },
     { householdId: H2, adultId: "june", role: "member", joinedAt: "2026-10-01T00:00:00Z", removedAt: null },
@@ -192,8 +193,8 @@ describe("signup and pricing amendment", () => {
   it("family storytellers shows invited adults who joined, and why a voice isn't ready to add", async () => {
     const { state, store } = basePlanFamily();
     // Andrea accepted an invitation: she's a member with no voice yet, and holds no slot.
-    state.adults.push({ id: "andrea", displayName: "Andrea", relationship: "Mom", avatarUrl: null, tint: "bg-sky" });
-    state.members.push({ householdId: H, adultId: "andrea", role: "member", joinedAt: clock().toISOString(), removedAt: null });
+    state.adults.push({ id: "andrea", displayName: "Andrea", avatarUrl: null, tint: "bg-sky" });
+    state.members.push({ householdId: H, adultId: "andrea", role: "member", relationship: "Mom", joinedAt: clock().toISOString(), removedAt: null });
     let view = await narratorSlots(store, mom, H, clock);
     expect(view.joined.map((p) => p.adultId)).toEqual(["andrea"]);
     expect(view.active).toHaveLength(0);
@@ -217,8 +218,8 @@ describe("signup and pricing amendment", () => {
 
   it("a parent can remove a storyteller, which frees their slot and ends each child's approval", async () => {
     const { state, store } = basePlanFamily();
-    state.adults.push({ id: "andrea", displayName: "Andrea", relationship: "Mom", avatarUrl: null, tint: "bg-sky" });
-    state.members.push({ householdId: H, adultId: "andrea", role: "member", joinedAt: clock().toISOString(), removedAt: null });
+    state.adults.push({ id: "andrea", displayName: "Andrea", avatarUrl: null, tint: "bg-sky" });
+    state.members.push({ householdId: H, adultId: "andrea", role: "member", relationship: "Mom", joinedAt: clock().toISOString(), removedAt: null });
     // Someone who joined but never recorded can be removed.
     await removeStoryteller(store, mom, H, "andrea", clock);
     expect((await narratorSlots(store, mom, H, clock)).joined).toHaveLength(0);
@@ -243,7 +244,7 @@ describe("signup and pricing amendment", () => {
   it("a family's nickname for a storyteller is display only, and sharing tells the parents without approving anyone", async () => {
     const { state, store } = basePlanFamily();
     addSecondHousehold(state);
-    state.adults.push({ id: "andrea", displayName: "Andrea", relationship: "", avatarUrl: null, tint: "bg-sky" });
+    state.adults.push({ id: "andrea", displayName: "Andrea", avatarUrl: null, tint: "bg-sky" });
     state.members.push(
       { householdId: H, adultId: "andrea", role: "member", joinedAt: clock().toISOString(), removedAt: null },
       { householdId: H2, adultId: "andrea", role: "member", joinedAt: clock().toISOString(), removedAt: null },
@@ -288,6 +289,44 @@ describe("signup and pricing amendment", () => {
     await setStorytellerNickname(store, mom, H, "andrea", "");
     expect((await narratorSlots(store, mom, H, clock)).active.find((n) => n.voiceId === "voice-andrea")).toMatchObject({ name: "Andrea" });
     expect((await narratorSlots(store, mom, H, clock)).active.find((n) => n.voiceId === "voice-andrea")!.ownName).toBeUndefined();
+  });
+
+  it("a storyteller's relationship label and nickname belong to each family, never leaking into another", async () => {
+    const { state, store } = basePlanFamily();
+    addSecondHousehold(state);
+    const kim: Actor = { kind: "adult", adultId: "kim" };
+    const juneInKims = state.members.find((m) => m.householdId === H2 && m.adultId === "june")!;
+    juneInKims.relationship = "Mom";
+    await setStorytellerNickname(store, kim, H2, "june", "Mama J");
+    await setHouseholdShare(store, { kind: "adult", adultId: "june" }, { voiceId: "voice-june", householdId: H2, shared: true, policyVersion: "p" }, clock);
+
+    // The preview family knows her as Grandma June, Mom's mom; Kim's family as Mama J, Mom.
+    const ours = (await narratorSlots(store, mom, H, clock)).shared.find((n) => n.voiceId === "voice-june")!;
+    expect(ours).toMatchObject({ name: "Grandma June", relationship: "Mom's mom" });
+    expect(ours.ownName).toBeUndefined();
+    expect((await narratorSlots(store, kim, H2, clock)).shared.find((n) => n.voiceId === "voice-june")).toMatchObject({
+      name: "Mama J",
+      ownName: "Grandma June",
+      relationship: "Mom",
+    });
+
+    // Once activated and approved, each child's storyteller list uses their own family's words too.
+    await activateNarrator(store, mom, H, "voice-june", clock);
+    await setChildApprovals(store, mom, "maya", [{ voiceId: "voice-june", approved: true }], clock);
+    await grantEntitlement(store, H2, { source: "gift", months: 12 }, clock);
+    await activateNarrator(store, kim, H2, "voice-june", clock);
+    await setChildApprovals(store, kim, "ivy", [{ voiceId: "voice-june", approved: true }], clock);
+    expect((await narratorsFor(store, mom, "maya")).find((n) => n.voiceId === "voice-june")!.name).toBe("Grandma June");
+    expect((await narratorsFor(store, kim, "ivy")).find((n) => n.voiceId === "voice-june")!.name).toBe("Mama J");
+    const maya = (await manageStorytellers(store, mom, "maya")).storytellers.find((s) => s.voiceId === "voice-june")!;
+    const ivy = (await manageStorytellers(store, kim, "ivy")).storytellers.find((s) => s.voiceId === "voice-june")!;
+    expect([maya.ownerName, maya.relationship]).toEqual(["Grandma June", "Mom's mom"]);
+    expect([ivy.ownerName, ivy.relationship]).toEqual(["Mama J", "Mom"]);
+
+    // Kim's family clearing its label shows none there, not the preview family's.
+    juneInKims.relationship = null;
+    expect((await narratorSlots(store, kim, H2, clock)).active.find((n) => n.voiceId === "voice-june")!.relationship).toBe("");
+    expect((await narratorSlots(store, mom, H, clock)).active.find((n) => n.voiceId === "voice-june")!.relationship).toBe("Mom's mom");
   });
 
   it("free contributor households get no kids profiles", async () => {
