@@ -11,7 +11,16 @@ type Handlers = {
   error: (why: unknown) => void;
   /** Called about every `TICK_MS` while playing, also in the background, for heartbeats and permission checks. */
   tick?: () => void;
+  /** Called on every time update while playing, also in the background (several times a second). */
+  time?: () => void;
+  /** Something else paused the track: a phone call, Siri, another app's audio, headphones unplugged. */
+  interrupted?: () => void;
+  /** Something else started it again, such as a headphone button. */
+  resumed?: () => void;
 };
+
+/** Pause and play events this soon after the player's own pause, play or load are the player's, not an interruption. */
+const OWN_MS = 1000;
 
 const TICK_MS = 45_000;
 
@@ -32,6 +41,8 @@ export function useTrackAudio(handlers: Handlers) {
   const heard = useRef<number | null>(null);
   const lastTick = useRef(0);
   const frame = useRef<number | null>(null);
+  const acted = useRef(0);
+  const own = () => Date.now() - acted.current < OWN_MS;
 
   const follow = useCallback(() => {
     const a = el.current;
@@ -42,6 +53,7 @@ export function useTrackAudio(handlers: Handlers) {
       heard.current = at;
       on.current.sentence(at);
     }
+    if (!a.paused) on.current.time?.();
     const now = Date.now();
     if (on.current.tick && !a.paused && now - lastTick.current >= TICK_MS) {
       lastTick.current = now;
@@ -73,6 +85,12 @@ export function useTrackAudio(handlers: Handlers) {
       on.current.ended();
     });
     a.addEventListener("error", () => track.current && on.current.error(a.error));
+    a.addEventListener("pause", () => {
+      if (track.current && !a.ended && !own()) on.current.interrupted?.();
+    });
+    a.addEventListener("play", () => {
+      if (track.current && !own()) on.current.resumed?.();
+    });
     el.current = a;
     return a;
   }, [follow, watch]);
@@ -84,6 +102,7 @@ export function useTrackAudio(handlers: Handlers) {
   const unlock = useCallback(() => {
     const a = element();
     if (a.src) return;
+    acted.current = Date.now();
     a.src = SILENCE;
     void a.play().then(
       () => {
@@ -100,6 +119,7 @@ export function useTrackAudio(handlers: Handlers) {
   const load = useCallback(
     async (key: string, next: Track, at: number) => {
       const a = element();
+      acted.current = Date.now();
       track.current = { key, track: next };
       heard.current = null;
       lastTick.current = Date.now();
@@ -119,13 +139,32 @@ export function useTrackAudio(handlers: Handlers) {
     const t = track.current;
     const ms = t ? startOf(t.track, at) : null;
     if (!a || ms === null) return false;
+    acted.current = Date.now();
     a.currentTime = ms / 1000;
     await a.play();
     return true;
   }, []);
 
   const pause = useCallback(() => {
+    acted.current = Date.now();
     el.current?.pause();
+  }, []);
+
+  /** Moves by `seconds` within the loaded track (negative goes back), as the lock screen's skip buttons do. */
+  const skip = useCallback((seconds: number) => {
+    const a = el.current;
+    if (!a || !track.current) return false;
+    acted.current = Date.now();
+    a.currentTime = Math.max(0, Math.min(track.current.track.durationMs / 1000, a.currentTime + seconds));
+    return true;
+  }, []);
+
+  /** Where playback is in the loaded track, for the lock screen's progress bar; null with no track. */
+  const position = useCallback(() => {
+    const a = el.current;
+    const t = track.current;
+    if (!a || !t) return null;
+    return { duration: t.track.durationMs / 1000, position: Math.min(a.currentTime, t.track.durationMs / 1000), playbackRate: a.playbackRate || 1 };
   }, []);
 
   /** Forgets the loaded track, after a storyteller change or when sentence-by-sentence playback takes over. */
@@ -133,6 +172,7 @@ export function useTrackAudio(handlers: Handlers) {
     const a = el.current;
     track.current = null;
     heard.current = null;
+    acted.current = Date.now();
     if (!a || !a.src || a.src === SILENCE) return;
     a.pause();
     a.removeAttribute("src");
@@ -153,5 +193,5 @@ export function useTrackAudio(handlers: Handlers) {
     [],
   );
 
-  return useMemo(() => ({ unlock, has, load, seek, pause, clear }), [unlock, has, load, seek, pause, clear]);
+  return useMemo(() => ({ unlock, has, load, seek, pause, skip, position, clear }), [unlock, has, load, seek, pause, skip, position, clear]);
 }

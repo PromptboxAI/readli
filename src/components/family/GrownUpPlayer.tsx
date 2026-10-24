@@ -12,6 +12,7 @@ import { chapterReady, type Track } from "@/lib/player/tracks";
 import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, TimeBar } from "./PlayerParts";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 import { AHEAD, useGaplessAudio } from "./useGaplessAudio";
+import { useMediaSession } from "./useMediaSession";
 import { usePlaceSaver } from "./usePlaceSaver";
 import { useTrackAudio } from "./useTrackAudio";
 
@@ -79,6 +80,7 @@ export function GrownUpPlayer({
       onEnded();
     },
     error: (why) => onClipFailed(why),
+    interrupted: () => onInterrupted(),
   });
   const track = useTrackAudio({
     sentence: (at) => {
@@ -90,6 +92,11 @@ export function GrownUpPlayer({
       onEnded();
     },
     error: (why) => onTrackFailed(why),
+    interrupted: () => onInterrupted(),
+    resumed: () => {
+      setNotice(null);
+      setPlaying(true);
+    },
   });
   // Chapters that play sentence by sentence because their track couldn't be had, and the last track that failed to play.
   const noTrack = useRef(new Set<string>());
@@ -314,6 +321,37 @@ export function GrownUpPlayer({
     sentenceRef.current = at;
     if (playing || loading) void play(at, id);
   };
+
+  /** A phone call, Siri, another app's audio or unplugged headphones paused the story; Play picks up at the same sentence. */
+  const onInterrupted = () => {
+    stop();
+    setNotice("Story paused. Press Play to keep listening.");
+  };
+
+  // The lock screen, notification shade, headphones and car show the story and work its buttons.
+  const playingRef = useRef(playing);
+  playingRef.current = playing;
+  useMediaSession(
+    { title: book.title, narrator: voice?.name ?? null, coverUrl: book.coverUrl },
+    playing,
+    sentence,
+    {
+      play: () => {
+        if (!playingRef.current && voiceRef.current) void play(sentenceRef.current, voiceRef.current);
+      },
+      pause: () => stop(),
+      previous: () => sentenceRef.current > 0 && goTo(sentenceRef.current - 1),
+      next: () => sentenceRef.current + 1 < sentences.length && goTo(sentenceRef.current + 1),
+      skip: (seconds) => {
+        if (!track.skip(seconds)) goTo(Math.max(0, Math.min(sentences.length - 1, sentenceRef.current + Math.sign(seconds))));
+      },
+      seekTo: (seconds) => {
+        const p = track.position();
+        if (p) track.skip(seconds - p.position);
+      },
+    },
+    track.position,
+  );
 
   const { listen, soft, faint, main, round, side } = playerTone(mode);
   const back = (

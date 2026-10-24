@@ -12,6 +12,7 @@ import { chapterReady, type Track } from "@/lib/player/tracks";
 import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, TimeBar } from "./PlayerParts";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 import { AHEAD, useGaplessAudio } from "./useGaplessAudio";
+import { useMediaSession } from "./useMediaSession";
 import { usePlaceSaver } from "./usePlaceSaver";
 import { useTrackAudio } from "./useTrackAudio";
 
@@ -98,6 +99,7 @@ export function KidsPlayer({
       onEnded();
     },
     error: (why) => onClipFailed(why),
+    interrupted: () => onInterrupted(),
   });
   const track = useTrackAudio({
     sentence: (at) => {
@@ -109,6 +111,12 @@ export function KidsPlayer({
       onEnded();
     },
     error: (why) => onTrackFailed(why),
+    time: () => checkSleep(),
+    interrupted: () => onInterrupted(),
+    resumed: () => {
+      setNotice(null);
+      setPlaying(true);
+    },
     // A track needs no request per sentence, so playing keeps the listening session alive and re-checks
     // who this child may hear, even with the screen locked.
     tick: () => {
@@ -181,26 +189,61 @@ export function KidsPlayer({
 
   useEffect(() => endSession, [endSession]);
 
-  // The sleep timer pauses the story when it runs out.
+  // The sleep timer is a deadline on the clock, kept on this device, so it holds across a reload and
+  // fires on time with the screen locked: it is checked every second on screen, and with every update
+  // of the story's audio in the background.
+  const sleepKey = `readli-sleep:${childId}`;
+  const sleepRef = useRef(sleep);
+  sleepRef.current = sleep;
+  const setSleepTimer = useCallback(
+    (next: { minutes: SleepMinutes; until: number | null }) => {
+      setSleep(next);
+      sleepRef.current = next;
+      try {
+        if (next.until === null) window.localStorage.removeItem(sleepKey);
+        else window.localStorage.setItem(sleepKey, JSON.stringify(next));
+      } catch {
+        // Not kept across a reload this time.
+      }
+    },
+    [sleepKey],
+  );
+  const checkSleep = useCallback(() => {
+    const { until } = sleepRef.current;
+    const t = Date.now();
+    setNow(t);
+    if (until === null || t < until) return false;
+    halt();
+    setSleepTimer({ minutes: null, until: null });
+    setNotice("The sleep timer paused the story. Night night!");
+    return true;
+  }, [halt, setSleepTimer]);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(sleepKey) ?? "null") as { minutes: SleepMinutes; until: number } | null;
+      if (saved && saved.until > Date.now()) setSleepTimer(saved);
+      else window.localStorage.removeItem(sleepKey);
+    } catch {
+      // Storage can be blocked; the timer starts off.
+    }
+  }, [sleepKey, setSleepTimer]);
+
   useEffect(() => {
     if (sleep.until === null) return;
-    const id = window.setInterval(() => {
-      const t = Date.now();
-      setNow(t);
-      if (t >= sleep.until!) {
-        halt();
-        setSleep({ minutes: null, until: null });
-        setNotice("The sleep timer paused the story. Night night!");
-      }
-    }, 1000);
-    return () => window.clearInterval(id);
-  }, [sleep.until, halt]);
+    const id = window.setInterval(checkSleep, 1000);
+    document.addEventListener("visibilitychange", checkSleep);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", checkSleep);
+    };
+  }, [sleep.until, checkSleep]);
 
   const cycleSleep = () => {
     const minutes = nextSleep(sleep.minutes);
     const t = Date.now();
     setNow(t);
-    setSleep({ minutes, until: minutes === null ? null : t + minutes * 60_000 });
+    setSleepTimer({ minutes, until: minutes === null ? null : t + minutes * 60_000 });
   };
 
   // Each child keeps their own place and narrator in every book. Opening a book saves nothing; a place
@@ -455,6 +498,7 @@ export function KidsPlayer({
   };
 
   const onEnded = () => {
+    if (checkSleep()) return;
     const at = sentenceRef.current;
     const voice = voiceRef.current;
     // A book prepared before "The End." was added simply finishes without it.
@@ -506,6 +550,38 @@ export function KidsPlayer({
     audio.clear();
     if (voiceId) void play(0, voiceId);
   };
+
+  /**
+   * A phone call, Siri, another app's audio or unplugged headphones paused the story. The screen says
+   * so, and Play (here, on the lock screen or on headphones) picks up at the same sentence.
+   */
+  const onInterrupted = () => {
+    halt();
+    setNotice(PAUSED);
+  };
+
+  // The lock screen, notification shade, headphones and car show the story and work its buttons.
+  useMediaSession(
+    { title: book.title, narrator: narrators.find((n) => n.voiceId === voiceId)?.name ?? null, coverUrl: book.coverUrl },
+    playing,
+    sentence,
+    {
+      play: () => {
+        if (!playingRef.current && voiceRef.current) void play(sentenceRef.current, voiceRef.current);
+      },
+      pause: () => halt(),
+      previous: () => sentenceRef.current > 0 && goTo(sentenceRef.current - 1),
+      next: () => sentenceRef.current + 1 < sentences.length && goTo(sentenceRef.current + 1),
+      skip: (seconds) => {
+        if (!track.skip(seconds)) goTo(Math.max(0, Math.min(sentences.length - 1, sentenceRef.current + Math.sign(seconds))));
+      },
+      seekTo: (seconds) => {
+        const p = track.position();
+        if (p) track.skip(seconds - p.position);
+      },
+    },
+    track.position,
+  );
 
   const current = narrators.find((n) => n.voiceId === voiceId) ?? null;
   const back = (
