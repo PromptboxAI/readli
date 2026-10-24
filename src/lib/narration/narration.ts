@@ -971,8 +971,11 @@ export interface KidsNarratorReadiness {
 /** The read-along text of each revision narrators read, keyed by revision; `current` is today's. */
 export interface BookTexts {
   current: string;
-  /** Each text's sentences, their ids, and roughly how long each takes to read aloud (for the time bar). */
-  texts: Record<string, { sentences: string[]; sentenceIds: string[]; seconds: number[] }>;
+  /**
+   * Each text's sentences, their ids, roughly how long each takes to read aloud (for the time bar), and
+   * the chapter each is in (chapter tracks play a chapter at a time).
+   */
+  texts: Record<string, { sentences: string[]; sentenceIds: string[]; seconds: number[]; chapters: number[] }>;
 }
 
 /** Texts for these revisions of a book, leaving out the ones the player already has. */
@@ -982,7 +985,14 @@ export function bookTexts(slug: string, revisions: string[], modelId: string, ha
   for (const r of new Set([today.revision, ...revisions])) {
     if (have.includes(r)) continue;
     const t = bookTextAt(slug, r);
-    if (t) texts[r] = { sentences: t.sentences.map((x) => x.text), sentenceIds: t.sentences.map((x) => x.id), seconds: t.sentences.map((x) => estimateSeconds(x.text.length, modelId)) };
+    if (t) {
+      texts[r] = {
+        sentences: t.sentences.map((x) => x.text),
+        sentenceIds: t.sentences.map((x) => x.id),
+        seconds: t.sentences.map((x) => estimateSeconds(x.text.length, modelId)),
+        chapters: t.sentences.map((x) => x.chapter),
+      };
+    }
   }
   return { current: today.revision, texts };
 }

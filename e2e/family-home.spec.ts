@@ -139,17 +139,20 @@ test("a ready story opens the grown-up player and plays stored audio", async ({ 
   await player.getByRole("button", { name: /Change storyteller/ }).click();
   await expect(player.getByRole("group", { name: "Storyteller" }).getByRole("button", { name: /Mom/ })).toHaveAttribute("aria-pressed", "true");
   await player.getByRole("button", { name: "Done" }).click();
-  const asked: number[] = [];
+  const sentences: number[] = [];
   page.on("request", (r) => {
-    if (r.url().endsWith("/api/family/books/the-lion-and-the-mouse/listen") && r.method() === "POST") asked.push((r.postDataJSON() as { sentence: number }).sentence);
+    if (r.url().endsWith("/api/family/books/the-lion-and-the-mouse/listen") && r.method() === "POST") sentences.push((r.postDataJSON() as { sentence: number }).sentence);
   });
-  const listen = page.waitForResponse((r) => r.url().endsWith("/api/family/books/the-lion-and-the-mouse/listen"));
+  // A fully prepared chapter plays as one continuous track joined from the stored sentences.
+  const listen = page.waitForResponse((r) => r.url().endsWith("/api/family/books/the-lion-and-the-mouse/listen/track"));
   await player.getByRole("button", { name: "Play" }).click();
-  expect((await listen).status()).toBe(200);
+  const track = await listen;
+  expect(track.status()).toBe(200);
+  expect(track.request().postDataJSON()).toMatchObject({ voiceId: "voice-sara", chapter: 1 });
   await expect(player.getByRole("button", { name: "Pause" })).toBeVisible();
-  // The next few sentences are buffered while this one plays, so the story reads straight through.
-  await expect.poll(() => asked).toEqual([0, 1, 2, 3]);
+  // The sentence on screen follows the track's clock, with no request per sentence.
   await expect(player.getByTestId("sentence-position")).toHaveText(/Sentence 2 of/, { timeout: 15_000 });
+  expect(sentences).toEqual([]);
   await expect(player.getByRole("button", { name: "Pause" })).toBeVisible();
   // Paused partway, the story can start again from the beginning.
   await player.getByRole("button", { name: "Pause" }).click();
