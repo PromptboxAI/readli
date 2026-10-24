@@ -33,7 +33,7 @@ export default async function KidsDiscover() {
       <ul className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6" data-testid="discover-books">
         {waiting.map((b) => (
           <li key={b.slug} className="flex flex-col gap-1.5" data-testid={`discover-${b.slug}`}>
-            <span className={`relative block aspect-[3/4] overflow-hidden rounded-2xl opacity-80 ring-2 ring-ink/10 ${b.tint}`}>
+            <span className={`relative block aspect-[3/4] overflow-hidden rounded-2xl ring-2 ring-ink/10 ${b.tint}`}>
               {b.coverUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- static catalog cover art
                 <img src={b.coverUrl} alt="" className="size-full object-cover" />
