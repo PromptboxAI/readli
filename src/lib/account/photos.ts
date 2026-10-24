@@ -7,7 +7,7 @@ export { PHOTOS_BUCKET };
 /**
  * A grown-up's profile photo. It is only stored once they agree it's a photo of themselves that
  * their family members may see, it lives in a private bucket, and it is shown only to people who
- * share a family with them, through a short-lived signed link.
+ * share a family with them. Its address changes whenever the photo does, so browsers may keep it.
  */
 export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const TYPES: { type: string; ext: string; magic: (b: Uint8Array) => boolean }[] = [
@@ -79,15 +79,15 @@ export async function canSeePhoto(db: SupabaseClient, viewer: string, owner: str
   return live.some((m) => m.user_id === owner && viewerHomes.has(m.household_id));
 }
 
-/** A short-lived signed link to the photo, or null when there is none to show this viewer. */
-export async function signedPhotoUrl(db: SupabaseClient, viewer: string, owner: string): Promise<string | null> {
+/** The photo itself, or null when there is none to show this viewer. `tag` names this exact upload. */
+export async function photoFile(db: SupabaseClient, viewer: string, owner: string): Promise<{ body: Blob; tag: string } | null> {
   if (!(await canSeePhoto(db, viewer, owner))) return null;
   const p = await profile(db, owner);
   if (!p?.avatar_path || !p.photo_consent_at) return null;
-  const { data, error } = await db.storage.from(PHOTOS_BUCKET).createSignedUrl(p.avatar_path, 300);
+  const { data, error } = await db.storage.from(PHOTOS_BUCKET).download(p.avatar_path);
   if (error || !data) {
-    console.warn(`photo link for ${owner}: ${error?.message ?? "no link"}`);
+    console.warn(`photo for ${owner}: ${error?.message ?? "no file"}`);
     return null;
   }
-  return data.signedUrl;
+  return { body: data, tag: `"${p.avatar_path.split("/").pop()}"` };
 }

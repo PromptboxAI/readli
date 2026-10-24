@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { initials } from "@/lib/content/example-family";
 
 /**
- * Selfie avatar, or tinted initials until the person adds a selfie. Photos are served through
- * short-lived signed links, so a page left open can find its link expired: the photo is then
+ * Selfie avatar, or tinted initials until the person adds a selfie. The initials sit under the photo,
+ * so the circle is never blank while it loads. A photo that fails to load (say the session lapsed) is
  * asked for again once, and if that fails too the initials show instead of a broken image. A photo
  * that already failed before the page became interactive fired its error with nobody listening, so
  * that is checked on mount too.
@@ -33,22 +33,20 @@ export function StorytellerAvatar({
     const el = img.current;
     if (avatarUrl && el && el.complete && el.naturalWidth === 0) setFailed({ url: avatarUrl, tries: tries + 1, at: Date.now() });
   }, [src, avatarUrl, tries]);
-  if (src) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element -- user selfies come from signed storage URLs
-      <img
-        key={src}
-        ref={img}
-        src={src}
-        alt=""
-        onError={() => setFailed({ url: avatarUrl!, tries: tries + 1, at: Date.now() })}
-        className={`${dims} shrink-0 rounded-full border-[3px] object-cover ${ring}`}
-      />
-    );
-  }
   return (
-    <span aria-hidden="true" className={`grid ${dims} shrink-0 place-items-center rounded-full border-[3px] font-display font-semibold text-ink ${tint} ${ring}`}>
+    <span aria-hidden="true" className={`relative grid ${dims} shrink-0 place-items-center overflow-hidden rounded-full border-[3px] font-display font-semibold text-ink ${tint} ${ring}`}>
       {initials(name)}
+      {src && (
+        // eslint-disable-next-line @next/next/no-img-element -- user selfies come from a permission-checked route
+        <img
+          key={src}
+          ref={img}
+          src={src}
+          alt=""
+          onError={() => setFailed({ url: avatarUrl!, tries: tries + 1, at: Date.now() })}
+          className="absolute inset-0 size-full object-cover"
+        />
+      )}
     </span>
   );
 }
