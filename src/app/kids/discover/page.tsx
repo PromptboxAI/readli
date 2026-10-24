@@ -41,7 +41,7 @@ export default async function KidsDiscover() {
                 <span className="grid size-full place-items-center p-2 text-center font-display font-semibold">{b.title}</span>
               )}
             </span>
-            <span className="font-display text-sm leading-tight font-semibold">{b.title}</span>
+            <span className="min-h-[2.5em] flex-1 font-display text-sm leading-tight font-semibold">{b.title}</span>
             <AskButton childId={child.id} bookSlug={b.slug} title={b.title} initial={asked.has(b.slug)} />
           </li>
         ))}
