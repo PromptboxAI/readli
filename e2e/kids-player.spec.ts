@@ -162,6 +162,41 @@ test("the player opens in Listen mode, switches to Read-along at the same place,
   await expect(resume).toContainText(/Mom is reading · page 1 of \d+/);
 });
 
+test("a prepared chapter plays as one track, follows the voice sentence by sentence, and switches storyteller in place", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await signIn(page, "child:maya");
+  await page.goto("/kids/listen/the-lion-and-the-mouse");
+  const player = page.getByTestId("kids-player");
+  await page.getByRole("button", { name: "Read along" }).click();
+  const sentences: unknown[] = [];
+  page.on("request", (r) => {
+    if (r.url().endsWith("/api/kids/narrations") && r.method() === "POST") sentences.push(r.postDataJSON());
+  });
+  const first = page.waitForResponse((r) => r.url().endsWith("/api/kids/narrations/track"));
+  await page.getByRole("button", { name: "Play" }).click();
+  const track = await first;
+  expect(track.status()).toBe(200);
+  expect(track.request().postDataJSON()).toMatchObject({ childId: "maya", voiceId: "voice-sara", chapter: 1 });
+  const timing = (await track.json()) as { sentences: { index: number; startMs: number }[] };
+  expect(timing.sentences[0]).toMatchObject({ index: 0, startMs: 0 });
+  // The highlight moves on with the recording; nothing is asked for sentence by sentence.
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 2 of/, { timeout: 15_000 });
+  await expect(player.locator("[data-current]")).toBeVisible();
+  expect(sentences).toEqual([]);
+
+  // Switching storyteller loads Grandma June's track at the same sentence.
+  const at = (await page.getByTestId("sentence-position").textContent())!;
+  const june = page.waitForResponse((r) => r.url().endsWith("/api/kids/narrations/track") && r.request().postDataJSON().voiceId === "voice-june");
+  await page.getByRole("button", { name: /Change storyteller/ }).click();
+  await page.getByRole("group", { name: "Choose a storyteller" }).getByRole("button", { name: /Grandma June/ }).click();
+  expect((await june).status()).toBe(200);
+  await expect(page.getByTestId("current-narrator")).toHaveText("Grandma June");
+  expect(Number(/Sentence (\d+)/.exec((await page.getByTestId("sentence-position").textContent())!)![1])).toBeGreaterThanOrEqual(Number(/Sentence (\d+)/.exec(at)![1]));
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await page.getByRole("button", { name: "Pause" }).click();
+  await expect(page.getByRole("button", { name: "Play" })).toBeVisible();
+});
+
 test("every read-along page fits its card without scrolling", async ({ page }, info) => {
   await signIn(page, "adult:sara");
   await signIn(page, "child:maya");

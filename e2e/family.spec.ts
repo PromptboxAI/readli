@@ -15,6 +15,13 @@ async function approve(request: APIRequestContext, child: string, voiceId: strin
   return request.put(`/api/family/kids/${child}/storytellers`, { data: { changes: [{ voiceId, approved }] } });
 }
 
+/** Makes the kids player read sentence by sentence, as it does for a chapter that has no track. */
+async function sentenceBySentence(page: Page) {
+  await page.route("**/api/kids/narrations/track", (route) =>
+    route.fulfill({ status: 409, json: { error: { code: "track_unavailable", message: "This chapter plays sentence by sentence for now." } } }),
+  );
+}
+
 test("a parent manages storytellers child by child", async ({ page }) => {
   await page.goto("/family");
   await page.getByRole("button", { name: "Sign in as Mom" }).click();
@@ -117,7 +124,8 @@ test("kids see only approved narrators and can switch without losing their place
   await expect(page).toHaveURL(/\/kids$/);
 });
 
-test("the kids player buffers the next few sentences so the story reads straight through", async ({ page }) => {
+test("reading sentence by sentence, the kids player buffers the next few sentences so the story reads straight through", async ({ page }) => {
+  await sentenceBySentence(page);
   await signIn(page, "adult:sara");
   await page.goto("/family");
   await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
@@ -129,6 +137,8 @@ test("the kids player buffers the next few sentences so the story reads straight
   page.on("request", (r) => {
     if (r.url().endsWith("/api/kids/narrations") && r.method() === "POST") asked.push((r.postDataJSON() as { sentence: number }).sentence);
   });
+  // Let the page finish starting before pressing Play: under load, an early tap can land before the player is ready.
+  await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: "Play" }).click();
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   // The next three sentences are fetched while the first is still playing, so a short line doesn't leave a gap.
@@ -144,7 +154,8 @@ test("the kids player buffers the next few sentences so the story reads straight
   await page.getByRole("button", { name: "Pause" }).click();
 });
 
-test("the kids player skips a sentence whose audio won't play instead of stopping", async ({ page }) => {
+test("reading sentence by sentence, the kids player skips a sentence whose audio won't play instead of stopping", async ({ page }) => {
+  await sentenceBySentence(page);
   await signIn(page, "adult:sara");
   await page.goto("/family");
   await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
@@ -157,13 +168,41 @@ test("the kids player skips a sentence whose audio won't play instead of stoppin
     if (sentence !== 1) return route.continue();
     await route.fulfill({ json: { url: "/missing-sentence.mp3", expiresAt: new Date(Date.now() + 60_000).toISOString() } });
   });
+  // Let the page finish starting before pressing Play: under load, an early tap can land before the player is ready.
+  await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: "Play" }).click();
   await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/, { timeout: 30_000 });
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   await page.getByRole("button", { name: "Pause" }).click();
 });
 
-test("the kids player keeps reading when its listening session lapses", async ({ page }) => {
+test("a chapter track that won't play is asked for once more, then the story carries on sentence by sentence", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family");
+  await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
+  let tracks = 0;
+  await page.route("**/api/kids/narrations/track", async (route) => {
+    tracks += 1;
+    const res = await route.fetch();
+    await route.fulfill({ response: res, json: { ...(await res.json()), url: "/missing-track.mp3" } });
+  });
+  const asked: number[] = [];
+  page.on("request", (r) => {
+    if (r.url().endsWith("/api/kids/narrations") && r.method() === "POST") asked.push((r.postDataJSON() as { sentence: number }).sentence);
+  });
+  // Let the page finish starting before pressing Play: under load, an early tap can land before the player is ready.
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Play" }).click();
+  await expect.poll(() => asked[0]).toBe(0);
+  expect(tracks).toBe(2);
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 2 of/, { timeout: 15_000 });
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await page.getByRole("button", { name: "Pause" }).click();
+});
+
+test("reading sentence by sentence, the kids player keeps reading when its listening session lapses", async ({ page }) => {
+  await sentenceBySentence(page);
   await signIn(page, "adult:sara");
   await page.goto("/family");
   await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
@@ -174,6 +213,8 @@ test("the kids player keeps reading when its listening session lapses", async ({
   page.on("request", (r) => {
     if (r.url().endsWith("/api/kids/narrations") && r.method() === "POST") asked.push((r.postDataJSON() as { sentence: number }).sentence);
   });
+  // Let the page finish starting before pressing Play: under load, an early tap can land before the player is ready.
+  await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: "Play" }).click();
   await expect.poll(() => asked).toEqual([0, 1, 2, 3]);
   // The server forgets the session, as it does after the page sits idle.
