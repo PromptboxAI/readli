@@ -16,6 +16,7 @@ import {
   type StorytellerStatus,
 } from "./permissions";
 import { calledIn } from "./names";
+import { cleanRelationship } from "@/lib/invites/family-invites";
 import { DEFAULT_PLAN, type PlanConfig } from "./plan";
 import { MemoryNarrationStorage, type NarrationStorage } from "@/lib/narration/storage";
 
@@ -570,6 +571,22 @@ export async function setStorytellerNickname(store: FamilyStore, actor: Actor | 
   await store.write((s) => {
     const m = s.members.find((x) => x.householdId === householdId && x.adultId === adultId && x.removedAt === null);
     if (m) m.nickname = value || null;
+  });
+}
+
+/**
+ * Sets how this family describes one of its members, such as "Grandma" or "Nanny Pat". Only the family's
+ * parents can change it, at any time after the person joins. Display only and per family: it never shares a
+ * voice, uses a narrator slot or approves anyone for a child. An empty label clears it.
+ */
+export async function setStorytellerRelationship(store: FamilyStore, actor: Actor | null, householdId: string, adultId: string, relationship: string): Promise<void> {
+  const state = await store.read();
+  requireHouseholdGuardian(state, actor, householdId);
+  if (!isActiveMember(state, adultId, householdId)) throw new PermissionError(404, "not_member", "That storyteller isn't part of your family.");
+  const value = cleanRelationship(relationship);
+  await store.write((s) => {
+    const m = s.members.find((x) => x.householdId === householdId && x.adultId === adultId && x.removedAt === null);
+    if (m) m.relationship = value;
   });
 }
 

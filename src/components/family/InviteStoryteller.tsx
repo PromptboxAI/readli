@@ -2,7 +2,8 @@
 
 import { useId, useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
-import { RELATIONSHIPS, type FamilyInvite } from "@/lib/invites/family-invites";
+import type { FamilyInvite } from "@/lib/invites/family-invites";
+import { RelationshipPicker } from "./RelationshipPicker";
 
 /** Why an invitation wasn't emailed; mirrors EMAIL_MESSAGES on the server. */
 const NOT_EMAILED: Record<string, string> = {
@@ -38,7 +39,7 @@ export function InviteStoryteller({ live, initialName = "", onSent, onClose }: {
     if (!canSend) return;
     setError("");
     if (!live) {
-      const invite: SavedInvite = { id: `preview-${Date.now()}`, name: name.trim() || email.trim().split("@")[0]!, relationship, email: null, status: "invited", createdAt: new Date() };
+      const invite: SavedInvite = { id: `preview-${Date.now()}`, name: name.trim() || email.trim().split("@")[0]!, relationship: relationship.trim(), email: null, status: "invited", createdAt: new Date() };
       onSent(invite);
       setSent({ name: invite.name, link: null, email: "off" });
       return;
@@ -122,19 +123,15 @@ export function InviteStoryteller({ live, initialName = "", onSent, onClose }: {
         </label>
         <input id={`${id}-name`} className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="Grandma June" autoComplete="off" />
       </div>
-      <fieldset className="flex flex-col gap-2">
-        <legend className="font-display text-lg font-semibold">
-          They are your kids&apos;… <span className="font-sans text-base font-normal text-muted">(optional)</span>
-        </legend>
-        <div className="flex flex-wrap gap-2">
-          {RELATIONSHIPS.map((r) => (
-            <label key={r} className={`cursor-pointer rounded-full px-4 py-2 font-display ring-2 has-[:focus-visible]:outline has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-coral-deep ${relationship === r ? "bg-ink text-white ring-ink" : "bg-ivory ring-ink/15"}`}>
-              <input type="radio" name={`${id}-relationship`} value={r} checked={relationship === r} onChange={() => setRelationship(r)} className="sr-only" />
-              {r}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <RelationshipPicker
+        legend={
+          <>
+            They are your kids&apos;… <span className="font-sans text-base font-normal text-muted">(optional)</span>
+          </>
+        }
+        value={relationship}
+        onChange={setRelationship}
+      />
       {error && (
         <p role="alert" className="rounded-2xl bg-coral/30 p-3 font-semibold">
           {error}

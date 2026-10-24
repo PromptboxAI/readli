@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { INVITE_TTL_DAYS, RELATIONSHIPS, type FamilyInvite, type InviteStatus } from "./family-invites";
+import { cleanRelationship, INVITE_TTL_DAYS, type FamilyInvite, type InviteStatus } from "./family-invites";
 
 /**
  * Family invitations for real accounts (household_invitations, migration 000500). The link carries a
@@ -79,7 +79,7 @@ export async function createInvite(
   // The name is optional when there's an email: the part before the @ stands in until it's set.
   const name = (input.name.trim() || email.split("@")[0] || "").slice(0, 120);
   if (!name) throw new InviteError(400, "name_required", "Add their email or their name.");
-  const relationship = (RELATIONSHIPS as readonly string[]).includes(input.relationship) ? input.relationship : null;
+  const relationship = cleanRelationship(input.relationship);
   const token = newInviteToken();
   const row = {
     household_id: input.householdId,
@@ -94,6 +94,26 @@ export async function createInvite(
   };
   const [saved] = await q(db.from("household_invitations").insert(row).select("*"), "save invitation");
   return { invite: toInvite(saved!, now), token };
+}
+
+/**
+ * Changes how the family describes someone they've invited. Only an invitation nobody has accepted yet:
+ * after that the label lives on their family membership. Display only; it grants nothing.
+ */
+export async function setInviteRelationship(db: SupabaseClient, householdId: string, id: string, relationship: unknown): Promise<FamilyInvite> {
+  const rows = await q(
+    db
+      .from("household_invitations")
+      .update({ relationship_label: cleanRelationship(relationship) })
+      .eq("id", id)
+      .eq("household_id", householdId)
+      .is("accepted_at", null)
+      .is("revoked_at", null)
+      .select("*"),
+    "save invitation relationship",
+  );
+  if (rows.length === 0) throw new InviteError(404, "not_found", "That invitation was already accepted or withdrawn.");
+  return toInvite(rows[0]!);
 }
 
 /** Only an invitation that hasn't been accepted can be withdrawn. */
