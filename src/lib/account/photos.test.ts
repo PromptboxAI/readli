@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
-import { canSeePhoto, photoType, removePhoto, savePhoto, signedPhotoUrl } from "./photos";
+import { canSeePhoto, photoType, removePhoto, savePhoto, photoFile } from "./photos";
 import { AccountError } from "./privacy";
 
 type Row = Record<string, unknown>;
@@ -37,7 +37,7 @@ function fakeDb(tables: Record<string, Row[]>) {
       from: () => ({
         upload: async (path: string) => (stored.add(path), { data: { path }, error: null }),
         remove: async (keys: string[]) => (keys.forEach((k) => stored.delete(k)), { data: [], error: null }),
-        createSignedUrl: async (path: string) => ({ data: { signedUrl: `https://signed.example/${path}` }, error: null }),
+        download: async (path: string) => ({ data: new Blob([path]), error: null }),
       }),
     },
   } as unknown as SupabaseClient;
@@ -100,7 +100,9 @@ describe("profile photos", () => {
     expect(await canSeePhoto(db, "grandma", "me")).toBe(true);
     expect(await canSeePhoto(db, "left", "me")).toBe(false);
     expect(await canSeePhoto(db, "stranger", "me")).toBe(false);
-    expect(await signedPhotoUrl(db, "grandma", "me")).toBe("https://signed.example/me/a.jpg");
-    expect(await signedPhotoUrl(db, "stranger", "me")).toBeNull();
+    const file = await photoFile(db, "grandma", "me");
+    expect(await file?.body.text()).toBe("me/a.jpg");
+    expect(file?.tag).toBe('"a.jpg"');
+    expect(await photoFile(db, "stranger", "me")).toBeNull();
   });
 });

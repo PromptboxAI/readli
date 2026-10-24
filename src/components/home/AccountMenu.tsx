@@ -13,6 +13,7 @@ const tones = { offer: "text-mint-deep", danger: "text-coral-deep" } as const;
  */
 export function AccountMenu(props: { name: string; email: string | null; initials: string; avatarUrl?: string | null; badge: string | null; links: NavLink[]; explore?: NavLink[]; compact?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [brokenPhoto, setBrokenPhoto] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const id = useId();
   useEffect(() => {
@@ -37,14 +38,14 @@ export function AccountMenu(props: { name: string; email: string | null; initial
         onClick={() => setOpen((o) => !o)}
         className="flex min-h-12 cursor-pointer items-center gap-2 rounded-full border-[3px] border-ink bg-surface py-1 pr-3 pl-1 font-display font-semibold"
       >
-        {props.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- a signed redirect, not a static asset
-          <img src={props.avatarUrl} alt="" aria-hidden="true" className="size-9 rounded-full object-cover" />
-        ) : (
-          <span aria-hidden="true" className="grid size-9 place-items-center rounded-full bg-mint text-sm">
-            {props.initials}
-          </span>
-        )}
+        {/* Initials under the photo, so the circle is never blank while the photo loads or if it can't. */}
+        <span aria-hidden="true" className="relative grid size-9 place-items-center overflow-hidden rounded-full bg-mint text-sm">
+          {props.initials}
+          {props.avatarUrl && brokenPhoto !== props.avatarUrl && (
+            // eslint-disable-next-line @next/next/no-img-element -- a permission-checked route, not a static asset
+            <img src={props.avatarUrl} alt="" onError={() => setBrokenPhoto(props.avatarUrl!)} className="absolute inset-0 size-full object-cover" />
+          )}
+        </span>
         {!props.compact && <span className="max-w-32 truncate">{props.name.split(" ")[0]}</span>}
         <span aria-hidden="true" className={`text-xs transition-transform ${open ? "rotate-180" : ""}`}>
           ▼
