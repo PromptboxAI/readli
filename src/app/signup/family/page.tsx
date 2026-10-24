@@ -54,7 +54,7 @@ export default async function FamilySignupPage({ searchParams }: { searchParams:
               1. Your account
             </h2>
             <p>Sign in with your email or Google. New here? This creates your account.</p>
-            <LoginForm next={start} />
+            <LoginForm next={start} askMarketing />
           </section>
           <section aria-labelledby="plan" className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-sunshine/50 p-6 sm:p-8">
             <h2 id="plan" className="font-display text-2xl font-semibold">

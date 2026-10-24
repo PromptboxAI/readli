@@ -1,6 +1,8 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { authConfigured, safeNext, supabaseServer } from "@/lib/auth/supabase";
+import { updatePreferences } from "@/lib/email/preferences";
+import { accountDb } from "@/lib/family/account-store";
 import { GROWNUP_COOKIE, PIN_RESUMED_COOKIE } from "@/lib/family/grownup-stash";
 import { KIDS_COOKIE } from "@/lib/family/kids-mode";
 import { currentDevice } from "@/lib/family/session";
@@ -24,6 +26,12 @@ export async function GET(req: Request) {
   if (error) {
     console.error("sign-in callback failed", error.message);
     return NextResponse.redirect(new URL(`/login?error=link&next=${encodeURIComponent(next)}`, url.origin));
+  }
+  // The grown-up ticked the Bedtime Thursdays and news box on a signup page.
+  if (url.searchParams.get("news") === "1") {
+    const { data } = await supabase.auth.getUser();
+    const db = accountDb();
+    if (data.user && db) await updatePreferences(db, data.user.id, { marketing: true }, "signup").catch((err) => console.error("save marketing consent failed", err));
   }
   // Signing in again is how a grown-up leaves Kids Mode on a device, so this sign-in ends it, and
   // ends the kids device record too so it no longer shows as active.
