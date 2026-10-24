@@ -13,7 +13,8 @@ import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
 import { FamilyBookshelf, KidCards, StorytellersCard, UnassignedBooks } from "@/components/family/HomeShelf";
 import { HomeNotice } from "@/components/family/HomeNotice";
 import { StoryRequests } from "@/components/family/StoryRequests";
-import { demoFamilyState } from "@/lib/family/demo-family";
+import { DEMO_HOUSEHOLD_ID, demoFamilyState } from "@/lib/family/demo-family";
+import { calledIn } from "@/lib/family/names";
 import { familyHome, homeNotice, noticeText } from "@/lib/family/home";
 import { homeHousehold } from "@/lib/family/service";
 import { planConfig } from "@/lib/family/plan";
@@ -72,7 +73,8 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   }
 
   if (!adult || !state) {
-    const people = demoFamilyState().adults;
+    const demo = demoFamilyState();
+    const people = demo.adults.map((a) => calledIn(demo, a, DEMO_HOUSEHOLD_ID)!);
     return (
       <FamilyShell>
         <h1 className="font-display text-4xl font-semibold">Readli Family</h1>
@@ -160,7 +162,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
           <div className="min-w-0">
             {familyName && <p className="font-display text-lg text-muted">{familyName}</p>}
             <h1 className="font-display text-3xl font-semibold sm:text-4xl">Welcome back, {adult.displayName}</h1>
-            {!isGuardian && <p className="text-lg text-muted">{adult.relationship}</p>}
+            {!isGuardian && <p className="text-lg text-muted">{calledIn(state, adult, home)?.relationship}</p>}
             {account && !adult.avatarUrl && (
               <Link href="/family/account#photo" className="text-sm font-semibold underline underline-offset-4">
                 Add your photo
