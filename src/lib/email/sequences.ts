@@ -5,6 +5,7 @@ import { activeEntitlement } from "@/lib/family/permissions";
 import { creditBalance, displayCredits } from "@/lib/narration/credits";
 import { queueEmails, type QueuedEmail } from "./outbox";
 import { preferencesUrl, unsubscribeHeaders } from "./preferences";
+import { storytellerHeadsUps } from "./reminders";
 import { readliEmail } from "./templates";
 
 /**
@@ -359,6 +360,7 @@ const EVALUATORS: { emails: string[]; run: (ctx: SequenceContext) => Promise<Que
   { emails: ["F2", "F4", "F5"], run: familySetup },
   { emails: ["F3", "C3"], run: voiceReady },
   { emails: ["C1", "C2", "C4"], run: contributorOnboarding },
+  { emails: ["I3"], run: storytellerHeadsUps },
 ];
 
 /** Queues every switched-on launch email that is due. One failing sequence doesn't stop the others. */

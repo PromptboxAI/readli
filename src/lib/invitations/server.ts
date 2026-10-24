@@ -313,7 +313,7 @@ export interface SendInput {
   shareConsent: boolean;
 }
 
-function links(ctx: SendContext, invitationId: string, token: string) {
+export function invitationLinks(ctx: { secret: string; origin: string }, invitationId: string, token: string) {
   const base = ctx.origin.replace(/\/$/, "");
   const respond = respondToken(ctx.secret, invitationId);
   return {
@@ -332,7 +332,7 @@ async function deliver(db: SupabaseClient, ctx: SendContext, invitation: { id: s
     message: invitation.message,
     bookTitle: sender.book ? (findCatalogBook(sender.book)?.title ?? null) : null,
     linkDays,
-    ...links(ctx, invitation.id, invitation.token),
+    ...invitationLinks(ctx, invitation.id, invitation.token),
   });
   let delivery: "sent" | "failed" = "sent";
   let providerId: string | null = null;
