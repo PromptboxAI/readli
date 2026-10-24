@@ -39,9 +39,22 @@ test("the kids bookshelf shows ready stories first and keeps the rest for a grow
   await page.getByTestId("kids-discover").click();
   await expect(page).toHaveURL(/\/kids\/discover$/);
   await expect(page.getByTestId("discover-aesops-fables-retold")).toContainText("Aesop's Fables");
-  await expect(page.getByTestId("discover-books").getByRole("link")).toHaveCount(0);
+  await expect(page.getByTestId("discover-books").locator('a[href^="/kids/listen/"]')).toHaveCount(0);
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/kids-discover-${info.project.name}.png`, fullPage: true });
+
+  // A book that isn't ready opens a peek: its first lines and a way to ask, never a player.
+  await page.getByTestId("peek-thumbelina").click();
+  await expect(page).toHaveURL(/\/kids\/discover\/thumbelina$/);
+  await expect(page.getByRole("heading", { name: "Thumbelina" })).toBeVisible();
+  await expect(page.getByTestId("kids-opening")).toContainText("There was once a woman who wished very much to have a little child.");
+  await expect(page.getByTestId("ask-thumbelina")).toBeVisible();
+  await expect(page.locator('a[href^="/kids/listen/"]')).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Prepare/ })).toHaveCount(0);
+  await noOverflow(page);
+  await page.screenshot({ path: `e2e/screenshots/kids-peek-${info.project.name}.png`, fullPage: true });
+  await page.getByTestId("back-link").click();
+  await expect(page).toHaveURL(/\/kids\/discover$/);
   await page.getByTestId("back-link").click();
   await expect(page).toHaveURL(/\/kids$/);
 });
@@ -78,7 +91,7 @@ test("a child asks a grown-up for a story, and it waits on Family Home with a wa
   await page.getByTestId("ask-thumbelina").click();
   await expect(page.getByTestId("asked-thumbelina")).toBeVisible();
   // Asking only sends the request: the book still isn't playable and nothing here prepares it.
-  await expect(page.getByTestId("discover-books").getByRole("link")).toHaveCount(0);
+  await expect(page.getByTestId("discover-books").locator('a[href^="/kids/listen/"]')).toHaveCount(0);
   await page.reload();
   await expect(page.getByTestId("asked-thumbelina")).toBeVisible();
   await noOverflow(page);

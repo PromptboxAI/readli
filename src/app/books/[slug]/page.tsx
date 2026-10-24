@@ -6,6 +6,7 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { authConfigured } from "@/lib/auth/supabase";
+import { bookOpening } from "@/lib/library/opening";
 import { type PublicBook, publicBook, publicLibrary } from "@/lib/library/public";
 import { absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
 
@@ -41,6 +42,7 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
   const book = publicBook((await params).slug);
   if (!book) notFound();
   const prepare = `/family/books/${book.slug}`;
+  const opening = bookOpening(book.slug);
   const bookLd = {
     "@context": "https://schema.org",
     "@type": "Book",
@@ -92,6 +94,19 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
             </p>
           ) : (
             <>
+              {opening.length > 0 && (
+                <section aria-labelledby="opening-h" className="flex flex-col gap-2.5 rounded-3xl border-[3px] border-sunshine bg-surface p-5 sm:px-6" data-testid="public-opening">
+                  <h2 id="opening-h" className="font-display text-2xl font-semibold">
+                    How it starts
+                  </h2>
+                  {opening.map((p, i) => (
+                    <p key={i} className="text-lg leading-relaxed whitespace-pre-line">
+                      {p}
+                    </p>
+                  ))}
+                  <p className="text-sm text-muted">Word for word from the edition your family will hear.</p>
+                </section>
+              )}
               {book.chapters.length > 1 && (
                 <section aria-labelledby="chapters-h" className="flex flex-col gap-2">
                   <h2 id="chapters-h" className="font-display text-2xl font-semibold">
