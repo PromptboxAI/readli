@@ -20,7 +20,15 @@ export interface Mailer {
   send(email: OutgoingEmail): Promise<{ id: string }>;
 }
 
-export class MailerError extends Error {}
+export class MailerError extends Error {
+  constructor(
+    message: string,
+    /** Resend's HTTP status, when it answered. */
+    readonly status?: number,
+  ) {
+    super(message);
+  }
+}
 
 export class ResendMailer implements Mailer {
   constructor(
@@ -39,7 +47,7 @@ export class ResendMailer implements Mailer {
       },
       body: JSON.stringify({ from: this.from, to: [email.to], subject: email.subject, html: email.html, text: email.text, headers: email.headers }),
     });
-    if (!res.ok) throw new MailerError(`resend ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    if (!res.ok) throw new MailerError(`resend ${res.status}: ${(await res.text()).slice(0, 200)}`, res.status);
     const body = (await res.json()) as { id?: string };
     return { id: body.id ?? "" };
   }
