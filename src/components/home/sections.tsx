@@ -4,7 +4,6 @@ import { DemoBookShelf } from "@/components/books/DemoBookShelf";
 import { SocialIcon } from "@/components/brand/SocialIcon";
 import { FamilyTree } from "@/components/home/FamilyTree";
 import { HeroBedtimeScene } from "@/components/home/HeroBedtimeScene";
-import { FamilyOfStorytellers, HearLovedOnes, MakeStorytimeYourOwn } from "@/components/home/StoryIllustrations";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
@@ -236,7 +235,7 @@ const FAMILY_STEPS = [
 export function HowFamiliesWork() {
   return (
     <section id="how-it-works" aria-labelledby="how-heading" className="scroll-mt-20 bg-lavender/40">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 sm:gap-8 sm:px-6 sm:py-14">
+      <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-10 sm:gap-6 sm:px-6 sm:py-12">
         <h2 id="how-heading" className="font-display text-3xl font-semibold sm:text-4xl">
           How Readli Family Works
         </h2>
@@ -268,6 +267,9 @@ export function HowFamiliesWork() {
             ))}
           </ol>
         </div>
+        <p className="text-[15px] font-semibold text-ink/85 sm:text-base">
+          Grandparents and loved ones can start for free, too. Record your voice, invite your family, and let them listen when they&apos;re ready.
+        </p>
         <div className="flex max-w-3xl items-center gap-3.5 rounded-[20px] bg-lavender/45 px-4 py-3 sm:px-5">
           <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface/80" aria-hidden="true">
             <svg viewBox="0 0 24 24" className="size-[22px]">
@@ -280,53 +282,6 @@ export function HowFamiliesWork() {
             Each voice belongs to the person who recorded it. Only they can share it, and they can turn sharing off anytime.
           </p>
         </div>
-      </div>
-    </section>
-  );
-}
-
-const WAYS = [
-  {
-    title: "Hear the people you love",
-    body: "From parents and grandparents to aunts, uncles, and family friends. Their voices make every story special.",
-    bg: "bg-sunshine/35",
-    Art: HearLovedOnes,
-  },
-  {
-    title: "Bring your family together",
-    body: "Invite loved ones to record their voices and create your own family of storytellers. Near or far, everyone's just a story away.",
-    bg: "bg-mint/45",
-    Art: FamilyOfStorytellers,
-  },
-  {
-    title: "Make storytime your own",
-    body: "Follow along as the words come to life. Switch storytellers anytime without losing your place.",
-    bg: "bg-sky/40",
-    Art: MakeStorytimeYourOwn,
-  },
-];
-
-export function ThreeWaysToListen() {
-  return (
-    <section aria-labelledby="ways-heading" className="bg-ivory">
-      <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-14 sm:px-6">
-        <h2 id="ways-heading" className="max-w-3xl font-display text-3xl font-semibold sm:text-4xl">
-          Every family has a story. Every voice makes it special.
-        </h2>
-        <ul className="grid gap-6 md:grid-cols-3">
-          {/* v2 (Kevin, 2026-10-13): soft tinted tiles with the text inside, no tilt. */}
-          {WAYS.map(({ title, body, bg, Art }) => (
-            <li key={title} className={`flex flex-col overflow-hidden rounded-[var(--radius-panel)] ring-1 ring-ink/5 ring-inset ${bg}`}>
-              <div className="h-[250px] md:h-[260px]">
-                <Art />
-              </div>
-              <div className="flex flex-col gap-2 px-7 pt-1 pb-7">
-                <h3 className="font-display text-xl font-semibold">{title}</h3>
-                <p className="text-ink/80">{body}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
       </div>
     </section>
   );

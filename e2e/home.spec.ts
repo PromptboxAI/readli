@@ -5,7 +5,7 @@ test("homepage follows the design brief order with six books under the demo", as
   const headings = await page.locator("main h2").allInnerTexts();
   expect(headings.slice(0, 2)).toEqual(["Hear your voice tell a story.", "Pick a story to hear in your voice"]);
   expect(headings).toEqual(
-    expect.arrayContaining(["How Readli Family Works", "Every family has a story. Every voice makes it special.", "Start a family library"]),
+    expect.arrayContaining(["How Readli Family Works", "One voice. Every grandchild. No distance between them.", "Start a family library"]),
   );
   expect(headings).not.toContain("Safe for families by design");
   expect(headings).not.toContain("Your book buddy, at rest and listening");
@@ -180,4 +180,22 @@ test("the closing section offers the 14-day Readli Family trial", async ({ page 
   await page.goto("/");
   await expect(page.getByTestId("family-trial-line")).toContainText("Try Readli Family free for 14 days. Card required, cancel any time.");
   await expect(page.getByRole("link", { name: "Start your free trial" })).toHaveAttribute("href", "/signup/family");
+});
+
+test("family journey steps through all five screens without autoplay", async ({ page }) => {
+  await page.goto("/");
+  const section = page.locator("#family-journey");
+  await section.scrollIntoViewIfNeeded();
+  await expect(section).toContainText("Your voice is ready");
+  // Nothing advances on its own.
+  await page.waitForTimeout(1500);
+  await expect(section).toContainText("Your voice is ready");
+  for (const label of ["Invite storytellers", "Sara's invitation", "Prepare narration", "Who reads to you?"]) {
+    await section.getByRole("button", { name: /Next/ }).click();
+    await expect(section).toContainText(label);
+  }
+  await expect(section.getByRole("button", { name: /Next/ })).toBeDisabled();
+  await expect(section.getByRole("link", { name: "Explore Readli Family" }).first()).toHaveAttribute("href", "/pricing");
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
 });
