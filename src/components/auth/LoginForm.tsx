@@ -13,8 +13,9 @@ function client() {
 /**
  * Email link or Google. New grown-ups get an account the first time they sign in.
  * Pass onSentChange when the page owns the heading: it then shows "Check your email" itself and the card drops its title.
+ * Signup pages pass askMarketing for an unticked opt-in to Bedtime Thursdays and news, saved after sign-in.
  */
-export function LoginForm({ next, onSentChange }: { next: string; onSentChange?: (sent: boolean) => void }) {
+export function LoginForm({ next, onSentChange, askMarketing = false }: { next: string; onSentChange?: (sent: boolean) => void; askMarketing?: boolean }) {
   const id = useId();
   const [email, setEmail] = useState("");
   const [state, setStateRaw] = useState<"idle" | "sending" | "sent">("idle");
@@ -24,13 +25,14 @@ export function LoginForm({ next, onSentChange }: { next: string; onSentChange?:
   };
   const [error, setError] = useState<string | null>(null);
   const [toGoogle, setToGoogle] = useState(false);
+  const [news, setNews] = useState(false);
   // Coming back from Google with the Back button restores this page from cache; reset the button.
   useEffect(() => {
     const reset = (e: PageTransitionEvent) => e.persisted && setToGoogle(false);
     window.addEventListener("pageshow", reset);
     return () => window.removeEventListener("pageshow", reset);
   }, []);
-  const callback = () => `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+  const callback = () => `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}${askMarketing && news ? "&news=1" : ""}`;
 
   const google = async () => {
     setError(null);
@@ -75,6 +77,12 @@ export function LoginForm({ next, onSentChange }: { next: string; onSentChange?:
 
   return (
     <div className="flex w-full flex-col gap-4 text-left">
+      {askMarketing && (
+        <label className="flex items-start gap-3 text-sm">
+          <input type="checkbox" className="mt-0.5 size-5 accent-ink" checked={news} onChange={(e) => setNews(e.target.checked)} />
+          <span>Send me Bedtime Thursdays, a weekly email with two new stories, and occasional Readli news. You can stop any time.</span>
+        </label>
+      )}
       <button type="button" onClick={google} disabled={toGoogle} aria-busy={toGoogle} className={`${buttonSecondary} w-full active:bg-ink/10 disabled:opacity-80`}>
         {toGoogle ? (
           <span aria-hidden="true" className="size-5 animate-spin rounded-full border-[3px] border-ink/25 border-t-ink" />

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AccountSettings } from "@/components/account/AccountSettings";
 import { ProfilePhoto } from "@/components/account/ProfilePhoto";
+import { EmailPreferencesForm } from "@/components/email/EmailPreferencesForm";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { BackLink } from "@/components/family/BackLink";
 import { FamilyOff, FamilyShell, NeedsGrownUp } from "@/components/family/FamilyShell";
@@ -9,6 +10,7 @@ import { photoUrl } from "@/lib/account/photos";
 import { deletionBlockers } from "@/lib/account/privacy";
 import { signedInAccount } from "@/lib/account/server";
 import { authConfigured } from "@/lib/auth/supabase";
+import { preferencesFor } from "@/lib/email/preferences";
 import { familyPage } from "@/lib/family/page-data";
 
 export const dynamic = "force-dynamic";
@@ -45,6 +47,7 @@ export default async function AccountPage() {
         <h1 className="mt-2 font-display text-4xl font-semibold">Account settings</h1>
       </div>
       <ProfilePhoto name={name} tint={tint} avatarUrl={avatarUrl} />
+      <EmailPreferencesForm initial={await preferencesFor(db, user.id)} />
       <AccountSettings name={name} email={user.email} blockers={await deletionBlockers(db, user.id)} />
     </FamilyShell>
   );
