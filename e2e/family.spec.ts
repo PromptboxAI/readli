@@ -452,11 +452,8 @@ test("family storytellers: invite into a free slot, see who's on the way, and on
 
   await page.getByTestId("slot-voice-rose").getByRole("button", { name: "Free up this slot" }).click();
   await expect(page.getByTestId("slots-used")).toHaveText("3 of 4 slots used");
-  // Uncle Sam's voice is still being made, so the freed slot is held for him until he's removed.
-  await expect(page.getByTestId("reserved-slot")).toContainText("Held for Uncle Sam");
-  page.once("dialog", (d) => d.accept());
-  await page.getByTestId("slot-voice-sam").getByRole("button", { name: "Remove from family" }).click();
-  await expect(page.getByText("Uncle Sam was removed from your family.")).toBeVisible();
+  // Uncle Sam's voice is still being made, but nobody holds a slot until a parent adds a ready voice.
+  await expect(page.getByTestId("reserved-slot")).toHaveCount(0);
   const freeSlot = page.getByTestId("free-slot");
   await expect(freeSlot).toContainText("Available");
   // With an included slot open, there's no upsell.
@@ -473,18 +470,36 @@ test("family storytellers: invite into a free slot, see who's on the way, and on
   await expect(page.getByTestId("invite-sent")).toContainText("Invitation ready for Mommy");
   await expect(page.getByTestId("invite-sent")).toContainText("nothing was sent");
 
-  // Inviting holds the free slot for them without using it; the invitation shows as on the way and can be withdrawn.
+  // Inviting neither holds nor uses a slot; the invitation shows as on the way and can be withdrawn.
   await expect(page.getByTestId("slots-used")).toHaveText("3 of 4 slots used");
-  await expect(page.getByTestId("reserved-slot")).toContainText("Held for Mommy");
-  await expect(page.getByTestId("free-slot")).toHaveCount(0);
+  await expect(page.getByTestId("reserved-slot")).toHaveCount(0);
+  await expect(page.getByTestId("free-slot")).toContainText("Available");
   const invite = page.getByTestId("on-the-way").getByRole("listitem").filter({ hasText: "Mommy" });
   await expect(invite).toContainText("Invitation sent");
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/storytellers-on-the-way-${info.project.name}.png`, fullPage: true });
   await invite.getByRole("button", { name: "Withdraw" }).click();
   await expect(page.getByTestId("on-the-way").getByRole("listitem").filter({ hasText: "Mommy" })).toHaveCount(0);
-  await expect(page.getByTestId("reserved-slot")).toHaveCount(0);
   await expect(page.getByTestId("free-slot")).toContainText("Available");
+});
+
+test("family storytellers: a parent can still invite when every slot is in use", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/narrators");
+  // The preview family uses all four slots. Aunt Priya is ready, but can't be added until one frees up.
+  await expect(page.getByTestId("slots-used")).toHaveText("4 of 4 slots used");
+  await expect(page.getByTestId("free-slot")).toHaveCount(0);
+  const priya = page.getByTestId("slot-voice-priya");
+  await expect(priya.getByRole("button", { name: "Add to a slot" })).toBeDisabled();
+  await expect(priya.getByTestId("slots-full-note")).toBeVisible();
+
+  await page.getByRole("button", { name: "Invite a storyteller" }).click();
+  await page.getByTestId("invite-form").getByLabel("Their name").fill("Pat");
+  await page.getByRole("button", { name: "Create invitation" }).click();
+  await expect(page.getByTestId("invite-sent")).toContainText("Invitation ready for Pat");
+  await expect(page.getByTestId("slots-used")).toHaveText("4 of 4 slots used");
+  await expect(page.getByTestId("on-the-way").getByRole("listitem").filter({ hasText: "Pat" })).toContainText("Invitation sent");
+  await noOverflow(page);
 });
 
 test("family storytellers: a parent can remove a storyteller from the family", async ({ page }) => {
