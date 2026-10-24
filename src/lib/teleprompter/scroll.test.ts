@@ -19,7 +19,8 @@ describe("scroll math", () => {
   it("clamps and rounds speed", () => {
     expect(clampWpm(10)).toBe(80);
     expect(clampWpm(500)).toBe(200);
-    expect(clampWpm(133)).toBe(130);
+    expect(clampWpm(133)).toBe(135);
+    expect(clampWpm(145 + 10)).toBe(155);
   });
 
   it("estimates remaining time", () => {
@@ -28,7 +29,7 @@ describe("scroll math", () => {
   });
 
   it("finds the sentence on the reading line", () => {
-    const tops = [350, 420, 500, 600];
+    const tops = [150, 220, 300, 400];
     expect(activeIndex(tops, 0, 1000)).toBe(0);
     expect(activeIndex(tops, 80, 1000)).toBe(1);
     expect(activeIndex(tops, 10_000, 1000)).toBe(3);

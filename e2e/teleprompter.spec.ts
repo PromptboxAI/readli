@@ -93,7 +93,7 @@ test("speed and text size change without interrupting the take", async ({ page }
 
   await page.getByRole("button", { name: "Start recording" }).click();
   await page.getByRole("button", { name: "Increase scroll speed" }).click();
-  await expect(page.getByText("150 words/min")).toBeVisible();
+  await expect(page.getByText("155 words/min")).toBeVisible();
   const sizeGroup = page.getByRole("group", { name: "Text size" });
   const before = await sizeGroup.textContent();
   await page.getByRole("button", { name: "Increase text size" }).click();

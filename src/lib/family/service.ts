@@ -395,8 +395,18 @@ export function requireHouseholdGuardian(state: FamilyState, actor: Actor | null
 /** The first household where this adult is a guardian, for the signed-in dashboard. */
 export async function guardianHousehold(store: FamilyStore, actor: Actor | null): Promise<string | null> {
   if (actor?.kind !== "adult") return null;
-  const state = await store.read();
-  return state.members.find((m) => m.adultId === actor.adultId && m.role === "guardian" && m.removedAt === null)?.householdId ?? null;
+  return homeHousehold(await store.read(), actor.adultId);
+}
+
+/**
+ * The family a grown-up looks after, the one they joined first. Every family page uses this, so a
+ * grown-up who is a parent in two families sees the same one (its credits and bookshelves) on every
+ * page; the database returns memberships in no fixed order.
+ */
+export function homeHousehold(state: FamilyState, adultId: string): string | null {
+  const mine = state.members.filter((m) => m.adultId === adultId && m.role === "guardian" && m.removedAt === null);
+  mine.sort((a, b) => a.joinedAt.localeCompare(b.joinedAt) || a.householdId.localeCompare(b.householdId));
+  return mine[0]?.householdId ?? null;
 }
 
 /**
@@ -420,8 +430,8 @@ export async function dismissNotices(store: FamilyStore, actor: Actor | null, th
 export async function createHousehold(store: FamilyStore, actor: Actor | null, name: string, clock: Clock = now): Promise<string> {
   const adultId = requireAdult(actor);
   const state = await store.read();
-  const existing = state.members.find((m) => m.adultId === adultId && m.role === "guardian" && m.removedAt === null);
-  if (existing) return existing.householdId;
+  const existing = homeHousehold(state, adultId);
+  if (existing) return existing;
   const familyName = name.trim().slice(0, 60);
   if (!familyName) throw new PermissionError(400, "bad_name", "Give your family a name.");
   const id = randomUUID();
@@ -610,6 +620,39 @@ export async function releaseNarrator(store: FamilyStore, actor: Actor | null, h
       }
     }
     audit(s, adultId, "narrator_released", at, { voiceId, householdId });
+  });
+}
+
+/**
+ * Removes a storyteller from the family: they leave the household, any narrator slot their voice held
+ * is freed and every child's approval for it ends. Their voice and account stay theirs. Parents and
+ * guardians can't be removed here, and inviting them back starts over.
+ */
+export async function removeStoryteller(store: FamilyStore, actor: Actor | null, householdId: string, adultId: string, clock: Clock = now): Promise<void> {
+  const state = await store.read();
+  const viewerId = requireHouseholdGuardian(state, actor, householdId);
+  const member = state.members.find((m) => m.householdId === householdId && m.adultId === adultId && m.removedAt === null);
+  if (!member) throw new PermissionError(404, "not_member", "That storyteller isn't part of your family.");
+  if (adultId === viewerId || member.role === "guardian") throw new PermissionError(409, "is_guardian", "Parents and guardians can't be removed as storytellers.");
+  const at = clock().toISOString();
+  const voices = new Set(state.voices.filter((v) => v.ownerId === adultId).map((v) => v.id));
+  await store.write((s) => {
+    for (const m of s.members) if (m.householdId === householdId && m.adultId === adultId && m.removedAt === null) m.removedAt = at;
+    for (const a of s.slots) {
+      if (voices.has(a.voiceId) && a.householdId === householdId && a.releasedAt === null) {
+        a.releasedAt = at;
+        a.releasedBy = viewerId;
+        audit(s, viewerId, "narrator_released", at, { voiceId: a.voiceId, householdId, detail: "storyteller_removed" });
+      }
+    }
+    const kids = new Set(s.children.filter((c) => c.householdId === householdId).map((c) => c.id));
+    for (const a of s.approvals) {
+      if (voices.has(a.voiceId) && kids.has(a.childId) && a.revokedAt === null) {
+        a.revokedAt = at;
+        a.revokedBy = viewerId;
+        a.revokeReason = "slot_released";
+      }
+    }
   });
 }
 

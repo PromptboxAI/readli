@@ -41,6 +41,18 @@ describe("family home", () => {
     expect(familyHome(state, DEMO_HOUSEHOLD_ID).ready).toEqual([]);
   });
 
+  it("keeps a prepared book in view when no child can hear its narrator yet, with the step that's missing", () => {
+    const state = withReadyBook(withReadyBook(demoFamilyState()), SLUG, "voice-priya");
+    const view = familyHome(state, DEMO_HOUSEHOLD_ID);
+    // Aunt Priya shared her voice but has no narrator slot, so her reading is on no child's shelf.
+    expect(view.unassigned.map((b) => [b.slug, b.narrators.map((n) => n.name), b.detail, b.href])).toEqual([
+      [SLUG, ["Aunt Priya"], "Give Aunt Priya a narrator slot, then choose which kids hear it", `/family/books/${SLUG}`],
+    ]);
+    // Mom's reading of the same book is on the shelf as usual.
+    expect(view.shelf.map((b) => b.slug)).toEqual([SLUG]);
+    expect(familyHome(withReadyBook(demoFamilyState()), DEMO_HOUSEHOLD_ID).unassigned).toEqual([]);
+  });
+
   it("puts each child's latest story first in Continue listening, with who reads it and how far along", () => {
     const state = withReadyBook(demoFamilyState());
     const total = bookText(SLUG)!.sentences.length;

@@ -117,7 +117,7 @@ test("kids see only approved narrators and can switch without losing their place
   await expect(page).toHaveURL(/\/kids$/);
 });
 
-test("the kids player buffers the next sentence so the story reads straight through", async ({ page }) => {
+test("the kids player buffers the next few sentences so the story reads straight through", async ({ page }) => {
   await signIn(page, "adult:sara");
   await page.goto("/family");
   await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
@@ -131,15 +131,34 @@ test("the kids player buffers the next sentence so the story reads straight thro
   });
   await page.getByRole("button", { name: "Play" }).click();
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
-  // The second sentence is fetched while the first is still playing.
-  await expect.poll(() => asked).toEqual([0, 1]);
+  // The next three sentences are fetched while the first is still playing, so a short line doesn't leave a gap.
+  await expect.poll(() => asked).toEqual([0, 1, 2, 3]);
   await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 2 of/, { timeout: 15_000 });
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
-  await expect.poll(() => asked.includes(2)).toBe(true);
+  await expect.poll(() => asked.includes(4)).toBe(true);
   await page.getByRole("button", { name: "Pause" }).click();
   // Paused partway, the story can start again from the beginning.
   await page.getByRole("button", { name: "Start over" }).click();
   await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 1 of/);
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await page.getByRole("button", { name: "Pause" }).click();
+});
+
+test("the kids player skips a sentence whose audio won't play instead of stopping", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family");
+  await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
+  await expect(page.getByTestId("current-narrator")).toHaveText("Mom");
+
+  // The second sentence's audio is broken every time it is asked for.
+  await page.route("**/api/kids/narrations", async (route) => {
+    const { sentence } = route.request().postDataJSON() as { sentence: number };
+    if (sentence !== 1) return route.continue();
+    await route.fulfill({ json: { url: "/missing-sentence.mp3", expiresAt: new Date(Date.now() + 60_000).toISOString() } });
+  });
+  await page.getByRole("button", { name: "Play" }).click();
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/, { timeout: 30_000 });
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   await page.getByRole("button", { name: "Pause" }).click();
 });
@@ -156,7 +175,7 @@ test("the kids player keeps reading when its listening session lapses", async ({
     if (r.url().endsWith("/api/kids/narrations") && r.method() === "POST") asked.push((r.postDataJSON() as { sentence: number }).sentence);
   });
   await page.getByRole("button", { name: "Play" }).click();
-  await expect.poll(() => asked).toEqual([0, 1]);
+  await expect.poll(() => asked).toEqual([0, 1, 2, 3]);
   // The server forgets the session, as it does after the page sits idle.
   expect((await page.request.delete("/api/kids/maya/listening")).status()).toBeLessThan(300);
   await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/, { timeout: 30_000 });
@@ -433,6 +452,11 @@ test("family storytellers: invite into a free slot, see who's on the way, and on
 
   await page.getByTestId("slot-voice-rose").getByRole("button", { name: "Free up this slot" }).click();
   await expect(page.getByTestId("slots-used")).toHaveText("3 of 4 slots used");
+  // Uncle Sam's voice is still being made, so the freed slot is held for him until he's removed.
+  await expect(page.getByTestId("reserved-slot")).toContainText("Held for Uncle Sam");
+  page.once("dialog", (d) => d.accept());
+  await page.getByTestId("slot-voice-sam").getByRole("button", { name: "Remove from family" }).click();
+  await expect(page.getByText("Uncle Sam was removed from your family.")).toBeVisible();
   const freeSlot = page.getByTestId("free-slot");
   await expect(freeSlot).toContainText("Available");
   // With an included slot open, there's no upsell.
@@ -449,14 +473,29 @@ test("family storytellers: invite into a free slot, see who's on the way, and on
   await expect(page.getByTestId("invite-sent")).toContainText("Invitation ready for Mommy");
   await expect(page.getByTestId("invite-sent")).toContainText("nothing was sent");
 
-  // Inviting doesn't use a slot; the invitation shows as on the way and can be withdrawn.
+  // Inviting holds the free slot for them without using it; the invitation shows as on the way and can be withdrawn.
   await expect(page.getByTestId("slots-used")).toHaveText("3 of 4 slots used");
+  await expect(page.getByTestId("reserved-slot")).toContainText("Held for Mommy");
+  await expect(page.getByTestId("free-slot")).toHaveCount(0);
   const invite = page.getByTestId("on-the-way").getByRole("listitem").filter({ hasText: "Mommy" });
   await expect(invite).toContainText("Invitation sent");
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/storytellers-on-the-way-${info.project.name}.png`, fullPage: true });
   await invite.getByRole("button", { name: "Withdraw" }).click();
   await expect(page.getByTestId("on-the-way").getByRole("listitem").filter({ hasText: "Mommy" })).toHaveCount(0);
+  await expect(page.getByTestId("reserved-slot")).toHaveCount(0);
+  await expect(page.getByTestId("free-slot")).toContainText("Available");
+});
+
+test("family storytellers: a parent can remove a storyteller from the family", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/narrators");
+  const lou = page.getByTestId("slot-voice-lou");
+  await expect(lou).toContainText("Not shared yet");
+  page.once("dialog", (d) => d.accept());
+  await lou.getByRole("button", { name: "Remove from family" }).click();
+  await expect(page.getByText("Grandpa Lou was removed from your family.")).toBeVisible();
+  await expect(page.getByTestId("slot-voice-lou")).toHaveCount(0);
 });
 
 test("family storytellers: a family's nickname for a storyteller shows only in that family", async ({ page }) => {

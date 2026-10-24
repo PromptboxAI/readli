@@ -5,7 +5,9 @@ import { VoiceSetup } from "@/components/accounts/VoiceSetup";
 import { currentAdult } from "@/lib/auth/adult";
 import { safeNext } from "@/lib/auth/supabase";
 import { serverConfig } from "@/lib/server/config";
+import { currentGuest, guestDemoDeps } from "@/lib/server/guest-demo";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
+import { findGuestTake } from "@/lib/voice/guest-handoff";
 import { familyPage } from "@/lib/family/page-data";
 import { isParent } from "@/lib/family/storyteller";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
@@ -24,6 +26,9 @@ export default async function VoiceRecordPage({ searchParams }: { searchParams: 
   const existing = deps && user ? await deps.store.findVoice(user.id).catch(() => null) : null;
   const page = user ? await familyPage() : null;
   const parent = Boolean(user && page?.enabled && isParent(page.state, user.id));
+  // The take this browser recorded on /try, while its 24 hours last, so they needn't read again.
+  const guestDeps = user ? guestDemoDeps() : null;
+  const guestTake = guestDeps ? await currentGuest(guestDeps).then((g) => findGuestTake(guestDeps.store, g)).catch(() => null) : null;
   return (
     <AdultPage wide>
       <header className="flex flex-col gap-2">
@@ -34,7 +39,13 @@ export default async function VoiceRecordPage({ searchParams }: { searchParams: 
         <h1 className="font-display text-4xl font-semibold sm:text-5xl">Make your Readli voice</h1>
       </header>
       {user ? (
-        <AccountVoiceSetup hasVoice={Boolean(existing)} next={next || undefined} parent={parent} />
+        <AccountVoiceSetup
+          hasVoice={Boolean(existing)}
+          next={next || undefined}
+          parent={parent}
+          guestTake={guestTake}
+          guestCleanUp={p.cleanup === "1"}
+        />
       ) : (
         <>
           <PreviewNote>Your recording stays in this browser. Nothing is saved yet.</PreviewNote>

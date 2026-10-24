@@ -11,7 +11,8 @@ let restoring = false;
  * back-forward cache is reloaded, so the server decides again (on a device that has since become a
  * Readli Kids device, that sends Back to the kids bookshelf). A page the app's router restores from
  * its own cache on Back is refreshed once it is showing, so a change made on the next page (an
- * approval, a slot) shows. Refreshing earlier could refresh the page being left instead.
+ * approval, a slot) shows. Refreshing earlier could refresh the page being left instead. A tab
+ * the grown-up switches back to is refreshed too.
  */
 export function ReloadOnRestore() {
   const router = useRouter();
@@ -22,13 +23,18 @@ export function ReloadOnRestore() {
     const onPop = () => {
       restoring = true;
     };
+    // A tab left open while something changed elsewhere (a book finished preparing, credits spent)
+    // asks the server again when the grown-up comes back to it.
+    const onVisible = () => document.visibilityState === "visible" && router.refresh();
     window.addEventListener("pageshow", onShow);
     window.addEventListener("popstate", onPop);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       window.removeEventListener("pageshow", onShow);
       window.removeEventListener("popstate", onPop);
+      document.removeEventListener("visibilitychange", onVisible);
     };
-  }, []);
+  }, [router]);
 
   // Runs when the restored page mounts or its path changes, i.e. after the router has switched to it.
   useEffect(() => {

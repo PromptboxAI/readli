@@ -35,6 +35,8 @@ export interface GuestStore {
   findSession(tokenHash: string): Promise<GuestSession | null>;
   saveRecording(sessionId: string, audio: Blob, meta: RecordingMeta): Promise<{ recordingId: string }>;
   latestRecording(sessionId: string): Promise<{ audio: Blob; mimeType: string } | null>;
+  /** How the latest take was recorded, so it can become an account voice without reading again. */
+  latestRecordingMeta(sessionId: string): Promise<Omit<RecordingMeta, "mimeType"> | null>;
   setVoice(sessionId: string, providerVoiceId: string): Promise<void>;
   getVoice(sessionId: string): Promise<string | null>;
   /** How many provider voices this guest has made (retakes each make one). */
@@ -67,7 +69,7 @@ function extensionFor(mimeType: string): string {
 interface MemoryGuest {
   session: GuestSession;
   tokenHash: string;
-  recordings: { key: string; audio: Blob; mimeType: string }[];
+  recordings: { key: string; audio: Blob; mimeType: string; meta: RecordingMeta }[];
   previews: Map<string, { audio: Blob; contentType: string }>;
   voiceId: string | null;
 }
@@ -102,13 +104,20 @@ export class MemoryGuestStore implements GuestStore {
 
   async saveRecording(sessionId: string, audio: Blob, meta: RecordingMeta) {
     const key = `${sessionId}/${randomUUID()}.${extensionFor(meta.mimeType)}`;
-    this.guest(sessionId).recordings.push({ key, audio, mimeType: baseMimeType(meta.mimeType) });
+    this.guest(sessionId).recordings.push({ key, audio, mimeType: baseMimeType(meta.mimeType), meta });
     return { recordingId: key };
   }
 
   async latestRecording(sessionId: string) {
     const r = this.guest(sessionId).recordings.at(-1);
     return r ? { audio: r.audio, mimeType: r.mimeType } : null;
+  }
+
+  async latestRecordingMeta(sessionId: string) {
+    const r = this.guest(sessionId).recordings.at(-1);
+    if (!r) return null;
+    const { durationMs, teleprompterWpm, pauseCount, deviceClass, scriptOffsetEnd } = r.meta;
+    return { durationMs, teleprompterWpm, pauseCount, deviceClass, scriptOffsetEnd };
   }
 
   async setVoice(sessionId: string, voiceId: string) {
@@ -316,6 +325,28 @@ export class SupabaseGuestStore implements GuestStore {
     const { data, error } = await this.db.storage.from(BUCKET).download(row.storage_key);
     if (error || !data) throw new Error(`download recording: ${error?.message ?? "empty"}`);
     return { audio: data, mimeType: data.type || "audio/webm" };
+  }
+
+  async latestRecordingMeta(sessionId: string) {
+    // Written with the recording in saveRecording, so the newest row describes the newest take.
+    const row = await this.maybe(
+      this.db
+        .from("voice_training_sessions")
+        .select("recorded_duration_ms, teleprompter_speed, pause_events_count, device_class, script_offset_end")
+        .eq("guest_session_id", sessionId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      "find latest take",
+    );
+    if (!row) return null;
+    return {
+      durationMs: row.recorded_duration_ms as number,
+      teleprompterWpm: (row.teleprompter_speed as number | null) ?? null,
+      pauseCount: (row.pause_events_count as number | null) ?? 0,
+      deviceClass: (row.device_class as RecordingMeta["deviceClass"]) ?? null,
+      scriptOffsetEnd: (row.script_offset_end as number | null) ?? null,
+    };
   }
 
   async setVoice(sessionId: string, voiceId: string) {

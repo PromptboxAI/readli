@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { applyBillingChange, recordRevenue } from "@/lib/billing/apply";
 import { billingConfig } from "@/lib/billing/config";
-import { billingChange } from "@/lib/billing/events";
+import { billingChange, invitationBilling } from "@/lib/billing/events";
 import { revenueRows } from "@/lib/billing/revenue";
 import { verifyStripeSignature } from "@/lib/billing/stripe-signature";
 import { accountDb } from "@/lib/family/account-store";
+import { recordInvitationBilling } from "@/lib/invitations/server";
 import { fail } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +23,8 @@ interface StripeEvent {
  * Stripe webhook. While payments are off it answers 404 as if it didn't exist. When on, it accepts
  * only correctly signed events whose mode matches ours, stores each event once and applies it once:
  * subscription events start, update or end the household's Readli Family plan, and paid invoices,
- * one-time payments and refunds are recorded for the admin finance report. A failed apply is
+ * one-time payments and refunds are recorded for the admin finance report, and a trial or first
+ * payment is credited to the storyteller invitation that brought the family in. A failed apply is
  * recorded and answered with a 500, so Stripe retries it.
  */
 export async function POST(req: Request) {
@@ -63,6 +65,9 @@ export async function POST(req: Request) {
     await db.from("payment_events").update({ error: String(err instanceof Error ? err.message : err).slice(0, 500) }).eq("id", stored.id);
     return fail(500, "apply_failed", "Couldn't apply the event.");
   }
+  // The invite funnel is reporting only: a failure here never makes Stripe retry a plan change.
+  const funnel = invitationBilling(event);
+  if (funnel) await recordInvitationBilling(db, funnel).catch(() => undefined);
   await db.from("payment_events").update({ processed_at: new Date().toISOString(), error: null }).eq("id", stored.id);
   return NextResponse.json({ received: true, duplicate: false });
 }

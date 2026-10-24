@@ -147,8 +147,8 @@ test("a ready story opens the grown-up player and plays stored audio", async ({ 
   await player.getByRole("button", { name: "Play" }).click();
   expect((await listen).status()).toBe(200);
   await expect(player.getByRole("button", { name: "Pause" })).toBeVisible();
-  // The next sentence is buffered while this one plays, so the story reads straight through.
-  await expect.poll(() => asked).toEqual([0, 1]);
+  // The next few sentences are buffered while this one plays, so the story reads straight through.
+  await expect.poll(() => asked).toEqual([0, 1, 2, 3]);
   await expect(player.getByTestId("sentence-position")).toHaveText(/Sentence 2 of/, { timeout: 15_000 });
   await expect(player.getByRole("button", { name: "Pause" })).toBeVisible();
   // Paused partway, the story can start again from the beginning.
@@ -182,6 +182,17 @@ test("a book page sets up a storyteller in place, prepares the audiobook and pla
   await expect(setup).toContainText("In a narrator slot");
   await setup.getByRole("switch", { name: "Aunt Priya for Maya" }).click();
   await expect(setup.getByRole("switch", { name: "Aunt Priya for Maya" })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByText("Maya can listen to Aunt Priya.")).toBeVisible();
+
+  // The approval is saved: after a reload it still shows, and Change opens the switches with Done to close them.
+  await page.reload();
+  await page.getByTestId("narrator-voice-priya").click();
+  await expect(priya.getByTestId("setup")).toHaveCount(0);
+  await expect(priya.locator("dt", { hasText: "Approved for" }).locator("+ dd")).toContainText("Maya");
+  await priya.getByRole("button", { name: "Change" }).click();
+  await expect(setup.getByRole("switch", { name: "Aunt Priya for Maya" })).toHaveAttribute("aria-checked", "true");
+  await priya.getByTestId("setup-done").click();
+  await expect(priya.getByTestId("setup")).toHaveCount(0);
 
   await priya.getByRole("button", { name: "Prepare whole book" }).click();
   await priya.getByTestId("confirm-generation").getByRole("button", { name: "Prepare now" }).click();

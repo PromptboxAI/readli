@@ -222,6 +222,11 @@ export function BookCatalog({
                 <span className="text-sm" data-testid="cost">
                   {cost(b)}
                 </span>
+                {inVoice(b)?.update && (
+                  <span className="w-fit rounded-full bg-sunshine px-2.5 py-0.5 text-xs font-semibold text-ink" data-testid="update-badge">
+                    Update available
+                  </span>
+                )}
               </Link>
             </li>
           ))}

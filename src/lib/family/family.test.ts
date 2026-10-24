@@ -4,6 +4,7 @@ import type { Actor, FamilyState } from "./model";
 import { childVoiceAccess, storytellerStatus } from "./permissions";
 import {
   activateNarrator,
+  homeHousehold,
   MemoryFamilyStore,
   narratorsFor,
   PermissionError,
@@ -210,5 +211,17 @@ describe("family preview session cookie", () => {
     expect(decodeSession(value.replace("child:maya", "adult:sara"), "k")).toBeNull();
     expect(decodeSession(value, "other-key")).toBeNull();
     expect(decodeSession("nonsense", "k")).toBeNull();
+  });
+});
+
+describe("a parent in two families", () => {
+  it("always sees the family they joined first, whatever order the memberships load in", () => {
+    const state = demoFamilyState();
+    state.households.push({ id: "second-home", name: "Grandma's" });
+    state.members.unshift({ householdId: "second-home", adultId: "sara", role: "guardian", joinedAt: "2099-01-01T00:00:00.000Z", removedAt: null });
+    expect(homeHousehold(state, "sara")).toBe(DEMO_HOUSEHOLD_ID);
+    state.members.reverse();
+    expect(homeHousehold(state, "sara")).toBe(DEMO_HOUSEHOLD_ID);
+    expect(homeHousehold(state, "nobody")).toBeNull();
   });
 });

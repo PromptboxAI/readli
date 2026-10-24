@@ -10,7 +10,7 @@ import { mapPosition } from "@/lib/narration/positions";
 import { parseMode, type PlayerMode } from "@/lib/player/pages";
 import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, TimeBar } from "./PlayerParts";
 import { StorytellerAvatar } from "./StorytellerAvatar";
-import { useGaplessAudio } from "./useGaplessAudio";
+import { AHEAD, useGaplessAudio } from "./useGaplessAudio";
 
 const MODE_KEY = "readli-grown-up-player-mode";
 
@@ -56,7 +56,14 @@ export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: L
   voiceRef.current = voiceId;
   const sentenceRef = useRef(sentence);
   sentenceRef.current = sentence;
-  const audio = useGaplessAudio({ ended: () => onEnded(), error: () => stop() });
+  const failures = useRef<{ key: string; count: number } | null>(null);
+  const audio = useGaplessAudio({
+    ended: () => {
+      failures.current = null;
+      onEnded();
+    },
+    error: (why) => onClipFailed(why),
+  });
 
   const voice = voices.find((v) => v.voiceId === voiceId) ?? null;
   // Counted in the text that voice reads, so a place right after switching voices checks the right sentence.
@@ -77,13 +84,20 @@ export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: L
       body: JSON.stringify({ voiceId: id, sentence: at, revision: revisionOf(id) }),
     });
 
-  /** Buffers the next sentence while this one plays, so the story flows without a pause. */
-  const prefetch = async (at: number, id: string) => {
-    if (at >= sentences.length || !readyAt(id, at)) return;
-    const res = await fetchUrl(at, id).catch(() => null);
-    if (!res?.ok || voiceRef.current !== id) return;
-    const { url } = (await res.json()) as { url: string };
-    audio.preload(`${id}:${at}`, url);
+  /** Buffers the next few prepared sentences while this one plays, so the story flows without a pause. */
+  const prefetch = (at: number, id: string) => {
+    const upcoming: { key: string; url: () => Promise<string | null> }[] = [];
+    for (let i = at + 1; i <= at + AHEAD && i < sentences.length && readyAt(id, i); i++) {
+      upcoming.push({
+        key: `${id}:${i}`,
+        url: async () => {
+          const res = await fetchUrl(i, id).catch(() => null);
+          if (!res?.ok || voiceRef.current !== id) return null;
+          return ((await res.json()) as { url: string }).url;
+        },
+      });
+    }
+    audio.preload(upcoming);
   };
 
   const play = async (at: number, id: string) => {
@@ -112,9 +126,33 @@ export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: L
       await audio.play(key, url);
       setPlaying(true);
       setLoading(false);
-      void prefetch(at + 1, id);
-    } catch {
+      prefetch(at, id);
+    } catch (why) {
+      onClipFailed(why, at);
+    }
+  };
+
+  /** A sentence whose audio won't load or play is fetched once more, then skipped, so one bad clip never stops the story. */
+  const onClipFailed = (why: unknown, at = sentenceRef.current) => {
+    const id = voiceRef.current;
+    // Pausing, seeking or switching storyteller interrupts a clip that is starting; that isn't a failure.
+    if (why instanceof DOMException && why.name === "AbortError") return;
+    console.warn(`Readli: sentence ${at + 1} didn't play`, why);
+    if (!id || (why instanceof DOMException && why.name === "NotAllowedError")) {
+      // The browser wants a tap before it plays again.
       stop();
+      setNotice("Story paused. Press Play to keep listening.");
+      return;
+    }
+    const key = `${id}:${at}`;
+    const tries = failures.current?.key === key ? failures.current.count + 1 : 1;
+    failures.current = { key, count: tries };
+    audio.clear();
+    if (tries === 1) {
+      void play(at, id);
+    } else {
+      sentenceRef.current = at;
+      onEnded();
     }
   };
 

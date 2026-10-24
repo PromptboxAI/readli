@@ -172,8 +172,8 @@ export function Teleprompter({ script, autoScroll, wpm, fontSizePx, resetKey, on
                       data-active={i === active || undefined}
                       className={
                         i === active
-                          ? "rounded-md bg-sunshine/45 text-ink transition-colors"
-                          : "text-ink/45 transition-colors"
+                          ? "rounded-md bg-sunshine/45 text-ink transition-colors duration-500 ease-out"
+                          : "text-ink/45 transition-colors duration-500 ease-out"
                       }
                     >
                       {s.text}{" "}

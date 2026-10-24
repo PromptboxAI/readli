@@ -3,6 +3,7 @@
 import { displayCredits } from "@/lib/narration/credits";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Availability, BookUpdate, GenerationQuote, PrepareBookView, PrepareVoiceView } from "@/lib/narration/narration";
 import { StorytellerAvatar } from "./StorytellerAvatar";
@@ -60,9 +61,12 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
   const [message, setMessage] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const url = `/api/family/books/${view.book.slug}/narration`;
-  const preparing = view.voices.some((v) => v.status.readiness === "preparing");
+  // An update being prepared counts too: the old audiobook still reads as Ready while it runs.
+  const preparing = view.voices.some((v) => v.status.readiness === "preparing" || v.jobId !== null);
   const balance = view.credits.available;
   const v = view.voices.find((x) => x.voiceId === selected) ?? null;
+  // A narration with a newer version of the story to update to; the selected narrator's first.
+  const updatable = [v, ...view.voices].find((x) => x?.update && !x.jobId) ?? null;
 
   const reload = useCallback(async () => {
     const res = await fetch(url, { cache: "no-store" });
@@ -74,6 +78,15 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
     const id = window.setInterval(reload, 1500);
     return () => window.clearInterval(id);
   }, [preparing, reload]);
+
+  // When a book finishes preparing, every page the browser kept (Home's bookshelf, the credit
+  // balance) is asked for again, so none shows the family as it was before.
+  const router = useRouter();
+  const wasPreparing = useRef(preparing);
+  useEffect(() => {
+    if (wasPreparing.current && !preparing) router.refresh();
+    wasPreparing.current = preparing;
+  }, [preparing, router]);
 
   const call = useCallback(
     async (init: RequestInit, target = url) => {
@@ -128,13 +141,14 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
   };
 
   /** One setup step done in place (share, narrator slot, a child's approval), then the page reloads. */
-  const setUp = async (target: string, method: "POST" | "PUT", body: unknown, done: string) => {
+  const setUp = async (target: string, method: "POST" | "PUT", body: unknown, done: string): Promise<boolean> => {
     setEditing(true);
     const ok = await call({ method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) }, target);
     if (ok) {
       await reload();
       setMessage(done);
     }
+    return Boolean(ok);
   };
 
   const choose = (id: string) => {
@@ -166,6 +180,28 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
         </span>
         <span className="hidden sm:inline">{view.book.title}</span>
       </nav>
+
+      {updatable && !pending && (
+        <div className="flex flex-col gap-3 rounded-2xl bg-sunshine/60 p-4 sm:flex-row sm:items-center sm:justify-between" role="status" data-testid="update-banner">
+          <p>
+            <strong>An updated version of this story is available</strong> for {updatable.name}&apos;s audiobook.{" "}
+            {updatable.update!.free || updatable.update!.credits === 0 ? "Updating is free." : `Updating costs ${n(updatable.update!.credits)} credits.`}
+          </p>
+          <button
+            type="button"
+            className={`${btnPrimary} shrink-0 self-start sm:self-center`}
+            disabled={busy}
+            onClick={() => {
+              setSelected(updatable.voiceId);
+              void estimate({ voiceId: updatable.voiceId, scope: "book" }).then(() =>
+                requestAnimationFrame(() => document.querySelector('[data-testid="confirm-generation"]')?.scrollIntoView({ behavior: "smooth", block: "center" })),
+              );
+            }}
+          >
+            Update audiobook
+          </button>
+        </div>
+      )}
 
       <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-8">
         {view.book.coverUrl ? (
@@ -254,6 +290,7 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
                   busy={busy}
                   showSetup={editing || !v.shared || !v.inSlot || v.approvedFor.length === 0}
                   onEdit={() => setEditing(true)}
+                  onDone={editing && v.shared && v.inSlot && v.approvedFor.length > 0 ? () => setEditing(false) : null}
                   onShare={() => setUp(`/api/family/voices/${v.voiceId}/share`, "PUT", { householdId: view.householdId, shared: true }, "Your voice is shared with this family.")}
                   onSlot={() => setUp("/api/family/narrators", "POST", { voiceId: v.voiceId, action: "activate" }, `${v.name} is in a narrator slot.`)}
                   onApprove={(kid, approved) =>
@@ -493,19 +530,25 @@ function UpdateAvailable({ update, preparing, busy, onEstimate }: { update: Book
   }
   const cost = update.free || update.credits === 0 ? "Free" : `${n(update.credits)} credits`;
   return (
-    <div className="flex flex-col gap-2 border-t border-ink/10 pt-3 text-sm" data-testid="book-update">
-      <p>
-        An updated version of this story is available.{" "}
-        <button type="button" className="font-semibold underline underline-offset-4" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-          See what changed
+    <div className="flex flex-col gap-3 border-t border-ink/10 pt-3 text-sm" data-testid="book-update">
+      <div className="flex flex-col gap-0.5">
+        <p className="font-semibold">An updated version of this story is available</p>
+        <p className="text-muted">
+          {update.changed === 1 ? "1 line reads differently." : `${update.changed} lines read differently.`}{" "}
+          {update.free ? "This is a Readli correction, so updating is free." : "Lines that haven't changed are reused at no cost."} Your current
+          audiobook keeps playing until the update is ready.
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <button type="button" className={btnSecondary} disabled={busy} onClick={onEstimate} data-testid="book-update-start">
+          Update audiobook · <span data-testid="book-update-cost">{cost}</span>
         </button>
-      </p>
+        <button type="button" className="font-semibold underline underline-offset-4" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          {open ? "Hide what changed" : "See what changed"}
+        </button>
+      </div>
       {open && (
         <div className="flex flex-col gap-2 rounded-lg bg-ivory p-3" data-testid="book-update-details">
-          <p className="text-muted">
-            {update.changed === 1 ? "1 line reads differently." : `${update.changed} lines read differently.`}{" "}
-            {update.free ? "This is a Readli correction, so updating is free." : "Lines that haven't changed are reused at no cost."}
-          </p>
           {update.before.length > 0 && (
             <div>
               <p className="font-semibold">Your audiobook says</p>
@@ -526,12 +569,6 @@ function UpdateAvailable({ update, preparing, busy, onEstimate }: { update: Book
               </ul>
             </div>
           )}
-          <p>
-            Cost: <span className="font-semibold" data-testid="book-update-cost">{cost}</span>. Your current audiobook keeps playing until the update is ready.
-          </p>
-          <button type="button" className={`${btnSecondary} self-start`} disabled={busy} onClick={onEstimate}>
-            Update audiobook
-          </button>
         </div>
       )}
     </div>
@@ -590,19 +627,45 @@ function Confirm({
   );
 }
 
-/** A compact on/off switch for adult settings. */
-function Switch({ checked, disabled, label, onChange }: { checked: boolean; disabled?: boolean; label: string; onChange: (next: boolean) => void }) {
+/**
+ * A compact on/off switch for adult settings. It slides as soon as it is tapped and stays there
+ * while the change saves; the saved value from the server then decides, so a failed save slides
+ * it back. Other taps wait while a change is saving, without greying anything out.
+ */
+function Switch({
+  checked,
+  disabled,
+  busy,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  busy?: boolean;
+  label: string;
+  onChange: (next: boolean) => Promise<boolean>;
+}) {
+  // The tapped value until the save settles; then the server's saved value again.
+  const [pending, setPending] = useState<boolean | null>(null);
+  const shown = pending ?? checked;
+  const toggle = async () => {
+    if (busy || pending !== null) return;
+    setPending(!shown);
+    await onChange(!shown);
+    setPending(null);
+  };
   return (
     <button
       type="button"
       role="switch"
-      aria-checked={checked}
+      aria-checked={shown}
       aria-label={label}
+      aria-busy={busy || undefined}
       disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${checked ? "bg-mint-deep" : "bg-ink/25"}`}
+      onClick={toggle}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-40 ${shown ? "bg-mint-deep" : "bg-ink/25"}`}
     >
-      <span aria-hidden="true" className={`absolute size-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-[1.375rem]" : "translate-x-0.5"}`} />
+      <span aria-hidden="true" className={`absolute size-5 rounded-full bg-white shadow transition-transform duration-200 ${shown ? "translate-x-[1.375rem]" : "translate-x-0.5"}`} />
     </button>
   );
 }
@@ -619,6 +682,7 @@ function NarratorDetails({
   busy,
   showSetup,
   onEdit,
+  onDone,
   onShare,
   onSlot,
   onApprove,
@@ -628,9 +692,11 @@ function NarratorDetails({
   busy: boolean;
   showSetup: boolean;
   onEdit: () => void;
+  /** Closes the setup again once it is complete; null while a step is still open. */
+  onDone: (() => void) | null;
   onShare: () => void;
   onSlot: () => void;
-  onApprove: (kid: PrepareVoiceView["kids"][number], approved: boolean) => void;
+  onApprove: (kid: PrepareVoiceView["kids"][number], approved: boolean) => Promise<boolean>;
 }) {
   const status = !v.shared ? "Not shared with your family yet" : !v.inSlot ? "Not in a narrator slot yet" : "Active for your family";
   const readyChapters = v.chapters.filter((c) => c.readiness === "ready").length;
@@ -683,6 +749,14 @@ function NarratorDetails({
                 {" · "}
                 <button type="button" className="font-semibold underline underline-offset-4" onClick={onEdit}>
                   Change
+                </button>
+              </>
+            )}
+            {onDone && (
+              <>
+                {" · "}
+                <button type="button" className="font-semibold underline underline-offset-4" onClick={onDone} data-testid="setup-done">
+                  Done
                 </button>
               </>
             )}
@@ -739,7 +813,7 @@ function NarratorDetails({
                 <ul className="flex flex-col gap-2">
                   {v.kids.map((k) => (
                     <li key={k.id} className="flex items-center gap-3">
-                      <Switch checked={k.approved} disabled={busy || !v.inSlot} label={`${v.name} for ${k.name}`} onChange={(next) => onApprove(k, next)} />
+                      <Switch checked={k.approved} busy={busy} disabled={!v.inSlot} label={`${v.name} for ${k.name}`} onChange={(next) => onApprove(k, next)} />
                       <span>{k.name}</span>
                     </li>
                   ))}
