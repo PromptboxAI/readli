@@ -543,6 +543,41 @@ test("family storytellers: a parent can change or clear a storyteller's relation
   await noOverflow(page);
 });
 
+test("family storytellers: the Circle shows who's in the family, whose voice is ready and who each child can hear", async ({ page }, info) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/narrators");
+  // List stays the default; open an invitation form there, then switch views.
+  await page.getByRole("button", { name: "Invite a storyteller" }).first().click();
+  await page.getByTestId("invite-form").getByLabel("Their name").fill("Pat");
+  await page.getByTestId("view-toggle").getByRole("button", { name: "Circle" }).click();
+  const circle = page.getByTestId("family-circle");
+  await expect(circle).toBeVisible();
+  await expect(page.getByTestId("storytellers-list")).toBeHidden();
+
+  // Children in the middle, everyone in the household around them.
+  await expect(circle.getByRole("list", { name: "Your children" }).getByRole("button")).toHaveCount(2);
+  await expect(circle.getByRole("list", { name: "Your storytelling circle" }).getByRole("button")).toHaveCount(7);
+  await page.getByTestId("circle-voice-june").click();
+  await expect(page.getByTestId("circle-card")).toContainText("In a slot");
+  await expect(page.getByTestId("circle-card")).toContainText("Maya can hear Grandma June.");
+  await circle.getByRole("button", { name: "Leo" }).click();
+  await expect(page.getByTestId("circle-card")).toContainText("Leo can hear Mom, Dad and Nana Rose.");
+  await expect(page.getByTestId("circle-card").getByRole("link", { name: "Manage Leo's storytellers" })).toHaveAttribute("href", "/family/kids/leo/storytellers");
+  await page.getByTestId("circle-voice-sam").click();
+  await expect(page.getByTestId("circle-card")).toContainText("Making their voice");
+  await noOverflow(page);
+  await page.screenshot({ path: `e2e/screenshots/family-circle-${info.project.name}.png`, fullPage: true });
+
+  // Priya's voice is ready but every slot is in use: the action lives on her List card.
+  await page.getByTestId("circle-voice-priya").click();
+  await expect(page.getByTestId("circle-card")).toContainText("every narrator slot is in use");
+  await page.getByTestId("circle-card").getByRole("button", { name: "See slot options" }).click();
+  await expect(page.getByTestId("storytellers-list")).toBeVisible();
+  await expect(page.getByTestId("slot-voice-priya")).toBeInViewport();
+  // Switching views kept the half-filled invitation.
+  await expect(page.getByTestId("invite-form").getByLabel("Their name")).toHaveValue("Pat");
+});
+
 test("Home's invite link opens the invite form on Family storytellers", async ({ page }) => {
   await signIn(page, "adult:sara");
   await page.goto("/family/narrators#invite");
