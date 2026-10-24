@@ -478,7 +478,7 @@ test("kids can't buy credits or start narration", async ({ page }) => {
   expect((await page.request.post("/api/family/books/aesops-fables-retold/narration", { data: { voiceId: "voice-june", scope: "chapter", chapter: 2, confirm: true } })).status()).toBe(403);
   await page.goto("/kids/discover");
   await expect(page.getByTestId("discover-aesops-fables-retold")).toContainText("Aesop's Fables");
-  await expect(page.getByRole("link", { name: /Aesop's Fables/ })).toHaveCount(0);
+  await expect(page.locator('a[href="/kids/listen/aesops-fables-retold"]')).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Prepare/ })).toHaveCount(0);
 });
 
