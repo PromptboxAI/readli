@@ -10,7 +10,7 @@
 
 import type { PolicySection } from "@/lib/content/privacy-policy";
 
-export const TERMS_EFFECTIVE_DATE = "October 23, 2026";
+export const TERMS_EFFECTIVE_DATE = "October 24, 2026";
 
 export const TERMS_INTRO: string[] = [
   'These Terms of Service ("Terms") govern access to readli.ai and the Readli Family, Readli Kids, Readli Voice, voice demo, and related services (together, "Readli" or the "Services"), provided by Readli.ai LLC ("Readli," "we," "us," or "our"). By creating an adult account or using the Services, you agree to these Terms and to our Privacy Policy (https://readli.ai/privacy). Parent or guardian consent is required for child-managed experiences as provided below.',
@@ -97,7 +97,7 @@ export const TERMS_SECTIONS: PolicySection[] = [
     title: "6. Voice demo",
     paragraphs: [
       {
-        text: "An anonymous voice demo may be available without an account. Before recording, the demo shows a consent notice naming our voice provider and explaining processing and deletion. Demo recordings, the demo voice, and generated demo audio are deleted within 24 hours of recording, as the Privacy Policy describes. Demo availability is not guaranteed and is subject to rate limits and fraud prevention.",
+        text: "An anonymous voice demo may be available without an account. Before recording, the demo shows a consent notice naming our voice provider and explaining processing and deletion. Demo recordings, the demo voice, and generated demo audio are deleted within 24 hours of recording, as the Privacy Policy describes. If you create an account before then and choose to use your demo recording as your voice, section 3 applies to it from then on. Demo availability is not guaranteed and is subject to rate limits and fraud prevention.",
       },
     ],
   },

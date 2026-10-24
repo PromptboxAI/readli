@@ -10,7 +10,7 @@
 export type PolicyParagraph = { lead?: string; text: string };
 export type PolicySection = { id: string; title: string; paragraphs: PolicyParagraph[] };
 
-export const PRIVACY_EFFECTIVE_DATE = "October 23, 2026";
+export const PRIVACY_EFFECTIVE_DATE = "October 24, 2026";
 
 export const PRIVACY_INTRO: string[] = [
   'Readli ("Readli," "we," "our," or "us"), operated by Readli.ai LLC at 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790, provides family storytelling, children’s reading, and optional AI-generated narration in voices that participating adults choose to record and share. This Privacy Policy describes how we collect, use, disclose, retain, and protect information when you visit readli.ai, try our voice demo, or use Readli Family, Readli Kids, Readli Voice, and related features (together, the "Services").',
@@ -87,7 +87,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
         text: "Visitors can record a short sample and hear a story preview without an account. Before recording, the demo shows a consent notice naming ElevenLabs and explaining processing and deletion.",
       },
       {
-        text: "The demo recording, the demo voice model at ElevenLabs, and generated demo audio are deleted automatically within 24 hours of recording. Readli runs the deletion every hour and retries any step that fails on the next run. Short-lived tokens, IP-based limits, and request limits protect the demo.",
+        text: "The demo recording, the demo voice model at ElevenLabs, and generated demo audio are deleted automatically within 24 hours of recording. Readli runs the deletion every hour and retries any step that fails on the next run. If you create an account on the same device before then and choose to use the take as your account voice, after agreeing to the account voice terms in section 3, Readli copies the recording into your account; the demo copy is still deleted on schedule. Short-lived tokens, IP-based limits, and request limits protect the demo.",
       },
     ],
   },
