@@ -132,6 +132,8 @@ export interface FamilyState {
   slots: NarratorSlotAssignment[];
   sessions: ListeningSession[];
   progress: ChildBookProgress[];
+  /** Each grown-up's own place in each book, per household. Optional so states saved before it existed still load. */
+  adultProgress?: AdultBookProgress[];
   favorites: { childId: string; bookSlug: string }[];
   libraries: NarrationLibrary[];
   segments: NarrationSegment[];
@@ -196,6 +198,23 @@ export interface ChildBookProgress {
   voiceId: string | null;
   /** The text `sentence` counts in; null for places saved before texts were versioned (resolved on read). */
   textRevision?: string | null;
+  /**
+   * When the listener reached this place, on the server's clock. A save only replaces a place heard
+   * earlier, so a late or offline save never moves a listener back. Null for places saved before this.
+   */
+  listenedAt?: string | null;
+  updatedAt: string;
+}
+
+/** A grown-up's own place in a book in one household, kept apart from every child's. */
+export interface AdultBookProgress {
+  adultId: string;
+  householdId: string;
+  bookSlug: string;
+  sentence: number;
+  voiceId: string | null;
+  textRevision: string | null;
+  listenedAt: string;
   updatedAt: string;
 }
 

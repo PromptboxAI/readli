@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { photoUrl } from "@/lib/account/photos";
 import { MemoryNarrationStorage, type NarrationStorage } from "@/lib/narration/storage";
-import type { AuditAction, ChildBookProgress, ChildVoiceApproval, CreditDraw, CreditSource, FamilyState, HouseholdEntitlement, JobScope, JobStatus, LedgerKind, NarrationSegment, SegmentStatus, VoiceStatus } from "./model";
+import type { AdultBookProgress, AuditAction, ChildBookProgress, ChildVoiceApproval, CreditDraw, CreditSource, FamilyState, HouseholdEntitlement, JobScope, JobStatus, LedgerKind, NarrationSegment, SegmentStatus, VoiceStatus } from "./model";
 import { planConfig, type PlanConfig } from "./plan";
 import type { FamilyStore } from "./service";
 
@@ -22,6 +22,7 @@ export function emptyFamilyState(): FamilyState {
     slots: [],
     sessions: [],
     progress: [],
+    adultProgress: [],
     favorites: [],
     libraries: [],
     segments: [],
@@ -33,6 +34,11 @@ export function emptyFamilyState(): FamilyState {
     requests: [],
     plays: [],
   };
+}
+
+/** PostgREST's answer when a database function doesn't exist yet (its migration hasn't run). */
+function missingFunction(error: { code?: string; message: string }) {
+  return error.code === "PGRST202" || /could not find the function/i.test(error.message);
 }
 
 const TINTS = ["bg-coral", "bg-sunshine", "bg-mint", "bg-sky", "bg-lavender"];
@@ -171,6 +177,19 @@ export class AccountFamilyStore implements FamilyStore {
         sentence: Number(p.sentence ?? 0),
         voiceId: str(p.voice_id),
         textRevision: str(p.text_revision),
+        listenedAt: str(p.listened_at),
+        updatedAt: p.updated_at as string,
+      }));
+      // Only this grown-up's own places; until migration 20261024100000 adds the table there are none.
+      const mineHeard = await this.db.from("adult_book_progress").select("*").eq("user_id", me).in("household_id", homeIds);
+      state.adultProgress = (mineHeard.error ? [] : ((mineHeard.data ?? []) as Row[])).map((p) => ({
+        adultId: p.user_id as string,
+        householdId: p.household_id as string,
+        bookSlug: p.book_slug as string,
+        sentence: Number(p.sentence ?? 0),
+        voiceId: str(p.voice_id),
+        textRevision: str(p.text_revision),
+        listenedAt: p.listened_at as string,
         updatedAt: p.updated_at as string,
       }));
       state.voices = voices.map((v) => ({
@@ -340,6 +359,27 @@ export class AccountFamilyStore implements FamilyStore {
     this.saved = structuredClone(state);
   }
 
+  /**
+   * Saves a child's place in the database only if no place heard later is there already, in one
+   * statement, so two saves racing each other can't leave the older one saved.
+   */
+  private async savePlace(p: ChildBookProgress) {
+    const db = this.db;
+    const saved = await db.rpc("save_child_place", {
+      p_child: p.childId,
+      p_book: p.bookSlug,
+      p_sentence: p.sentence,
+      p_voice: p.voiceId,
+      p_revision: p.textRevision ?? null,
+      p_listened_at: p.listenedAt ?? p.updatedAt,
+    });
+    if (!saved.error) return;
+    if (!missingFunction(saved.error)) throw new Error(`save reading place: ${saved.error.message}`);
+    // Until migration 20261024100000 adds that function, places save as before, last write wins.
+    const row = { child_id: p.childId, book_slug: p.bookSlug, sentence: p.sentence, voice_id: p.voiceId, text_revision: p.textRevision ?? null, updated_at: p.updatedAt };
+    await this.q(db.from("child_book_progress").upsert(row, { onConflict: "child_id,book_slug" }), "save reading place");
+  }
+
   /** Saves the differences between two snapshots, parents before children. */
   private async save(before: FamilyState, after: FamilyState) {
     const db = this.db;
@@ -419,17 +459,25 @@ export class AccountFamilyStore implements FamilyStore {
     }
     const changed = (p: ChildBookProgress) => {
       const old = before.progress.find((x) => x.childId === p.childId && x.bookSlug === p.bookSlug);
-      return !old || old.sentence !== p.sentence || old.voiceId !== p.voiceId || (old.textRevision ?? null) !== (p.textRevision ?? null);
+      return !old || old.sentence !== p.sentence || old.voiceId !== p.voiceId || (old.textRevision ?? null) !== (p.textRevision ?? null) || (old.listenedAt ?? null) !== (p.listenedAt ?? null);
     };
-    const places = after.progress.filter(changed);
-    if (places.length) {
-      const rows = places.map((p) => ({ child_id: p.childId, book_slug: p.bookSlug, sentence: p.sentence, voice_id: p.voiceId, text_revision: p.textRevision ?? null, updated_at: p.updatedAt }));
-      const saved = await db.from("child_book_progress").upsert(rows, { onConflict: "child_id,book_slug" });
-      // Until migration 20261021000100 adds text_revision, places save without it (and are resolved on read).
-      if (saved.error && /text_revision/.test(saved.error.message)) {
-        const older = rows.map((r) => ({ child_id: r.child_id, book_slug: r.book_slug, sentence: r.sentence, voice_id: r.voice_id, updated_at: r.updated_at }));
-        await this.q(db.from("child_book_progress").upsert(older, { onConflict: "child_id,book_slug" }), "save reading place");
-      } else if (saved.error) throw new Error(`save reading place: ${saved.error.message}`);
+    for (const p of after.progress.filter(changed)) await this.savePlace(p);
+    const adultChanged = (p: AdultBookProgress) => {
+      const old = before.adultProgress?.find((x) => x.adultId === p.adultId && x.householdId === p.householdId && x.bookSlug === p.bookSlug);
+      return !old || old.listenedAt !== p.listenedAt || old.sentence !== p.sentence || old.voiceId !== p.voiceId || old.textRevision !== p.textRevision;
+    };
+    for (const p of (after.adultProgress ?? []).filter(adultChanged)) {
+      const saved = await db.rpc("save_adult_place", {
+        p_user: p.adultId,
+        p_household: p.householdId,
+        p_book: p.bookSlug,
+        p_sentence: p.sentence,
+        p_voice: p.voiceId,
+        p_revision: p.textRevision,
+        p_listened_at: p.listenedAt,
+      });
+      // Until migration 20261024100000 runs, a grown-up's place simply isn't kept.
+      if (saved.error && !missingFunction(saved.error)) throw new Error(`save grown-up place: ${saved.error.message}`);
     }
 
     // Voice rows come from the recording flow; a change here is only a status or deletion.
