@@ -1,18 +1,13 @@
-import { createHash } from "node:crypto";
 import { findDemoBook } from "@/lib/content/demo-books";
 import { modelCost } from "@/lib/narration/costs";
 import { currentGuest, effectiveMode, guestDemoDeps } from "@/lib/server/guest-demo";
+import { previewKey } from "@/lib/server/guest-preview";
 import { fail, NO_SESSION, PREVIEWS_OFF } from "@/lib/server/http";
 import { recordVoiceEvent } from "@/lib/server/voice-analytics";
 import { VoiceProviderError } from "@/lib/voice/provider";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-
-/** Names one voice + book pair without exposing the provider voice id. */
-function previewKey(providerVoiceId: string, slug: string): string {
-  return `${createHash("sha256").update(providerVoiceId).digest("hex").slice(0, 16)}-${slug}`;
-}
 
 /**
  * Reads one demo passage in the guest's cloned voice. A story already read in this voice replays

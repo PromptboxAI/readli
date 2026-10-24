@@ -36,6 +36,8 @@ export interface QueuedEmail {
   dedupeKey: string;
   to: { userId: string } | { email: string };
   householdId?: string | null;
+  /** A guest's email is deleted with their guest session. */
+  guestSessionId?: string | null;
   sendAfter?: Date;
   message: EmailMessage;
 }
@@ -53,6 +55,7 @@ export async function queueEmails(db: SupabaseClient, secret: string, emails: Qu
       email_id: def.id,
       category: def.category,
       household_id: e.householdId ?? null,
+      ...(e.guestSessionId ? { guest_session_id: e.guestSessionId } : {}),
       recipient_user_id: "userId" in e.to ? e.to.userId : null,
       to_email_encrypted: "email" in e.to ? cipher.encrypt(e.to.email.trim()) : null,
       subject: e.message.subject,
