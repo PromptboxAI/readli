@@ -123,6 +123,12 @@ async function recipientAddress(db: SupabaseClient, cipher: ProviderRefCipher, r
 }
 
 /** Every send-time rule, in order. Nothing here sends. */
+/** Someone without an account who asked for Readli news and hasn't unsubscribed. */
+async function contactConsented(db: SupabaseClient, hash: string): Promise<boolean> {
+  const rows = await q(db.from("email_marketing_contacts").select("email_hash").eq("email_hash", hash).is("unsubscribed_at", null).limit(1), "read news contacts");
+  return rows.length > 0;
+}
+
 async function decide(db: SupabaseClient, secret: string, cipher: ProviderRefCipher, switches: Set<string>, row: Row, now: Date): Promise<Outcome> {
   const def = emailDefinition(row.email_id as string);
   if (!def) return { kind: "cancel", reason: "unknown_email" };
@@ -146,7 +152,7 @@ async function decide(db: SupabaseClient, secret: string, cipher: ProviderRefCip
 
   const userId = typeof row.recipient_user_id === "string" ? row.recipient_user_id : null;
   const prefs = userId ? await preferencesFor(db, userId) : null;
-  if (def.category === "commercial" && !prefs?.marketing) return { kind: "suppress", reason: "no_marketing_consent" };
+  if (def.category === "commercial" && !(prefs ? prefs.marketing : await contactConsented(db, emailHash(secret, to)))) return { kind: "suppress", reason: "no_marketing_consent" };
   if (prefs && def.topic && !prefs[def.topic as PreferenceTopic]) return { kind: "suppress", reason: "preference_off" };
 
   if (userId) {

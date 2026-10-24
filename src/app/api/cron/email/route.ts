@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { queueBedtimeThursdays } from "@/lib/email/bedtime";
 import { enabledEmails } from "@/lib/email/outbox";
 import { emailSecret, deliverEmails } from "@/lib/email/send";
 import { queueInvitationReminders, recordReminderDeliveries, type SentReminder } from "@/lib/email/reminders";
@@ -30,10 +31,16 @@ export async function GET(req: Request) {
   } catch (err) {
     scheduled.errors.push(`I1/I2: ${err instanceof Error ? err.message : String(err)}`);
   }
+  let bedtime = 0;
+  try {
+    bedtime = await queueBedtimeThursdays(ctx);
+  } catch (err) {
+    scheduled.errors.push(`BT1: ${err instanceof Error ? err.message : String(err)}`);
+  }
   if (scheduled.errors.length) console.error("email sequences failed", scheduled.errors);
   // Reminders carry a link made a moment ago, so they go first, before anything else waiting.
   if (reminders.length) await deliverEmails(db, reminders.map((r) => r.outboxId));
   const report = await deliverEmails(db);
   await recordReminderDeliveries(db, reminders).catch((err) => console.error("record reminder delivery failed", err));
-  return NextResponse.json({ scheduled: { ...scheduled, reminders: reminders.length }, sent: report ?? { skipped: "email off" } });
+  return NextResponse.json({ scheduled: { ...scheduled, reminders: reminders.length, bedtime }, sent: report ?? { skipped: "email off" } });
 }

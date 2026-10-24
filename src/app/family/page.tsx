@@ -13,6 +13,7 @@ import { SetKidsPin } from "@/components/family/SetKidsPin";
 import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
 import { FamilyBookshelf, HOME_SHELF_BOOKS, KidCards, StorytellersCard, UnassignedBooks } from "@/components/family/HomeShelf";
 import { HomeNotice } from "@/components/family/HomeNotice";
+import { NewThisWeek } from "@/components/family/NewThisWeek";
 import { StoryRequests } from "@/components/family/StoryRequests";
 import { DEMO_HOUSEHOLD_ID, demoFamilyState } from "@/lib/family/demo-family";
 import { calledIn } from "@/lib/family/names";
@@ -33,6 +34,8 @@ import { isParent, isStorytellerOnly } from "@/lib/family/storyteller";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
 import { serverConfig } from "@/lib/server/config";
 import { creditBalance, displayCredits, type CreditBalance } from "@/lib/narration/credits";
+import { newThisWeekFor } from "@/lib/email/bedtime";
+import { accountDb } from "@/lib/family/account-store";
 
 function SignOutButton() {
   return (
@@ -177,6 +180,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   const balance = isGuardian && home ? creditBalance(state, plan, home) : null;
   const creditLine = balance ? creditSummary(balance, entitlement?.source === "trial") : null;
   const notice = isGuardian && home ? homeNotice(state, home, adult.id) : null;
+  const newBooks = isGuardian && home ? await newThisWeekFor(session, accountDb()) : null;
   const slots = home ? narratorSlotCount(state, home, plan) : 0;
   const kidsMax = home ? childProfileLimit(state, home, plan) : plan.maxChildProfiles;
   const slotLine = home && entitlement && slots ? `${countedSlots(state, home, plan).length} of ${slots} ${entitlement.extraNarratorSlots ? "" : "included "}narrator slots in use` : null;
@@ -203,6 +207,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
       {notice && <HomeNotice text={noticeText(notice)} through={notice.through} />}
       {!myName && <AskName />}
       <PreviewNote />
+      {newBooks && <NewThisWeek weekOf={newBooks.weekOf} books={newBooks.books} />}
       {invited && (
         <Link href={`/v/${invited.token}/connect`} className="rounded-2xl bg-sky/50 px-4 py-3 font-semibold underline-offset-4 hover:underline" data-testid="invitation-waiting">
           Continue adding {invited.name} →

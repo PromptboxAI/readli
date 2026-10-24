@@ -44,6 +44,9 @@ export default async function AdminEmailPage({ searchParams }: { searchParams: P
         <Link href="/admin" className="text-sm underline underline-offset-4">
           Back to the admin overview
         </Link>
+        <Link href="/admin/bedtime" className="text-sm underline underline-offset-4">
+          Pick this week&apos;s Bedtime Thursdays stories
+        </Link>
       </header>
       {typeof p.ok === "string" && <p className="rounded-2xl bg-mint/60 px-4 py-3">{p.ok}</p>}
       {typeof p.err === "string" && (

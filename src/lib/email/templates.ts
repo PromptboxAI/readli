@@ -23,17 +23,23 @@ export interface ReadliEmailInput {
   headers?: Record<string, string>;
   /** Footer line for optional email: "Stop setup reminders". */
   stopLabel?: string;
+  /** Replaces the footer link's whole label, e.g. "Unsubscribe" for someone without an account. */
+  footerLabel?: string;
+  /** Book cards after the paragraphs (Bedtime Thursdays). */
+  books?: { title: string; byline: string; url: string; imageUrl: string | null }[];
 }
 
 export function readliEmail(input: ReadliEmailInput): EmailMessage {
   const hello = input.name ? `Hi ${input.name},` : "Hi,";
-  const settings = input.stopLabel ? `${input.stopLabel} or change your email settings` : "Email settings";
+  const settings = input.footerLabel ?? (input.stopLabel ? `${input.stopLabel} or change your email settings` : "Email settings");
+  const books = input.books ?? [];
   const text = [
     hello,
     "",
     input.title,
     "",
     ...input.paragraphs.flatMap((p) => [p, ""]),
+    ...books.flatMap((b) => [`${b.title}, ${b.byline}: ${b.url}`, ""]),
     `${input.cta.label}: ${input.cta.url}`,
     "",
     input.reason,
@@ -46,6 +52,12 @@ export function readliEmail(input: ReadliEmailInput): EmailMessage {
 <p style="margin:0 0 12px">${esc(hello)}</p>
 <p style="margin:0 0 12px;font-size:20px;font-weight:700">${esc(input.title)}</p>
 ${input.paragraphs.map((p) => `<p style="margin:0 0 12px">${esc(p)}</p>`).join("\n")}
+${books
+  .map(
+    (b) =>
+      `<a href="${esc(b.url)}" style="display:block;margin:12px 0;color:#2a2340;text-decoration:none">${b.imageUrl ? `<img src="${esc(b.imageUrl)}" alt="" width="96" style="float:left;width:96px;border-radius:12px;margin:0 16px 0 0">` : ""}<span style="display:block;font-weight:700;font-size:18px">${esc(b.title)}</span><span style="display:block;color:#6b6480">${esc(b.byline)}</span><span style="display:block;clear:both"></span></a>`,
+  )
+  .join("\n")}
 <p style="margin:24px 0 0;text-align:center"><a href="${esc(input.cta.url)}" style="display:inline-block;background:#ff7a59;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 24px;border-radius:999px">${esc(input.cta.label)}</a></p>
 </div>
 <p style="font-size:12px;color:#6b6480;margin:16px 0 0">${esc(input.reason)}${input.preferencesUrl ? ` <a href="${esc(input.preferencesUrl)}" style="color:#6b6480">${esc(settings)}</a>` : ""}</p>

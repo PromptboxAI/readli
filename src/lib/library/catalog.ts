@@ -126,3 +126,8 @@ export const NEW_BOOKS: readonly UpcomingBook[] = UPCOMING;
 export const MORE_BOOKS_ON_PHONES: readonly UpcomingBook[] = ADDED.slice(0, 6);
 
 export const UPCOMING_BOOKS: readonly UpcomingBook[] = [...UPCOMING, ...ADDED].filter((b) => !LIBRARY_TEXTS[b.slug]);
+
+/** Books ready to read, newest addition first, for Bedtime Thursdays when no titles were picked in /admin. */
+export const NEWEST_BOOKS: readonly CatalogBook[] = [...[...UPCOMING, ...ADDED].reverse().map((b) => findCatalogBook(b.slug)), ...[...CATALOG].reverse()].filter(
+  (b, i, all): b is CatalogBook => b !== null && all.findIndex((x) => x?.slug === b.slug) === i,
+);
