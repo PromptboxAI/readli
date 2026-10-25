@@ -135,6 +135,8 @@ export function NarratorSlots({
   const [mode, setMode] = useState<"list" | "circle">("list");
   const [jump, setJump] = useState<string | null>(null);
   useEffect(() => {
+    // Phones always open on the List; a larger screen comes back to the view chosen last time.
+    if (window.matchMedia("(max-width: 639px)").matches) return;
     try {
       if (window.localStorage.getItem("readli-storytellers-view") === "circle") setMode("circle");
     } catch {

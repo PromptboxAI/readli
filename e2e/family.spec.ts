@@ -576,6 +576,12 @@ test("family storytellers: the Circle shows who's in the family, whose voice is 
   await expect(page.getByTestId("slot-voice-priya")).toBeInViewport();
   // Switching views kept the half-filled invitation.
   await expect(page.getByTestId("invite-form").getByLabel("Their name")).toHaveValue("Pat");
+
+  // Coming back after choosing the Circle: phones open on the List, larger screens on the Circle.
+  await page.getByTestId("view-toggle").getByRole("button", { name: "Circle" }).click();
+  await page.reload();
+  const phone = (page.viewportSize()?.width ?? 1000) < 640;
+  await expect(page.getByTestId("view-toggle").getByRole("button", { name: phone ? "List" : "Circle" })).toHaveAttribute("aria-pressed", "true");
 });
 
 test("Home's invite link opens the invite form on Family storytellers", async ({ page }) => {
