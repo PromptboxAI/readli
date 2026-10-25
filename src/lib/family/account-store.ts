@@ -143,12 +143,12 @@ export class AccountFamilyStore implements FamilyStore {
         joinedAt: m.joined_at as string,
         removedAt: str(m.removed_at),
         nickname: str(m.storyteller_nickname),
+        relationship: str(m.relationship_label),
         noticesSeenThrough: str(m.notices_seen_through),
       }));
       state.adults = people.map((id) => ({
         id,
         displayName: (profiles.find((p) => p.user_id === id)?.display_name as string) ?? "Family member",
-        relationship: str(members.find((m) => m.user_id === id && m.relationship_label)?.relationship_label) ?? "",
         avatarUrl: avatarFor(profiles.find((p) => p.user_id === id)),
         tint: tintFor(id),
       }));
@@ -266,7 +266,7 @@ export class AccountFamilyStore implements FamilyStore {
       await this.readNarration(state, homeIds);
     }
     if (!state.adults.some((a) => a.id === me)) {
-      state.adults.push({ id: me, displayName: this.user.name, relationship: "", avatarUrl: null, tint: tintFor(me) });
+      state.adults.push({ id: me, displayName: this.user.name, avatarUrl: null, tint: tintFor(me) });
     }
     this.state = state;
     this.saved = structuredClone(state);
@@ -390,10 +390,9 @@ export class AccountFamilyStore implements FamilyStore {
     }
     for (const m of after.members) {
       const old = before.members.find((x) => x.householdId === m.householdId && x.adultId === m.adultId);
-      const relationship = after.adults.find((a) => a.id === m.adultId)?.relationship || null;
       if (!old) {
         await this.q(
-          db.from("household_members").insert({ household_id: m.householdId, user_id: m.adultId, role: m.role, relationship_label: relationship, joined_at: m.joinedAt }),
+          db.from("household_members").insert({ household_id: m.householdId, user_id: m.adultId, role: m.role, relationship_label: m.relationship || null, joined_at: m.joinedAt }),
           "add member",
         );
       } else if (old.role !== m.role || old.removedAt !== m.removedAt) {
