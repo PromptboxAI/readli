@@ -9,6 +9,7 @@ import { formatPrice } from "@/lib/family/plan";
 import type { JoinedCard, NarratorCard, NarratorSlotsView } from "@/lib/family/service";
 import { InvitationPill } from "@/components/invitations/InvitationPill";
 import { InviteStoryteller, type SavedInvite } from "./InviteStoryteller";
+import { RelationshipPicker } from "./RelationshipPicker";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 
 /** "live": invitations are saved; "preview": the sample family, nothing saved; "off": no invitations here. */
@@ -23,42 +24,74 @@ const WAITING: Record<NonNullable<NarratorCard["status"]>, { badge: string; tone
   stopped_sharing: { badge: "Stopped sharing", tone: "bg-ink/10", note: (n) => `${n} stopped sharing their voice with your family.` },
 };
 
-function NicknameEditor({ name, ownName, busy, onSave }: { name: string; ownName: string; busy: boolean; onSave: (nickname: string) => Promise<unknown> }) {
+/**
+ * What your family calls someone ("Mommy") and how you describe them ("Grandma", or nothing). Both are
+ * display only and belong to this family; neither shares a voice, uses a slot or approves anyone.
+ */
+function NameEditor({
+  name,
+  ownName,
+  relationship,
+  busy,
+  canRename = true,
+  onSave,
+}: {
+  name: string;
+  ownName: string;
+  relationship: string;
+  busy: boolean;
+  /** Invitations have no nickname yet: only the relationship can change. */
+  canRename?: boolean;
+  onSave: (change: { nickname?: string; relationship?: string }) => Promise<unknown>;
+}) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(name === ownName ? "" : name);
+  const [label, setLabel] = useState(relationship);
   if (!open) {
     return (
       <button type="button" className="font-display font-semibold underline underline-offset-4" onClick={() => setOpen(true)}>
-        Change what we call them
+        {canRename ? "Edit name or relationship" : "Edit relationship"}
       </button>
     );
   }
   return (
     <form
-      className="flex w-full flex-wrap items-end gap-2"
+      className="flex w-full flex-col gap-3"
       onSubmit={async (e) => {
         e.preventDefault();
-        await onSave(value.trim());
+        const nickname = value.trim();
+        const change = {
+          ...(canRename && nickname !== (name === ownName ? "" : name) ? { nickname } : {}),
+          ...(label.trim() !== relationship ? { relationship: label.trim() } : {}),
+        };
+        if (Object.keys(change).length) await onSave(change);
         setOpen(false);
       }}
     >
-      <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm font-semibold">
-        What your family calls {ownName}
-        <input
-          className="rounded-2xl border-2 border-ink/20 bg-surface px-3 py-2 text-base font-normal"
-          value={value}
-          maxLength={40}
-          placeholder={ownName}
-          onChange={(e) => setValue(e.target.value)}
-        />
-      </label>
-      <button type="submit" className={buttonSecondary} disabled={busy}>
-        Save
-      </button>
-      <button type="button" className="font-display font-semibold underline underline-offset-4" onClick={() => setOpen(false)}>
-        Cancel
-      </button>
-      <p className="w-full text-sm text-muted">Only your family sees this. It doesn&apos;t change {ownName}&apos;s account or voice.</p>
+      {canRename && (
+        <label className="flex min-w-0 flex-col gap-1 text-sm font-semibold">
+          What your family calls {ownName}
+          <input
+            className="rounded-2xl border-2 border-ink/20 bg-surface px-3 py-2 text-base font-normal"
+            value={value}
+            maxLength={40}
+            placeholder={ownName}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        </label>
+      )}
+      <RelationshipPicker legend={`${ownName} is your kids'…`} value={label} onChange={setLabel} />
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="submit" className={buttonSecondary} disabled={busy}>
+          Save
+        </button>
+        <button type="button" className="font-display font-semibold underline underline-offset-4" onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+      </div>
+      <p className="text-sm text-muted">
+        Only your family sees this. It doesn&apos;t change {ownName}&apos;s account or voice, or who can hear them.
+      </p>
     </form>
   );
 }
@@ -198,20 +231,57 @@ export function NarratorSlots({
     </>
   );
 
-  // What your family calls a storyteller ("Mommy"). Only the name shown here changes.
-  const rename = (n: NarratorCard) => (
-    <NicknameEditor
-      key={`${n.adultId}-${n.name}`}
-      name={n.name}
-      ownName={n.ownName ?? n.name}
+  // What your family calls someone ("Mommy") and how you describe them. Only what's shown here changes.
+  const rename = (n: { adultId: string; name: string; ownName?: string; relationship: string }) => {
+    const own = n.ownName ?? n.name;
+    return (
+      <NameEditor
+        key={`${n.adultId}-${n.name}-${n.relationship}`}
+        name={n.name}
+        ownName={own}
+        relationship={n.relationship}
+        busy={busy}
+        onSave={async ({ nickname, relationship }) => {
+          if (nickname !== undefined) {
+            const said = nickname ? `Your family will see ${own} as ${nickname}.` : `Your family will see ${own}'s own name again.`;
+            if (!(await call("/api/family/narrators", { adultId: n.adultId, action: "nickname", nickname }, said))) return;
+          }
+          if (relationship !== undefined) {
+            const said = relationship ? `${own} is now shown as ${relationship}. It's only a label.` : `${own} no longer has a relationship label.`;
+            await call("/api/family/narrators", { adultId: n.adultId, action: "relationship", relationship }, said);
+          }
+        }}
+      />
+    );
+  };
+
+  // An invitation's label moves onto their family membership when they accept.
+  const relabelInvite = (inv: SavedInvite) => (
+    <NameEditor
+      key={`${inv.id}-${inv.relationship}`}
+      name={inv.name}
+      ownName={inv.name}
+      relationship={inv.relationship}
       busy={busy}
-      onSave={(nickname) =>
-        call(
-          "/api/family/narrators",
-          { adultId: n.adultId, action: "nickname", nickname },
-          nickname ? `Your family will see ${n.ownName ?? n.name} as ${nickname}.` : `Your family will see ${n.ownName ?? n.name}'s own name again.`,
-        )
-      }
+      canRename={false}
+      onSave={async ({ relationship = "" }) => {
+        setMessage(null);
+        let saved = relationship;
+        if (inviteMode === "live") {
+          setBusy(true);
+          const res = await fetch(`/api/invites/${encodeURIComponent(inv.id)}`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ relationship }),
+          });
+          const body = await res.json().catch(() => null);
+          setBusy(false);
+          if (!res.ok) return setMessage(body?.error?.message ?? "We couldn't save that. Please try again.");
+          saved = body.invite.relationship as string;
+        }
+        setInvites((list) => list.map((i) => (i.id === inv.id ? { ...i, relationship: saved } : i)));
+        setMessage(saved ? `${inv.name} is now shown as ${saved}. It's only a label.` : `${inv.name} no longer has a relationship label.`);
+      }}
     />
   );
 
@@ -428,6 +498,7 @@ export function NarratorSlots({
                       {w.badge}
                     </span>
                   )}
+                  {!n.yours && rename(n)}
                   {!n.yours && removeButton(n)}
                   {!n.yours && <p className="w-full text-sm text-muted">{w.note(n.name)}</p>}
                 </li>
@@ -443,6 +514,7 @@ export function NarratorSlots({
                 ) : (
                   <>
                     <span className={`${pill} bg-sky/60`}>Joined</span>
+                    {rename(p)}
                     {removeButton(p)}
                   </>
                 )}
@@ -458,6 +530,7 @@ export function NarratorSlots({
                   <StorytellerAvatar name={inv.name} avatarUrl={null} tint="bg-ivory" muted />
                   <div className="min-w-0 flex-1">
                     <p className="font-display text-xl font-semibold">{inv.name}</p>
+                    {inv.relationship && <p className="text-sm text-muted">{inv.relationship}</p>}
                     <p className="text-sm text-muted">
                       {declined
                         ? "They said no thanks. We won't email them again for your family."
@@ -467,6 +540,7 @@ export function NarratorSlots({
                     </p>
                   </div>
                   <InvitationPill state={declined ? "declined" : expired ? "expired" : "sent"} />
+                  {!declined && !expired && relabelInvite(inv)}
                   {declined ? null : inv.canResend && inviteMode === "live" ? (
                     <div className="flex flex-wrap items-center gap-3">
                       <button type="button" className={buttonSecondary} disabled={busy} onClick={() => resend(inv)}>

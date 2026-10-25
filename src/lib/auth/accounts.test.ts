@@ -24,6 +24,7 @@ import {
   setChildApprovals,
   setFavorite,
   setHouseholdShare,
+  setStorytellerRelationship,
   startListening,
 } from "@/lib/family/service";
 import { decodeKidsProfile, encodeKidsProfile } from "@/lib/family/session";
@@ -222,6 +223,13 @@ describe("real family accounts", () => {
     expect(kimView.shared[0]!.ownName).toBeUndefined();
     expect(tables.narrator_slot_assignments ?? []).toEqual([]);
     expect(tables.child_voice_approvals ?? []).toEqual([]);
+
+    // A parent's edit saves on their own family's row only.
+    await setStorytellerRelationship(new AccountFamilyStore(db, ME, DEFAULT_PLAN), ADULT, rivera, GRAN.id, "Caregiver");
+    const row = (home: string) => tables.household_members!.find((m) => m.household_id === home && m.user_id === GRAN.id)!;
+    expect([row(rivera).relationship_label, row(kims).relationship_label]).toEqual(["Caregiver", null]);
+    await setStorytellerRelationship(new AccountFamilyStore(db, ME, DEFAULT_PLAN), ADULT, rivera, GRAN.id, "");
+    expect(row(rivera).relationship_label).toBeNull();
   });
 
   it("prepares a book in the storyteller's real voice, saves it with the credits it used, and plays it to an approved child", async () => {

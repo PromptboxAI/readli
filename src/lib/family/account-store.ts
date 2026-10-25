@@ -407,6 +407,12 @@ export class AccountFamilyStore implements FamilyStore {
           "save nickname",
         );
       }
+      if (old && (old.relationship ?? null) !== (m.relationship ?? null)) {
+        await this.q(
+          db.from("household_members").update({ relationship_label: m.relationship ?? null }).eq("household_id", m.householdId).eq("user_id", m.adultId),
+          "save relationship",
+        );
+      }
       if (old && (old.noticesSeenThrough ?? null) !== (m.noticesSeenThrough ?? null)) {
         // Dismissing Home's notice is a convenience: until the column's migration runs, it just doesn't stick.
         const { error } = await db

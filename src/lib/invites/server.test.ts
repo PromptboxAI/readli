@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
-import { acceptInviteToken, createInvite, hashInviteToken, inviteForToken, inviteLink, InviteError, listInvites, revokeInvite, statusOf } from "./server";
+import { acceptInviteToken, createInvite, hashInviteToken, inviteForToken, inviteLink, InviteError, listInvites, revokeInvite, setInviteRelationship, statusOf } from "./server";
 
 type Row = Record<string, unknown>;
 
@@ -47,11 +47,30 @@ describe("family invitations for real accounts", () => {
     expect(inviteLink("https://readli.ai/", token)).toBe(`https://readli.ai/voice/join?invite=${token}`);
   });
 
-  it("need a name and drop relationships Readli doesn't offer", async () => {
+  it("need a name, and keep the family's own words for them, cleaned and short", async () => {
     const { db, tables } = fakeDb();
     await expect(createInvite(db, { householdId: "h1", inviterId: "u1", name: "  ", relationship: "Grandma" })).rejects.toBeInstanceOf(InviteError);
+    await createInvite(db, { householdId: "h1", inviterId: "u1", name: "Pat", relationship: "  Nanny   Pat " });
     await createInvite(db, { householdId: "h1", inviterId: "u1", name: "Lou", relationship: "<script>" });
+    await createInvite(db, { householdId: "h1", inviterId: "u1", name: "Ali", relationship: "" });
+    await createInvite(db, { householdId: "h1", inviterId: "u1", name: "Max", relationship: "x".repeat(60) });
+    expect(tables.household_invitations!.map((r) => r.relationship_label)).toEqual(["Nanny Pat", "script", null, "x".repeat(40)]);
+  });
+
+  it("let the family change an invited person's label until they accept, and only in their own family", async () => {
+    const { db, tables } = fakeDb({
+      household_invitations: [
+        { id: "a", household_id: "h1", invitee_name: "June", relationship_label: "Grandma", expires_at: "2026-10-20T00:00:00Z", accepted_at: null, revoked_at: null },
+        { id: "b", household_id: "h1", invitee_name: "Lou", relationship_label: null, expires_at: "2026-10-20T00:00:00Z", accepted_at: "2026-10-12T00:00:00Z", revoked_at: null },
+      ],
+    });
+    await expect(setInviteRelationship(db, "h2", "a", "Mom")).rejects.toMatchObject({ status: 404 });
+    await expect(setInviteRelationship(db, "h1", "b", "Grandpa")).rejects.toMatchObject({ status: 404 });
+    expect(await setInviteRelationship(db, "h1", "a", " Caregiver ")).toMatchObject({ id: "a", relationship: "Caregiver" });
+    expect(tables.household_invitations![0]!.relationship_label).toBe("Caregiver");
+    expect(await setInviteRelationship(db, "h1", "a", "")).toMatchObject({ relationship: "" });
     expect(tables.household_invitations![0]!.relationship_label).toBeNull();
+    expect(tables.household_invitations![1]!.relationship_label).toBeNull();
   });
 
   it("take an email instead of a name, keep only its hash, and refuse a bad address", async () => {
