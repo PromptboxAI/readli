@@ -24,16 +24,17 @@ export interface Founder {
   story: string[];
 }
 
-/** Kevin's name, photo and reason for building Readli (2026-10-24). The story lines are his to approve. */
+/** Kevin's name, photo and reason for building Readli (2026-10-24). Story in his own words. */
 export const FOUNDERS: Founder[] = [
   {
     name: "Kevin Godfrey",
-    title: "Founder",
+    title: "Founder of Readli",
     photo: "/company/godfrey-family.webp",
     photoAlt: "Kevin Godfrey with his family",
     story: [
-      "I built Readli for Milly, Abby and Henry. I wanted them to hear the people who love them at bedtime, even on the nights we can't all be in the same room.",
-      "It grew from there to grandparents, aunts, uncles and anyone whose voice a child loves. Every voice stays in the hands of the person who recorded it, because that's how I want my own family's voices treated.",
+      "I built Readli for my three kids, Milly, Abby and Henry. I wanted them to fall asleep hearing the voices of the people who love them, even when those people couldn't be there in person.",
+      "That idea grew into something bigger: a way for grandparents, aunts, uncles and loved ones to be part of bedtime, no matter how far away they live.",
+      "And because these voices belong to real people, I believe they should always remain in the hands of the people who shared them. It's how I'd want my own family's voices treated.",
     ],
   },
 ];
