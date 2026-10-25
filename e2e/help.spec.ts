@@ -56,6 +56,7 @@ test("footer links to help without dropping the legal and safety pages", async (
     ["Terms", "/terms"],
     ["Accessibility", "/accessibility"],
     ["Parent Safety", "/parents/safety"],
+    ["Do Not Sell or Share My Personal Information", "/privacy/choices"],
   ] as const)
     await expect(footer.getByRole("link", { name, exact: true })).toHaveAttribute("href", href);
 });

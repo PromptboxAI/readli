@@ -2,7 +2,8 @@
  * Meta Pixel for Facebook ads (Kevin, 2026-10-25). It runs only on the public, grown-up pages below and
  * never in Readli Kids, the parent portal, admin, sign-in, invitations or the legal pages a Kids Mode
  * device can still open. Pages are listed one by one so a new page stays pixel-free until it's added.
- * Previews and local builds never load it, and a browser sending Global Privacy Control never loads it.
+ * Previews and local builds never load it, nor does a browser that sends Global Privacy Control or whose
+ * visitor chose "Do Not Sell or Share" on /privacy/choices.
  * Change this together with "Cookies and analytics" in the Privacy Policy.
  */
 
@@ -28,9 +29,30 @@ export type MetaEvent = "PageView" | "Lead" | "CompleteRegistration" | "Initiate
 type Fbq = ((...args: unknown[]) => void) & { callMethod?: (...args: unknown[]) => void; queue?: unknown[]; loaded?: boolean; version?: string; push?: unknown; disablePushState?: boolean };
 type PixelWindow = Window & { fbq?: Fbq; _fbq?: Fbq; navigator: Navigator & { globalPrivacyControl?: boolean } };
 
+/** The "Do Not Sell or Share" choice, kept in this browser. */
+const OPT_OUT_KEY = "readli_ads_opt_out";
+
+export function adsOptedOut(w: PixelWindow = window as PixelWindow): boolean {
+  if (w.navigator.globalPrivacyControl) return true;
+  try {
+    return w.localStorage.getItem(OPT_OUT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Saves the visitor's choice; opting out also tells an already-loaded pixel to stop. */
+export function setAdsOptOut(optOut: boolean, w: PixelWindow = window as PixelWindow): void {
+  try {
+    if (optOut) w.localStorage.setItem(OPT_OUT_KEY, "1");
+    else w.localStorage.removeItem(OPT_OUT_KEY);
+  } catch {}
+  if (optOut) w.fbq?.("consent", "revoke");
+}
+
 /** Whether this browser, on this page, may load or send to the pixel. */
 function mayTrack(w: PixelWindow): boolean {
-  return pixelEnabled() && !w.navigator.globalPrivacyControl && pixelAllowed(w.location.pathname);
+  return pixelEnabled() && pixelAllowed(w.location.pathname) && !adsOptedOut(w);
 }
 
 /**
@@ -60,7 +82,7 @@ export function loadPixel(w: PixelWindow = window as PixelWindow): boolean {
   return true;
 }
 
-/** Sends a standard event. Does nothing off the allowed pages, on previews, or with Global Privacy Control. */
+/** Sends a standard event. Does nothing off the allowed pages, on previews, or after an opt-out. */
 export function trackMeta(event: MetaEvent, params?: Record<string, string | number>, w: PixelWindow = window as PixelWindow): void {
   if (!loadPixel(w)) return;
   if (params) w.fbq!("track", event, params);

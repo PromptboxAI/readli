@@ -381,6 +381,7 @@ export function SiteFooter() {
     { href: "/help", label: "Help" },
     { href: "/accessibility", label: "Accessibility" },
     { href: "/parents/safety", label: "Parent Safety" },
+    { href: "/privacy/choices", label: "Do Not Sell or Share My Personal Information" },
   ];
   return (
     <footer className="bg-ivory">

@@ -160,7 +160,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Your choices",
-        text: "if your browser sends a Global Privacy Control signal, Readli does not load the Meta Pixel. You can also manage ad settings in your Facebook or Instagram account, or block third-party cookies in your browser.",
+        text: "you can opt out of this sharing at https://readli.ai/privacy/choices (the “Do Not Sell or Share My Personal Information” link at the bottom of our website pages), and Readli then stops loading the Meta Pixel on that browser. If your browser sends a Global Privacy Control signal, we treat it as the same opt-out. Readli does not sell personal information for money. You can also manage ad settings in your Facebook or Instagram account, or block third-party cookies in your browser.",
       },
     ],
   },

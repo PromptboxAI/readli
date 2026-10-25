@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadPixel, pixelAllowed, pixelEnabled, rememberCheckout, takeCheckout, trackMeta } from "./meta-pixel";
+import { adsOptedOut, loadPixel, pixelAllowed, setAdsOptOut, pixelEnabled, rememberCheckout, takeCheckout, trackMeta } from "./meta-pixel";
 
 describe("Meta Pixel pages", () => {
   it("runs on the public grown-up pages", () => {
@@ -54,6 +54,29 @@ describe("trackMeta", () => {
     const w = fakeWindow("/try");
     expect(loadPixel(w as never)).toBe(false);
     expect(w.fbq).toBeUndefined();
+  });
+});
+
+describe("Do Not Sell or Share", () => {
+  beforeEach(() => vi.stubEnv("NEXT_PUBLIC_VERCEL_ENV", "production"));
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    localStorage.clear();
+  });
+
+  it("stops the pixel on this browser, and can be undone", () => {
+    setAdsOptOut(true);
+    expect(adsOptedOut()).toBe(true);
+    expect(loadPixel()).toBe(false);
+    setAdsOptOut(false);
+    expect(adsOptedOut()).toBe(false);
+  });
+
+  it("revokes consent on a pixel that already loaded", () => {
+    const fbq = vi.fn();
+    const w = { localStorage, navigator: {}, fbq } as never;
+    setAdsOptOut(true, w);
+    expect(fbq).toHaveBeenCalledWith("consent", "revoke");
   });
 });
 
