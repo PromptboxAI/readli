@@ -149,7 +149,8 @@ export async function sendCapiEvent(e: CapiEvent, env: Env = process.env, fetchI
 /**
  * The conversion a Stripe event stands for, from a completed Checkout that carried attribution: a paid
  * Readli Family checkout is Subscribe, a free first period is StartTrial (unused while checkout has no
- * trial), and a paid one-time checkout (credits) is Purchase. Value is what Stripe actually charged.
+ * trial), and a paid one-time checkout (credits) is Purchase, with its payment as order_id. Value is what
+ * Stripe actually charged.
  * Subscribe's event_id matches the thank-you page's pixel event.
  */
 export function stripeConversion(event: { type: string; created?: number; data?: { object?: Record<string, unknown> } }): CapiEvent | null {
@@ -179,7 +180,8 @@ export function stripeConversion(event: { type: string; created?: number; data?:
     };
   }
   if (s.mode === "payment" && s.payment_status === "paid") {
-    return { ...base, name: "Purchase", eventId: `purchase_${s.id}`, customData: { value: cents / 100, currency, ...(item ? { content_name: item } : {}) } };
+    const orderId = typeof s.payment_intent === "string" ? s.payment_intent : s.id;
+    return { ...base, name: "Purchase", eventId: `purchase_${s.id}`, customData: { value: cents / 100, currency, order_id: orderId, ...(item ? { content_name: item } : {}) } };
   }
   return null;
 }

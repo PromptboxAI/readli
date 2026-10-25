@@ -106,7 +106,11 @@ describe("Stripe conversions", () => {
 
   it("a free first period would be StartTrial, and a credit pack is Purchase", () => {
     expect(stripeConversion(completed({ mode: "subscription", payment_status: "no_payment_required", status: "complete", amount_total: 0 }))?.name).toBe("StartTrial");
-    expect(stripeConversion(completed({ mode: "payment", payment_status: "paid", amount_total: 500 }))).toMatchObject({ name: "Purchase", eventId: "purchase_cs_test_1", customData: { value: 5 } });
+    expect(stripeConversion(completed({ mode: "payment", payment_status: "paid", amount_total: 500, payment_intent: "pi_1" }))).toMatchObject({
+      name: "Purchase",
+      eventId: "purchase_cs_test_1",
+      customData: { value: 5, currency: "USD", order_id: "pi_1" },
+    });
   });
 
   it("sends nothing for opted-out or older checkouts, unpaid ones, or other events", () => {
