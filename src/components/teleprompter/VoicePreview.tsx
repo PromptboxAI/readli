@@ -6,6 +6,7 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { DemoBookShelf } from "@/components/books/DemoBookShelf";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import type { DemoBook } from "@/lib/content/demo-books";
+import { trackMeta } from "@/lib/marketing/meta-pixel";
 import { ImproveLink, RecordingTipsDialog } from "./RecordingTips";
 import type { RecordedTake } from "./useMicrophone";
 
@@ -128,6 +129,8 @@ export function VoicePreview({
       body: JSON.stringify({ removeBackgroundNoise: cleanUp }),
     });
     if (!clone.ok) throw new Error(await errorMessage(clone, "We couldn't make your voice just now. Please try again."));
+    // A free voice made on the Try page is the ads' lead; a re-made voice (clean-up switched) isn't a new one.
+    if (!voiceMadeFrom.current) trackMeta("Lead", { content_name: "Voice demo" });
     voiceMadeFrom.current = voiceKey;
     return true;
   };
