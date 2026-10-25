@@ -16,6 +16,7 @@ export function AccountMenu(props: { name: string; email: string | null; initial
   const [brokenPhoto, setBrokenPhoto] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const id = useId();
+  const name = props.name || "Your account";
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
@@ -34,7 +35,7 @@ export function AccountMenu(props: { name: string; email: string | null; initial
         type="button"
         aria-expanded={open}
         aria-controls={id}
-        aria-label={props.compact ? `Account menu for ${props.name}` : undefined}
+        aria-label={props.compact ? (props.name ? `Account menu for ${props.name}` : "Account menu") : undefined}
         onClick={() => setOpen((o) => !o)}
         className="flex min-h-12 cursor-pointer items-center gap-2 rounded-full border-[3px] border-ink bg-surface py-1 pr-3 pl-1 font-display font-semibold"
       >
@@ -46,7 +47,7 @@ export function AccountMenu(props: { name: string; email: string | null; initial
             <img src={props.avatarUrl} alt="" onError={() => setBrokenPhoto(props.avatarUrl!)} className="absolute inset-0 size-full object-cover" />
           )}
         </span>
-        {!props.compact && <span className="max-w-32 truncate">{props.name.split(" ")[0]}</span>}
+        {!props.compact && <span className="max-w-32 truncate">{props.name ? props.name.split(" ")[0] : "Account"}</span>}
         <span aria-hidden="true" className={`text-xs transition-transform ${open ? "rotate-180" : ""}`}>
           ▼
         </span>
@@ -58,7 +59,7 @@ export function AccountMenu(props: { name: string; email: string | null; initial
           onClick={(e) => (e.target as HTMLElement).closest("a") && setOpen(false)}
         >
           <div className="mb-1 border-b border-ink/15 px-3 pb-2">
-            <p className="truncate font-display font-semibold">{props.name}</p>
+            <p className="truncate font-display font-semibold">{name}</p>
             {props.email && <p className="truncate text-sm text-muted">{props.email}</p>}
             {props.badge && <p className="mt-1 inline-block rounded-full bg-sunshine px-2.5 py-0.5 text-xs font-bold">{props.badge}</p>}
           </div>

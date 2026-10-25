@@ -8,7 +8,8 @@ export type NavState =
   | { kind: "visitor" }
   /** A kids profile is open on this device: no account menu, no sign-out. */
   | { kind: "kids" }
-  | { kind: "adult"; name: string; email: string | null; hasVoice: boolean; family: FamilyAccess; trialOffered: boolean; avatarUrl?: string | null };
+  /** household: they guard a family, even one without a plan yet. */
+  | { kind: "adult"; /** Empty until the grown-up tells us what to call them. */ name: string; email: string | null; hasVoice: boolean; family: FamilyAccess; household: boolean; avatarUrl?: string | null };
 
 export interface NavLink {
   href: string;
@@ -39,10 +40,12 @@ export function primaryAction(nav: NavState): NavLink | null {
 /** The account menu, showing only places this account can open. Sign out is added by the menu itself. */
 export function accountLinks(nav: Extract<NavState, { kind: "adult" }>): NavLink[] {
   const links: NavLink[] = [];
-  if (nav.family.plan !== "none") links.push({ href: "/family", label: "My Family" });
+  // A Family account's home is My Family; anyone else gets a way back to the Readli home page.
+  links.push(nav.family.plan !== "none" ? { href: "/family", label: "My Family" } : { href: "/", label: "Home" });
   links.push({ href: nav.family.plan === "none" ? "/voice" : "/family/my-voice", label: "My Voice" }, { href: "/family/account", label: "Account settings" }, { href: "/help", label: "Help" });
   if (nav.family.plan === "trial") links.push({ href: "/family/billing", label: "Choose a plan", tone: "offer" });
-  if (nav.trialOffered) links.push({ href: "/signup/family", label: "Start a free Family trial", tone: "offer" });
+  // There's no free trial: someone who already named a family picks a plan, anyone else starts a family first.
+  if (nav.family.plan === "none") links.push({ href: nav.household ? "/family/billing" : "/signup/family", label: "Start Readli Family", tone: "offer" });
   return links;
 }
 
@@ -54,6 +57,7 @@ export function accountBadge(nav: Extract<NavState, { kind: "adult" }>): string 
   return `Family trial · ends ${day}`;
 }
 
-export function accountInitials(name: string): string {
-  return initials(name) || "?";
+/** From the name, or the email address while there's no name yet. */
+export function accountInitials(name: string, email?: string | null): string {
+  return initials(name) || email?.trim()[0]?.toUpperCase() || "?";
 }
