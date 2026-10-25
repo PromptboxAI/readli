@@ -3,7 +3,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 type Row = Record<string, unknown>;
 
 /** Enough of the Supabase query builder for the email tables, kept in memory. */
-export function fakeEmailDb(tables: Record<string, Row[]> = {}, users: Record<string, string> = {}) {
+export function fakeEmailDb(
+  tables: Record<string, Row[]> = {},
+  users: Record<string, string> = {},
+  rpc: (name: string, args: Row) => unknown = () => null,
+) {
   const t = (name: string) => (tables[name] ??= []);
   let seq = 0;
   const keys: Record<string, string> = { email_outbox: "dedupe_key", email_events: "provider_event_id", email_preferences: "user_id", email_delivery_suppressions: "email_hash", email_switches: "email_id" };
@@ -19,6 +23,8 @@ export function fakeEmailDb(tables: Record<string, Row[]> = {}, users: Record<st
       neq: (k: string, v: unknown) => (filters.push((r) => r[k] !== v), q),
       is: (k: string, v: unknown) => (filters.push((r) => (r[k] ?? null) === v), q),
       in: (k: string, vs: unknown[]) => (filters.push((r) => vs.includes(r[k])), q),
+      not: (k: string, _op: string, v: unknown) => (filters.push((r) => (r[k] ?? null) !== v), q),
+      gt: (k: string, v: never) => (filters.push((r) => (r[k] as never) > v), q),
       lt: (k: string, v: never) => (filters.push((r) => (r[k] as never) < v), q),
       lte: (k: string, v: never) => (filters.push((r) => (r[k] as never) <= v), q),
       gte: (k: string, v: never) => (filters.push((r) => (r[k] as never) >= v), q),
@@ -27,6 +33,9 @@ export function fakeEmailDb(tables: Record<string, Row[]> = {}, users: Record<st
       upsert: (rows: Row | Row[], opts?: { onConflict?: string; ignoreDuplicates?: boolean }) => (
         (op = { kind: "upsert", rows: [rows].flat(), ignore: Boolean(opts?.ignoreDuplicates), key: opts?.onConflict ?? keys[name] ?? "id" }), q
       ),
+      maybeSingle: () => ({
+        then: (resolve: (v: unknown) => void) => q.then((v) => resolve({ data: (v as { data: Row[] }).data[0] ?? null, error: null })),
+      }),
       then: (resolve: (v: unknown) => void) => {
         if (op.kind === "insert") {
           const made = op.rows.map((r) => ({ id: `${name}-${++seq}`, ...r }));
@@ -59,5 +68,6 @@ export function fakeEmailDb(tables: Record<string, Row[]> = {}, users: Record<st
     return q;
   };
   const auth = { admin: { getUserById: async (id: string) => ({ data: users[id] ? { user: { id, email: users[id] } } : { user: null }, error: null }) } };
-  return { db: { from, auth } as unknown as SupabaseClient, tables };
+  const callRpc = async (name: string, args: Row) => ({ data: rpc(name, args), error: null });
+  return { db: { from, auth, rpc: callRpc } as unknown as SupabaseClient, tables };
 }

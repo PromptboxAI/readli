@@ -6,12 +6,15 @@
 
 export type EmailCategory = "transactional" | "relationship" | "commercial";
 
-/** Optional email a grown-up can turn off. Marketing is off until they opt in. */
+/**
+ * Optional email a grown-up can turn off. Marketing is off until they opt in. Invitation reminders go
+ * to people who usually have no account yet, so they're stopped with the invitation's own "Stop all
+ * Readli invitations" link rather than a setting here.
+ */
 export type PreferenceTopic = "setup_reminders" | "invitation_reminders" | "feedback_requests" | "marketing";
 
 export const PREFERENCE_TOPICS: { topic: PreferenceTopic; label: string; hint: string }[] = [
   { topic: "setup_reminders", label: "Setup reminders", hint: "A few short emails in your first days, until your voice, storytellers and kids' tablet are set up." },
-  { topic: "invitation_reminders", label: "Invitation reminders", hint: "A reminder when an invitation someone sent you is still waiting." },
   { topic: "feedback_requests", label: "Feedback requests", hint: "Now and then, one question about how Readli is going." },
   { topic: "marketing", label: "Bedtime Thursdays and Readli news", hint: "A weekly email with two new stories, and occasional news. Off unless you turn it on." },
 ];

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { enabledEmails } from "@/lib/email/outbox";
 import { emailSecret, deliverEmails } from "@/lib/email/send";
+import { queueInvitationReminders, recordReminderDeliveries, type SentReminder } from "@/lib/email/reminders";
 import { scheduleSequenceEmails } from "@/lib/email/sequences";
 import { accountDb } from "@/lib/family/account-store";
 import { SITE_URL } from "@/lib/seo/site";
@@ -21,8 +22,18 @@ export async function GET(req: Request) {
   const secret = emailSecret();
   if (!db || !secret) return NextResponse.json({ skipped: "not configured" });
   const enabled = await enabledEmails(db);
-  const scheduled = enabled.size ? await scheduleSequenceEmails({ db, secret, base: SITE_URL, now: new Date(), enabled }) : { queued: 0, errors: [] };
+  const ctx = { db, secret, base: SITE_URL, now: new Date(), enabled };
+  const scheduled = enabled.size ? await scheduleSequenceEmails(ctx) : { queued: 0, errors: [] };
+  let reminders: SentReminder[] = [];
+  try {
+    reminders = await queueInvitationReminders(ctx);
+  } catch (err) {
+    scheduled.errors.push(`I1/I2: ${err instanceof Error ? err.message : String(err)}`);
+  }
   if (scheduled.errors.length) console.error("email sequences failed", scheduled.errors);
+  // Reminders carry a link made a moment ago, so they go first, before anything else waiting.
+  if (reminders.length) await deliverEmails(db, reminders.map((r) => r.outboxId));
   const report = await deliverEmails(db);
-  return NextResponse.json({ scheduled, sent: report ?? { skipped: "email off" } });
+  await recordReminderDeliveries(db, reminders).catch((err) => console.error("record reminder delivery failed", err));
+  return NextResponse.json({ scheduled: { ...scheduled, reminders: reminders.length }, sent: report ?? { skipped: "email off" } });
 }
