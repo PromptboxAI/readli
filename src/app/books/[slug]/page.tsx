@@ -6,6 +6,8 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { authConfigured } from "@/lib/auth/supabase";
+import { bookCredits, monthsOfCredits } from "@/lib/content/credits-explained";
+import { planConfig } from "@/lib/family/plan";
 import { bookOpening } from "@/lib/library/opening";
 import { type PublicBook, publicBook, publicLibrary } from "@/lib/library/public";
 import { absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
@@ -24,6 +26,18 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     type: "book",
     images: book.coverUrl ? [{ url: book.coverUrl, alt: `${book.title} cover`, width: 900, height: 1200 }] : undefined,
   });
+}
+
+/** "About 6 credits in one voice": what preparing the whole book costs, in the plan's terms. */
+function creditLine(book: PublicBook): string | null {
+  if (book.characters === null) return null;
+  const plan = planConfig();
+  const credits = bookCredits(book.characters, plan.charactersPerCredit);
+  const unit = credits === 1 ? "credit" : "credits";
+  if (credits <= plan.monthlyCredits) {
+    return `About ${credits} Readli ${unit} to prepare in one voice, out of the ${plan.monthlyCredits} that come with Readli Family each month. Replays are free.`;
+  }
+  return `About ${credits} Readli credits for the whole book in one voice, or about ${monthsOfCredits(credits, plan.monthlyCredits)} months of Readli Family credits. Prepare it a chapter at a time, and replays are free.`;
 }
 
 function bookDescription(book: PublicBook): string {
@@ -88,6 +102,14 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
           <p>
             {book.comingSoon ? `About ${Math.round(book.minutes)} minutes when read aloud.` : book.minutes < 1 ? "Under a minute to read aloud." : `About ${Math.round(book.minutes)} minutes to read aloud.`}
           </p>
+          {!book.comingSoon && creditLine(book) && (
+            <p className="text-muted" data-testid="public-credits">
+              {creditLine(book)}{" "}
+              <Link href="/pricing#credits" className="font-semibold text-ink underline underline-offset-4">
+                How credits work
+              </Link>
+            </p>
+          )}
           {book.comingSoon ? (
             <p className="rounded-2xl bg-sunshine/50 p-3 font-semibold" data-testid="public-coming-soon">
               Coming soon to the library.

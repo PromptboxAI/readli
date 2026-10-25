@@ -107,6 +107,21 @@ export const HELP_ARTICLES: HelpArticle[] = [
     keywords: ["invite", "grandma", "grandpa", "far away", "relatives", "long distance"],
     related: ["grandpa-pay-to-share", "invitation-link-not-working", "who-controls-my-voice"],
   }),
+  A({
+    slug: "after-i-try-my-voice",
+    category: "getting-started",
+    question: "What happens after I try my voice?",
+    status: "published",
+    answer: [
+      "Once you've heard a story in your voice, you can keep it. Make a free Readli Voice account within 24 hours and your recording comes with you, so you don't read the story again. If you don't, the recording and voice are deleted.",
+      "Next, pick a short passage from a storybook and listen to it in your voice. When you're happy with it, approve it. This is what your family hears first.",
+      "Then invite your grown-up children, or any parents you read to, by email. Readli sends them a link from you.",
+      "The link plays your passage straight away, with no account needed. If they'd like more, they connect your voice to their Readli Family, or start one with a free trial, and choose which of their children can hear you.",
+      "It never costs you anything, and you can stop sharing with any family at any time. See [the grandparents' guide](/grandparents).",
+    ],
+    keywords: ["after demo", "invite kids", "share link", "what do my kids see", "grandparent", "next steps", "save voice"],
+    related: ["grandpa-pay-to-share", "invite-relatives-elsewhere", "who-controls-my-voice"],
+  }),
 
   // Voices & Sharing
   A({
@@ -173,7 +188,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
     question: "Can I replace or delete my voice?",
     status: "draft",
     answer: [
-      "Yes. In Readli Family, open My voice and choose Record again to replace your voice with a better take (a quiet room helps). Deleting a voice yourself is paused while we update how finished stories are kept; email admin@readli.ai and we'll delete it for you.",
+      "Yes. In Readli Family, open My voice and choose Record again to replace your voice with a better take (a quiet room helps).",
+      "To delete your voice, email admin@readli.ai from the address on your account. We delete it within 48 hours of confirming it's you, and email you to say what was deleted. (Deleting a voice yourself in the app is paused while we update how finished stories are kept.)",
     ],
     keywords: ["re-record", "remove", "delete voice", "redo"],
     related: ["revoke-sharing", "data-deletion", "record-my-voice"],
@@ -455,6 +471,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     status: "published",
     answer: [
       "Email admin@readli.ai from the address on your account and tell us what you'd like deleted, such as a voice recording, a child's profile or your whole account. We may need to confirm it's you, or that you're the child's parent or guardian, before we act.",
+      "A voice is deleted within 48 hours of confirming it's you, and we email you to say what was deleted.",
       "Our [Privacy Policy](/privacy) explains what we keep and for how long.",
     ],
     keywords: ["delete", "erase", "remove data", "gdpr", "privacy request"],

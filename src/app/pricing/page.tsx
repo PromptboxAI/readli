@@ -4,7 +4,10 @@ import { PlanList } from "@/components/accounts/PlanList";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
+import { CREDIT_EXAMPLE_SLUGS, bookCredits, monthsOfCredits, storiesPerMonth } from "@/lib/content/credits-explained";
 import { annualSavingsPercent, monthlyTotalCents, pricing, type Pricing } from "@/lib/content/pricing";
+import { GIFT_PLANS } from "@/lib/gifting/plans";
+import { publicLibrary } from "@/lib/library/public";
 import { formatPrice as dollars } from "@/lib/family/plan";
 import { SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
 
@@ -40,11 +43,11 @@ function pricingLd(P: Pricing) {
 // Shows the prices an admin saved, so it renders per request.
 export const dynamic = "force-dynamic";
 
-const familyHighlights = (P: Pricing) => [
+const familyHighlights = (P: Pricing, stories: number) => [
   `${P.includedNarratorSlots} family storytellers included`,
   `${P.maxChildProfiles} child profiles`,
   `${P.simultaneousListeners} children listening at once`,
-  `${P.monthlyCredits} narration credits every month`,
+  `${P.monthlyCredits} narration credits every month, about ${stories} new bedtime stories`,
   "Replay your prepared stories as often as you like",
   "Invite loved ones to share their voices for free",
 ];
@@ -70,8 +73,14 @@ const NARRATOR_EXAMPLES = [
   { who: "Mom + Dad + Grandma + Grandpa", count: 4 },
 ];
 
+/** Prepaid gifts only: the recipient never enters a card, and the gift never turns into a subscription. */
+const GIFTS = GIFT_PLANS.filter((g) => g.kind === "prepaid" && g.priceCents !== null);
+
 export default async function PricingPage() {
   const P = await pricing();
+  const library = publicLibrary();
+  const stories = storiesPerMonth(P.monthlyCredits, library, P.charactersPerCredit);
+  const examples = CREDIT_EXAMPLE_SLUGS.map((slug) => library.find((b) => b.slug === slug && b.characters !== null)).filter((b) => b !== undefined);
   return (
     <>
       <SiteHeader />
@@ -109,7 +118,7 @@ export default async function PricingPage() {
                   , about {annualSavingsPercent(P)}% less than paying monthly
                 </p>
               </div>
-              <PlanList items={familyHighlights(P)} />
+              <PlanList items={familyHighlights(P, stories)} />
               <div className="mt-auto flex flex-col gap-2">
                 <Link href="/signup/family" className={`${buttonPrimary} w-full`}>
                   Start your family
@@ -218,7 +227,7 @@ export default async function PricingPage() {
           </div>
         </section>
 
-        <section aria-labelledby="difference-heading" className="bg-mint/40 px-4 py-14 sm:px-6">
+        <section id="credits" aria-labelledby="difference-heading" className="scroll-mt-20 bg-mint/40 px-4 py-14 sm:px-6">
           <div className="mx-auto flex max-w-5xl flex-col gap-6">
             <h2 id="difference-heading" className="text-center font-display text-3xl font-semibold sm:text-4xl">
               Storytellers and credits are different
@@ -234,15 +243,98 @@ export default async function PricingPage() {
               <div className="flex flex-col gap-2 rounded-[var(--radius-panel)] bg-surface p-6 sm:p-8">
                 <h3 className="font-display text-2xl font-semibold">Narration credits: how much new reading</h3>
                 <p>
-                  One credit prepares {P.charactersPerCredit.toLocaleString("en-US")} characters of new narration. Your household shares{" "}
-                  {P.monthlyCredits} credits a month, and they refresh each month. Readli shows exactly how many credits a story needs
-                  before you confirm.
+                  One credit prepares {P.charactersPerCredit.toLocaleString("en-US")} characters of new narration, about one minute of reading.
+                  Your household shares {P.monthlyCredits} credits a month, enough for about {stories} new picture books in one voice, and they
+                  refresh each month. Readli shows exactly how many credits a story needs before you confirm.
                 </p>
               </div>
             </div>
+            {examples.length > 0 && (
+              <div className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-6 sm:p-8" data-testid="credit-examples">
+                <h3 className="font-display text-2xl font-semibold">What {P.monthlyCredits} credits read</h3>
+                <p>
+                  Each story costs credits once for each voice you prepare it in. After that, it plays again for free, as often as your
+                  children like.
+                </p>
+                <table className="w-full text-left">
+                  <caption className="sr-only">Credits to prepare example books in one voice</caption>
+                  <thead>
+                    <tr className="border-b-2 border-ink/15 text-sm text-muted">
+                      <th scope="col" className="py-2 font-semibold">
+                        Book
+                      </th>
+                      <th scope="col" className="py-2 font-semibold">
+                        Reading time
+                      </th>
+                      <th scope="col" className="py-2 text-right font-semibold">
+                        Credits, one voice
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {examples.map((b) => {
+                      const credits = bookCredits(b.characters!, P.charactersPerCredit);
+                      return (
+                        <tr key={b.slug} className="border-b border-ink/10 align-top last:border-0">
+                          <td className="py-2 pr-3">
+                            <Link href={`/books/${b.slug}`} className="underline-offset-4 hover:underline">
+                              {b.title}
+                            </Link>
+                          </td>
+                          <td className="py-2 pr-3">About {Math.max(1, Math.round(b.minutes))} min</td>
+                          <td className="py-2 text-right font-semibold">
+                            {credits}
+                            {credits > P.monthlyCredits && (
+                              <span className="block text-sm font-normal text-muted">
+                                about {monthsOfCredits(credits, P.monthlyCredits)} months, a chapter at a time
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <p className="text-sm text-muted">
+                  Long chapter books can be prepared one chapter at a time, so you only spend credits on what you&apos;ll read next.
+                </p>
+              </div>
+            )}
             <div className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-6 sm:p-8">
               <h3 className="font-display text-2xl font-semibold">These never use credits</h3>
               <PlanList items={NO_CREDITS} className="sm:grid sm:grid-cols-2" />
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="gift-heading" className="bg-coral/15 px-4 py-14 sm:px-6" data-testid="pricing-gift">
+          <div className="mx-auto flex max-w-5xl flex-col gap-6">
+            <div className="flex flex-col gap-2 text-center">
+              <h2 id="gift-heading" className="font-display text-3xl font-semibold sm:text-4xl">
+                Give Readli to a family
+              </h2>
+              <p className="text-lg">
+                Grandparents often give the stories as well as the voice. Pay once, and the family gets Readli Family with nothing to set up
+                and no card to enter.
+              </p>
+            </div>
+            <ul className="grid gap-4 sm:grid-cols-3">
+              {GIFTS.map((g) => (
+                <li key={g.id} className="flex flex-col gap-1 rounded-[var(--radius-panel)] bg-surface p-6 text-center">
+                  <span className="font-display text-xl font-semibold">{g.name}</span>
+                  <span className="font-display text-3xl font-semibold">{dollars(g.priceCents!)}</span>
+                  <span className="text-sm text-muted">{g.summary}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-col items-center gap-2 text-center">
+              <Link href="/invite/gift" className={buttonPrimary}>
+                Give a gift
+              </Link>
+              <p className="text-sm text-muted">
+                A gift never turns into a subscription. When it ends, the family simply chooses whether to keep going. Gift checkout opens
+                soon, and nothing is charged yet.
+              </p>
             </div>
           </div>
         </section>

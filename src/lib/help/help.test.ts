@@ -19,10 +19,15 @@ describe("help content", () => {
     for (const a of HELP_ARTICLES) expect(a.question + a.answer.join(" ")).not.toMatch(banned);
   });
 
-  it("covers every topic in Kevin's list (42 questions)", () => {
-    expect(HELP_ARTICLES).toHaveLength(42);
-    expect(visibleArticles(true)).toHaveLength(42);
-    expect(visibleArticles(false).length).toBeLessThan(42);
+  it("covers every topic in Kevin's list (42 questions), plus what happens after the demo", () => {
+    expect(HELP_ARTICLES).toHaveLength(43);
+    expect(visibleArticles(true)).toHaveLength(43);
+    expect(visibleArticles(false).length).toBeLessThan(43);
+  });
+
+  it("states a timeframe for deleting a voice by email", () => {
+    const answer = HELP_ARTICLES.find((a) => a.slug === "replace-or-delete-my-voice")!.answer.join(" ");
+    expect(answer).toMatch(/within 48 hours/);
   });
 });
 

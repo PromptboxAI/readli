@@ -14,6 +14,7 @@ export function publicPages(): PublicPage[] {
   const pages: PublicPage[] = [
     { path: "/", title: "Readli home", priority: 1, changeFrequency: "weekly" },
     { path: "/try", title: "Hear a story in your voice, free", priority: 0.9, changeFrequency: "monthly" },
+    { path: "/grandparents", title: "Read to your grandkids in your own voice", priority: 0.8, changeFrequency: "monthly" },
     { path: "/pricing", title: "Pricing", priority: 0.9, changeFrequency: "monthly" },
     { path: "/books", title: "The Readli Library", priority: 0.9, changeFrequency: "weekly" },
     { path: "/parents/safety", title: "Family privacy & safety", priority: 0.7, changeFrequency: "monthly" },
