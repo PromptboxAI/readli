@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { formatPrice } from "@/lib/family/plan";
+import { rememberCheckout, takeCheckout, trackMeta } from "@/lib/marketing/meta-pixel";
 
 async function goTo(path: string, body: unknown, setError: (e: string) => void) {
   const res = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -75,6 +76,9 @@ export function StartPlan(props: { monthlyCents: number; annualCents: number; sl
         onClick={() => {
           setBusy(true);
           setError("");
+          const cents = base + extra * props.slotCents;
+          trackMeta("InitiateCheckout", { value: cents / 100, currency: "USD", content_name: choice });
+          rememberCheckout(cents);
           void goTo("/api/billing/checkout", { item: choice, extraSlots: extra }, setError).finally(() => setBusy(false));
         }}
       >
@@ -82,6 +86,15 @@ export function StartPlan(props: { monthlyCents: number; annualCents: number; sl
       </button>
     </div>
   );
+}
+
+/** Back from Stripe: reports the new plan to the Meta Pixel once, if this tab started the checkout. */
+export function CheckoutDone() {
+  useEffect(() => {
+    const cents = takeCheckout();
+    if (cents !== null) trackMeta("Subscribe", { value: cents / 100, currency: "USD" });
+  }, []);
+  return null;
 }
 
 /** Opens Stripe's page for changing the card, slots or canceling. */

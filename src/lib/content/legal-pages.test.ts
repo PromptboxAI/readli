@@ -34,4 +34,13 @@ describe("published legal pages (Kevin, 2026-10-23)", () => {
     expect(terms).toMatch(/temporarily unavailable/);
     expect(privacy).toMatch(/temporarily unavailable/);
   });
+
+  it("say where the Meta Pixel runs and how to turn it off (Kevin, 2026-10-25)", () => {
+    expect(privacy).toMatch(/Meta Pixel/);
+    expect(privacy).toMatch(/never runs in Readli Kids/);
+    expect(privacy).toMatch(/do not use third-party advertising or tracking in Readli Kids/);
+    expect(privacy).toMatch(/Global Privacy Control/);
+    expect(privacy).toMatch(/https:\/\/readli\.ai\/privacy\/choices/);
+    expect(privacy).not.toMatch(/does not use third-party analytics or advertising trackers/);
+  });
 });
