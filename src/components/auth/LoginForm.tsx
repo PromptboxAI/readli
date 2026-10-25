@@ -32,7 +32,10 @@ export function LoginForm({ next, onSentChange, askMarketing = false }: { next: 
     window.addEventListener("pageshow", reset);
     return () => window.removeEventListener("pageshow", reset);
   }, []);
-  const callback = () => `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}${askMarketing && news ? "&news=1" : ""}`;
+  const callback = () => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}${askMarketing && news ? "&news=1" : ""}${tz ? `&tz=${encodeURIComponent(tz)}` : ""}`;
+  };
 
   const google = async () => {
     setError(null);
