@@ -19,10 +19,16 @@ describe("help content", () => {
     for (const a of HELP_ARTICLES) expect(a.question + a.answer.join(" ")).not.toMatch(banned);
   });
 
-  it("covers every topic in Kevin's list (42 questions)", () => {
-    expect(HELP_ARTICLES).toHaveLength(42);
-    expect(visibleArticles(true)).toHaveLength(42);
-    expect(visibleArticles(false).length).toBeLessThan(42);
+  it("covers every topic in Kevin's list (42 questions) plus the library articles", () => {
+    expect(HELP_ARTICLES).toHaveLength(44);
+    expect(visibleArticles(true)).toHaveLength(44);
+    expect(visibleArticles(false).length).toBeLessThan(44);
+  });
+});
+
+describe("live topics", () => {
+  it("gives every Help Center topic at least one live article", () => {
+    for (const c of HELP_CATEGORIES) expect(visibleArticles(false).some((a) => a.category === c.slug)).toBe(true);
   });
 });
 

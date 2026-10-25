@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { signedPhotoUrl } from "@/lib/account/photos";
+import { photoFile } from "@/lib/account/photos";
 import { accountDb } from "@/lib/family/account-store";
 import { approvedVoiceIds } from "@/lib/family/permissions";
 import { currentSession, familyStore } from "@/lib/family/session";
@@ -8,10 +8,11 @@ import { fail } from "@/lib/server/http";
 export const dynamic = "force-dynamic";
 
 /**
- * A grown-up's profile photo, for people who share a family with them. Redirects to a short-lived signed link.
- * In Readli Kids the child sees only the photos of storytellers approved to read to them.
+ * A grown-up's profile photo, for people who share a family with them. The address carries the photo's
+ * consent time, so a new photo gets a new address and the browser can keep this one for a day: on a reload
+ * the avatar comes straight from its cache instead of waiting on sign-in checks and storage. In Readli Kids the child sees only the photos of storytellers approved to read to them.
  */
-export async function GET(_req: Request, { params }: { params: Promise<{ userId: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ userId: string }> }) {
   const { userId } = await params;
   const session = await currentSession();
   const viewer = session?.account?.id;
@@ -24,7 +25,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ userId:
     const reads = state ? approvedVoiceIds(state, childId, store!.plan).some((id) => state.voices.find((v) => v.id === id)?.ownerId === userId) : false;
     if (!reads) return fail(404, "no_photo", "No photo.");
   }
-  const url = await signedPhotoUrl(db, viewer, userId);
-  if (!url) return fail(404, "no_photo", "No photo.");
-  return NextResponse.redirect(url, { status: 302, headers: { "cache-control": "private, max-age=240" } });
+  const file = await photoFile(db, viewer, userId);
+  if (!file) return fail(404, "no_photo", "No photo.");
+  const headers = { "cache-control": "private, max-age=86400", etag: file.tag };
+  if (req.headers.get("if-none-match") === file.tag) return new NextResponse(null, { status: 304, headers });
+  return new NextResponse(file.body, { headers: { ...headers, "content-type": file.body.type || "image/jpeg" } });
 }

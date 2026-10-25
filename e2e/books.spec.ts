@@ -24,6 +24,7 @@ test("full library editions list their real chapters", async ({ page }) => {
   await page.goto("/books/winnie-the-pooh");
   await expect(page.getByRole("heading", { name: "Chapters" })).toBeVisible();
   await expect(page.getByText("In Which Pooh Goes Visiting and Gets Into a Tight Place")).toBeVisible();
+  await expect(page.getByTestId("public-opening")).toContainText("Here is Edward Bear, coming downstairs now, bump, bump, bump");
   await expect(page.getByTestId("public-coming-soon")).toHaveCount(0);
   await expect(page.getByTestId("public-prepare")).toBeVisible();
 });

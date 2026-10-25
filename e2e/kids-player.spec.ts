@@ -39,9 +39,22 @@ test("the kids bookshelf shows ready stories first and keeps the rest for a grow
   await page.getByTestId("kids-discover").click();
   await expect(page).toHaveURL(/\/kids\/discover$/);
   await expect(page.getByTestId("discover-aesops-fables-retold")).toContainText("Aesop's Fables");
-  await expect(page.getByTestId("discover-books").getByRole("link")).toHaveCount(0);
+  await expect(page.getByTestId("discover-books").locator('a[href^="/kids/listen/"]')).toHaveCount(0);
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/kids-discover-${info.project.name}.png`, fullPage: true });
+
+  // A book that isn't ready opens a peek: its first lines and a way to ask, never a player.
+  await page.getByTestId("peek-thumbelina").click();
+  await expect(page).toHaveURL(/\/kids\/discover\/thumbelina$/);
+  await expect(page.getByRole("heading", { name: "Thumbelina" })).toBeVisible();
+  await expect(page.getByTestId("kids-opening")).toContainText("There was once a woman who wished very much to have a little child.");
+  await expect(page.getByTestId("ask-thumbelina")).toBeVisible();
+  await expect(page.locator('a[href^="/kids/listen/"]')).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Prepare/ })).toHaveCount(0);
+  await noOverflow(page);
+  await page.screenshot({ path: `e2e/screenshots/kids-peek-${info.project.name}.png`, fullPage: true });
+  await page.getByTestId("back-link").click();
+  await expect(page).toHaveURL(/\/kids\/discover$/);
   await page.getByTestId("back-link").click();
   await expect(page).toHaveURL(/\/kids$/);
 });
@@ -78,7 +91,7 @@ test("a child asks a grown-up for a story, and it waits on Family Home with a wa
   await page.getByTestId("ask-thumbelina").click();
   await expect(page.getByTestId("asked-thumbelina")).toBeVisible();
   // Asking only sends the request: the book still isn't playable and nothing here prepares it.
-  await expect(page.getByTestId("discover-books").getByRole("link")).toHaveCount(0);
+  await expect(page.getByTestId("discover-books").locator('a[href^="/kids/listen/"]')).toHaveCount(0);
   await page.reload();
   await expect(page.getByTestId("asked-thumbelina")).toBeVisible();
   await noOverflow(page);
@@ -160,6 +173,135 @@ test("the player opens in Listen mode, switches to Read-along at the same place,
   const resume = page.getByTestId("kids-continue");
   await expect(resume).toContainText("The Lion and the Mouse");
   await expect(resume).toContainText(/Mom is reading · page 1 of \d+/);
+});
+
+test("a prepared chapter plays as one track, follows the voice sentence by sentence, and switches storyteller in place", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await signIn(page, "child:maya");
+  await page.goto("/kids/listen/the-lion-and-the-mouse");
+  const player = page.getByTestId("kids-player");
+  await page.getByRole("button", { name: "Read along" }).click();
+  const sentences: unknown[] = [];
+  page.on("request", (r) => {
+    if (r.url().endsWith("/api/kids/narrations") && r.method() === "POST") sentences.push(r.postDataJSON());
+  });
+  const first = page.waitForResponse((r) => r.url().endsWith("/api/kids/narrations/track"));
+  await page.getByRole("button", { name: "Play" }).click();
+  const track = await first;
+  expect(track.status()).toBe(200);
+  expect(track.request().postDataJSON()).toMatchObject({ childId: "maya", voiceId: "voice-sara", chapter: 1 });
+  const timing = (await track.json()) as { sentences: { index: number; startMs: number }[] };
+  expect(timing.sentences[0]).toMatchObject({ index: 0, startMs: 0 });
+  // The highlight moves on with the recording; nothing is asked for sentence by sentence.
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 2 of/, { timeout: 15_000 });
+  await expect(player.locator("[data-current]")).toBeVisible();
+  expect(sentences).toEqual([]);
+
+  // Switching storyteller loads Grandma June's track at the same sentence.
+  const at = (await page.getByTestId("sentence-position").textContent())!;
+  const june = page.waitForResponse((r) => r.url().endsWith("/api/kids/narrations/track") && r.request().postDataJSON().voiceId === "voice-june");
+  await page.getByRole("button", { name: /Change storyteller/ }).click();
+  await page.getByRole("group", { name: "Choose a storyteller" }).getByRole("button", { name: /Grandma June/ }).click();
+  expect((await june).status()).toBe(200);
+  await expect(page.getByTestId("current-narrator")).toHaveText("Grandma June");
+  expect(Number(/Sentence (\d+)/.exec((await page.getByTestId("sentence-position").textContent())!)![1])).toBeGreaterThanOrEqual(Number(/Sentence (\d+)/.exec(at)![1]));
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await page.getByRole("button", { name: "Pause" }).click();
+  await expect(page.getByRole("button", { name: "Play" })).toBeVisible();
+});
+
+test("a place that couldn't be saved is kept on the device and sent when the player opens again", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await signIn(page, "child:maya");
+  await page.goto("/kids/listen/the-lion-and-the-mouse");
+  await page.waitForLoadState("networkidle");
+  // The connection drops: saves don't get through.
+  await page.route("**/api/kids/maya/progress", (route) => route.abort());
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 4 of/);
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem("readli-place:maya:the-lion-and-the-mouse"))).toContain('"sentence":3');
+
+  // Back online: opening the book sends the kept place first, and the story picks up there.
+  await page.unroute("**/api/kids/maya/progress");
+  const sent = page.waitForResponse((r) => r.url().endsWith("/api/kids/maya/progress") && r.request().postDataJSON().sentence === 3);
+  await page.reload();
+  expect(await (await sent).json()).toMatchObject({ saved: true });
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 4 of/);
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem("readli-place:maya:the-lion-and-the-mouse"))).toBeNull();
+});
+
+/** Keeps every audio element and lock-screen button handler the page makes, so a test can act as the phone. */
+async function watchAudio(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __audio: HTMLAudioElement[]; __media: Record<string, ((d: object) => void) | null> };
+    w.__audio = [];
+    w.__media = {};
+    const Real = window.Audio;
+    window.Audio = function (src?: string) {
+      const a = new Real(src);
+      w.__audio.push(a);
+      return a;
+    } as unknown as typeof Audio;
+    const set = navigator.mediaSession.setActionHandler.bind(navigator.mediaSession);
+    navigator.mediaSession.setActionHandler = (action, handler) => {
+      w.__media[action] = handler as ((d: object) => void) | null;
+      set(action, handler);
+    };
+  });
+}
+
+test("the lock screen shows the story and works it, and a phone call pauses it until Play", async ({ page }) => {
+  await watchAudio(page);
+  await signIn(page, "adult:sara");
+  await signIn(page, "child:maya");
+  await page.goto("/kids/listen/the-lion-and-the-mouse");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Play" }).click();
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  const session = () => page.evaluate(() => ({ title: navigator.mediaSession.metadata?.title, artist: navigator.mediaSession.metadata?.artist, state: navigator.mediaSession.playbackState }));
+  await expect.poll(session).toEqual({ title: "The Lion and the Mouse", artist: "Read by Mom", state: "playing" });
+
+  // A call comes in: the phone pauses the audio, and the screen says so instead of showing Pause.
+  await page.waitForTimeout(1200);
+  await page.evaluate(() => (window as unknown as { __audio: HTMLAudioElement[] }).__audio.filter((a) => !a.paused).forEach((a) => a.pause()));
+  await expect(page.getByText("Story time paused. Press Play to keep listening.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Play" })).toBeVisible();
+  await expect.poll(session).toMatchObject({ state: "paused" });
+  const at = (await page.getByTestId("sentence-position").textContent())!;
+
+  // Play on the lock screen picks up at the same sentence; next goes on a sentence.
+  await page.evaluate(() => (window as unknown as { __media: Record<string, (d: object) => void> }).__media.play!({ action: "play" }));
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await expect(page.getByTestId("sentence-position")).toHaveText(at);
+  const n = Number(/Sentence (\d+)/.exec(at)![1]);
+  await page.evaluate(() => (window as unknown as { __media: Record<string, (d: object) => void> }).__media.nexttrack!({ action: "nexttrack" }));
+  await expect(page.getByTestId("sentence-position")).toHaveText(new RegExp(`Sentence (${n + 1}|${n + 2}) of`));
+  await page.evaluate(() => (window as unknown as { __media: Record<string, (d: object) => void> }).__media.pause!({ action: "pause" }));
+  await expect(page.getByRole("button", { name: "Play" })).toBeVisible();
+});
+
+test("the sleep timer is a deadline kept across a reload, and stops the story when it passes", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await signIn(page, "child:maya");
+  await page.goto("/kids/listen/the-lion-and-the-mouse");
+  await page.waitForLoadState("networkidle");
+  const sleep = page.getByRole("button", { name: /Sleep timer/ });
+  await sleep.click();
+  await expect(sleep).toHaveAccessibleName("Sleep timer: 15m");
+  await page.reload();
+  await expect(sleep).toHaveAccessibleName("Sleep timer: 15m");
+
+  // The deadline comes due two seconds from now, while the story plays.
+  await page.evaluate(() => window.localStorage.setItem("readli-sleep:maya", JSON.stringify({ minutes: 15, until: Date.now() + 2000 })));
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Play" }).click();
+  await expect(page.getByText("The sleep timer paused the story. Night night!")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("button", { name: "Play" })).toBeVisible();
+  await expect(sleep).toHaveAccessibleName("Sleep timer: Off");
+  expect(await page.evaluate(() => window.localStorage.getItem("readli-sleep:maya"))).toBeNull();
 });
 
 test("every read-along page fits its card without scrolling", async ({ page }, info) => {

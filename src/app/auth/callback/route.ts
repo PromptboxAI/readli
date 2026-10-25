@@ -1,6 +1,7 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { authConfigured, safeNext, supabaseServer } from "@/lib/auth/supabase";
+import { recordEmailSignup } from "@/lib/email/signup";
 import { GROWNUP_COOKIE, PIN_RESUMED_COOKIE } from "@/lib/family/grownup-stash";
 import { KIDS_COOKIE } from "@/lib/family/kids-mode";
 import { currentDevice } from "@/lib/family/session";
@@ -25,6 +26,7 @@ export async function GET(req: Request) {
     console.error("sign-in callback failed", error.message);
     return NextResponse.redirect(new URL(`/login?error=link&next=${encodeURIComponent(next)}`, url.origin));
   }
+  await recordEmailSignup(supabase, url, next).catch((err) => console.error("save email signup failed", err));
   // Signing in again is how a grown-up leaves Kids Mode on a device, so this sign-in ends it, and
   // ends the kids device record too so it no longer shows as active.
   const kidsDevice = await currentDevice().catch(() => null);

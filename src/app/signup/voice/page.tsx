@@ -58,7 +58,7 @@ export default async function VoiceSignupPage({ searchParams }: { searchParams: 
           <section className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10 sm:p-8" aria-label="Create a free Readli Voice account">
             <h2 className="font-display text-2xl font-semibold">Your free account</h2>
             <p>Sign in with your email or Google. New here? This creates your free Readli Voice account. No card, no subscription.</p>
-            <LoginForm next={record} />
+            <LoginForm next={record} askMarketing />
           </section>
         ) : (
           <form action={record} className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10 sm:p-8" aria-label="Create a free Readli Voice account">

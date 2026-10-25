@@ -139,17 +139,20 @@ test("a ready story opens the grown-up player and plays stored audio", async ({ 
   await player.getByRole("button", { name: /Change storyteller/ }).click();
   await expect(player.getByRole("group", { name: "Storyteller" }).getByRole("button", { name: /Mom/ })).toHaveAttribute("aria-pressed", "true");
   await player.getByRole("button", { name: "Done" }).click();
-  const asked: number[] = [];
+  const sentences: number[] = [];
   page.on("request", (r) => {
-    if (r.url().endsWith("/api/family/books/the-lion-and-the-mouse/listen") && r.method() === "POST") asked.push((r.postDataJSON() as { sentence: number }).sentence);
+    if (r.url().endsWith("/api/family/books/the-lion-and-the-mouse/listen") && r.method() === "POST") sentences.push((r.postDataJSON() as { sentence: number }).sentence);
   });
-  const listen = page.waitForResponse((r) => r.url().endsWith("/api/family/books/the-lion-and-the-mouse/listen"));
+  // A fully prepared chapter plays as one continuous track joined from the stored sentences.
+  const listen = page.waitForResponse((r) => r.url().endsWith("/api/family/books/the-lion-and-the-mouse/listen/track"));
   await player.getByRole("button", { name: "Play" }).click();
-  expect((await listen).status()).toBe(200);
+  const track = await listen;
+  expect(track.status()).toBe(200);
+  expect(track.request().postDataJSON()).toMatchObject({ voiceId: "voice-sara", chapter: 1 });
   await expect(player.getByRole("button", { name: "Pause" })).toBeVisible();
-  // The next few sentences are buffered while this one plays, so the story reads straight through.
-  await expect.poll(() => asked).toEqual([0, 1, 2, 3]);
+  // The sentence on screen follows the track's clock, with no request per sentence.
   await expect(player.getByTestId("sentence-position")).toHaveText(/Sentence 2 of/, { timeout: 15_000 });
+  expect(sentences).toEqual([]);
   await expect(player.getByRole("button", { name: "Pause" })).toBeVisible();
   // Paused partway, the story can start again from the beginning.
   await player.getByRole("button", { name: "Pause" }).click();
@@ -234,4 +237,25 @@ test("six kids stay easy to tell apart, each one tap from Readli Kids, without s
   for (let i = 0; i < tops.length; i += columns) expect(new Set(tops.slice(i, i + columns)).size).toBe(1);
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/family-home-6-kids-${info.project.name}.png`, fullPage: true });
+});
+
+test("a grown-up picks up where they left off, without moving a child's place", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/books/the-lion-and-the-mouse/listen");
+  const player = page.getByTestId("grown-up-player");
+  await expect(player.getByTestId("sentence-position")).toHaveText(/Sentence 1 of/);
+  // Opening a book saves nothing; moving does.
+  const saved = page.waitForResponse((r) => r.url().endsWith("/api/family/books/the-lion-and-the-mouse/progress") && r.request().postDataJSON().sentence === 2);
+  await player.getByRole("button", { name: "Next" }).click();
+  await player.getByRole("button", { name: "Next" }).click();
+  const res = await saved;
+  expect(await res.json()).toMatchObject({ saved: true });
+  expect(res.request().postDataJSON()).toMatchObject({ voiceId: "voice-sara", listenedAt: expect.any(Number), sentAt: expect.any(Number) });
+  await page.reload();
+  await expect(player.getByTestId("sentence-position")).toHaveText(/Sentence 3 of/);
+
+  // Maya's own place in the same book is untouched.
+  await signIn(page, "child:maya");
+  await page.goto("/kids/listen/the-lion-and-the-mouse");
+  await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 1 of/);
 });

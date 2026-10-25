@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
-type Handlers = { ended: () => void; error: (why: unknown) => void };
+type Handlers = {
+  ended: () => void;
+  error: (why: unknown) => void;
+  /** Something else paused the sentence playing: a phone call, Siri, another app's audio, headphones unplugged. */
+  interrupted?: () => void;
+};
+
+/** A pause this soon after the player's own play or pause is the player's, not an interruption. */
+const OWN_MS = 1000;
 
 function make(url: string) {
   const el = new Audio();
@@ -15,6 +23,7 @@ function drop(el: HTMLAudioElement | null | undefined) {
   if (!el) return;
   el.onended = null;
   el.onerror = null;
+  el.onpause = null;
   el.pause();
   el.removeAttribute("src");
   el.load();
@@ -41,6 +50,7 @@ export function useGaplessAudio(handlers: Handlers) {
   const on = useRef(handlers);
   on.current = handlers;
   const waiting = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const acted = useRef(0);
 
   const stopWaiting = useCallback(() => {
     if (waiting.current !== null) clearTimeout(waiting.current);
@@ -50,12 +60,16 @@ export function useGaplessAudio(handlers: Handlers) {
   const attach = useCallback((el: HTMLAudioElement) => {
     el.onended = () => on.current.ended();
     el.onerror = () => on.current.error(el.error);
+    el.onpause = () => {
+      if (current.current === el && !el.ended && Date.now() - acted.current >= OWN_MS) on.current.interrupted?.();
+    };
     current.current = el;
   }, []);
 
   /** Plays this sentence: the buffered copy when it matches `key`, otherwise `url`. */
   const play = useCallback(
     async (key: string, url: string | null) => {
+      acted.current = Date.now();
       const buffered = ahead.current.get(key) ?? null;
       ahead.current.delete(key);
       if (current.current !== buffered) drop(current.current);
@@ -117,6 +131,7 @@ export function useGaplessAudio(handlers: Handlers) {
 
   const pause = useCallback(() => {
     stopWaiting();
+    acted.current = Date.now();
     current.current?.pause();
   }, [stopWaiting]);
 
