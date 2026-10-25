@@ -79,29 +79,35 @@ function mayTrack(w: PixelWindow): boolean {
 }
 
 /**
- * Meta's base code, minus the automatic PageView. History tracking is off so client-side moves into
- * the parent portal or Readli Kids send nothing, and automatic button and form scanning is off.
+ * Meta's base code, verbatim apart from types, minus its automatic PageView: the stub queues calls as
+ * `arguments` until fbevents.js takes over through callMethod. History tracking is off so client-side
+ * moves into the parent portal or Readli Kids send nothing, and automatic button and form scanning is off.
  */
 export function loadPixel(w: PixelWindow = window as PixelWindow): boolean {
   if (!mayTrack(w)) return false;
   if (w.fbq) return true;
-  const n: Fbq = function (...args: unknown[]) {
-    if (n.callMethod) n.callMethod(...args);
-    else n.queue!.push(args);
-  } as Fbq;
-  w.fbq = n;
-  if (!w._fbq) w._fbq = n;
-  n.push = n;
-  n.loaded = true;
-  n.version = "2.0";
-  n.queue = [];
-  n.disablePushState = true;
-  const t = w.document.createElement("script");
-  t.async = true;
-  t.src = "https://connect.facebook.net/en_US/fbevents.js";
-  w.document.head.appendChild(t);
-  n("set", "autoConfig", false, META_PIXEL_ID);
-  n("init", META_PIXEL_ID);
+  /* eslint-disable prefer-rest-params, prefer-spread, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-expressions */
+  (function (f: any, b: Document, e: string, v: string) {
+    if (f.fbq) return;
+    const n: any = (f.fbq = function () {
+      n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+    });
+    if (!f._fbq) f._fbq = n;
+    n.push = n;
+    n.loaded = !0;
+    n.version = "2.0";
+    n.queue = [];
+    const t = b.createElement(e) as HTMLScriptElement;
+    t.async = !0;
+    t.src = v;
+    const s = b.getElementsByTagName(e)[0];
+    if (s?.parentNode) s.parentNode.insertBefore(t, s);
+    else b.head.appendChild(t);
+  })(w, w.document, "script", "https://connect.facebook.net/en_US/fbevents.js");
+  /* eslint-enable prefer-rest-params, prefer-spread, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-expressions */
+  w.fbq!.disablePushState = true;
+  w.fbq!("set", "autoConfig", false, META_PIXEL_ID);
+  w.fbq!("init", META_PIXEL_ID);
   return true;
 }
 

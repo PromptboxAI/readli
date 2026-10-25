@@ -34,7 +34,7 @@ describe("trackMeta", () => {
     trackMeta("PageView", undefined, undefined, w as never);
     trackMetaCustom("SignupStarted", { content_name: "Readli Family" }, w as never);
     expect(w.document.querySelectorAll('script[src="https://connect.facebook.net/en_US/fbevents.js"]')).toHaveLength(1);
-    expect(w.fbq!.queue).toEqual([
+    expect(w.fbq!.queue.map((a) => Array.from(a as ArrayLike<unknown>))).toEqual([
       ["set", "autoConfig", false, "28060840410257774"],
       ["init", "28060840410257774"],
       ["track", "Lead", { content_name: "Voice demo" }, { eventID: "lead-1234" }],
