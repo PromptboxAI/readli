@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { adsOptedOut, loadPixel, pixelAllowed, setAdsOptOut, pixelEnabled, rememberCheckout, takeCheckout, trackMeta } from "./meta-pixel";
+import { adsOptedOut, loadPixel, newMetaEventId, pixelAllowed, setAdsOptOut, syncAdsOptOut, trackMetaCustom, pixelEnabled, rememberCheckout, takeCheckout, trackMeta } from "./meta-pixel";
 
 describe("Meta Pixel pages", () => {
   it("runs on the public grown-up pages", () => {
@@ -16,6 +16,7 @@ describe("Meta Pixel pages", () => {
     expect(pixelEnabled({ VERCEL_ENV: "production" })).toBe(true);
     expect(pixelEnabled({ VERCEL_ENV: "preview" })).toBe(false);
     expect(pixelEnabled({ NODE_ENV: "production" })).toBe(false);
+    expect(pixelEnabled({ VERCEL_ENV: "preview", META_TEST: "1" })).toBe(true);
   });
 });
 
@@ -29,21 +30,24 @@ describe("trackMeta", () => {
 
   it("loads Meta's script once, without history or automatic tracking, and queues the event", () => {
     const w = fakeWindow("/try");
-    trackMeta("Lead", { content_name: "Voice demo" }, w as never);
-    trackMeta("PageView", undefined, w as never);
+    trackMeta("Lead", { content_name: "Voice demo" }, "lead-1234", w as never);
+    trackMeta("PageView", undefined, undefined, w as never);
+    trackMetaCustom("SignupStarted", { content_name: "Readli Family" }, w as never);
     expect(w.document.querySelectorAll('script[src="https://connect.facebook.net/en_US/fbevents.js"]')).toHaveLength(1);
     expect(w.fbq!.queue).toEqual([
       ["set", "autoConfig", false, "28060840410257774"],
       ["init", "28060840410257774"],
-      ["track", "Lead", { content_name: "Voice demo" }],
+      ["track", "Lead", { content_name: "Voice demo" }, { eventID: "lead-1234" }],
       ["track", "PageView"],
+      ["trackCustom", "SignupStarted", { content_name: "Readli Family" }],
     ]);
     expect((w.fbq as unknown as { disablePushState: boolean }).disablePushState).toBe(true);
   });
 
   it("does nothing in Readli Kids or with Global Privacy Control", () => {
     for (const w of [fakeWindow("/kids"), fakeWindow("/family"), fakeWindow("/try", true)]) {
-      trackMeta("PageView", undefined, w as never);
+      trackMeta("PageView", undefined, undefined, w as never);
+      expect(newMetaEventId(w as never)).toBeNull();
       expect(w.fbq).toBeUndefined();
       expect(w.document.querySelector("script")).toBeNull();
     }
@@ -64,12 +68,21 @@ describe("Do Not Sell or Share", () => {
     localStorage.clear();
   });
 
-  it("stops the pixel on this browser, and can be undone", () => {
+  it("stops the pixel on this browser, tells the server by cookie, and can be undone", () => {
     setAdsOptOut(true);
     expect(adsOptedOut()).toBe(true);
+    expect(document.cookie).toContain("readli_ads_opt_out=1");
     expect(loadPixel()).toBe(false);
     setAdsOptOut(false);
     expect(adsOptedOut()).toBe(false);
+    expect(document.cookie).not.toContain("readli_ads_opt_out=1");
+  });
+
+  it("gives an opt-out saved before the cookie existed its cookie", () => {
+    localStorage.setItem("readli_ads_opt_out", "1");
+    syncAdsOptOut();
+    expect(document.cookie).toContain("readli_ads_opt_out=1");
+    setAdsOptOut(false);
   });
 
   it("revokes consent on a pixel that already loaded", () => {

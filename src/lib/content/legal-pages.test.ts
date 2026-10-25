@@ -41,6 +41,9 @@ describe("published legal pages (Kevin, 2026-10-23)", () => {
     expect(privacy).toMatch(/do not use third-party advertising or tracking in Readli Kids/);
     expect(privacy).toMatch(/Global Privacy Control/);
     expect(privacy).toMatch(/https:\/\/readli\.ai\/privacy\/choices/);
+    expect(privacy).toMatch(/Meta Conversions API/);
+    expect(privacy).toMatch(/hashed version of your email address/);
+    expect(privacy).toMatch(/never send voice recordings, voice details, names, phone numbers, birth dates, or anything about children/);
     expect(privacy).not.toMatch(/does not use third-party analytics or advertising trackers/);
   });
 });
