@@ -8,9 +8,13 @@ import type { NarratorView } from "@/lib/family/service";
 import type { BookTexts, KidsNarratorReadiness } from "@/lib/narration/narration";
 import { mapPosition } from "@/lib/narration/positions";
 import { nextSleep, parseMode, type PlayerMode, type SleepMinutes } from "@/lib/player/pages";
+import { chapterReady, type Track } from "@/lib/player/tracks";
 import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, TimeBar } from "./PlayerParts";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 import { AHEAD, useGaplessAudio } from "./useGaplessAudio";
+import { useMediaSession } from "./useMediaSession";
+import { usePlaceSaver } from "./usePlaceSaver";
+import { useTrackAudio } from "./useTrackAudio";
 
 const REFRESH_MS = 10_000;
 const MODE_KEY = "readli-player-mode";
@@ -28,7 +32,9 @@ async function errorCode(res: Response): Promise<string | undefined> {
  * sleep timer and permissions. Shows only narrators the server says this child may hear, marks which
  * have audio prepared at the current sentence, switches instantly at the current sentence when it
  * is prepared, and never generates audio while the child waits. Each narrator's words are the text
- * their audiobook reads, so read-along always matches what is heard.
+ * their audiobook reads, so read-along always matches what is heard. A fully prepared chapter plays as
+ * one continuous track, with the sentence on screen following its clock; anything else plays sentence
+ * by sentence.
  */
 export function KidsPlayer({
   childId,
@@ -93,7 +99,34 @@ export function KidsPlayer({
       onEnded();
     },
     error: (why) => onClipFailed(why),
+    interrupted: () => onInterrupted(),
   });
+  const track = useTrackAudio({
+    sentence: (at) => {
+      setSentence(at);
+      sentenceRef.current = at;
+    },
+    ended: () => {
+      trackFailed.current = null;
+      onEnded();
+    },
+    error: (why) => onTrackFailed(why),
+    time: () => checkSleep(),
+    interrupted: () => onInterrupted(),
+    resumed: () => {
+      setNotice(null);
+      setPlaying(true);
+    },
+    // A track needs no request per sentence, so playing keeps the listening session alive and re-checks
+    // who this child may hear, even with the screen locked.
+    tick: () => {
+      void fetch(`/api/kids/${childId}/listening`, { method: "POST" }).catch(() => null);
+      void refresh();
+    },
+  });
+  // Chapters that play sentence by sentence because their track couldn't be had, and the last track that failed to play.
+  const noTrack = useRef(new Set<string>());
+  const trackFailed = useRef<string | null>(null);
 
   // Listen is the default; a child's last choice on this device is remembered.
   useEffect(() => {
@@ -148,44 +181,93 @@ export function KidsPlayer({
   const halt = useCallback(() => {
     audio.pause();
     audio.clear();
+    track.pause();
     setPlaying(false);
     setLoading(false);
     endSession();
-  }, [audio, endSession]);
+  }, [audio, track, endSession]);
 
   useEffect(() => endSession, [endSession]);
 
-  // The sleep timer pauses the story when it runs out.
+  // The sleep timer is a deadline on the clock, kept on this device, so it holds across a reload and
+  // fires on time with the screen locked: it is checked every second on screen, and with every update
+  // of the story's audio in the background.
+  const sleepKey = `readli-sleep:${childId}`;
+  const sleepRef = useRef(sleep);
+  sleepRef.current = sleep;
+  const setSleepTimer = useCallback(
+    (next: { minutes: SleepMinutes; until: number | null }) => {
+      setSleep(next);
+      sleepRef.current = next;
+      try {
+        if (next.until === null) window.localStorage.removeItem(sleepKey);
+        else window.localStorage.setItem(sleepKey, JSON.stringify(next));
+      } catch {
+        // Not kept across a reload this time.
+      }
+    },
+    [sleepKey],
+  );
+  const checkSleep = useCallback(() => {
+    const { until } = sleepRef.current;
+    const t = Date.now();
+    setNow(t);
+    if (until === null || t < until) return false;
+    halt();
+    setSleepTimer({ minutes: null, until: null });
+    setNotice("The sleep timer paused the story. Night night!");
+    return true;
+  }, [halt, setSleepTimer]);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(sleepKey) ?? "null") as { minutes: SleepMinutes; until: number } | null;
+      if (saved && saved.until > Date.now()) setSleepTimer(saved);
+      else window.localStorage.removeItem(sleepKey);
+    } catch {
+      // Storage can be blocked; the timer starts off.
+    }
+  }, [sleepKey, setSleepTimer]);
+
   useEffect(() => {
     if (sleep.until === null) return;
-    const id = window.setInterval(() => {
-      const t = Date.now();
-      setNow(t);
-      if (t >= sleep.until!) {
-        halt();
-        setSleep({ minutes: null, until: null });
-        setNotice("The sleep timer paused the story. Night night!");
-      }
-    }, 1000);
-    return () => window.clearInterval(id);
-  }, [sleep.until, halt]);
+    const id = window.setInterval(checkSleep, 1000);
+    document.addEventListener("visibilitychange", checkSleep);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", checkSleep);
+    };
+  }, [sleep.until, checkSleep]);
 
   const cycleSleep = () => {
     const minutes = nextSleep(sleep.minutes);
     const t = Date.now();
     setNow(t);
-    setSleep({ minutes, until: minutes === null ? null : t + minutes * 60_000 });
+    setSleepTimer({ minutes, until: minutes === null ? null : t + minutes * 60_000 });
   };
 
-  // Each child keeps their own place and narrator in every book.
+  // Each child keeps their own place and narrator in every book. Opening a book saves nothing; a place
+  // this device couldn't save last time is sent first, and picked up if it's the newest.
+  const moved = useRef(false);
+  const places = usePlaceSaver(`/api/kids/${childId}/progress`, `readli-place:${childId}:${book.slug}`, { bookSlug: book.slug }, (place) => {
+    if (moved.current || playingRef.current || listening.current) return;
+    const id = narrators.find((n) => n.voiceId === place.voiceId)?.voiceId;
+    const to = textsRef.current[place.textRevision];
+    if (!id || !to) return;
+    setVoiceId(id);
+    voiceRef.current = id;
+    showRevision(place.textRevision);
+    const at = Math.max(0, Math.min(place.sentence, to.sentences.length - 1));
+    setSentence(at);
+    sentenceRef.current = at;
+  });
+  const opening = useRef({ sentence, voiceId, shown });
   useEffect(() => {
-    void fetch(`/api/kids/${childId}/progress`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ bookSlug: book.slug, sentence, voiceId, textRevision: shown }),
-      keepalive: true,
-    });
-  }, [childId, book.slug, sentence, voiceId, shown]);
+    const o = opening.current;
+    if (!moved.current && o.sentence === sentence && o.voiceId === voiceId && o.shown === shown) return;
+    moved.current = true;
+    places.save({ sentence, voiceId, textRevision: shown });
+  }, [places, sentence, voiceId, shown]);
 
   /** Asks the server who this child may hear and what is prepared; drops a narrator no longer allowed. */
   const refresh = useCallback(async () => {
@@ -271,8 +353,32 @@ export function KidsPlayer({
     return true;
   };
 
-  const play = async (at: number, voice: string) => {
+  /** The chapter track that holds sentence `at` in the text on screen, named by voice, text and chapter. */
+  const trackKey = (voice: string, at: number) => `${voice}:${shownRef.current}:${textsRef.current[shownRef.current]?.chapters[at]}`;
+
+  /** Explains why a story can't play right now, after the server said no. */
+  const explain = async (code: string | undefined, voice: string) => {
+    halt();
+    if (code === "book_updated") {
+      // This reading was replaced by an update; show the new one at the same place.
+      await refresh();
+      setNotice(PAUSED);
+    } else if (code === "not_prepared") {
+      setNotice(`${nameOf(voice)}'s reading stops here for now. Pick another storyteller, or ask a grown-up to prepare more.`);
+    } else if (code === "voice_not_available") {
+      // refresh() drops the narrator and explains if access really was removed.
+      if (await refresh()) setNotice(PAUSED);
+    } else {
+      setNotice(PAUSED);
+    }
+  };
+
+  const play = async (at: number, voice: string): Promise<void> => {
     setNotice(null);
+    const text = textsRef.current[shownRef.current];
+    const ready = readinessRef.current.find((r) => r.voiceId === voice)?.readySentenceIds ?? [];
+    if (text && chapterReady(text, ready, at) && !noTrack.current.has(trackKey(voice, at))) return playTrack(at, voice);
+    track.clear();
     const key = `${voice}:${at}`;
     let url: string | null = null;
     if (!audio.buffered(key) || !listening.current) {
@@ -289,22 +395,7 @@ export function KidsPlayer({
         code = res && !res.ok ? await errorCode(res) : undefined;
       }
       if (voiceRef.current !== voice) return; // switched again while waiting
-      if (!res?.ok) {
-        halt();
-        if (code === "book_updated") {
-          // This reading was replaced by an update; show the new one at the same place.
-          await refresh();
-          setNotice(PAUSED);
-        } else if (code === "not_prepared") {
-          setNotice(`${nameOf(voice)}'s reading stops here for now. Pick another storyteller, or ask a grown-up to prepare more.`);
-        } else if (code === "voice_not_available") {
-          // refresh() drops the narrator and explains if access really was removed.
-          if (await refresh()) setNotice(PAUSED);
-        } else {
-          setNotice(PAUSED);
-        }
-        return;
-      }
+      if (!res?.ok) return explain(code, voice);
       url = ((await res.json()) as { url: string }).url;
     }
     try {
@@ -315,6 +406,68 @@ export function KidsPlayer({
     } catch (why) {
       onClipFailed(why, at);
     }
+  };
+
+  /** A signed URL for the chapter track holding sentence `at`; every permission gate is checked on the server. */
+  const fetchTrack = (at: number, voice: string) =>
+    fetch("/api/kids/narrations/track", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ childId, voiceId: voice, bookSlug: book.slug, chapter: textsRef.current[shownRef.current]?.chapters[at], revision: shownRef.current }),
+    });
+
+  /** Plays a fully prepared chapter as one track from sentence `at`, or falls back to sentence by sentence. */
+  const playTrack = async (at: number, voice: string): Promise<void> => {
+    const key = trackKey(voice, at);
+    audio.pause();
+    audio.clear();
+    try {
+      if (track.has(key, at) && listening.current) {
+        await track.seek(at);
+      } else {
+        setLoading(true);
+        if (!(await startSession())) return;
+        let res = await fetchTrack(at, voice).catch(() => null);
+        let code = res && !res.ok ? await errorCode(res) : undefined;
+        if (code === "no_listening_session") {
+          listening.current = false;
+          if (!(await startSession())) return;
+          res = await fetchTrack(at, voice).catch(() => null);
+          code = res && !res.ok ? await errorCode(res) : undefined;
+        }
+        if (voiceRef.current !== voice) return;
+        if (!res || code === "not_prepared" || code === "track_unavailable") {
+          noTrack.current.add(key);
+          return play(at, voice);
+        }
+        if (!res.ok) return explain(code, voice);
+        await track.load(key, (await res.json()) as Track, at);
+      }
+      setPlaying(true);
+      setLoading(false);
+    } catch (why) {
+      onTrackFailed(why, at);
+    }
+  };
+
+  /**
+   * A track that won't play is asked for once more (its URL may have run out during a long pause), then
+   * the chapter carries on sentence by sentence. Asking again re-checks access, so a revoked voice stops.
+   */
+  const onTrackFailed = (why: unknown, at = sentenceRef.current) => {
+    const voice = voiceRef.current;
+    if (why instanceof DOMException && why.name === "AbortError") return;
+    console.warn(`Readli: the chapter track didn't play at sentence ${at + 1}`, why);
+    if (!voice || (why instanceof DOMException && why.name === "NotAllowedError")) {
+      halt();
+      setNotice(PAUSED);
+      return;
+    }
+    const key = trackKey(voice, at);
+    track.clear();
+    if (trackFailed.current === key) noTrack.current.add(key);
+    trackFailed.current = key;
+    void play(at, voice);
   };
 
   /**
@@ -345,6 +498,7 @@ export function KidsPlayer({
   };
 
   const onEnded = () => {
+    if (checkSleep()) return;
     const at = sentenceRef.current;
     const voice = voiceRef.current;
     // A book prepared before "The End." was added simply finishes without it.
@@ -376,6 +530,7 @@ export function KidsPlayer({
     setVoiceId(id);
     voiceRef.current = id;
     audio.clear();
+    track.clear();
     // Each narrator shows the words they read; the place carries over to the same sentence.
     const at = showRevision(revisionOf(id));
     if (playing || loading) void play(at, id);
@@ -395,6 +550,38 @@ export function KidsPlayer({
     audio.clear();
     if (voiceId) void play(0, voiceId);
   };
+
+  /**
+   * A phone call, Siri, another app's audio or unplugged headphones paused the story. The screen says
+   * so, and Play (here, on the lock screen or on headphones) picks up at the same sentence.
+   */
+  const onInterrupted = () => {
+    halt();
+    setNotice(PAUSED);
+  };
+
+  // The lock screen, notification shade, headphones and car show the story and work its buttons.
+  useMediaSession(
+    { title: book.title, narrator: narrators.find((n) => n.voiceId === voiceId)?.name ?? null, coverUrl: book.coverUrl },
+    playing,
+    sentence,
+    {
+      play: () => {
+        if (!playingRef.current && voiceRef.current) void play(sentenceRef.current, voiceRef.current);
+      },
+      pause: () => halt(),
+      previous: () => sentenceRef.current > 0 && goTo(sentenceRef.current - 1),
+      next: () => sentenceRef.current + 1 < sentences.length && goTo(sentenceRef.current + 1),
+      skip: (seconds) => {
+        if (!track.skip(seconds)) goTo(Math.max(0, Math.min(sentences.length - 1, sentenceRef.current + Math.sign(seconds))));
+      },
+      seekTo: (seconds) => {
+        const p = track.position();
+        if (p) track.skip(seconds - p.position);
+      },
+    },
+    track.position,
+  );
 
   const current = narrators.find((n) => n.voiceId === voiceId) ?? null;
   const back = (
@@ -515,7 +702,11 @@ export function KidsPlayer({
             type="button"
             aria-label={playing ? "Pause" : loading ? "Getting ready…" : "Play"}
             disabled={!voiceId || (!playing && !currentReady)}
-            onClick={() => (playing ? halt() : voiceId && play(sentence, voiceId))}
+            onClick={() => {
+              if (playing) return halt();
+              track.unlock();
+              if (voiceId) void play(sentence, voiceId);
+            }}
             className="grid size-21 place-items-center rounded-full bg-coral-strong text-white shadow-[0_6px_0_var(--color-coral-deep)] active:translate-y-1 active:shadow-[0_2px_0_var(--color-coral-deep)] disabled:opacity-50 sm:size-25"
           >
             {loading && !playing ? (
@@ -528,7 +719,15 @@ export function KidsPlayer({
             <Icon name="next" className="size-[26px]" />
           </button>
           {sentence > 0 ? (
-            <button type="button" disabled={!voiceId || !readyAt(voiceId, 0)} onClick={startOver} className={`justify-self-end ${side}`}>
+            <button
+              type="button"
+              disabled={!voiceId || !readyAt(voiceId, 0)}
+              onClick={() => {
+                track.unlock();
+                startOver();
+              }}
+              className={`justify-self-end ${side}`}
+            >
               <Icon name="restart" className="size-6" />
               Start over
             </button>

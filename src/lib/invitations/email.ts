@@ -20,7 +20,15 @@ export interface Mailer {
   send(email: OutgoingEmail): Promise<{ id: string }>;
 }
 
-export class MailerError extends Error {}
+export class MailerError extends Error {
+  constructor(
+    message: string,
+    /** Resend's HTTP status, when it answered. */
+    readonly status?: number,
+  ) {
+    super(message);
+  }
+}
 
 export class ResendMailer implements Mailer {
   constructor(
@@ -39,7 +47,7 @@ export class ResendMailer implements Mailer {
       },
       body: JSON.stringify({ from: this.from, to: [email.to], subject: email.subject, html: email.html, text: email.text, headers: email.headers }),
     });
-    if (!res.ok) throw new MailerError(`resend ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    if (!res.ok) throw new MailerError(`resend ${res.status}: ${(await res.text()).slice(0, 200)}`, res.status);
     const body = (await res.json()) as { id?: string };
     return { id: body.id ?? "" };
   }
@@ -79,7 +87,11 @@ export interface InvitationEmailInput {
   oneClickUnsubscribeUrl: string;
   reportUrl: string;
   linkDays: number;
+  /** An automatic reminder (sequence email I2) rather than the first invitation. */
+  reminder?: boolean;
 }
+
+const REMINDER_LINE = "A quick reminder: this invitation is still open.";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -89,11 +101,12 @@ export function invitationEmail(input: InvitationEmailInput): Omit<OutgoingEmail
   const who = input.contributorName;
   const hello = input.recipientName ? `Hi ${input.recipientName},` : "Hi,";
   const said = input.message || DEFAULT_CONTRIBUTOR_MESSAGE;
-  const subject = `${who} wants to read stories to your family on Readli`;
+  const subject = input.reminder ? `${who} wants your family to hear them read` : `${who} wants to read stories to your family on Readli`;
   const preview = input.bookTitle ? ` ${who} also recorded a short preview from ${input.bookTitle} for you to hear.` : "";
   const lines = [
     hello,
     "",
+    ...(input.reminder ? [REMINDER_LINE, ""] : []),
     `${who} wrote:`,
     said,
     "",
@@ -112,7 +125,7 @@ export function invitationEmail(input: InvitationEmailInput): Omit<OutgoingEmail
 <p style="font-size:22px;font-weight:700;margin:0 0 16px">Readli</p>
 <div style="background:#ffffff;border-radius:20px;padding:24px">
 <p style="margin:0 0 12px">${esc(hello)}</p>
-<p style="margin:0 0 4px;font-weight:600">${esc(who)} wrote:</p>
+${input.reminder ? `<p style="margin:0 0 12px">${REMINDER_LINE}</p>\n` : ""}<p style="margin:0 0 4px;font-weight:600">${esc(who)} wrote:</p>
 <p style="margin:0;padding:12px 16px;background:#fff7e0;border-radius:12px;white-space:pre-line">${esc(said)}</p>
 <p style="margin:24px 0;text-align:center"><a href="${esc(input.previewUrl)}" style="display:inline-block;background:#ff7a59;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 24px;border-radius:999px">Connect ${esc(who)}'s voice</a></p>
 <p style="margin:0;font-size:14px">Readli turns classic children's books into read-alongs in the voices of the people your kids love.${esc(preview)} Already have Readli Family? Sign in and connect ${esc(who)}. New to Readli? Start a free family trial from the same link. You choose which children hear ${esc(who)}. The link works for ${input.linkDays} days.</p>
@@ -167,6 +180,8 @@ export interface FamilyInviteEmailInput {
   oneClickUnsubscribeUrl: string;
   reportUrl: string;
   linkDays: number;
+  /** An automatic reminder (sequence email I1) rather than the first invitation. */
+  reminder?: boolean;
 }
 
 /** A family's parent invites a storyteller (Family storytellers → Invite a storyteller). */
@@ -174,10 +189,11 @@ export function familyInviteEmail(input: FamilyInviteEmailInput): Omit<OutgoingE
   const who = input.inviterName;
   const family = input.familyName;
   const hello = input.recipientName ? `Hi ${input.recipientName},` : "Hi,";
-  const subject = `${who} invited you to read stories to ${family} on Readli`;
+  const subject = input.reminder ? `${who} is still saving a spot for your voice` : `${who} invited you to read stories to ${family} on Readli`;
   const lines = [
     hello,
     "",
+    ...(input.reminder ? [REMINDER_LINE, ""] : []),
     `${who} would love you to read stories to the kids in ${family}. On Readli, you record your voice once, and the children your family's parents choose can hear you read classic books.`,
     "",
     `Accept the invitation: ${input.joinUrl}`,
@@ -195,7 +211,7 @@ export function familyInviteEmail(input: FamilyInviteEmailInput): Omit<OutgoingE
 <p style="font-size:22px;font-weight:700;margin:0 0 16px">Readli</p>
 <div style="background:#ffffff;border-radius:20px;padding:24px">
 <p style="margin:0 0 12px">${esc(hello)}</p>
-<p style="margin:0">${esc(who)} would love you to read stories to the kids in <strong>${esc(family)}</strong>. On Readli, you record your voice once, and the children your family's parents choose can hear you read classic books.</p>
+${input.reminder ? `<p style="margin:0 0 12px">${REMINDER_LINE}</p>\n` : ""}<p style="margin:0">${esc(who)} would love you to read stories to the kids in <strong>${esc(family)}</strong>. On Readli, you record your voice once, and the children your family's parents choose can hear you read classic books.</p>
 <p style="margin:24px 0;text-align:center"><a href="${esc(input.joinUrl)}" style="display:inline-block;background:#ff7a59;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 24px;border-radius:999px">Accept the invitation</a></p>
 <p style="margin:0;font-size:14px">It's free for you, with no card and no subscription. Your voice stays yours: it's shared with ${esc(family)} only after you agree, and you can stop sharing at any time. The link works once, for ${input.linkDays} days.</p>
 </div>

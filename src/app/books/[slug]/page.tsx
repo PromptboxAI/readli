@@ -1,25 +1,27 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { authConfigured } from "@/lib/auth/supabase";
+import { bookOpening } from "@/lib/library/opening";
+import { bookPath, publicSlug, slugFromPublic } from "@/lib/library/paths";
 import { type PublicBook, publicBook, publicLibrary } from "@/lib/library/public";
 import { absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
 
 export function generateStaticParams() {
-  return publicLibrary().map((b) => ({ slug: b.slug }));
+  return publicLibrary().flatMap((b) => [...new Set([b.slug, publicSlug(b.slug)])].map((slug) => ({ slug })));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const book = publicBook((await params).slug);
+  const book = publicBook(slugFromPublic((await params).slug));
   if (!book) return {};
   return publicPageMetadata({
     title: `${book.title} by ${book.author} | Readli Library`,
     description: bookDescription(book),
-    path: `/books/${book.slug}`,
+    path: bookPath(book.slug),
     type: "book",
     images: book.coverUrl ? [{ url: book.coverUrl, alt: `${book.title} cover`, width: 900, height: 1200 }] : undefined,
   });
@@ -38,9 +40,13 @@ function bookDescription(book: PublicBook): string {
  * account, their family's permissions and their Readli credits before anything is generated.
  */
 export default async function PublicBookPage({ params }: { params: Promise<{ slug: string }> }) {
-  const book = publicBook((await params).slug);
+  const slug = (await params).slug;
+  const book = publicBook(slugFromPublic(slug));
   if (!book) notFound();
+  // An old URL for a book that has since moved, such as /books/the-owl-and-the-pussy-cat.
+  if (slug !== publicSlug(book.slug)) permanentRedirect(bookPath(book.slug));
   const prepare = `/family/books/${book.slug}`;
+  const opening = bookOpening(book.slug);
   const bookLd = {
     "@context": "https://schema.org",
     "@type": "Book",
@@ -49,7 +55,7 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
     author: { "@type": "Person", name: book.author },
     ...(book.firstPublished ? { datePublished: String(book.firstPublished) } : {}),
     ...(book.coverUrl ? { image: absoluteUrl(book.coverUrl) } : {}),
-    url: absoluteUrl(`/books/${book.slug}`),
+    url: absoluteUrl(bookPath(book.slug)),
     inLanguage: "en",
     audience: { "@type": "PeopleAudience", audienceType: "Children" },
   };
@@ -92,6 +98,19 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
             </p>
           ) : (
             <>
+              {opening.length > 0 && (
+                <section aria-labelledby="opening-h" className="flex flex-col gap-2.5 rounded-3xl border-[3px] border-sunshine bg-surface p-5 sm:px-6" data-testid="public-opening">
+                  <h2 id="opening-h" className="font-display text-2xl font-semibold">
+                    How it starts
+                  </h2>
+                  {opening.map((p, i) => (
+                    <p key={i} className="text-lg leading-relaxed whitespace-pre-line">
+                      {p}
+                    </p>
+                  ))}
+                  <p className="text-sm text-muted">Word for word from the edition your family will hear.</p>
+                </section>
+              )}
               {book.chapters.length > 1 && (
                 <section aria-labelledby="chapters-h" className="flex flex-col gap-2">
                   <h2 id="chapters-h" className="font-display text-2xl font-semibold">

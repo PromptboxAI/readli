@@ -8,19 +8,36 @@ import { isTheEnd, THE_END_PAUSE_MS } from "@/lib/content/the-end";
 import type { ListenView } from "@/lib/narration/narration";
 import { mapPosition } from "@/lib/narration/positions";
 import { parseMode, type PlayerMode } from "@/lib/player/pages";
+import { chapterReady, type Track } from "@/lib/player/tracks";
 import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, TimeBar } from "./PlayerParts";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 import { AHEAD, useGaplessAudio } from "./useGaplessAudio";
+import { useMediaSession } from "./useMediaSession";
+import { usePlaceSaver } from "./usePlaceSaver";
+import { useTrackAudio } from "./useTrackAudio";
 
 const MODE_KEY = "readli-grown-up-player-mode";
 
 /**
- * The Parent Portal player: plays a prepared book sentence by sentence from stored audio, in any
- * voice the family may use, and stops where the prepared audio ends instead of generating more. The
+ * The Parent Portal player: plays a prepared book from stored audio, in any voice the family may use,
+ * and stops where the prepared audio ends instead of generating more. A fully prepared chapter plays as
+ * one continuous track, with the sentence on screen following its clock; anything else plays sentence by
+ * sentence. The
  * words shown are the text the chosen voice's audiobook reads. It shares the Readli Kids player's
  * one-screen layout: Listen shows the whole cover, Read-along shows the page being read.
  */
-export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: ListenView; initialVoice: string | null; preview?: boolean }) {
+export function GrownUpPlayer({
+  view,
+  initialVoice,
+  resume = 0,
+  preview = false,
+}: {
+  view: ListenView;
+  initialVoice: string | null;
+  /** This grown-up's own saved place, counted in the text `initialVoice` reads. */
+  resume?: number;
+  preview?: boolean;
+}) {
   const { book, voices, texts } = view;
   const [voiceId, setVoiceId] = useState(initialVoice);
   const revisionOf = (id: string | null) => {
@@ -29,7 +46,7 @@ export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: L
   };
   const [shown, setShown] = useState(() => revisionOf(initialVoice));
   const { sentences, sentenceIds, seconds } = texts.texts[shown] ?? texts.texts[texts.current]!;
-  const [sentence, setSentence] = useState(0);
+  const [sentence, setSentence] = useState(Math.max(0, Math.min(resume, sentences.length - 1)));
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -63,7 +80,49 @@ export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: L
       onEnded();
     },
     error: (why) => onClipFailed(why),
+    interrupted: () => onInterrupted(),
   });
+  const track = useTrackAudio({
+    sentence: (at) => {
+      setSentence(at);
+      sentenceRef.current = at;
+    },
+    ended: () => {
+      trackFailed.current = null;
+      onEnded();
+    },
+    error: (why) => onTrackFailed(why),
+    interrupted: () => onInterrupted(),
+    resumed: () => {
+      setNotice(null);
+      setPlaying(true);
+    },
+  });
+  // Chapters that play sentence by sentence because their track couldn't be had, and the last track that failed to play.
+  const noTrack = useRef(new Set<string>());
+  const trackFailed = useRef<string | null>(null);
+
+  // A grown-up's place is their own, apart from every child's. Opening a book saves nothing; a place this
+  // device couldn't save last time is sent first, and picked up if it's the newest.
+  const moved = useRef(false);
+  const places = usePlaceSaver(`/api/family/books/${book.slug}/progress`, `readli-place:adult:${view.householdId}:${book.slug}`, {}, (place) => {
+    const id = voices.find((v) => v.voiceId === place.voiceId)?.voiceId;
+    const to = texts.texts[place.textRevision];
+    if (moved.current || playing || loading || !id || !to || revisionOf(id) !== place.textRevision) return;
+    setVoiceId(id);
+    voiceRef.current = id;
+    setShown(place.textRevision);
+    const at = Math.max(0, Math.min(place.sentence, to.sentences.length - 1));
+    setSentence(at);
+    sentenceRef.current = at;
+  });
+  const opening = useRef({ sentence, voiceId, shown });
+  useEffect(() => {
+    const o = opening.current;
+    if (!moved.current && o.sentence === sentence && o.voiceId === voiceId && o.shown === shown) return;
+    moved.current = true;
+    places.save({ sentence, voiceId, textRevision: shown });
+  }, [places, sentence, voiceId, shown]);
 
   const voice = voices.find((v) => v.voiceId === voiceId) ?? null;
   // Counted in the text that voice reads, so a place right after switching voices checks the right sentence.
@@ -72,6 +131,7 @@ export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: L
 
   const stop = () => {
     audio.pause();
+    track.pause();
     setPlaying(false);
     setLoading(false);
   };
@@ -100,13 +160,20 @@ export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: L
     audio.preload(upcoming);
   };
 
-  const play = async (at: number, id: string) => {
+  const textOf = (id: string) => texts.texts[revisionOf(id)] ?? texts.texts[texts.current]!;
+  /** The chapter track that holds sentence `at` in this voice, named by voice, text and chapter. */
+  const trackKey = (id: string, at: number) => `${id}:${revisionOf(id)}:${textOf(id).chapters[at]}`;
+
+  const play = async (at: number, id: string): Promise<void> => {
     setNotice(null);
     if (!readyAt(id, at)) {
       stop();
       setNotice(`${voices.find((v) => v.voiceId === id)?.name ?? "This storyteller"}'s reading isn't prepared here yet.`);
       return;
     }
+    const ready = voices.find((v) => v.voiceId === id)?.readySentenceIds ?? [];
+    if (chapterReady(textOf(id), ready, at) && !noTrack.current.has(trackKey(id, at))) return playTrack(at, id);
+    track.clear();
     const key = `${id}:${at}`;
     let url: string | null = null;
     if (!audio.buffered(key)) {
@@ -130,6 +197,61 @@ export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: L
     } catch (why) {
       onClipFailed(why, at);
     }
+  };
+
+  /** Plays a fully prepared chapter as one track from sentence `at`, or falls back to sentence by sentence. */
+  const playTrack = async (at: number, id: string): Promise<void> => {
+    const key = trackKey(id, at);
+    audio.pause();
+    audio.clear();
+    try {
+      if (track.has(key, at)) {
+        await track.seek(at);
+      } else {
+        setLoading(true);
+        const res = await fetch(`/api/family/books/${book.slug}/listen/track`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ voiceId: id, chapter: textOf(id).chapters[at], revision: revisionOf(id) }),
+        }).catch(() => null);
+        if (voiceRef.current !== id) return;
+        if (!res?.ok) {
+          const body = (await res?.json().catch(() => null)) as { error?: { code?: string; message?: string } } | null;
+          if (!res || body?.error?.code === "not_prepared" || body?.error?.code === "track_unavailable") {
+            noTrack.current.add(key);
+            return play(at, id);
+          }
+          stop();
+          setNotice(body?.error?.message ?? "This story isn't available right now.");
+          return;
+        }
+        await track.load(key, (await res.json()) as Track, at);
+      }
+      setPlaying(true);
+      setLoading(false);
+    } catch (why) {
+      onTrackFailed(why, at);
+    }
+  };
+
+  /**
+   * A track that won't play is asked for once more (its URL may have run out during a long pause), then
+   * the chapter carries on sentence by sentence.
+   */
+  const onTrackFailed = (why: unknown, at = sentenceRef.current) => {
+    const id = voiceRef.current;
+    if (why instanceof DOMException && why.name === "AbortError") return;
+    console.warn(`Readli: the chapter track didn't play at sentence ${at + 1}`, why);
+    if (!id || (why instanceof DOMException && why.name === "NotAllowedError")) {
+      stop();
+      setNotice("Story paused. Press Play to keep listening.");
+      return;
+    }
+    const key = trackKey(id, at);
+    track.clear();
+    if (trackFailed.current === key) noTrack.current.add(key);
+    trackFailed.current = key;
+    void play(at, id);
   };
 
   /** A sentence whose audio won't load or play is fetched once more, then skipped, so one bad clip never stops the story. */
@@ -188,6 +310,7 @@ export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: L
 
   const choose = (id: string) => {
     audio.clear();
+    track.clear();
     setVoiceId(id);
     voiceRef.current = id;
     // The place carries over to the same sentence in the text this voice reads.
@@ -198,6 +321,37 @@ export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: L
     sentenceRef.current = at;
     if (playing || loading) void play(at, id);
   };
+
+  /** A phone call, Siri, another app's audio or unplugged headphones paused the story; Play picks up at the same sentence. */
+  const onInterrupted = () => {
+    stop();
+    setNotice("Story paused. Press Play to keep listening.");
+  };
+
+  // The lock screen, notification shade, headphones and car show the story and work its buttons.
+  const playingRef = useRef(playing);
+  playingRef.current = playing;
+  useMediaSession(
+    { title: book.title, narrator: voice?.name ?? null, coverUrl: book.coverUrl },
+    playing,
+    sentence,
+    {
+      play: () => {
+        if (!playingRef.current && voiceRef.current) void play(sentenceRef.current, voiceRef.current);
+      },
+      pause: () => stop(),
+      previous: () => sentenceRef.current > 0 && goTo(sentenceRef.current - 1),
+      next: () => sentenceRef.current + 1 < sentences.length && goTo(sentenceRef.current + 1),
+      skip: (seconds) => {
+        if (!track.skip(seconds)) goTo(Math.max(0, Math.min(sentences.length - 1, sentenceRef.current + Math.sign(seconds))));
+      },
+      seekTo: (seconds) => {
+        const p = track.position();
+        if (p) track.skip(seconds - p.position);
+      },
+    },
+    track.position,
+  );
 
   const { listen, soft, faint, main, round, side } = playerTone(mode);
   const back = (
@@ -315,7 +469,11 @@ export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: L
             type="button"
             aria-label={playing ? "Pause" : loading ? "Getting ready…" : "Play"}
             disabled={!voiceId || (!playing && !readyAt(voiceId, sentence))}
-            onClick={() => (playing ? stop() : voiceId && play(sentence, voiceId))}
+            onClick={() => {
+              if (playing) return stop();
+              track.unlock();
+              if (voiceId) void play(sentence, voiceId);
+            }}
             className="grid size-21 place-items-center rounded-full bg-coral-strong text-white shadow-[0_6px_0_var(--color-coral-deep)] active:translate-y-1 active:shadow-[0_2px_0_var(--color-coral-deep)] disabled:opacity-50 sm:size-25"
           >
             {loading && !playing ? (
@@ -328,7 +486,15 @@ export function GrownUpPlayer({ view, initialVoice, preview = false }: { view: L
             <Icon name="next" className="size-[26px]" />
           </button>
           {sentence > 0 ? (
-            <button type="button" disabled={!voiceId || !readyAt(voiceId, 0)} onClick={startOver} className={`justify-self-end ${side}`}>
+            <button
+              type="button"
+              disabled={!voiceId || !readyAt(voiceId, 0)}
+              onClick={() => {
+                track.unlock();
+                startOver();
+              }}
+              className={`justify-self-end ${side}`}
+            >
               <Icon name="restart" className="size-6" />
               Start over
             </button>

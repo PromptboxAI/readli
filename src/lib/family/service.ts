@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { Actor, AuditAction, FamilyState, ListeningSession } from "./model";
+import type { Actor, AdultBookProgress, AuditAction, FamilyState, ListeningSession } from "./model";
+import { isNewer } from "./places";
 import {
   activeChild,
   activeEntitlement,
@@ -848,21 +849,62 @@ export async function childBookState(store: FamilyStore, actor: Actor | null, ch
   return { sentence: p?.sentence ?? 0, voiceId: p?.voiceId ?? null, textRevision: p?.textRevision ?? null };
 }
 
+/**
+ * Saves this child's own place and narrator in a book, unless a place heard later is already saved:
+ * `listenedAt` (see heardAt) decides, so a late or offline save never moves the child back. Returns
+ * whether it was saved.
+ */
 export async function saveChildProgress(
   store: FamilyStore,
   actor: Actor | null,
-  input: { childId: string; bookSlug: string; sentence: number; voiceId: string | null; textRevision?: string | null },
+  input: { childId: string; bookSlug: string; sentence: number; voiceId: string | null; textRevision?: string | null; listenedAt?: string },
   clock: Clock = now,
-): Promise<void> {
+): Promise<boolean> {
   const state = await store.read();
   requireChildAccess(state, actor, input.childId);
   const at = clock().toISOString();
+  const listenedAt = input.listenedAt ?? at;
   const textRevision = input.textRevision ?? null;
+  const saved = state.progress.find((x) => x.childId === input.childId && x.bookSlug === input.bookSlug);
+  if (saved && !isNewer(listenedAt, saved.listenedAt)) return false;
   await store.write((s) => {
     const p = s.progress.find((x) => x.childId === input.childId && x.bookSlug === input.bookSlug);
-    if (p) Object.assign(p, { sentence: input.sentence, voiceId: input.voiceId, textRevision, updatedAt: at });
-    else s.progress.push({ ...input, textRevision, updatedAt: at });
+    const place = { childId: input.childId, bookSlug: input.bookSlug, sentence: input.sentence, voiceId: input.voiceId, textRevision, listenedAt, updatedAt: at };
+    if (p) Object.assign(p, place);
+    else s.progress.push(place);
   });
+  return true;
+}
+
+/** This grown-up's own place in a book in this household, or null. Children's places are separate. */
+export async function adultBookPlace(store: FamilyStore, actor: Actor | null, householdId: string, bookSlug: string): Promise<AdultBookProgress | null> {
+  const state = await store.read();
+  const adultId = requireHouseholdGuardian(state, actor, householdId);
+  return state.adultProgress?.find((x) => x.adultId === adultId && x.householdId === householdId && x.bookSlug === bookSlug) ?? null;
+}
+
+/** Saves a grown-up's own place in a book, with the same rule as a child's: the place heard last wins. */
+export async function saveAdultProgress(
+  store: FamilyStore,
+  actor: Actor | null,
+  input: { householdId: string; bookSlug: string; sentence: number; voiceId: string | null; textRevision: string | null; listenedAt?: string },
+  clock: Clock = now,
+): Promise<boolean> {
+  const state = await store.read();
+  const adultId = requireHouseholdGuardian(state, actor, input.householdId);
+  const at = clock().toISOString();
+  const listenedAt = input.listenedAt ?? at;
+  const same = (x: AdultBookProgress) => x.adultId === adultId && x.householdId === input.householdId && x.bookSlug === input.bookSlug;
+  const saved = state.adultProgress?.find(same);
+  if (saved && !isNewer(listenedAt, saved.listenedAt)) return false;
+  await store.write((s) => {
+    const place: AdultBookProgress = { adultId, householdId: input.householdId, bookSlug: input.bookSlug, sentence: input.sentence, voiceId: input.voiceId, textRevision: input.textRevision, listenedAt, updatedAt: at };
+    s.adultProgress ??= [];
+    const p = s.adultProgress.find(same);
+    if (p) Object.assign(p, place);
+    else s.adultProgress.push(place);
+  });
+  return true;
 }
 
 export async function childFavorites(store: FamilyStore, actor: Actor | null, childId: string): Promise<string[]> {

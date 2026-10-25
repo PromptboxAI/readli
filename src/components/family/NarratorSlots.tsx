@@ -291,16 +291,8 @@ export function NarratorSlots({
 
   const pendingInvites = invites.filter((i) => i.status === "invited" || i.status === "expired" || i.status === "declined");
   const onTheWay = view.shared.length + view.waiting.length + view.joined.length + pendingInvites.length;
-  // Someone invited, joined or recording holds a free slot, so it isn't offered for another invitation.
-  // The slot is only used once their voice is shared and the parent adds it; a ready voice shows in the
-  // open slot's text instead.
-  const holders = [
-    ...view.waiting.filter((n) => !n.yours && n.status === "processing").map((n) => ({ key: n.voiceId, name: n.name, note: "Their voice is being made" })),
-    ...view.joined.filter((p) => !p.yours).map((p) => ({ key: p.adultId, name: p.name, note: "Joined, hasn't recorded yet" })),
-    ...pendingInvites.filter((i) => i.status === "invited").map((i) => ({ key: i.id, name: i.name, note: "Invited" })),
-  ];
-  const reserved = holders.slice(0, Math.max(free, 0));
-  const open = Math.max(free - reserved.length, 0);
+  // Inviting never holds or uses a slot: a slot is used only when a parent adds a storyteller whose voice is ready.
+  const open = Math.max(free, 0);
   const remove = (p: { adultId: string; name: string }) => {
     if (!window.confirm(`Remove ${p.name} from your family? Their voice stays theirs, but your children won't hear it. You can invite them again later.`)) return;
     void call("/api/family/narrators", { adultId: p.adultId, action: "remove" }, `${p.name} was removed from your family.`);
@@ -318,8 +310,8 @@ export function NarratorSlots({
         <h1 className="font-display text-4xl font-semibold">Family storytellers</h1>
         <p className="max-w-2xl text-lg">
           Your plan includes {view.included} narrator slots{view.extra > 0 ? `, plus ${view.extra} you added` : ""}. Put a storyteller who has
-          shared their voice into a slot, then choose which children can hear them. An invitation holds a slot for that person; withdraw it or remove them to
-          free it.
+          shared their voice into a slot, then choose which children can hear them. Inviting someone never uses a slot, so you can invite
+          anyone, even when every slot is in use.
         </p>
         <div className="flex flex-wrap gap-2" aria-hidden="true">
           {Array.from({ length: view.total }, (_, i) => (
@@ -399,23 +391,11 @@ export function NarratorSlots({
               </div>
             </li>
           ))}
-          {reserved.map((r, i) => (
-            <li key={`held-${r.key}`} data-testid="reserved-slot" className="flex flex-col gap-3 rounded-3xl border-[3px] border-dashed border-ink/30 bg-surface p-4">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-bold tracking-wider text-muted uppercase">
-                  Slot {view.active.length + i + 1} · {view.active.length + i < view.included ? "included" : "added"}
-                </span>
-                <span className={`${pill} bg-lavender/60`}>Reserved</span>
-              </div>
-              <p className="font-display text-xl font-semibold">Held for {r.name}</p>
-              <p className="text-sm text-muted">{r.note}. See Storytellers on the way below.</p>
-            </li>
-          ))}
           {Array.from({ length: open }, (_, i) => (
             <li key={`free-${i}`} data-testid="free-slot" className="flex flex-col gap-3 rounded-3xl border-[3px] border-dashed border-coral/60 bg-ivory p-4">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-bold tracking-wider text-muted uppercase">
-                  Slot {view.active.length + reserved.length + i + 1} · {view.active.length + reserved.length + i < view.included ? "included" : "added"}
+                  Slot {view.active.length + i + 1} · {view.active.length + i < view.included ? "included" : "added"}
                 </span>
                 <span className={`${pill} bg-sunshine`}>Available</span>
               </div>

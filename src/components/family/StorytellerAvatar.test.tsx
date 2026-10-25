@@ -12,6 +12,8 @@ describe("StorytellerAvatar", () => {
     const { container } = render(<StorytellerAvatar name="Daddy" avatarUrl="/api/people/u1/photo?v=1" tint="bg-sky" />);
     const first = container.querySelector("img")!;
     expect(first.getAttribute("src")).toBe("/api/people/u1/photo?v=1");
+    // The initials sit under the photo, so the circle isn't blank while it loads.
+    expect(container.textContent).toBe("D");
 
     fireEvent.error(first);
     const retry = container.querySelector("img")!;
