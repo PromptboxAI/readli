@@ -9,6 +9,7 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
 import { rewardsConfig } from "@/lib/rewards/rewards";
 import { MORE_BOOKS_ON_PHONES, NEW_BOOKS } from "@/lib/library/catalog";
+import { bookPath } from "@/lib/library/paths";
 
 const GRANDPA = "/family-voices/grandpa.webp";
 
@@ -303,7 +304,7 @@ export function KidsShelf() {
             {/* Phones scroll through six more books; desktop keeps the six (Kevin, 2026-10-13). */}
             {[...NEW_BOOKS, ...MORE_BOOKS_ON_PHONES].map((book, i) => (
               <li key={book.slug} className={`w-28 shrink-0 snap-start sm:w-32 ${i >= NEW_BOOKS.length ? "sm:hidden" : ""}`}>
-                <Link href={`/books/${book.slug}`} className="block rounded-xl transition-transform hover:-translate-y-1">
+                <Link href={bookPath(book.slug)} className="block rounded-xl transition-transform hover:-translate-y-1">
                   <Image
                     src={book.coverUrl}
                     alt={book.title}
