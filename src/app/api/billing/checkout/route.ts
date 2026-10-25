@@ -18,7 +18,8 @@ export const runtime = "nodejs";
 /**
  * Starts a Stripe Checkout for Readli Family ({ item: "family_monthly" | "family_annual", extraSlots })
  * or a credit pack ({ item: "credit_pack:<id>" }) and returns its URL. A Family checkout may name the
- * storyteller invitation (invitationId) that brought the household in. Answers 404 while payments are
+ * storyteller invitation (invitationId) that brought the household in, and from: "signup" to come back
+ * to setup instead of Plan and billing. Answers 404 while payments are
  * off. Plans and credits are granted from the webhook, never from here.
  */
 /** The invitation id from the request, only when that invitation was accepted into this household. */
@@ -56,6 +57,7 @@ export async function POST(req: Request) {
       // The storyteller invitation that brought this family in, so the webhook credits its trial and payment.
       ...(invitationId ? { invitation_id: invitationId } : {}),
     };
+    const fromSignup = request.mode === "subscription" && body.from === "signup";
     const stripe = new StripeApi(config);
     try {
       const lineItems =
@@ -73,8 +75,9 @@ export async function POST(req: Request) {
         customer_email: customer ? undefined : (session.account.email ?? undefined),
         metadata,
         ...(request.mode === "subscription" ? { subscription_data: { metadata } } : { payment_intent_data: { metadata } }),
-        success_url: `${origin}/family/billing?checkout=success`,
-        cancel_url: `${origin}/family/billing?checkout=canceled`,
+        // From Family signup: back to setup once paid, or to the plan choice if they turn back.
+        success_url: fromSignup ? `${origin}/family/setup?checkout=success` : `${origin}/family/billing?checkout=success`,
+        cancel_url: fromSignup ? `${origin}/signup/family?checkout=canceled` : `${origin}/family/billing?checkout=canceled`,
       });
       return NextResponse.json({ url: checkout.url });
     } catch (err) {

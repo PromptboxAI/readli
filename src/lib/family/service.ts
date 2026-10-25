@@ -429,6 +429,12 @@ export async function dismissNotices(store: FamilyStore, actor: Actor | null, th
 }
 
 /** Starts a family with this grown-up as its first parent or guardian. One family per grown-up for now. */
+/**
+ * The stand-in name for a family started from Family signup, which goes to checkout before asking
+ * anything else. Setup asks for the real name once the plan is paid for.
+ */
+export const PROVISIONAL_FAMILY_NAME = "My family";
+
 export async function createHousehold(store: FamilyStore, actor: Actor | null, name: string, clock: Clock = now): Promise<string> {
   const adultId = requireAdult(actor);
   const state = await store.read();
@@ -443,6 +449,20 @@ export async function createHousehold(store: FamilyStore, actor: Actor | null, n
     s.members.push({ householdId: id, adultId, role: "guardian", joinedAt: at, removedAt: null });
   });
   return id;
+}
+
+/** Renames the family a guardian looks after. */
+export async function renameHousehold(store: FamilyStore, actor: Actor | null, name: string): Promise<string> {
+  const adultId = requireAdult(actor);
+  const householdId = homeHousehold(await store.read(), adultId);
+  if (!householdId) throw new PermissionError(403, "not_guardian", "Only a parent or guardian can rename the family.");
+  const familyName = name.replace(/\s+/g, " ").trim().slice(0, 60);
+  if (!familyName) throw new PermissionError(400, "bad_name", "Give your family a name.");
+  await store.write((s) => {
+    const home = s.households.find((h) => h.id === householdId);
+    if (home) home.name = familyName;
+  });
+  return familyName;
 }
 
 const DAY = 24 * 60 * 60 * 1000;

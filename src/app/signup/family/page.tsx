@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LoginForm } from "@/components/auth/LoginForm";
+import { FamilyStart } from "@/components/accounts/FamilyStart";
 import { AccountFields } from "@/components/accounts/AccountFields";
 import { PlanList } from "@/components/accounts/PlanList";
 import { buttonPrimary } from "@/components/brand/buttons";
@@ -12,22 +12,36 @@ import { effectivePlan } from "@/lib/billing/price-settings";
 import { accountDb } from "@/lib/family/account-store";
 import { familyCheckoutOpen } from "@/lib/accounts/checkout";
 import { currentAdult } from "@/lib/auth/adult";
+import { navState } from "@/lib/auth/nav-state";
+import { billingConfig } from "@/lib/billing/config";
 import { familyAccountsEnabled } from "@/lib/family/session";
 import { rewardsConfig, rewardsVisible } from "@/lib/rewards/rewards";
 
 export const metadata: Metadata = { title: "Create a Family | Readli", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
-export default async function FamilySignupPage({ searchParams }: { searchParams: Promise<{ billing?: string | string[]; from?: string | string[]; cleanup?: string | string[] }> }) {
+export default async function FamilySignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ billing?: string | string[]; from?: string | string[]; cleanup?: string | string[]; checkout?: string | string[] }>;
+}) {
   const open = familyCheckoutOpen();
   const plan = await effectivePlan(accountDb());
   const params = await searchParams;
   const initial = params.billing === "annual" ? "annual" : "monthly";
   const fromTry = params.from === "try";
-  // With accounts on, a family starts for real: sign in, name the family, then check out from Billing.
+  // With accounts on, a family starts for real: choose a plan, sign in on this page, then straight to
+  // checkout. Setup asks for the family's name once it's paid for.
   const accounts = familyAccountsEnabled();
-  const start = "/family?start=1";
-  if (accounts && (await currentAdult())) redirect(start);
+  const adult = accounts ? await currentAdult() : null;
+  if (adult) {
+    const nav = await navState();
+    // Already on Readli Family: nothing to buy here.
+    if (nav.kind === "adult" && nav.family.plan !== "none") redirect("/family");
+  }
+  const carry = new URLSearchParams();
+  if (fromTry) carry.set("from", "try");
+  if (fromTry && params.cleanup === "1") carry.set("cleanup", "1");
   const rewards = rewardsConfig();
   // The trial shows on previews for review, and in production only once the program is public.
   const showTrial = rewardsVisible(rewards);
@@ -49,22 +63,27 @@ export default async function FamilySignupPage({ searchParams }: { searchParams:
       {!accounts && <PreviewNote>Family accounts are coming soon, so nothing here is saved or charged yet.</PreviewNote>}
       {accounts ? (
         <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">
-          <section aria-labelledby="acct" className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10 sm:p-8">
-            <h2 id="acct" className="font-display text-2xl font-semibold">
-              1. Your account
+          <FamilyStart
+            monthlyCents={plan.familyMonthlyPriceCents}
+            annualCents={plan.familyAnnualPriceCents}
+            monthlyCredits={plan.monthlyCredits}
+            initial={initial}
+            signedInAs={adult ? (adult.email ?? "your Readli account") : null}
+            paymentsOn={open && billingConfig().mode !== "off"}
+            autoStart={params.checkout === "1"}
+            carry={carry.toString()}
+          />
+          <section aria-labelledby="includes" className="flex flex-col gap-4 self-start rounded-[var(--radius-panel)] bg-mint/40 p-6 sm:p-8">
+            <h2 id="includes" className="font-display text-2xl font-semibold">
+              What Readli Family includes
             </h2>
-            <p>Sign in with your email or Google. New here? This creates your account.</p>
-            <LoginForm next={start} askMarketing signup="Readli Family" />
-          </section>
-          <section aria-labelledby="plan" className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-sunshine/50 p-6 sm:p-8">
-            <h2 id="plan" className="font-display text-2xl font-semibold">
-              2. Name your family, then choose your plan
-            </h2>
-            <p>
-              Monthly or yearly, chosen at checkout after you name your family. You can add your children&apos;s profiles at no extra
-              charge.
-            </p>
+            {params.checkout === "canceled" && (
+              <p role="status" className="rounded-2xl bg-surface p-3 text-sm ring-2 ring-ink/10">
+                Checkout was canceled. Nothing was charged. Choose a plan when you&apos;re ready.
+              </p>
+            )}
             <PlanList items={ACCOUNT_TYPES.family.includes} />
+            <p className="text-sm">After checkout you&apos;ll name your family and add your children&apos;s profiles. There&apos;s no charge per child.</p>
           </section>
         </div>
       ) : (

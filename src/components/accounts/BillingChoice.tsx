@@ -7,8 +7,24 @@ export type Billing = "monthly" | "annual";
 const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
 /** Monthly or yearly Readli Family, with the total that goes with it. */
-export function BillingChoice({ monthlyCents, annualCents, monthlyCredits, initial }: { monthlyCents: number; annualCents: number; monthlyCredits: number; initial: Billing }) {
-  const [billing, setBilling] = useState<Billing>(initial);
+export function BillingChoice({
+  monthlyCents,
+  annualCents,
+  monthlyCredits,
+  initial,
+  onChange,
+}: {
+  monthlyCents: number;
+  annualCents: number;
+  monthlyCredits: number;
+  initial: Billing;
+  onChange?: (billing: Billing) => void;
+}) {
+  const [billing, setBillingState] = useState<Billing>(initial);
+  const setBilling = (b: Billing) => {
+    setBillingState(b);
+    onChange?.(b);
+  };
   const savings = Math.round((1 - annualCents / (12 * monthlyCents)) * 100);
   const options = [
     { id: "monthly" as const, label: "Monthly", price: money(monthlyCents), unit: "/month", note: "Cancel any time." },
