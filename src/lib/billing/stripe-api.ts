@@ -47,10 +47,10 @@ export class StripeApi {
     this.fetchImpl = fetchImpl;
   }
 
-  private async call<T>(method: "GET" | "POST", path: string, params: Params = {}, idempotencyKey?: string): Promise<T> {
+  private async call<T>(method: "GET" | "POST" | "DELETE", path: string, params: Params = {}, idempotencyKey?: string): Promise<T> {
     if (this.config.mode === "off" || !this.config.secretKey) throw new StripeError(503, "Payments are switched off.");
     const body = encodeForm(params);
-    const url = `https://api.stripe.com/v1/${path}${method === "GET" && body ? `?${body}` : ""}`;
+    const url = `https://api.stripe.com/v1/${path}${method !== "POST" && body ? `?${body}` : ""}`;
     const res = await this.fetchImpl(url, {
       method,
       headers: {
@@ -99,6 +99,28 @@ export class StripeApi {
    */
   async pauseBillingUntil(id: string, trialEnd: number, idempotencyKey: string): Promise<StripeSubscription> {
     return this.call("POST", `subscriptions/${encodeURIComponent(id)}`, { trial_end: trialEnd, proration_behavior: "none" }, idempotencyKey);
+  }
+
+  async getPaymentIntent(id: string): Promise<{ id: string; payment_method?: string | { id: string } | null; customer?: string | { id: string } | null }> {
+    return this.call("GET", `payment_intents/${encodeURIComponent(id)}`);
+  }
+
+  async createSubscription(params: Params, idempotencyKey: string): Promise<StripeSubscription> {
+    return this.call("POST", "subscriptions", params, idempotencyKey);
+  }
+
+  async updateSubscription(id: string, params: Params, idempotencyKey?: string): Promise<StripeSubscription> {
+    return this.call("POST", `subscriptions/${encodeURIComponent(id)}`, params, idempotencyKey);
+  }
+
+  /** Ends a subscription now, with no final invoice. */
+  async cancelSubscription(id: string): Promise<StripeSubscription> {
+    return this.call("DELETE", `subscriptions/${encodeURIComponent(id)}`);
+  }
+
+  /** A full refund of a payment. The key makes a retry a no-op. */
+  async refundPayment(paymentIntent: string, metadata: Record<string, string>, idempotencyKey: string): Promise<{ id: string; status: string }> {
+    return this.call("POST", "refunds", { payment_intent: paymentIntent, metadata }, idempotencyKey);
   }
 }
 
