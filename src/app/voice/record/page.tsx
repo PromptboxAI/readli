@@ -11,6 +11,7 @@ import { findGuestTake } from "@/lib/voice/guest-handoff";
 import { familyPage } from "@/lib/family/page-data";
 import { isParent } from "@/lib/family/storyteller";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
+import { chosenName } from "@/lib/account/names";
 
 export const metadata: Metadata = { title: "Record your voice | Readli Voice", robots: { index: false } };
 
@@ -26,6 +27,8 @@ export default async function VoiceRecordPage({ searchParams }: { searchParams: 
   const existing = deps && user ? await deps.store.findVoice(user.id).catch(() => null) : null;
   const page = user ? await familyPage() : null;
   const parent = Boolean(user && page?.enabled && isParent(page.state, user.id));
+  const me = user && page?.enabled ? page.state?.adults.find((a) => a.id === user.id) : undefined;
+  const named = user ? Boolean(chosenName(me?.displayName ?? user.name, user.email)) : true;
   // The take this browser recorded on /try, while its 24 hours last, so they needn't read again.
   const guestDeps = user ? guestDemoDeps() : null;
   const guestTake = guestDeps ? await currentGuest(guestDeps).then((g) => findGuestTake(guestDeps.store, g)).catch(() => null) : null;
@@ -36,7 +39,7 @@ export default async function VoiceRecordPage({ searchParams }: { searchParams: 
           ← My voice
         </Link>
         <Eyebrow>Readli Voice</Eyebrow>
-        <h1 className="font-display text-4xl font-semibold sm:text-5xl">Make your Readli voice</h1>
+        <h1 className="font-display text-4xl font-semibold sm:text-5xl">{existing ? "Replace your Readli voice" : "Create your Readli voice"}</h1>
       </header>
       {user ? (
         <AccountVoiceSetup
@@ -46,6 +49,7 @@ export default async function VoiceRecordPage({ searchParams }: { searchParams: 
           guestTake={guestTake}
           guestCleanUp={p.cleanup === "1"}
           fromTry={p.from === "try"}
+          askName={!named}
         />
       ) : (
         <>

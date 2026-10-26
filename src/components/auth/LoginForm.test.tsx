@@ -72,7 +72,7 @@ describe("LoginForm", () => {
 
   it("keeps Google sign-in, returning to the same next step and preview", async () => {
     auth.signInWithOAuth.mockResolvedValue({ error: null });
-    render(<LoginForm next="/voice/record?from=try&next=%2Fvoice%3Fsaved%3D1" askMarketing />);
+    render(<LoginForm next="/voice/record?from=try&cleanup=1" askMarketing />);
     // The news opt-in sits below both ways to sign in, unticked.
     const news = screen.getByRole("checkbox") as HTMLInputElement;
     expect(news.checked).toBe(false);
@@ -82,7 +82,7 @@ describe("LoginForm", () => {
     await waitFor(() => expect(auth.signInWithOAuth).toHaveBeenCalled());
     const redirectTo = auth.signInWithOAuth.mock.calls[0]![0].options.redirectTo as string;
     expect(new URL(redirectTo).origin).toBe("https://preview.example");
-    expect(new URL(redirectTo).searchParams.get("next")).toBe("/voice/record?from=try&next=%2Fvoice%3Fsaved%3D1");
+    expect(new URL(redirectTo).searchParams.get("next")).toBe("/voice/record?from=try&cleanup=1");
   });
 
   it("keeps the code step open with a message when the code is wrong", async () => {

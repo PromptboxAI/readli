@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 
 test("the invite page explains it needs accounts in the preview", async ({ page }) => {
   await page.goto("/voice/invite");
-  await expect(page.getByRole("heading", { name: "Share your voice with another family" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Share Your Voice With Your Family" })).toBeVisible();
   await expect(page.getByRole("note")).toContainText("Family invitations need Readli accounts");
 });
 

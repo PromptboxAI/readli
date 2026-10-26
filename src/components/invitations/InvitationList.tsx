@@ -15,7 +15,11 @@ export interface InvitationItem {
   expiresAt: string;
   canResend: boolean;
   canRevoke: boolean;
+  /** The latest email's delivery, when known. */
+  delivery?: "sending" | "sent" | "delivered" | "bounced" | "failed";
 }
+
+const DELIVERY_NOTE = { sending: "sending", sent: "email sent", delivered: "email delivered", bounced: "email didn't arrive, check the address", failed: "email not sent, try Resend" } as const;
 
 const PILL: Record<InvitationStatus, InvitationPillState> = {
   accepted: "accepted",
@@ -67,7 +71,7 @@ export function InvitationList({ items }: { items: InvitationItem[] }) {
             <li key={i.id} className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10 sm:flex-row sm:items-center">
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="font-display text-lg font-semibold">{i.name || i.email}</span>
-                <span className="truncate text-sm text-muted">{[i.relationship, i.name ? i.email : "", i.status === "pending" || i.status === "opened" ? `link works until ${date(i.expiresAt)}` : ""].filter(Boolean).join(" · ")}</span>
+                <span className="truncate text-sm text-muted">{[i.relationship, i.name ? i.email : "", i.status === "pending" && i.delivery ? DELIVERY_NOTE[i.delivery] : "", i.status === "pending" || i.status === "opened" ? `link works until ${date(i.expiresAt)}` : ""].filter(Boolean).join(" · ")}</span>
               </div>
               <InvitationPill state={PILL[i.status]} />
               <div className="flex gap-2">
