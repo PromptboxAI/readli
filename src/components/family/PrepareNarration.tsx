@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Availability, BookUpdate, GenerationQuote, PrepareBookView, PrepareVoiceView } from "@/lib/narration/narration";
+import { GiftShortOptions } from "@/components/sponsorship/GiftShortOptions";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 
 /** Units (characters) as credits, to one decimal place. */
@@ -473,6 +474,11 @@ function WholeBook({
             <dd className="text-right" data-testid="balance">
               {n(balance)}
             </dd>
+            {view.gift && (
+              <dd className="col-span-2 text-sm text-muted" data-testid="balance-sources">
+                From {view.gift.giverName}&apos;s gift: {n(view.credits.bySource.subscription)} · Bought by you: {n(view.credits.bySource.purchased + view.credits.bySource.promotional)}
+              </dd>
+            )}
             {short > 0 && (
               <>
                 <dt className="border-t border-ink/10 pt-2 text-muted">Still needed</dt>
@@ -490,12 +496,15 @@ function WholeBook({
             <button type="button" className={btnPrimary} disabled={busy || short > 0} onClick={onEstimate}>
               {v.status.ready ? "Prepare the rest" : "Prepare whole book"}
             </button>
-            {short > 0 && view.canBuyCredits && (
+            {short > 0 && view.gift && (
+              <GiftShortOptions giverName={view.gift.giverName} renewsAt={view.gift.renewsAt} chapters={view.chapterGenerationEnabled} buyCreditsHref={view.canBuyCredits ? getCredits : null} />
+            )}
+            {short > 0 && !view.gift && view.canBuyCredits && (
               <Link href={getCredits} className={btnAccent} data-testid="get-credits">
                 Buy more credits
               </Link>
             )}
-            {short > 0 && view.chapterGenerationEnabled && (
+            {short > 0 && !view.gift && view.chapterGenerationEnabled && (
               <a href="#chapters" className={btnSecondary}>
                 Prepare by chapter
               </a>

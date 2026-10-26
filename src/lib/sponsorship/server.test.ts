@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { StripeApi } from "@/lib/billing/stripe-api";
 import { fakeEmailDb } from "@/lib/email/fake-db.test-util";
 import { giveRequest } from "./rules";
-import { applySponsorshipChange, cancelGift, changeDelivery, offerPlace, rebalanceCredits, removeFamily, runSponsorships, startGift, undoRemoval, type SponsorshipContext } from "./server";
+import { applySponsorshipChange, askForCredits, cancelGift, changeDelivery, offerPlace, rebalanceCredits, removeFamily, runSponsorships, startGift, undoRemoval, type SponsorshipContext } from "./server";
 
 const SECRET = "test-secret-for-sponsorships-0123456789";
 const BOUGHT = new Date("2026-11-28T15:00:00.000Z");
@@ -274,5 +274,26 @@ describe("families and credits", () => {
     clock.now = new Date("2027-01-26T00:00:00.000Z");
     await runSponsorships(ctx);
     expect(tables.sponsorship_seats!.find((s) => s.seat === 1)).toMatchObject({ credit_share: 25, next_credit_share: null });
+  });
+
+  it("tells the family before their credit share changes", async () => {
+    const { ctx, id, tables, clock } = await delivered();
+    clock.now = new Date("2027-01-10T00:00:00.000Z");
+    await rebalanceCredits(ctx, "ruth", id, { 1: 25, 2: 15 });
+    const notice = tables.email_outbox!.find((e) => e.email_id === "S7")!;
+    expect(notice).toMatchObject({ recipient_user_id: "sarah", household_id: "home-m" });
+    expect(notice.subject).toContain("Jan 25, 2027");
+    expect(notice.body).toContain("your family has 25 story credits a month");
+  });
+
+  it("a family can ask for more once a gift month, naming only the family", async () => {
+    const { ctx, tables, clock } = await delivered();
+    clock.now = new Date("2027-01-10T00:00:00.000Z");
+    expect(await askForCredits(ctx, "home-m", "sarah")).toEqual({ asked: true });
+    expect(await askForCredits(ctx, "home-m", "sarah")).toEqual({ asked: false });
+    const ask = tables.email_outbox!.filter((e) => e.email_id === "S6");
+    expect(ask).toHaveLength(1);
+    expect(ask[0]).toMatchObject({ recipient_user_id: "ruth", subject: "Michael and Sarah would love a few more story credits" });
+    await expect(askForCredits(ctx, "home-x", "x")).rejects.toMatchObject({ code: "no_gift" });
   });
 });

@@ -3,7 +3,7 @@ import { sameHash } from "@/lib/server/guest-token";
 import { voiceSettings } from "@/lib/voice/elevenlabs";
 import type { VoiceProvider } from "@/lib/voice/provider";
 import type { Actor, CreditLot, FamilyState, NarrationJob, NarrationLibrary, NarrationSegment } from "@/lib/family/model";
-import { activeChild, activeEntitlement, activeShare, activeSlot, childVoiceAccess, isActiveMember, liveSlots, narratorSlotCount, readyVoice } from "@/lib/family/permissions";
+import { activeChild, activeEntitlement, activeShare, activeSlot, childVoiceAccess, countedSlots, isActiveMember, narratorSlotCount, readyVoice } from "@/lib/family/permissions";
 import { calledIn } from "@/lib/family/names";
 import type { PlanConfig } from "@/lib/family/plan";
 import {
@@ -434,6 +434,8 @@ export interface PrepareBookView {
   freeSlots: number;
   /** Shorter books one of this family's narrators can prepare with the current balance. */
   shorterThatFit: { slug: string; title: string; coverUrl: string | null; credits: number; narrator: string }[];
+  /** Set when a family member's gift covers the plan: who gave it and when its credits refresh. */
+  gift: { giverName: string; renewsAt: string | null } | null;
 }
 
 function missingByChapter(state: FamilyState, plan: PlanConfig, library: NarrationLibrary, text: BookText): ChapterView[] {
@@ -598,9 +600,19 @@ export async function prepareView(store: FamilyStore, actor: Actor | null, house
     canBuyCredits: plan.narrationPurchasesEnabled || plan.simulatedCheckout,
     simulatedCheckout: !plan.narrationPurchasesEnabled && plan.simulatedCheckout,
     chapterGenerationEnabled: plan.chapterGenerationEnabled && text.chapters.length > 1,
-    freeSlots: Math.max(0, narratorSlotCount(state, householdId, plan) - liveSlots(state, householdId, plan).length),
+    // A sponsor's included voice doesn't take one of the family's own slots.
+    freeSlots: Math.max(0, narratorSlotCount(state, householdId, plan) - countedSlots(state, householdId, plan).length),
     shorterThatFit: shorterThatFit.slice(0, 3),
+    gift: giftOf(state, householdId, credits.renewsAt),
   };
+}
+
+function giftOf(state: FamilyState, householdId: string, renewsAt: string | null): PrepareBookView["gift"] {
+  const e = activeEntitlement(state, householdId);
+  if (e?.source !== "sponsored") return null;
+  // The name this family calls the sponsor ("Grandma"), else their own.
+  const giver = calledIn(state, state.adults.find((a) => a.id === e.sponsorUserId), householdId)?.displayName;
+  return { giverName: giver ?? "your family", renewsAt };
 }
 
 export interface GenerationRequest {

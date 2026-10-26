@@ -58,6 +58,8 @@ export const EMAILS: EmailDefinition[] = [
   { id: "S3", name: "Gift renewal payment failed (to the sponsor)", sequence: "sponsorship", category: "transactional", topic: null },
   { id: "S4", name: "Gift year ending (to the sponsor)", sequence: "sponsorship", category: "transactional", topic: null },
   { id: "S5", name: "Gift ending (to the family)", sequence: "sponsorship", category: "transactional", topic: null },
+  { id: "S6", name: "A family asked for more credits (to the sponsor)", sequence: "sponsorship", category: "transactional", topic: null },
+  { id: "S7", name: "Gift credit share changing (to the family)", sequence: "sponsorship", category: "transactional", topic: null },
 ];
 
 const BY_ID = new Map(EMAILS.map((e) => [e.id, e]));

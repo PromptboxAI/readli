@@ -5,7 +5,7 @@ import type { StripeApi } from "@/lib/billing/stripe-api";
 import { queueEmails, type QueuedEmail } from "@/lib/email/outbox";
 import { preferencesUrl } from "@/lib/email/preferences";
 import { readliEmail } from "@/lib/email/templates";
-import { emailHash, hashInvitationToken } from "@/lib/invitations/server";
+import { emailHash, hashInvitationToken, track } from "@/lib/invitations/server";
 import { ProviderRefCipher } from "@/lib/server/provider-ref";
 import type { SponsorshipChange } from "./events";
 import {
@@ -180,10 +180,17 @@ export async function startGift(ctx: SponsorshipContext, sponsor: { id: string; 
     customer_email: customer ? undefined : (sponsor.email ?? undefined),
     metadata,
     payment_intent_data: { metadata, setup_future_usage: gift.plan === "monthly" ? "off_session" : undefined },
-    custom_text: { submit: { message: `${copy.summary}. ${copy.renewal}` } },
+    custom_text: { submit: { message: gift.plan === "annual" ? copy.summary : `${copy.summary}. ${copy.renewal}` } },
     success_url: `${ctx.base}${SPONSOR_HOME}?gift=${id}&checkout=success`,
     cancel_url: `${ctx.base}${SPONSOR_HOME}?gift=${id}&checkout=canceled`,
   });
+  await track(ctx.db, "sponsor_checkout_started", {
+    sponsorship_id: id,
+    plan: gift.plan,
+    families: gift.recipients.length,
+    voice_families: gift.recipients.filter((r) => r.shareVoice).length,
+    lead_days: Math.round((gift.deliverAt.getTime() - clock(ctx).getTime()) / 86_400_000),
+  }, sponsor.id);
   return { sponsorshipId: id, url: checkout.url };
 }
 
@@ -217,6 +224,7 @@ export async function applySponsorshipChange(ctx: SponsorshipContext, change: Sp
         "mark gift paid",
       );
       Object.assign(sp, { status: "scheduled", provider_customer_ref: change.customerRef, provider_payment_ref: change.paymentRef });
+      await track(ctx.db, "sponsor_paid", { sponsorship_id: sp.id, plan: sp.plan }, (sp.sponsor_id as string | null) ?? null);
     }
     if (sp.plan === "monthly" && !sp.provider_subscription_ref && ["scheduled", "active"].includes(sp.status as string)) await createRenewals(ctx, sp);
     if (sp.status === "scheduled" && !sp.delivered_at && Date.parse(sp.deliver_at as string) <= now.getTime()) await deliver(ctx, sp);
@@ -248,6 +256,7 @@ export async function applySponsorshipChange(ctx: SponsorshipContext, change: Sp
   if (change.kind === "renewal_failed") {
     if (!sp.delivered_at) return;
     await q(ctx.db.from("sponsorships").update({ status: "past_due" }).eq("id", sp.id as string).in("status", ["active"]), "mark renewal failed");
+    await track(ctx.db, "sponsor_renewal_failed", { sponsorship_id: sp.id });
     await notifySponsor(ctx, sp, "S3", `S3:${sp.id}:${now.toISOString().slice(0, 10)}`, {
       subject: "Your Readli gift payment didn't go through",
       title: "Please update your card",
@@ -283,6 +292,7 @@ export async function applySponsorshipChange(ctx: SponsorshipContext, change: Sp
     if (change.state === "ended") Object.assign(update, { status: "ended", ends_at: change.endsAt });
   }
   await q(ctx.db.from("sponsorships").update(update).eq("id", sp.id as string), "update gift subscription");
+  if (update.status === "ended" && sp.status !== "ended") await track(ctx.db, "sponsor_gift_ended", { sponsorship_id: sp.id, plan: sp.plan, reason: sp.status === "canceling" ? "canceled" : "payment_failed", delivered: true });
   if (sp.delivered_at) await sync(ctx, sp.id as string);
 }
 
@@ -324,6 +334,7 @@ async function endNow(ctx: SponsorshipContext, sp: Row, status: "ended" | "refun
       .eq("id", sp.id as string),
     "end gift",
   );
+  await track(ctx.db, "sponsor_gift_ended", { sponsorship_id: sp.id, plan: sp.plan, reason: status === "refunded" ? "refund" : "dispute", delivered: Boolean(sp.delivered_at) });
   if (!sp.delivered_at) {
     await withdrawUnsent(ctx, sp.id as string);
     return;
@@ -363,6 +374,7 @@ async function deliver(ctx: SponsorshipContext, sp: Row): Promise<boolean> {
   Object.assign(sp, { status: "active", delivered_at: now.toISOString(), starts_at: startsAt.toISOString() });
   const seats = (await seatsOf(ctx, sp.id as string)).filter((s) => s.status === "invited");
   for (const seat of seats) await sendInvitation(ctx, sp, seat);
+  await track(ctx.db, "sponsor_gift_delivered", { sponsorship_id: sp.id, plan: sp.plan, families: seats.length, late_minutes: Math.round((now.getTime() - deliverAt.getTime()) / 60_000) });
   await notifySponsor(ctx, sp, "S2", `S2:${sp.id}`, {
     subject: "Your Readli gift has arrived",
     title: "Your families have their invitations",
@@ -436,13 +448,13 @@ async function notifySponsor(ctx: SponsorshipContext, sp: Row, emailId: string, 
   );
 }
 
-async function notifyFamily(ctx: SponsorshipContext, householdId: string, dedupeKey: string, m: { subject: string; title: string; paragraphs: string[]; cta: string; path: string }): Promise<void> {
+async function notifyFamily(ctx: SponsorshipContext, householdId: string, dedupeKey: string, m: { subject: string; title: string; paragraphs: string[]; cta: string; path: string }, emailId = "S5"): Promise<void> {
   const guardians = await q(ctx.db.from("household_members").select("user_id").eq("household_id", householdId).eq("role", "guardian").is("removed_at", null), "read parents");
   await queueEmails(
     ctx.db,
     ctx.secret,
     guardians.map((g) => ({
-      emailId: "S5",
+      emailId,
       dedupeKey: `${dedupeKey}:${g.user_id}`,
       to: { userId: g.user_id as string },
       householdId,
@@ -495,6 +507,7 @@ export async function runSponsorships(ctx: SponsorshipContext): Promise<Lifecycl
   for (const sp of years) {
     await attempt(`end ${sp.id}`, async () => {
       await q(ctx.db.from("sponsorships").update({ status: "ended", ends_at: sp.paid_through }).eq("id", sp.id as string).in("status", ["active", "past_due"]), "end year");
+      await track(ctx.db, "sponsor_gift_ended", { sponsorship_id: sp.id, plan: "annual", reason: "year_ended", delivered: true });
       report.ended += 1;
     });
   }
@@ -586,6 +599,7 @@ async function endingNotices(ctx: SponsorshipContext, sp: Row, seats: Row[], now
 export async function cancelGift(ctx: SponsorshipContext, sponsorId: string, id: string): Promise<CancelOutcome> {
   const sp = await sponsorshipFor(ctx, id, sponsorId);
   const outcome = cancelOutcome(sponsorshipFacts(sp));
+  if (outcome.kind !== "nothing_to_cancel") await track(ctx.db, "sponsor_canceled", { sponsorship_id: id, plan: sp.plan, outcome: outcome.kind }, sponsorId);
   if (outcome.kind === "refund_before_delivery") {
     if (!ctx.stripe) throw new SponsorshipError(503, "payments_off", "Payments are switched off. Please contact support.");
     if (sp.provider_subscription_ref) await ctx.stripe.cancelSubscription(sp.provider_subscription_ref as string);
@@ -644,6 +658,7 @@ export async function removeFamily(ctx: SponsorshipContext, sponsorId: string, i
   if (seat.status === "invited") {
     await q(ctx.db.from("sponsorship_invitations").update({ revoked_at: now.toISOString() }).eq("seat_id", seat.id as string).is("accepted_at", null), "withdraw invitation");
     await q(ctx.db.from("sponsorship_seats").update({ status: "canceled", removal_requested_at: now.toISOString(), access_until: now.toISOString() }).eq("id", seat.id as string), "withdraw place");
+    await track(ctx.db, "sponsor_family_removed", { sponsorship_id: id, seat: seatNumber, joined: false }, sponsorId);
     return { accessUntil: now };
   }
   await q(
@@ -651,6 +666,7 @@ export async function removeFamily(ctx: SponsorshipContext, sponsorId: string, i
     "schedule removal",
   );
   await sync(ctx, id);
+  await track(ctx.db, "sponsor_family_removed", { sponsorship_id: id, seat: seatNumber, joined: true, household_id: seat.household_id }, sponsorId);
   if (seat.household_id) {
     const from = sp.giver_display_name as string;
     await notifyFamily(ctx, seat.household_id as string, `S5:${seat.id}:removed`, {
@@ -677,6 +693,7 @@ export async function undoRemoval(ctx: SponsorshipContext, sponsorId: string, id
   }
   await q(ctx.db.from("sponsorship_seats").update({ status: "active", removal_requested_at: null, access_until: null }).eq("id", seat.id as string), "undo removal");
   await sync(ctx, id);
+  await track(ctx.db, "sponsor_removal_undone", { sponsorship_id: id, seat: seatNumber }, sponsorId);
 }
 
 /** Offers a free place to another family, at most twice in any 12 months. */
@@ -695,6 +712,7 @@ export async function offerPlace(ctx: SponsorshipContext, sponsorId: string, id:
   const now = clock(ctx);
   const { seatId } = await addPlace(ctx, id, seatNumber, recipient, new Date(now.getTime() + SPONSORED.invitationDays * 86_400_000), share);
   await sendInvitation(ctx, sp, { id: seatId, recipient_name: recipient.name });
+  await track(ctx.db, "sponsor_place_offered", { sponsorship_id: id, seat: seatNumber, shares_voice: recipient.shareVoice }, sponsorId);
 }
 
 /** A new credit split, from the next gift month (straight away if the gift hasn't arrived yet). */
@@ -707,12 +725,71 @@ export async function rebalanceCredits(ctx: SponsorshipContext, sponsorId: strin
   const facts = sponsorshipFacts(sp);
   const from = facts.startsAt ? giftMonth(facts.startsAt, now).end : null;
   for (const s of live) {
-    const share = split[s.seat as number];
+    const share = split[s.seat as number]!;
     const values = from ? { next_credit_share: share, next_credits_from: from.toISOString() } : { credit_share: share };
     await q(ctx.db.from("sponsorship_seats").update(values).eq("id", s.id as string), "save credit split");
+    // The family hears before the month it changes in.
+    if (from && s.household_id && share !== Number(s.credit_share)) {
+      const giver = sp.giver_display_name as string;
+      await notifyFamily(
+        ctx,
+        s.household_id as string,
+        `S7:${s.id}:${from.toISOString().slice(0, 10)}:${share}`,
+        {
+          subject: `Your story credits from ${giver}'s gift from ${shortDate(from)}`,
+          title: `From ${shortDate(from)}, your family has ${share} story credits a month from ${giver}'s gift`,
+          paragraphs: ["This month stays as it is. Credits you bought yourselves aren't affected."],
+          cta: "See your credits",
+          path: "/family/credits",
+        },
+        "S7",
+      );
+    }
   }
   if (facts.deliveredAt) await sync(ctx, id);
+  await track(ctx.db, "sponsor_credits_rebalanced", { sponsorship_id: id, shares: split }, sponsorId);
   return { from };
+}
+
+/**
+ * A family asks the sponsor for more credits next month. The sponsor hears the family's name only, never
+ * which story; once a gift month per family.
+ */
+export async function askForCredits(ctx: SponsorshipContext, householdId: string, userId: string): Promise<{ asked: boolean }> {
+  const seat = (await q(ctx.db.from("sponsorship_seats").select("*").eq("household_id", householdId).in("status", ["active"]), "read gift place"))[0];
+  if (!seat) throw new SponsorshipError(404, "no_gift", "Your family doesn't have a gift right now.");
+  const sp = await sponsorshipFor(ctx, seat.sponsorship_id as string);
+  const facts = sponsorshipFacts(sp);
+  if (!facts.startsAt) throw new SponsorshipError(409, "not_active", "Your gift hasn't started yet.");
+  const month = giftMonth(facts.startsAt, clock(ctx));
+  const queued = await queueEmails(
+    ctx.db,
+    ctx.secret,
+    sp.sponsor_id
+      ? [
+          {
+            emailId: "S6",
+            dedupeKey: `S6:${seat.id}:${month.start.toISOString().slice(0, 10)}`,
+            to: { userId: sp.sponsor_id as string },
+            message: readliEmail({
+              subject: `${seat.recipient_name as string} would love a few more story credits`,
+              name: "",
+              title: `${seat.recipient_name as string} asked for more story credits`,
+              paragraphs: [
+                `They've used most of this month's share of your gift. If you'd like, you can give them more from ${shortDate(month.end)} by moving credits between your families.`,
+                "You don't need to do anything. Their credits refresh on their own each gift month.",
+              ],
+              cta: { label: "See your gift", url: `${ctx.base}${SPONSOR_HOME}?gift=${sp.id}` },
+              reason: "You're getting this because you gave a Readli Family gift.",
+              preferencesUrl: preferencesUrl(ctx.base, ctx.secret, sp.sponsor_id as string),
+            }),
+          },
+        ]
+      : [],
+    clock(ctx),
+  );
+  if (queued.length) await track(ctx.db, "sponsored_credit_ask", { sponsorship_id: sp.id, seat: seat.seat }, userId);
+  return { asked: queued.length > 0 };
 }
 
 export const ACCEPT_MESSAGES: Record<string, string> = {
@@ -728,8 +805,10 @@ export const ACCEPT_MESSAGES: Record<string, string> = {
 /** A parent adds the gift to their own family. Their approvals and Kids Mode stay theirs. */
 export async function joinGift(ctx: SponsorshipContext, token: string, userId: string, householdId: string): Promise<string> {
   if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) return "invalid";
-  const result = await q<unknown>(ctx.db.rpc("accept_sponsored_invitation", { p_token_hash: hashInvitationToken(token), p_user: userId, p_household: householdId }), "join gift");
-  return String(result);
+  const result = String(await q<unknown>(ctx.db.rpc("accept_sponsored_invitation", { p_token_hash: hashInvitationToken(token), p_user: userId, p_household: householdId }), "join gift"));
+  // Recipient families are activations, never paying customers.
+  await track(ctx.db, result === "accepted" ? "sponsored_family_joined" : "sponsored_join_refused", { household_id: householdId, result }, userId);
+  return result;
 }
 
 export { SponsorshipError };

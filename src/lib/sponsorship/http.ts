@@ -1,4 +1,5 @@
-import { currentUser, type SignedInUser } from "@/lib/auth/supabase";
+import { currentAdult } from "@/lib/auth/adult";
+import type { SignedInUser } from "@/lib/auth/supabase";
 import { billingConfig } from "@/lib/billing/config";
 import { StripeApi } from "@/lib/billing/stripe-api";
 import { accountDb } from "@/lib/family/account-store";
@@ -25,7 +26,8 @@ export async function sponsorshipContext(opts: { newGifts?: boolean } = {}): Pro
 export async function withSponsorship(run: (ctx: SponsorshipContext, user: SignedInUser) => Promise<Response>, opts: { newGifts?: boolean } = {}): Promise<Response> {
   const ctx = await sponsorshipContext(opts);
   if (!ctx) return fail(404, "not_found", "Not found.");
-  const user = await currentUser();
+  // Never from a device in Kids Mode.
+  const user = await currentAdult();
   if (!user) return fail(401, "sign_in_required", "Please sign in to continue.");
   if (!allow(`sponsorship:${user.id}`, 20, 60_000)) return fail(429, "slow_down", "That's a lot at once. Please wait a minute and try again.");
   try {

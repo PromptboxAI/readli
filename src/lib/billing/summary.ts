@@ -11,7 +11,7 @@ export interface BillingSummary {
   extraNarratorSlots: number;
   /** Monthly extra-slot charge on a paid plan, at today's price. */
   extraSlotsMonthlyCents: number;
-  /** Whether this family can start a paid plan (no plan, or only a trial or tester plan). */
+  /** Whether this family can start a paid plan (no plan, a trial or tester plan, or a gift with a known end). */
   canStartPlan: boolean;
 }
 
@@ -26,6 +26,7 @@ export function billingSummary(state: FamilyState, plan: PlanConfig, householdId
     narratorSlots: planLimits(e, plan).narratorSlots + e.extraNarratorSlots,
     extraNarratorSlots: e.extraNarratorSlots,
     extraSlotsMonthlyCents: e.source === "subscription" ? e.extraNarratorSlots * plan.extraSlotPriceCents : 0,
-    canStartPlan: e.source === "trial" || e.source === "tester",
+    // A family gift that's ending can line up the family's own plan; it starts the day the gift ends.
+    canStartPlan: e.source === "trial" || e.source === "tester" || (e.source === "sponsored" && e.endsAt !== null),
   };
 }
