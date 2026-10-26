@@ -5,7 +5,11 @@ import { authConfigured, safeNext, supabaseServer } from "@/lib/auth/supabase";
 
 export const dynamic = "force-dynamic";
 
-/** Finishes sign-in from Google or an email link, then continues to where the grown-up was going. */
+/**
+ * Finishes sign-in from Google or an email link, then continues to where the grown-up was going. A new
+ * Readli Family or Readli Voice account is Meta's CompleteRegistration (not invited storytellers, and not
+ * for a browser that opted out).
+ */
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const next = safeNext(url.searchParams.get("next"));
@@ -23,6 +27,6 @@ export async function GET(req: Request) {
     console.error("sign-in callback failed", error.message);
     return NextResponse.redirect(new URL(`/login?error=link&next=${encodeURIComponent(next)}`, url.origin));
   }
-  await finishSignIn(supabase, url, next);
+  await finishSignIn(supabase, req, url, next);
   return clearSignInCookies(NextResponse.redirect(new URL(next, url.origin)));
 }

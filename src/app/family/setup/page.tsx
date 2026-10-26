@@ -37,7 +37,7 @@ function Step({ n, done, title, children }: { n: number; done: boolean; title: s
  * walks through naming the family, what to call you, the first kids profile and the first book.
  * Personal, family and storyteller names stay separate, each asked for in its own place.
  */
-export default async function FamilySetupPage({ searchParams }: { searchParams: Promise<{ checkout?: string }> }) {
+export default async function FamilySetupPage({ searchParams }: { searchParams: Promise<{ checkout?: string; session_id?: string }> }) {
   const q = await searchParams;
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
@@ -56,7 +56,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
 
   return (
     <FamilyShell>
-      {q.checkout === "success" && <CheckoutDone />}
+      {q.checkout === "success" && <CheckoutDone sessionId={q.session_id} />}
       <header className="flex flex-col gap-2">
         <h1 className="font-display text-4xl font-semibold">{plan ? "Welcome to Readli Family!" : "Almost there"}</h1>
         <p className="text-lg">A few quick steps and your kids can start listening.</p>

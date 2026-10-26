@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { PlanStarting } from "@/components/family/PlanStarting";
-import { rememberCheckout, trackMeta } from "@/lib/marketing/meta-pixel";
+import { newMetaEventId, rememberCheckout, trackMeta } from "@/lib/marketing/meta-pixel";
 
 export interface StepsProps {
   token: string;
@@ -102,9 +102,12 @@ export function StorytellerSteps(p: StepsProps) {
   const startCheckout = () =>
     run(async () => {
       const cents = cycle === "annual" ? p.checkout.annualCents : p.checkout.monthlyCents;
-      trackMeta("InitiateCheckout", { value: cents / 100, currency: "USD", content_name: `family_${cycle}` });
+      // The server reports the same checkout with this id once Stripe's session exists.
+      const eventId = newMetaEventId();
+      const item = cycle === "annual" ? "family_annual" : "family_monthly";
+      trackMeta("InitiateCheckout", { value: cents / 100, currency: "USD", content_name: item }, eventId);
       rememberCheckout(cents);
-      const data = await call("/api/billing/checkout", "POST", { item: cycle === "annual" ? "family_annual" : "family_monthly", invitationId: p.checkout.invitationId, returnPath: `/v/${p.token}/connect` });
+      const data = await call("/api/billing/checkout", "POST", { item, invitationId: p.checkout.invitationId, returnPath: `/v/${p.token}/connect`, ...(eventId ? { metaEventId: eventId } : {}) });
       if (data?.url) window.location.assign(data.url);
     });
 

@@ -20,6 +20,6 @@ export async function POST(req: Request) {
   const url = new URL(req.url);
   if (body.news === true) url.searchParams.set("news", "1");
   if (typeof body.tz === "string" && body.tz.length <= 64) url.searchParams.set("tz", body.tz);
-  await finishSignIn(supabase, url, next);
+  await finishSignIn(supabase, req, url, next);
   return clearSignInCookies(NextResponse.json({ next }));
 }

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { BillingChoice, type Billing } from "@/components/accounts/BillingChoice";
 import { buttonPrimary } from "@/components/brand/buttons";
-import { rememberCheckout, trackMeta } from "@/lib/marketing/meta-pixel";
+import { newMetaEventId, rememberCheckout, trackMeta } from "@/lib/marketing/meta-pixel";
 
 async function post(path: string, body: unknown): Promise<Record<string, unknown>> {
   const res = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -47,9 +47,11 @@ export function FamilyStart(props: {
     await post("/api/family/household", { provisional: true });
     const item = billing === "annual" ? "family_annual" : "family_monthly";
     const cents = billing === "annual" ? props.annualCents : props.monthlyCents;
-    trackMeta("InitiateCheckout", { value: cents / 100, currency: "USD", content_name: item });
+    // The server reports the same checkout with this id once Stripe's session exists.
+    const eventId = newMetaEventId();
+    trackMeta("InitiateCheckout", { value: cents / 100, currency: "USD", content_name: item }, eventId);
     rememberCheckout(cents);
-    const { url } = await post("/api/billing/checkout", { item, from: "signup" });
+    const { url } = await post("/api/billing/checkout", { item, from: "signup", ...(eventId ? { metaEventId: eventId } : {}) });
     if (typeof url !== "string") throw new Error("Checkout couldn't start. Please try again.");
     window.location.assign(url);
   };

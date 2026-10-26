@@ -91,7 +91,7 @@ export default async function ConnectInvitationPage({ params, searchParams }: { 
   const kids = householdId ? guardianChildren(state, actor.adultId).filter((c) => c.householdId === householdId) : [];
   return (
     <AdultPage>
-      {q.checkout === "success" && <CheckoutDone />}
+      {q.checkout === "success" && <CheckoutDone sessionId={typeof q.session_id === "string" ? q.session_id : undefined} />}
       {header}
       <StorytellerSteps
         token={token}

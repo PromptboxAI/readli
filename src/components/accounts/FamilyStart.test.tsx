@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@supabase/ssr", () => ({ createBrowserClient: () => ({ auth: {} }) }));
 const trackMeta = vi.fn();
-vi.mock("@/lib/marketing/meta-pixel", () => ({ trackMeta: (...a: unknown[]) => trackMeta(...a), rememberCheckout: vi.fn() }));
+vi.mock("@/lib/marketing/meta-pixel", () => ({ trackMeta: (...a: unknown[]) => trackMeta(...a), rememberCheckout: vi.fn(), newMetaEventId: () => null }));
 
 import { FamilyStart } from "./FamilyStart";
 
@@ -42,7 +42,7 @@ describe("FamilyStart", () => {
       { url: "/api/family/household", body: { provisional: true } },
       { url: "/api/billing/checkout", body: { item: "family_annual", from: "signup" } },
     ]);
-    expect(trackMeta).toHaveBeenCalledWith("InitiateCheckout", { value: 179.99, currency: "USD", content_name: "family_annual" });
+    expect(trackMeta).toHaveBeenCalledWith("InitiateCheckout", { value: 179.99, currency: "USD", content_name: "family_annual" }, null);
   });
 
   it("asks for the emailed code when signed out, before any checkout", () => {

@@ -23,7 +23,9 @@ export default function PrivacyChoicesPage() {
           our ads on Facebook and Instagram. Some state laws, including California&apos;s, call that &quot;sharing&quot; for advertising, so you can turn it off here.
         </p>
         <p>
-          The pixel never runs in Readli Kids or the parent portal, and it never receives voice recordings, email addresses or child-profile information.
+          When you make a demo voice, create an account, start a checkout or pay, our servers also tell Meta, with a hashed email address for account
+          actions. Opting out here stops those too. The pixel never runs in Readli Kids or the parent portal, and Meta never gets voice recordings or
+          anything about children from Readli.
         </p>
         <AdsChoice />
         <p className="text-sm">
