@@ -18,7 +18,7 @@ export async function FamilyShell({ children, portal = true, wide = false }: { c
   const width = wide ? "max-w-6xl" : "max-w-4xl";
   const nav = portal ? await navState() : null;
   if (nav?.kind === "adult" && nav.family.plan !== "none") {
-    const account = { name: nav.name, email: nav.email, initials: accountInitials(nav.name), avatarUrl: nav.avatarUrl ?? null, badge: accountBadge(nav), links: accountLinks(nav) };
+    const account = { name: nav.name, email: nav.email, initials: accountInitials(nav.name, nav.email), avatarUrl: nav.avatarUrl ?? null, badge: accountBadge(nav), links: accountLinks(nav) };
     return (
       <>
         <ReloadOnRestore />

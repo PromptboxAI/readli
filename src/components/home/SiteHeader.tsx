@@ -24,7 +24,7 @@ export async function SiteHeader() {
   const nav = await navState();
   const primary = primaryAction(nav);
   const account =
-    nav.kind === "adult" ? { name: nav.name, email: nav.email, initials: accountInitials(nav.name), avatarUrl: nav.avatarUrl ?? null, badge: accountBadge(nav), links: accountLinks(nav) } : null;
+    nav.kind === "adult" ? { name: nav.name, email: nav.email, initials: accountInitials(nav.name, nav.email), avatarUrl: nav.avatarUrl ?? null, badge: accountBadge(nav), links: accountLinks(nav) } : null;
   return (
     <header className="sticky top-0 z-30 border-b border-ink/10 bg-ivory/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">

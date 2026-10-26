@@ -26,7 +26,8 @@ export function CreateFamily() {
       setError(body?.error?.message ?? "Something went wrong. Please try again.");
       return;
     }
-    router.refresh();
+    // A new family has no plan yet, so the next step is choosing one.
+    router.push("/family/billing");
   };
   return (
     <form onSubmit={submit} className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10" aria-labelledby={`${id}-h`}>
