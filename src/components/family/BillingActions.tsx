@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { formatPrice } from "@/lib/family/plan";
-import { rememberCheckout, takeCheckout, trackMeta } from "@/lib/marketing/meta-pixel";
+import { newMetaEventId, rememberCheckout, takeCheckout, trackMeta } from "@/lib/marketing/meta-pixel";
 
-async function goTo(path: string, body: unknown, setError: (e: string) => void) {
+async function goTo(path: string, body: unknown, setError: (e: string) => void, beforeLeaving?: () => void) {
   const res = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const json = (await res.json().catch(() => ({}))) as { url?: string; error?: { message?: string } };
-  if (res.ok && json.url) window.location.assign(json.url);
-  else setError(json.error?.message ?? "Something went wrong. Please try again.");
+  if (res.ok && json.url) {
+    beforeLeaving?.();
+    window.location.assign(json.url);
+  } else setError(json.error?.message ?? "Something went wrong. Please try again.");
 }
 
 /** Pick monthly or annual Readli Family, with optional extra storyteller slots, then go to checkout. */
@@ -77,9 +79,12 @@ export function StartPlan(props: { monthlyCents: number; annualCents: number; sl
           setBusy(true);
           setError("");
           const cents = base + extra * props.slotCents;
-          trackMeta("InitiateCheckout", { value: cents / 100, currency: "USD", content_name: choice });
-          rememberCheckout(cents);
-          void goTo("/api/billing/checkout", { item: choice, extraSlots: extra }, setError).finally(() => setBusy(false));
+          // The server reports the same checkout with this id once Stripe's session exists.
+          const eventId = newMetaEventId();
+          void goTo("/api/billing/checkout", { item: choice, extraSlots: extra, ...(eventId ? { metaEventId: eventId } : {}) }, setError, () => {
+            trackMeta("InitiateCheckout", { value: cents / 100, currency: "USD", content_name: choice }, eventId);
+            rememberCheckout(cents);
+          }).finally(() => setBusy(false));
         }}
       >
         Continue to checkout
@@ -88,12 +93,15 @@ export function StartPlan(props: { monthlyCents: number; annualCents: number; sl
   );
 }
 
-/** Back from Stripe: reports the new plan to the Meta Pixel once, if this tab started the checkout. */
-export function CheckoutDone() {
+/**
+ * Back from Stripe: reports the new plan to the Meta Pixel once, if this tab started the checkout. Its
+ * event_id is the one the Stripe webhook uses for the server's Subscribe, so Meta counts it once.
+ */
+export function CheckoutDone({ sessionId }: { sessionId?: string }) {
   useEffect(() => {
     const cents = takeCheckout();
-    if (cents !== null) trackMeta("Subscribe", { value: cents / 100, currency: "USD" });
-  }, []);
+    if (cents !== null) trackMeta("Subscribe", { value: cents / 100, currency: "USD" }, sessionId ? `subscribe_${sessionId}` : null);
+  }, [sessionId]);
   return null;
 }
 

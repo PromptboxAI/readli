@@ -37,7 +37,7 @@ function planNote(s: BillingSummary): string {
 }
 
 /** A parent's plan: what they have, what it costs, and where to change it. Children never reach it. */
-export default async function BillingPage({ searchParams }: { searchParams: Promise<{ checkout?: string }> }) {
+export default async function BillingPage({ searchParams }: { searchParams: Promise<{ checkout?: string; session_id?: string }> }) {
   const q = await searchParams;
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
@@ -56,7 +56,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
         <BackLink href="/family/controls" label="Parent Controls" />
         <h1 className="font-display text-4xl font-semibold">Plan and billing</h1>
       </header>
-      {q.checkout === "success" && <CheckoutDone />}
+      {q.checkout === "success" && <CheckoutDone sessionId={q.session_id && /^cs_[A-Za-z0-9_]+$/.test(q.session_id) ? q.session_id : undefined} />}
       {q.checkout === "success" && (
         <p role="status" className="rounded-2xl bg-mint/40 px-4 py-3">
           Thank you! Your plan starts as soon as the payment goes through, usually within a minute.
