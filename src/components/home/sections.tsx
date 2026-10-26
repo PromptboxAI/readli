@@ -7,7 +7,6 @@ import { HeroBedtimeScene } from "@/components/home/HeroBedtimeScene";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
-import { rewardsConfig } from "@/lib/rewards/rewards";
 import { MORE_BOOKS_ON_PHONES, NEW_BOOKS } from "@/lib/library/catalog";
 import { bookPath } from "@/lib/library/paths";
 
@@ -347,7 +346,6 @@ export function FamilyCircles() {
 }
 
 export function FinalCta() {
-  const { trialDays } = rewardsConfig();
   return (
     <section className="bg-sunshine">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-14 text-center sm:px-6">
@@ -358,11 +356,11 @@ export function FinalCta() {
             Hear a story in your voice, free
           </Link>
           <Link href="/signup/family" className={`${buttonSecondary} w-full sm:w-auto`}>
-            Start your free trial
+            Start your family
           </Link>
         </div>
-        <p data-testid="family-trial-line">
-          Try Readli Family free for {trialDays} days. Card required, cancel any time.{" "}
+        <p data-testid="family-plan-line">
+          Readli Family is a monthly or yearly plan you can cancel any time.{" "}
           <Link href="/pricing" className="font-semibold underline underline-offset-4">
             See pricing
           </Link>

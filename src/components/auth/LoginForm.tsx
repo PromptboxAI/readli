@@ -4,7 +4,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { useEffect, useId, useState } from "react";
 import { CODE_LENGTH, CodeBoxes } from "@/components/auth/CodeBoxes";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
-import { trackMeta } from "@/lib/marketing/meta-pixel";
+import { trackMetaCustom } from "@/lib/marketing/meta-pixel";
 
 const field = "min-h-12 w-full rounded-2xl border-[3px] border-ink/20 bg-surface px-4 text-lg focus:border-ink";
 
@@ -19,8 +19,8 @@ function client() {
  * then the page goes on to `next` itself, unless the page passes onSignedIn to carry on in place.
  * Pass onSentChange when the page owns the heading: it then shows "Check your email" itself and the card drops its title.
  * Signup pages pass askMarketing for an unticked opt-in to Bedtime Thursdays and news (below both ways to
- * sign in, saved after sign-in), and signup, which reports the sign-up to the Meta Pixel when the code is
- * sent or Google opens. Names are asked for after sign-in, where they can't hold anything up.
+ * sign in, saved after sign-in), and signup, which tells the Meta Pixel a sign-up started when the code
+ * is sent or Google opens (the confirmed account is the server's CompleteRegistration). Names are asked for after sign-in, where they can't hold anything up.
  */
 export function LoginForm({
   next,
@@ -62,7 +62,7 @@ export function LoginForm({
   };
 
   const signedUp = () => {
-    if (signup) trackMeta("CompleteRegistration", { content_name: signup });
+    if (signup) trackMetaCustom("SignupStarted", { content_name: signup });
   };
 
   const google = async () => {
