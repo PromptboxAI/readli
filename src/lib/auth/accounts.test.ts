@@ -16,6 +16,8 @@ import {
   createHousehold,
   grantEntitlement,
   myVoices,
+  PROVISIONAL_FAMILY_NAME,
+  renameHousehold,
   narratorSlots,
   narratorsFor,
   releaseNarrator,
@@ -133,6 +135,23 @@ describe("real family accounts", () => {
     expect(again.children.map((c) => [c.nickname, c.guardianIds])).toEqual([["Maya", [ME.id]]]);
     expect(again.favorites).toEqual([{ childId: maya, bookSlug: "peter-rabbit" }]);
     expect(again.entitlements).toHaveLength(1);
+  });
+
+  it("starts a family for a Readli Voice account on the same login, with a stand-in name until setup renames it", async () => {
+    const VOICE = "55555555-5555-4555-8555-555555555555";
+    const voice = { id: VOICE, owner_id: ME.id, display_name: "Sara", version: 1, status: "ready", created_at: "2026-10-01T00:00:00Z", deleted_at: null };
+    const { db, tables } = fakeDb({ voice_profiles: [{ ...voice }] });
+    const store = new AccountFamilyStore(db, ME, DEFAULT_PLAN);
+    const home = await createHousehold(store, ADULT, PROVISIONAL_FAMILY_NAME);
+    // Asking again (a second click, or back from a canceled checkout) keeps the same family.
+    expect(await createHousehold(store, ADULT, PROVISIONAL_FAMILY_NAME)).toBe(home);
+    expect(tables.household_members).toMatchObject([{ household_id: home, user_id: ME.id, role: "guardian" }]);
+    expect(tables.voice_profiles).toEqual([voice]);
+
+    await expect(renameHousehold(store, ADULT, "   ")).rejects.toMatchObject({ code: "bad_name" });
+    expect(await renameHousehold(store, ADULT, "  The   Rivera family ")).toBe("The Rivera family");
+    expect(tables.households).toMatchObject([{ id: home, name: "The Rivera family" }]);
+    await expect(renameHousehold(new AccountFamilyStore(db, { id: "22222222-2222-4222-8222-222222222222", name: "Kim" }, DEFAULT_PLAN), { kind: "adult", adultId: "22222222-2222-4222-8222-222222222222" }, "Mine")).rejects.toMatchObject({ code: "not_guardian" });
   });
 
   it("saves a shared family voice, its narrator slot and a child's approval, and reads them back", async () => {

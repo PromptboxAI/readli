@@ -19,10 +19,11 @@ export const runtime = "nodejs";
 /**
  * Starts a Stripe Checkout for Readli Family ({ item: "family_monthly" | "family_annual", extraSlots })
  * or a credit pack ({ item: "credit_pack:<id>" }) and returns its URL. A Family checkout may name the
- * storyteller invitation (invitationId) that brought the household in. Answers 404 while payments are
- * off. Plans and credits are granted from the webhook, never from here. Unless the browser opted out,
- * Meta hears InitiateCheckout (sharing metaEventId with the pixel), and the browser's ad details ride
- * in the session's metadata so the webhook can report the purchase.
+ * storyteller invitation (invitationId) that brought the household in, and from: "signup" to come back
+ * to setup instead of Plan and billing. Answers 404 while payments are off. Plans and credits are
+ * granted from the webhook, never from here. Unless the browser opted out, Meta hears InitiateCheckout
+ * (sharing metaEventId with the pixel), and the browser's ad details ride in the session's metadata so
+ * the webhook can report the purchase.
  */
 /** The invitation id from the request, only when that invitation was accepted into this household. */
 async function acceptedInvitation(db: SupabaseClient, householdId: string, id: unknown): Promise<string | null> {
@@ -59,6 +60,7 @@ export async function POST(req: Request) {
       // The storyteller invitation that brought this family in, so the webhook credits its trial and payment.
       ...(invitationId ? { invitation_id: invitationId } : {}),
     };
+    const fromSignup = request.mode === "subscription" && body.from === "signup";
     const attribution = attributionFrom(req);
     const stripe = new StripeApi(config);
     try {
@@ -77,9 +79,10 @@ export async function POST(req: Request) {
         customer_email: customer ? undefined : (session.account.email ?? undefined),
         metadata: { ...metadata, ...attributionMetadata(attribution) },
         ...(request.mode === "subscription" ? { subscription_data: { metadata } } : { payment_intent_data: { metadata } }),
-        // Stripe fills in the session id; the thank-you page's pixel event shares it with the webhook's.
-        success_url: `${origin}/family/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/family/billing?checkout=canceled`,
+        // From Family signup: back to setup once paid, or to the plan choice if they turn back. Stripe
+        // fills in the session id; the thank-you page's pixel event shares it with the webhook's.
+        success_url: `${origin}${fromSignup ? "/family/setup" : "/family/billing"}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: fromSignup ? `${origin}/signup/family?checkout=canceled` : `${origin}/family/billing?checkout=canceled`,
       });
       if (attribution) {
         const cents =
