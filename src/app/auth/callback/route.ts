@@ -1,11 +1,7 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { clearSignInCookies, finishSignIn } from "@/lib/auth/finish-sign-in";
 import { authConfigured, safeNext, supabaseServer } from "@/lib/auth/supabase";
-import { recordEmailSignup } from "@/lib/email/signup";
-import { GROWNUP_COOKIE, PIN_RESUMED_COOKIE } from "@/lib/family/grownup-stash";
-import { KIDS_COOKIE } from "@/lib/family/kids-mode";
-import { currentDevice } from "@/lib/family/session";
-import { attributionFrom, sendCapiEvent } from "@/lib/server/meta-capi";
 
 export const dynamic = "force-dynamic";
 
@@ -31,34 +27,6 @@ export async function GET(req: Request) {
     console.error("sign-in callback failed", error.message);
     return NextResponse.redirect(new URL(`/login?error=link&next=${encodeURIComponent(next)}`, url.origin));
   }
-  const signup = await recordEmailSignup(supabase, url, next).catch((err) => {
-    console.error("save email signup failed", err);
-    return null;
-  });
-  const attribution = signup && signup.intent !== "voice_invited" ? attributionFrom(req, `${url.origin}/signup/${signup.intent}`) : null;
-  if (signup && attribution) {
-    after(() =>
-      sendCapiEvent({
-        name: "CompleteRegistration",
-        eventId: `registration_${signup.userId}`,
-        attribution,
-        email: signup.email,
-        externalId: signup.userId,
-        customData: { content_name: signup.intent === "family" ? "Readli Family" : "Readli Voice" },
-      }),
-    );
-  }
-  // Signing in again is how a grown-up leaves Kids Mode on a device, so this sign-in ends it, and
-  // ends the kids device record too so it no longer shows as active.
-  const kidsDevice = await currentDevice().catch(() => null);
-  if (kidsDevice) {
-    const { registry, device } = kidsDevice;
-    await registry.update(device.id, { revokedAt: new Date().toISOString(), revokedBy: device.registeredBy, activeChildId: null }).catch(() => undefined);
-  }
-  const res = NextResponse.redirect(new URL(next, url.origin));
-  res.cookies.delete(KIDS_COOKIE);
-  // A full sign-in replaces any sign-in set aside for Kids Mode or brought back with the PIN.
-  res.cookies.delete(GROWNUP_COOKIE);
-  res.cookies.delete(PIN_RESUMED_COOKIE);
-  return res;
+  await finishSignIn(supabase, req, url, next);
+  return clearSignInCookies(NextResponse.redirect(new URL(next, url.origin)));
 }

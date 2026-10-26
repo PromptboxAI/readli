@@ -65,8 +65,10 @@ test("a finished take becomes a voice and reads four stories, with free replays"
   await expect(page.getByRole("button", { name: "Choose a story" })).toBeVisible();
 
   // Back from a signup page reopens the stories in the voice already made, without recording again.
-  await page.goto("/signup/voice?from=try");
-  await expect(page.getByText("Use your Try recording")).toBeVisible();
+  await page.goto("/signup/voice?from=try&book=winnie-the-pooh");
+  await expect(page.getByRole("heading", { name: "Save your voice for free" })).toBeVisible();
+  await expect(page.getByTestId("demo-recording")).toContainText("heard Winnie-the-Pooh in your voice");
+  await expect(page.getByText("Readli Voice doesn't include")).toHaveCount(0);
   await page.getByRole("link", { name: "← Back" }).click();
   await expect(page).toHaveURL(/\/try\?resume=1/);
   await expect(page.getByTestId("demo-books").getByRole("article")).toHaveCount(6);

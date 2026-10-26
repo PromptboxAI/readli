@@ -9,6 +9,7 @@ import { TeleprompterRecorder } from "@/components/teleprompter/TeleprompterReco
 import type { TakeDetails } from "@/components/teleprompter/VoicePreview";
 import { VOICE_CONSENTS } from "@/lib/content/voice-consents";
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
+import { VOICE_SAVED } from "@/lib/accounts/voice-signup";
 import { formatClock } from "@/lib/teleprompter/recorder-machine";
 import type { GuestTake } from "@/lib/voice/guest-handoff";
 
@@ -39,6 +40,7 @@ export function AccountVoiceSetup({
   parent = false,
   guestTake = null,
   guestCleanUp = false,
+  fromTry = false,
 }: {
   hasVoice: boolean;
   next?: string;
@@ -47,6 +49,11 @@ export function AccountVoiceSetup({
   guestTake?: GuestTake | null;
   /** The noise clean-up setting the guest last heard their stories with. */
   guestCleanUp?: boolean;
+  /**
+   * Straight from Save My Voice Free: agreeing saves the demo take (no separate "use this recording"
+   * step), or says the take has expired when it's gone.
+   */
+  fromTry?: boolean;
 }) {
   const [step, setStep] = useState(0);
   const [agreed, setAgreed] = useState<boolean[]>(VOICE_CONSENTS.map(() => false));
@@ -88,12 +95,12 @@ export function AccountVoiceSetup({
     setStep(2);
   };
 
-  const makeVoice = async () => {
-    if (!take && !fromGuest) return;
+  const makeVoice = async (useGuest = fromGuest) => {
+    if (!take && !useGuest) return;
     setError(null);
     setPhase("making");
     try {
-      if (fromGuest) {
+      if (useGuest) {
         const made = await fetch("/api/voice/from-guest", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -140,6 +147,11 @@ export function AccountVoiceSetup({
     try {
       const res = await fetch("/api/voice/keep", { method: "POST" });
       if (!res.ok) throw new Error(await errorMessage(res, "We couldn't save your voice just now. Please try again."));
+      // From Save My Voice Free: straight on to My Voice, which confirms the save and leads with inviting family.
+      if (next === VOICE_SAVED) {
+        window.location.assign(VOICE_SAVED);
+        return;
+      }
       setStep(3);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
@@ -177,7 +189,19 @@ export function AccountVoiceSetup({
 
       {step === 0 && (
         <section className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-lavender/40 p-6 sm:p-8">
-          <h2 className="font-display text-2xl font-semibold">Your voice, your rules</h2>
+          <h2 className="font-display text-2xl font-semibold">{fromTry && guestTake ? "Save the voice you just recorded" : "Your voice, your rules"}</h2>
+          {fromTry && guestTake && (
+            <p data-testid="save-demo-take">
+              We&apos;ll make your Readli voice from the story you read on the Try page ({formatClock(guestTake.durationMs)}), so you don&apos;t
+              have to read it again. Please confirm:
+            </p>
+          )}
+          {fromTry && !guestTake && (
+            <p className="rounded-2xl bg-sunshine/60 p-4" data-testid="demo-take-expired">
+              Your demo recording has expired (they&apos;re kept for 24 hours), so you&apos;ll read the short story once more. It takes about a
+              minute.
+            </p>
+          )}
           {hasVoice && (
             <p>
               You already have a Readli voice. If you record again, your current voice keeps working until you listen to the new one
@@ -198,8 +222,18 @@ export function AccountVoiceSetup({
               </label>
             ))}
           </fieldset>
-          <button type="button" className={`${buttonPrimary} w-fit`} disabled={!agreed.every(Boolean)} onClick={() => setStep(1)}>
-            I agree
+          <button
+            type="button"
+            className={`${buttonPrimary} w-fit`}
+            disabled={!agreed.every(Boolean)}
+            onClick={() => {
+              if (fromTry && guestTake) {
+                chooseGuestTake();
+                void makeVoice(true);
+              } else setStep(1);
+            }}
+          >
+            {fromTry && guestTake ? "I agree, save my voice" : "I agree"}
           </button>
         </section>
       )}

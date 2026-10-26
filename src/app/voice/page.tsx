@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AskName } from "@/components/account/AskName";
 import { ContributorDashboard } from "@/components/accounts/ContributorDashboard";
-import { buttonSecondary } from "@/components/brand/buttons";
+import { ReadiMascot } from "@/components/brand/ReadiMascot";
+import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { AccountVoiceControls } from "@/components/family/AccountVoiceControls";
 import { MyVoiceSharing } from "@/components/family/MyVoiceSharing";
 import { VoiceModelUpgrade } from "@/components/family/VoiceModelUpgrade";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
+import { chosenName } from "@/lib/account/names";
 import { currentAdult } from "@/lib/auth/adult";
 import { familyPage } from "@/lib/family/page-data";
 import { myVoices } from "@/lib/family/service";
@@ -48,12 +51,34 @@ export default async function VoiceHomePage({ searchParams }: { searchParams: Pr
   const deps = accountVoiceDeps(serverConfig());
   const recording = deps ? await deps.store.findVoice(user.id).catch(() => null) : null;
   const model = deps ? await voiceModelStatus(deps, user.id).catch(() => null) : null;
+  // Just back from saving the voice (Save My Voice Free): confirm it, lead with inviting family, and
+  // ask what to call them now that nothing is waiting on it.
+  const justSaved = p.saved === "1" && recording?.status === "ready";
+  const me = state?.adults.find((a) => a.id === user.id);
+  const named = Boolean(chosenName(me?.displayName ?? user.name, user.email));
   return (
     <AdultPage>
       <header className="flex flex-col gap-2">
         <Eyebrow>Readli Voice · Free storyteller account</Eyebrow>
         <h1 className="font-display text-4xl font-semibold sm:text-5xl">Your voice</h1>
       </header>
+      {justSaved && (
+        <section className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-mint/50 p-6 sm:p-8" aria-labelledby="saved-h" data-testid="voice-saved">
+          <div className="flex items-center gap-4">
+            <ReadiMascot size={80} decorative />
+            <div>
+              <h2 id="saved-h" className="font-display text-2xl font-semibold sm:text-3xl">
+                Your voice is saved
+              </h2>
+              <p>It&apos;s private until you share it. Invite your family so their kids can hear stories read by you.</p>
+            </div>
+          </div>
+          <Link href="/voice/invite" className={`${buttonPrimary} self-start`}>
+            Invite your family
+          </Link>
+        </section>
+      )}
+      {justSaved && !named && <AskName />}
       {model?.canUpgrade && <VoiceModelUpgrade />}
       <AccountVoiceControls voice={recording && { status: recording.status, version: recording.version, updatedAt: recording.updatedAt }} />
       <section className="flex flex-col gap-3" aria-labelledby="families-h">
