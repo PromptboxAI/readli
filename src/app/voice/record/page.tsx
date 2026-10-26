@@ -45,6 +45,7 @@ export default async function VoiceRecordPage({ searchParams }: { searchParams: 
           parent={parent}
           guestTake={guestTake}
           guestCleanUp={p.cleanup === "1"}
+          fromTry={p.from === "try"}
         />
       ) : (
         <>

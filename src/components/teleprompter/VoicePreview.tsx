@@ -255,7 +255,7 @@ export function VoicePreview({
         </p>
       )}
 
-      {nextSteps && !busy && (playing || previewsLeft === 0 || !take) && <NextSteps cleanUp={playing?.cleanUp ?? cleanUp} />}
+      {nextSteps && !busy && (playing || previewsLeft === 0 || !take) && <NextSteps cleanUp={playing?.cleanUp ?? cleanUp} book={playing?.book.slug ?? null} />}
 
       {mode !== "off" && (
         <label className="flex min-h-11 items-start gap-3 rounded-2xl border-2 border-ink/10 bg-surface p-4">
@@ -317,8 +317,10 @@ export function VoicePreview({
  * Where a guest goes once they've heard themselves. Both paths keep the take: signing in within the
  * guest's 24 hours offers it on /voice/record, so nobody reads the story again.
  */
-function NextSteps({ cleanUp }: { cleanUp: boolean }) {
+function NextSteps({ cleanUp, book }: { cleanUp: boolean; book: string | null }) {
   const carry = `from=try${cleanUp ? "&cleanup=1" : ""}`;
+  // The story they just heard, so Save your voice can show what they're keeping.
+  const heard = book ? `&book=${encodeURIComponent(book)}` : "";
   return (
     <section aria-labelledby="next-steps-heading" className="flex flex-col gap-4 rounded-panel bg-surface p-5 ring-2 ring-ink/10 sm:p-6" data-testid="try-next-steps">
       <div className="flex flex-col gap-1">
@@ -331,7 +333,7 @@ function NextSteps({ cleanUp }: { cleanUp: boolean }) {
         <div className="flex flex-col gap-3 rounded-2xl bg-mint/50 p-4">
           <p className="font-display text-lg font-semibold">Read to your family&apos;s kids</p>
           <p className="text-sm">Make a free Readli Voice account and invite the families you love. They choose which children hear you.</p>
-          <Link href={`/signup/voice?${carry}`} className={`${buttonPrimary} mt-auto w-full`}>
+          <Link href={`/signup/voice?${carry}${heard}`} className={`${buttonPrimary} mt-auto w-full`}>
             Share my voice, free
           </Link>
         </div>

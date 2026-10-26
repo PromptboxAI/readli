@@ -30,6 +30,11 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+function typeCode(code: string) {
+  // Pasting into the first box spreads the digits, the way a phone's code suggestion does.
+  fireEvent.paste(screen.getByLabelText("Digit 1 of 6"), { clipboardData: { getData: () => code } });
+}
+
 async function sendCodeTo(email: string) {
   fireEvent.change(screen.getByLabelText("Email"), { target: { value: email } });
   fireEvent.click(screen.getByRole("button", { name: "Email me a code" }));
@@ -37,29 +42,57 @@ async function sendCodeTo(email: string) {
 }
 
 describe("LoginForm", () => {
-  it("signs in with the emailed code on the same page, saves the optional name, then goes on", async () => {
-    render(<LoginForm next="/voice/record" askName askMarketing />);
-    fireEvent.change(screen.getByLabelText(/What should we call you/), { target: { value: "Grandpa Kevin" } });
+  it("signs in with the 6-digit code on the same page, then goes on", async () => {
+    render(<LoginForm next="/voice/record" askMarketing />);
     await sendCodeTo("kevin@example.com");
     // The email still carries a link back to this preview, as a fallback.
     expect(auth.signInWithOtp.mock.calls[0]![0].options.emailRedirectTo).toMatch(/^https:\/\/preview\.example\/auth\/callback\?next=%2Fvoice%2Frecord/);
 
-    fireEvent.change(screen.getByLabelText("Code"), { target: { value: "123 456" } });
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.getAllByRole("textbox")).toHaveLength(6);
+    typeCode("123 456");
+    // All six filled checks the code without another click.
     await waitFor(() => expect(assign).toHaveBeenCalledWith("/voice/record"));
     expect(auth.verifyOtp).toHaveBeenCalledWith({ email: "kevin@example.com", token: "123456", type: "email" });
-    expect(calls.map((c) => c.url)).toEqual(["/auth/finish", "/api/account"]);
+    expect(calls.map((c) => c.url)).toEqual(["/auth/finish"]);
     expect(calls[0]!.body).toMatchObject({ next: "/voice/record", news: false });
-    expect(calls[1]!.body).toEqual({ displayName: "Grandpa Kevin" });
+  });
+
+  it("moves between boxes as digits are typed and deleted", async () => {
+    render(<LoginForm next="/family" />);
+    await sendCodeTo("sara@example.com");
+    const box = (n: number) => screen.getByLabelText(`Digit ${n} of 6`) as HTMLInputElement;
+    fireEvent.change(box(1), { target: { value: "4" } });
+    expect(document.activeElement).toBe(box(2));
+    fireEvent.change(box(2), { target: { value: "2" } });
+    fireEvent.keyDown(box(3), { key: "Backspace" });
+    expect(box(2).value).toBe("");
+    expect(document.activeElement).toBe(box(2));
+    expect(auth.verifyOtp).not.toHaveBeenCalled();
+  });
+
+  it("keeps Google sign-in, returning to the same next step and preview", async () => {
+    auth.signInWithOAuth.mockResolvedValue({ error: null });
+    render(<LoginForm next="/voice/record?from=try&next=%2Fvoice%3Fsaved%3D1" askMarketing />);
+    // The news opt-in sits below both ways to sign in, unticked.
+    const news = screen.getByRole("checkbox") as HTMLInputElement;
+    expect(news.checked).toBe(false);
+    expect(screen.getByRole("button", { name: "Continue with Google" }).compareDocumentPosition(news) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Email me a code" }).compareDocumentPosition(news) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Continue with Google" }));
+    await waitFor(() => expect(auth.signInWithOAuth).toHaveBeenCalled());
+    const redirectTo = auth.signInWithOAuth.mock.calls[0]![0].options.redirectTo as string;
+    expect(new URL(redirectTo).origin).toBe("https://preview.example");
+    expect(new URL(redirectTo).searchParams.get("next")).toBe("/voice/record?from=try&next=%2Fvoice%3Fsaved%3D1");
   });
 
   it("keeps the code step open with a message when the code is wrong", async () => {
     auth.verifyOtp.mockResolvedValue({ error: { status: 403, message: "Token has expired or is invalid" } });
     render(<LoginForm next="/family" />);
     await sendCodeTo("sara@example.com");
-    fireEvent.change(screen.getByLabelText("Code"), { target: { value: "000000" } });
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    typeCode("000000");
     expect(await screen.findByRole("alert")).toHaveProperty("textContent", "That code didn't work. Check it, or send a new one.");
+    // The boxes empty so a new code can go straight in.
+    expect((screen.getByLabelText("Digit 1 of 6") as HTMLInputElement).value).toBe("");
     expect(assign).not.toHaveBeenCalled();
     expect(calls).toEqual([]);
   });
@@ -68,8 +101,7 @@ describe("LoginForm", () => {
     const onSignedIn = vi.fn().mockRejectedValueOnce(new Error("Checkout couldn't start. Please try again.")).mockResolvedValueOnce(undefined);
     render(<LoginForm next="/signup/family" onSignedIn={onSignedIn} submitLabel="Email me a code" />);
     await sendCodeTo("sara@example.com");
-    fireEvent.change(screen.getByLabelText("Code"), { target: { value: "654321" } });
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    typeCode("654321");
     expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Checkout couldn't start. Please try again.");
     expect(assign).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
