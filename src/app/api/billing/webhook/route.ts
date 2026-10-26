@@ -5,9 +5,13 @@ import { billingChange, invitationBilling } from "@/lib/billing/events";
 import { revenueRows } from "@/lib/billing/revenue";
 import { verifyStripeSignature } from "@/lib/billing/stripe-signature";
 import { accountDb } from "@/lib/family/account-store";
-import { recordInvitationBilling } from "@/lib/invitations/server";
+import { invitationSecret, recordInvitationBilling } from "@/lib/invitations/server";
 import { fail } from "@/lib/server/http";
 import { sendCapiEvent, stripeConversion } from "@/lib/server/meta-capi";
+import { SITE_URL } from "@/lib/seo/site";
+import { StripeApi } from "@/lib/billing/stripe-api";
+import { isSponsorshipEvent, sponsorshipChange } from "@/lib/sponsorship/events";
+import { applySponsorshipChange } from "@/lib/sponsorship/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -27,7 +31,8 @@ interface StripeEvent {
  * one-time payments and refunds are recorded for the admin finance report, and a trial or first
  * payment is credited to the storyteller invitation that brought the family in. A completed checkout
  * is reported to Meta (Subscribe or Purchase) once, when it was started from a browser that didn't opt
- * out. A failed apply is recorded and answered with a 500, so Stripe retries it.
+ * out. Sponsorship events (readli_kind=sponsorship, and disputes) go to their own branch and never touch a
+ * household's own plan. A failed apply is recorded and answered with a 500, so Stripe retries it.
  */
 export async function POST(req: Request) {
   const config = billingConfig();
@@ -61,7 +66,13 @@ export async function POST(req: Request) {
   if (stored.processed_at) return NextResponse.json({ received: true, duplicate: true });
 
   try {
-    await applyBillingChange(db, billingChange(event), event.livemode);
+    if (isSponsorshipEvent(event) || event.type === "charge.dispute.created") {
+      const secret = invitationSecret();
+      if (!secret) throw new Error("sponsorship events need the invitation secret");
+      await applySponsorshipChange({ db, stripe: new StripeApi(config), secret, base: SITE_URL, livemode: event.livemode }, sponsorshipChange(event));
+    } else {
+      await applyBillingChange(db, billingChange(event), event.livemode);
+    }
     await recordRevenue(db, revenueRows(event));
   } catch (err) {
     await db.from("payment_events").update({ error: String(err instanceof Error ? err.message : err).slice(0, 500) }).eq("id", stored.id);

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { after, NextResponse } from "next/server";
-import { checkoutRequest, checkoutReturn } from "@/lib/billing/checkout";
+import { checkoutRequest, checkoutReturn, deferredStart } from "@/lib/billing/checkout";
 import { billingConfig } from "@/lib/billing/config";
 import { StripeApi, StripeError } from "@/lib/billing/stripe-api";
 import { catalogItem } from "@/lib/billing/catalog";
@@ -62,6 +62,7 @@ export async function POST(req: Request) {
       // The storyteller invitation that brought this family in, so the webhook credits its payment.
       ...(invitationId ? { invitation_id: invitationId } : {}),
     };
+    const deferred = request.mode === "subscription" ? deferredStart(request.startsAfter) : {};
     const fromSignup = request.mode === "subscription" && body.from === "signup";
     const back = checkoutReturn(origin, { fromSignup, invitationId, returnPath: body.returnPath });
     const attribution = attributionFrom(req);
@@ -81,7 +82,9 @@ export async function POST(req: Request) {
         customer: customer?.customer_ref ?? undefined,
         customer_email: customer ? undefined : (session.account.email ?? undefined),
         metadata: { ...metadata, ...attributionMetadata(attribution) },
-        ...(request.mode === "subscription" ? { subscription_data: { metadata } } : { payment_intent_data: { metadata } }),
+        ...(request.mode === "subscription"
+          ? { subscription_data: { metadata: { ...metadata, ...deferred.metadata }, trial_end: deferred.trial_end } }
+          : { payment_intent_data: { metadata } }),
         success_url: back.success,
         cancel_url: back.cancel,
       });

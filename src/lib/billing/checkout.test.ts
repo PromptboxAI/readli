@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { HouseholdEntitlement } from "@/lib/family/model";
 import { DEFAULT_PLAN } from "@/lib/family/plan";
 import { catalog, catalogItem, lookupKey } from "./catalog";
-import { checkoutRequest, checkoutReturn } from "./checkout";
+import { checkoutRequest, checkoutReturn, deferredStart } from "./checkout";
 import { billingConfig } from "./config";
 import { encodeForm, StripeApi, StripeError } from "./stripe-api";
 
@@ -34,6 +34,24 @@ describe("catalog", () => {
     expect(lookupKey("family_monthly", 1999)).toBe("readli_family_monthly_1999");
     expect(catalogItem({ ...DEFAULT_PLAN, familyMonthlyPriceCents: 2499 }, "family_monthly")?.lookupKey).toBe("readli_family_monthly_2499");
     expect(lookupKey("credit_pack:pack-small", 699)).toBe("readli_credit_pack_pack_small_699");
+  });
+});
+
+describe("a sponsored family's own plan", () => {
+  const gift = (endsAt: string | null): HouseholdEntitlement => ({ ...entitlement("sponsored"), endsAt });
+
+  it("waits for a gift with no end date, and starts when a known one ends", () => {
+    expect(checkoutRequest(DEFAULT_PLAN, gift(null), "family_monthly")).toMatchObject({ ok: false, code: "gift_covers_you" });
+    expect(checkoutRequest(DEFAULT_PLAN, gift("2027-01-25T12:00:00.000Z"), "family_monthly")).toMatchObject({ ok: true, startsAfter: "2027-01-25T12:00:00.000Z" });
+    expect(checkoutRequest(DEFAULT_PLAN, entitlement("subscription"), "family_monthly")).toMatchObject({ ok: false, code: "already_on_plan" });
+  });
+
+  it("charges nothing until the gift's last day has passed", () => {
+    const now = new Date("2027-01-10T00:00:00.000Z");
+    expect(deferredStart("2027-01-25T12:00:00.000Z", now)).toEqual({ trial_end: Date.parse("2027-01-25T12:00:00.000Z") / 1000, metadata: { starts_after: "2027-01-25T12:00:00.000Z" } });
+    // Under Stripe's two-day minimum the plan row still waits; only the charge can't.
+    expect(deferredStart("2027-01-11T00:00:00.000Z", now)).toEqual({ metadata: { starts_after: "2027-01-11T00:00:00.000Z" } });
+    expect(deferredStart(null, now)).toEqual({});
   });
 });
 

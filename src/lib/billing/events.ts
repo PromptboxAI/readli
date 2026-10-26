@@ -41,6 +41,8 @@ interface StripeObject {
 
 const iso = (seconds: unknown): string | null => (typeof seconds === "number" ? new Date(seconds * 1000).toISOString() : null);
 const str = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
+/** A family's own plan bought while a gift is ending starts when the gift ends, so the two never overlap. */
+const later = (a: string, b: string | null): string => (b && !Number.isNaN(Date.parse(b)) && Date.parse(b) > Date.parse(a) ? new Date(b).toISOString() : a);
 const ref = (v: unknown): string | null => str(v) ?? str((v as StripeObject | null)?.id);
 
 function extraSlots(sub: StripeObject): number {
@@ -54,6 +56,8 @@ export function billingChange(event: { type: string; data?: { object?: StripeObj
   const obj = event.data?.object;
   if (!obj) return { kind: "ignore", reason: "no object" };
   const householdId = str((obj.metadata as StripeObject | undefined)?.household_id);
+  // Sponsorships have their own branch (src/lib/sponsorship/events.ts) and never touch a household plan here.
+  if ((obj.metadata as StripeObject | undefined)?.readli_kind === "sponsorship") return { kind: "ignore", reason: "sponsorship" };
 
   if (event.type === "checkout.session.completed") {
     const customerRef = ref(obj.customer);
@@ -84,7 +88,7 @@ export function billingChange(event: { type: string; data?: { object?: StripeObj
       customerRef: ref(obj.customer),
       status: live ? "active" : "canceled",
       extraNarratorSlots: extraSlots(obj),
-      startsAt: iso(obj.start_date) ?? new Date().toISOString(),
+      startsAt: later(iso(obj.start_date) ?? new Date().toISOString(), str((obj.metadata as StripeObject | undefined)?.starts_after)),
       endsAt,
     };
   }
