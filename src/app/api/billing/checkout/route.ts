@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { checkoutRequest } from "@/lib/billing/checkout";
 import { billingConfig } from "@/lib/billing/config";
 import { StripeApi, StripeError } from "@/lib/billing/stripe-api";
@@ -11,6 +11,7 @@ import { activeEntitlement } from "@/lib/family/permissions";
 import { guardianHousehold } from "@/lib/family/service";
 import { requireFullSignIn } from "@/lib/family/session";
 import { fail } from "@/lib/server/http";
+import { attributionFrom, attributionMetadata, eventIdFrom, sendCapiEvent } from "@/lib/server/meta-capi";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -19,8 +20,10 @@ export const runtime = "nodejs";
  * Starts a Stripe Checkout for Readli Family ({ item: "family_monthly" | "family_annual", extraSlots })
  * or a credit pack ({ item: "credit_pack:<id>" }) and returns its URL. A Family checkout may name the
  * storyteller invitation (invitationId) that brought the household in, and from: "signup" to come back
- * to setup instead of Plan and billing. Answers 404 while payments are
- * off. Plans and credits are granted from the webhook, never from here.
+ * to setup instead of Plan and billing. Answers 404 while payments are off. Plans and credits are
+ * granted from the webhook, never from here. Unless the browser opted out, Meta hears InitiateCheckout
+ * (sharing metaEventId with the pixel), and the browser's ad details ride in the session's metadata so
+ * the webhook can report the purchase.
  */
 /** The invitation id from the request, only when that invitation was accepted into this household. */
 async function acceptedInvitation(db: SupabaseClient, householdId: string, id: unknown): Promise<string | null> {
@@ -58,6 +61,7 @@ export async function POST(req: Request) {
       ...(invitationId ? { invitation_id: invitationId } : {}),
     };
     const fromSignup = request.mode === "subscription" && body.from === "signup";
+    const attribution = attributionFrom(req);
     const stripe = new StripeApi(config);
     try {
       const lineItems =
@@ -73,12 +77,30 @@ export async function POST(req: Request) {
         client_reference_id: householdId,
         customer: customer?.customer_ref ?? undefined,
         customer_email: customer ? undefined : (session.account.email ?? undefined),
-        metadata,
+        metadata: { ...metadata, ...attributionMetadata(attribution) },
         ...(request.mode === "subscription" ? { subscription_data: { metadata } } : { payment_intent_data: { metadata } }),
-        // From Family signup: back to setup once paid, or to the plan choice if they turn back.
-        success_url: fromSignup ? `${origin}/family/setup?checkout=success` : `${origin}/family/billing?checkout=success`,
+        // From Family signup: back to setup once paid, or to the plan choice if they turn back. Stripe
+        // fills in the session id; the thank-you page's pixel event shares it with the webhook's.
+        success_url: `${origin}${fromSignup ? "/family/setup" : "/family/billing"}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: fromSignup ? `${origin}/signup/family?checkout=canceled` : `${origin}/family/billing?checkout=canceled`,
       });
+      if (attribution) {
+        const cents =
+          request.mode === "subscription"
+            ? request.plan.amountCents + (request.extraSlots ? (catalogItem(plan, "extra_slot")?.amountCents ?? 0) * request.extraSlots : 0)
+            : request.pack.amountCents;
+        const email = session.account.email;
+        after(() =>
+          sendCapiEvent({
+            name: "InitiateCheckout",
+            eventId: eventIdFrom(body.metaEventId) ?? `checkout_${checkout.id}`,
+            attribution,
+            email,
+            externalId: actor.adultId,
+            customData: { value: cents / 100, currency: "USD", content_name: metadata.item },
+          }),
+        );
+      }
       return NextResponse.json({ url: checkout.url });
     } catch (err) {
       if (err instanceof StripeError) return fail(502, "stripe_error", "Checkout couldn't start. Please try again.");
