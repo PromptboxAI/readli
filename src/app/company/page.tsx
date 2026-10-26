@@ -66,7 +66,7 @@ export default function CompanyPage() {
         </section>
 
         {FOUNDERS.length > 0 && (
-          <section aria-labelledby="founders-heading" className="flex flex-col gap-6" data-testid="founders">
+          <section id="our-story" aria-labelledby="founders-heading" className="flex scroll-mt-24 flex-col gap-6" data-testid="founders">
             <h2 id="founders-heading" className="font-display text-3xl font-semibold">
               Why we built Readli
             </h2>

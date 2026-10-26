@@ -7,7 +7,7 @@ import { HeroBedtimeScene } from "@/components/home/HeroBedtimeScene";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
-import { COMPANY, COMPANY_SHORT } from "@/lib/content/company";
+import { COMPANY, COMPANY_ADDRESS } from "@/lib/content/company";
 import { rewardsConfig } from "@/lib/rewards/rewards";
 import { MORE_BOOKS_ON_PHONES, NEW_BOOKS } from "@/lib/library/catalog";
 
@@ -405,7 +405,7 @@ export function SiteFooter() {
           <div className="flex flex-col gap-1">
             <p>© {new Date().getFullYear()} Readli. Every Book. Every Voice.</p>
             <p className="text-muted" data-testid="footer-company">
-              {COMPANY_SHORT} ·{" "}
+              {COMPANY.legalName} · {COMPANY_ADDRESS} ·{" "}
               <a href={`mailto:${COMPANY.email}`} className="underline-offset-4 hover:underline">
                 {COMPANY.email}
               </a>

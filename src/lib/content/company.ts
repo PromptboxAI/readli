@@ -11,9 +11,6 @@ export const COMPANY = {
 
 export const COMPANY_ADDRESS = `${COMPANY.street}, ${COMPANY.city}, ${COMPANY.region} ${COMPANY.postalCode}`;
 
-/** "Readli.ai LLC · Stony Brook, NY": short enough for a footer. */
-export const COMPANY_SHORT = `${COMPANY.legalName} · ${COMPANY.city}, ${COMPANY.region}`;
-
 export interface Founder {
   name: string;
   title: string;
