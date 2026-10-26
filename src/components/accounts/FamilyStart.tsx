@@ -114,7 +114,7 @@ export function FamilyStart(props: {
         ) : (
           <>
             <p>Enter your email and we&apos;ll send a 6-digit code to type right here. Then you go straight to checkout. Already have a Readli account? Use the same email.</p>
-            <LoginForm next={next} askMarketing askName signup="Readli Family" onSignedIn={checkout} />
+            <LoginForm next={next} askMarketing signup="Readli Family" onSignedIn={checkout} />
           </>
         )}
       </section>
