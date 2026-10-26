@@ -8,7 +8,11 @@ import { buttonPrimary } from "@/components/brand/buttons";
  * Asks a grown-up what to call them, right where they'd otherwise be greeted by their email address.
  * Saves to the same name Account settings changes, so the greeting, the menu and invitations all use it.
  */
-export function AskName() {
+export function AskName({
+  label = "What should we call you?",
+  hint = "This is how you'll appear to your kids and storytellers.",
+  placeholder = "Mom, Dad, Grandpa Kevin…",
+}: { label?: string; hint?: string; placeholder?: string } = {}) {
   const id = useId();
   const router = useRouter();
   const [name, setName] = useState("");
@@ -31,15 +35,15 @@ export function AskName() {
   return (
     <form onSubmit={submit} className="flex flex-col gap-2 rounded-3xl bg-sky/40 p-4 sm:p-5" aria-labelledby={`${id}-label`} data-testid="ask-name">
       <label id={`${id}-label`} htmlFor={`${id}-name`} className="font-display text-xl font-semibold">
-        What should we call you?
+        {label}
       </label>
-      <p className="-mt-1 text-sm">This is how you&apos;ll appear to your kids and storytellers.</p>
+      <p className="-mt-1 text-sm">{hint}</p>
       <div className="flex flex-wrap gap-2">
         <input
           id={`${id}-name`}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Mom, Dad, Grandpa Kevin…"
+          placeholder={placeholder}
           autoComplete="name"
           maxLength={60}
           required

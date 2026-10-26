@@ -448,11 +448,43 @@ export interface InvitationRow {
   expiresAt: string;
   canResend: boolean;
   canRevoke: boolean;
+  /** The latest email's delivery: from the send itself, then Resend's webhook events when they arrive. */
+  delivery: InvitationDelivery;
+}
+
+export type InvitationDelivery = "sending" | "sent" | "delivered" | "bounced" | "failed";
+
+/** Latest send per invitation, upgraded by Resend's delivered / bounced / complained events. */
+async function deliveries(db: SupabaseClient, ids: string[]): Promise<Map<string, InvitationDelivery>> {
+  const out = new Map<string, InvitationDelivery>();
+  if (!ids.length) return out;
+  const sends = await q(db.from("voice_invitation_sends").select("invitation_id, delivery, provider_message_id, sent_at").in("invitation_id", ids).order("sent_at", { ascending: false }), "read sends").catch(() => [] as Row[]);
+  const latest = new Map<string, Row>();
+  for (const s of sends) if (!latest.has(s.invitation_id as string)) latest.set(s.invitation_id as string, s);
+  const refs = [...latest.values()].map((s) => s.provider_message_id as string | null).filter((r): r is string => Boolean(r));
+  const events = refs.length ? await q(db.from("email_events").select("type, provider_ref").in("provider_ref", refs), "read email events").catch(() => [] as Row[]) : [];
+  for (const [id, send] of latest) {
+    const types = events.filter((e) => e.provider_ref === send.provider_message_id).map((e) => String(e.type));
+    out.set(
+      id,
+      types.some((t) => t === "email.bounced" || t === "email.complained")
+        ? "bounced"
+        : types.includes("email.delivered")
+          ? "delivered"
+          : send.delivery === "failed"
+            ? "failed"
+            : send.delivery === "sent"
+              ? "sent"
+              : "sending",
+    );
+  }
+  return out;
 }
 
 export async function listInvitations(db: SupabaseClient, secret: string, userId: string, settings: InvitationSettings, now = new Date()): Promise<InvitationRow[]> {
   const rows = await q(db.from("voice_invitations").select("*").eq("contributor_id", userId).order("created_at", { ascending: false }).limit(200), "read invitations");
   const cipher = new ProviderRefCipher(secret);
+  const delivery = await deliveries(db, rows.map((r) => r.id as string));
   return rows.map((r) => {
     const status = invitationStatus(r as never, now);
     let email = "";
@@ -473,6 +505,7 @@ export async function listInvitations(db: SupabaseClient, secret: string, userId
       expiresAt: r.expires_at as string,
       canResend: open && Number(r.sent_count ?? 1) - 1 < settings.maxResends,
       canRevoke: open,
+      delivery: delivery.get(r.id as string) ?? "sent",
     };
   });
 }

@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { SamplePlayer } from "@/components/home/SamplePlayer";
 
 /**
  * Guided journey (designer brief, 2026-10-23): one Readli Family story in five steps that visitors
@@ -13,8 +14,6 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
  */
 
 const BOOK = { title: "The Three Billy Goats Gruff", short: "Billy Goats Gruff", cover: "/covers/the-three-billy-goats-gruff.webp" };
-/** Kevin's own Readli voice reading page 1, trimmed from his screen recording (2026-10-23). */
-const SAMPLE_SRC = "/samples/grandpa-kevin-billy-goats-gruff.mp3";
 
 const GRANDPA = { name: "Grandpa Kevin", portrait: "/family-voices/grandpa.webp" };
 const HOUSEHOLDS = [
@@ -44,44 +43,6 @@ function Check() {
 
 function Cover({ w = 56 }: { w?: number }) {
   return <Image src={BOOK.cover} alt="" width={w} height={Math.round((w * 4) / 3)} className="aspect-[3/4] shrink-0 rounded-md object-cover shadow-[2px_3px_0_rgba(40,53,72,0.16)]" style={{ width: w }} />;
-}
-
-function SamplePlayer() {
-  const audio = useRef<HTMLAudioElement>(null);
-  const [playing, setPlaying] = useState(false);
-  useEffect(() => {
-    const a = audio.current;
-    return () => a?.pause();
-  }, []);
-  return (
-    <div className="flex items-center gap-3 rounded-2xl bg-ivory p-2.5 ring-1 ring-ink/10">
-      <audio ref={audio} src={SAMPLE_SRC} preload="none" onEnded={() => setPlaying(false)} />
-      <button
-        type="button"
-        onClick={() => {
-          const a = audio.current;
-          if (!a) return;
-          if (a.paused) {
-            void a
-              .play()
-              .then(() => setPlaying(true))
-              .catch(() => setPlaying(false));
-          } else {
-            a.pause();
-            setPlaying(false);
-          }
-        }}
-        className="grid size-11 shrink-0 place-items-center rounded-full bg-coral-deep text-white"
-        aria-label={playing ? "Pause Grandpa Kevin's sample" : "Play Grandpa Kevin's sample"}
-      >
-        {playing ? "❚❚" : "▶"}
-      </button>
-      <span className="min-w-0 text-sm">
-        <span className="block font-semibold">{BOOK.short}, page 1</span>
-        <span className="block text-muted">Read by {GRANDPA.name} · 0:29</span>
-      </span>
-    </div>
-  );
 }
 
 /** Phone-sized card that holds one app screen. */

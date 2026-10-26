@@ -118,7 +118,7 @@ test("terms explain both voice approvals and accessibility gives a contact", asy
 
   await page.goto("/accessibility");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Accessibility Statement");
-  await expect(page.getByRole("link", { name: "admin@readli.ai" })).toHaveAttribute("href", "mailto:admin@readli.ai");
+  await expect(page.getByRole("main").getByRole("link", { name: "admin@readli.ai" })).toHaveAttribute("href", "mailto:admin@readli.ai");
   await expect(page.getByText("IMPLEMENTATION CHECK")).toHaveCount(0);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
