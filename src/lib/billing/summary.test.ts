@@ -32,4 +32,9 @@ describe("billingSummary", () => {
   it("ignores an ended plan", () => {
     expect(billingSummary(state([{ endsAt: "2026-10-05T00:00:00.000Z" }]), DEFAULT_PLAN, "h1", at).plan).toBe("none");
   });
+
+  it("lets a family line up its own plan once its gift has an end date", () => {
+    expect(billingSummary(state([{ source: "sponsored", includedNarratorSlots: 1 }]), DEFAULT_PLAN, "h1", at)).toMatchObject({ plan: "sponsored", narratorSlots: 1, canStartPlan: false });
+    expect(billingSummary(state([{ source: "sponsored", endsAt: "2026-11-01T00:00:00.000Z" }]), DEFAULT_PLAN, "h1", at)).toMatchObject({ canStartPlan: true });
+  });
 });
