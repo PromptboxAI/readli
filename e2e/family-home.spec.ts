@@ -22,7 +22,11 @@ test("the family home leads with the kids, stories and storytellers", async ({ p
   // Every card opens Readli Kids from the same place, and says where that child is.
   await expect(kids).toHaveAttribute("data-layout", "detailed");
   await expect(kids.getByRole("button", { name: /Readli Kids/ })).toHaveCount(2);
-  await expect(page.getByTestId("kids-mode-note")).toContainText("family PIN");
+  // Kids Mode is explained on request, not in a permanent paragraph.
+  const about = page.getByTestId("kids-mode-note");
+  await expect(about.getByText("family PIN")).toBeHidden();
+  await about.getByText("About Kids Mode").click();
+  await expect(about).toContainText("family PIN");
 
   // Mom's voice is prepared for the homepage stories in the preview: one row per book, with each child's place.
   const lion = page.getByTestId("shelf-book-the-lion-and-the-mouse");
@@ -34,6 +38,20 @@ test("the family home leads with the kids, stories and storytellers", async ({ p
   // Find your next story leads to Books: a slim strip on phones and tablets, a card beside the kids on desktop.
   const next = info.project.name === "desktop" ? page.getByTestId("next-story") : page.getByTestId("next-story-strip");
   await expect(next.getByRole("link", { name: "Browse Books" })).toBeVisible();
+  await expect(next).toContainText(/of [\d.,]+ (monthly|trial) credits remaining/);
+  await expect(next.getByRole("link", { name: /How credits work/ })).toHaveAttribute("href", "/family/credits");
+
+  // Home shows a few books, two across on wider screens, and the rest on request.
+  const shelf = page.getByTestId("shelf-ready");
+  const shown = await shelf.locator(":scope > li").count();
+  expect(shown).toBeLessThanOrEqual(4);
+  const viewAll = page.getByTestId("shelf-view-all");
+  if (await viewAll.count()) {
+    await viewAll.click();
+    await expect(page).toHaveURL(/shelf=all/);
+    await expect.poll(() => shelf.locator(":scope > li").count()).toBeGreaterThan(shown);
+    await page.goto("/family");
+  }
   await expect(page.getByRole("link", { name: "Invite a storyteller" })).toHaveAttribute("href", "/family/narrators#invite");
 
   const storytellers = page.getByTestId("home-storytellers");
