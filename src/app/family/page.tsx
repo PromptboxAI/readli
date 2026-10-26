@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AskName } from "@/components/account/AskName";
 import { CreateFamily } from "@/components/family/CreateFamily";
 import { InviteActions } from "@/components/invites/InviteActions";
 import { FamilyRewardsCard } from "@/components/rewards/FamilyRewardsCard";
@@ -21,6 +22,7 @@ import { planConfig } from "@/lib/family/plan";
 import { familyPage, guardianChildren } from "@/lib/family/page-data";
 import { activeEntitlement, liveSlots, narratorSlotCount } from "@/lib/family/permissions";
 import { deviceRegistry, familyPreviewEnabled, TEMPORARY_KIDS_HOURS } from "@/lib/family/session";
+import { chosenName } from "@/lib/account/names";
 import { authConfigured } from "@/lib/auth/supabase";
 import { carriedInvitationToken } from "@/lib/invitations/context";
 import { pendingJoinPath } from "@/lib/invites/pending";
@@ -119,11 +121,14 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
     );
   }
 
+  // Set by Family signup: this grown-up came to start Readli Family, not to see the portal.
+  const startingFamily = (await searchParams).start === "1";
+  // Until they've told us what to call them, all we have is their email address: ask, don't greet with it.
+  const myName = account ? chosenName(adult.displayName, account.email) : adult.displayName;
   if (account && !isParent(state, adult.id)) {
     // Storytellers have a free Readli Voice account, not a family: never send them into family setup.
     const pending = await pendingJoinPath(adult.id);
     if (pending) redirect(pending);
-    const startingFamily = (await searchParams).start === "1";
     const deps = startingFamily || isStorytellerOnly(state, adult.id) ? null : accountVoiceDeps(serverConfig());
     const ownVoice = deps ? await deps.store.findVoice(adult.id).catch(() => null) : null;
     if (!startingFamily && (isStorytellerOnly(state, adult.id) || ownVoice)) redirect("/voice");
@@ -134,8 +139,9 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
       <FamilyShell>
         <div>
           <p className="text-muted">Signed in as</p>
-          <h1 className="font-display text-4xl font-semibold">{adult.displayName}</h1>
+          <h1 className="font-display text-4xl font-semibold">{myName ?? account.email ?? "you"}</h1>
         </div>
+        {!myName && <AskName />}
         <CreateFamily />
         <div className="flex flex-wrap gap-2">
           <Link href="/family/account" className={buttonSecondary}>
@@ -150,6 +156,8 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   const home = homeHousehold(state, adult.id) ?? undefined;
   const entitlement = home ? activeEntitlement(state, home) : null;
   const hasPlan = Boolean(entitlement);
+  // Family signup continues to choosing a plan, so nobody lands on an empty portal with no way to check out.
+  if (startingFamily && isGuardian && !hasPlan) redirect("/family/billing");
   const invited = account && isGuardian ? await carriedInvitationToken() : null;
   // A voice made on an older reading model can be heard on the newest one and switched, by its owner.
   const ownVoice = state.voices.find((v) => v.ownerId === adult.id && v.status === "ready" && v.deletedAt === null);
@@ -174,8 +182,8 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
         <StorytellerAvatar name={adult.displayName} avatarUrl={adult.avatarUrl} tint={adult.tint} />
         <div className="min-w-0 flex-1">
           {familyName && <p className="font-display text-muted">{familyName}</p>}
-          {/* The account's own display name: a household's nickname for this grown-up belongs to that family's view of them. */}
-          <h1 className="font-display text-2xl leading-tight font-semibold sm:text-3xl">Welcome back, {adult.displayName}</h1>
+          {/* The account's own chosen name, never the email: a household's nickname for this grown-up belongs to that family's view of them. */}
+          <h1 className="font-display text-2xl leading-tight font-semibold sm:text-3xl">{myName ? `Welcome back, ${myName}` : "Welcome back!"}</h1>
           {!isGuardian && <p className="text-muted">{calledIn(state, adult, home)?.relationship}</p>}
           {account && !adult.avatarUrl && (
             <Link href="/family/account#photo" className="text-sm font-semibold underline underline-offset-4">
@@ -185,6 +193,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
         </div>
       </div>
       {notice && <HomeNotice text={noticeText(notice)} through={notice.through} />}
+      {!myName && <AskName />}
       <PreviewNote />
       {invited && (
         <Link href={`/v/${invited}/connect`} className="rounded-2xl bg-sky/50 px-4 py-3 font-semibold underline-offset-4 hover:underline" data-testid="invitation-waiting">
