@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { applyBillingChange, recordRevenue } from "@/lib/billing/apply";
 import { billingConfig } from "@/lib/billing/config";
 import { billingChange, invitationBilling } from "@/lib/billing/events";
@@ -7,6 +7,7 @@ import { verifyStripeSignature } from "@/lib/billing/stripe-signature";
 import { accountDb } from "@/lib/family/account-store";
 import { recordInvitationBilling } from "@/lib/invitations/server";
 import { fail } from "@/lib/server/http";
+import { sendCapiEvent, stripeConversion } from "@/lib/server/meta-capi";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -24,8 +25,9 @@ interface StripeEvent {
  * only correctly signed events whose mode matches ours, stores each event once and applies it once:
  * subscription events start, update or end the household's Readli Family plan, and paid invoices,
  * one-time payments and refunds are recorded for the admin finance report, and a trial or first
- * payment is credited to the storyteller invitation that brought the family in. A failed apply is
- * recorded and answered with a 500, so Stripe retries it.
+ * payment is credited to the storyteller invitation that brought the family in. A completed checkout
+ * is reported to Meta (Subscribe or Purchase) once, when it was started from a browser that didn't opt
+ * out. A failed apply is recorded and answered with a 500, so Stripe retries it.
  */
 export async function POST(req: Request) {
   const config = billingConfig();
@@ -69,5 +71,8 @@ export async function POST(req: Request) {
   const funnel = invitationBilling(event);
   if (funnel) await recordInvitationBilling(db, funnel).catch(() => undefined);
   await db.from("payment_events").update({ processed_at: new Date().toISOString(), error: null }).eq("id", stored.id);
+  // Only the first successful processing gets here, so Meta hears each checkout once.
+  const conversion = stripeConversion(event);
+  if (conversion) after(() => sendCapiEvent(conversion));
   return NextResponse.json({ received: true, duplicate: false });
 }

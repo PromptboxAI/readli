@@ -137,7 +137,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Meta",
-        text: "receives Meta Pixel data from some public website pages, as section 8 describes, and may also use it for its own purposes, such as showing ads.",
+        text: "receives Meta Pixel data from some public website pages and Conversions API events from our servers, as section 8 describes, and may also use them for its own purposes, such as showing ads.",
       },
       {
         text: "These providers have their own privacy policies, which govern their own handling of the data they receive. ElevenLabs offers an account setting that lets it use customer data to improve its models; Readli has turned that setting off for its account.",
@@ -159,8 +159,12 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
         text: "on public website pages for grown-ups (such as the homepage, the Try page, pricing, the library, help, gifts, sign-up, and Plan and billing), we use the Meta Pixel from Meta Platforms, Inc. to measure and improve our ads on Facebook and Instagram. It sets Meta cookies and tells Meta which of these pages you visited and whether you made a demo voice, started sign-up, or started a plan and its price, along with your IP address and browser information. It does not receive voice recordings, email addresses, or child-profile information. It never runs in Readli Kids, in the rest of the parent portal, on invitation pages, or on the sign-in and legal pages. Meta may use this information under its own privacy policy, including to show you ads for Readli.",
       },
       {
+        lead: "Meta Conversions API",
+        text: "when a grown-up makes a demo voice, creates a Readli Family or Readli Voice account, starts a checkout, or completes a purchase, Readli’s servers also tell Meta about that action, so it is counted even when a browser blocks the pixel. Each event includes your IP address and browser information, Meta’s own cookie IDs, a hashed (scrambled) version of your Readli account ID, and, except for the demo voice, a hashed version of your email address, plus the plan or purchase amount for checkouts. Meta uses the hashed details to match the action to a Facebook or Instagram account. We never send voice recordings, voice details, names, phone numbers, birth dates, or anything about children.",
+      },
+      {
         lead: "Your choices",
-        text: "you can opt out of this sharing at https://readli.ai/privacy/choices (the “Do Not Sell or Share My Personal Information” link at the bottom of our website pages), and Readli then stops loading the Meta Pixel on that browser. If your browser sends a Global Privacy Control signal, we treat it as the same opt-out. Readli does not sell personal information for money. You can also manage ad settings in your Facebook or Instagram account, or block third-party cookies in your browser.",
+        text: "you can opt out of this sharing at https://readli.ai/privacy/choices (the “Do Not Sell or Share My Personal Information” link at the bottom of our website pages), and Readli then stops loading the Meta Pixel and stops sending Conversions API events for actions on that browser. If your browser sends a Global Privacy Control signal, we treat it as the same opt-out, including for a purchase you start from that browser. Readli does not sell personal information for money. You can also manage ad settings in your Facebook or Instagram account, or block third-party cookies in your browser.",
       },
     ],
   },
