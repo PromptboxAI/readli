@@ -66,7 +66,7 @@ export default async function InviteFamilyPage({ searchParams }: { searchParams:
     return (
       <AdultPage wide>
         {header("/voice")}
-        <PreviewNote>Family invitations need Readli accounts, which aren&apos;t switched on here. See how it will look at /design/invitations.</PreviewNote>
+        <PreviewNote>Family invitations need Readli accounts, which aren&apos;t switched on here.</PreviewNote>
       </AdultPage>
     );
   }
