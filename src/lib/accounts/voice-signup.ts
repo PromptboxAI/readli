@@ -1,11 +1,8 @@
 /**
  * Routes for Save My Voice Free, the free Readli Voice signup that follows the /try demo. It never
  * leads to Stripe, Family signup or a family dashboard: a signed-in grown-up goes to make their voice
- * (from the demo take while it lasts), and once it's kept, to My Voice to invite their family.
+ * (from the demo take while it lasts), and once it's kept, straight on to choosing a story to share.
  */
-
-/** My Voice, saying the voice was just saved, with Invite your family up top. */
-export const VOICE_SAVED = "/voice?saved=1";
 
 export interface VoiceSignupFrom {
   /** Came from the /try demo. */
@@ -18,10 +15,9 @@ export interface VoiceSignupFrom {
 
 /** Where signing in continues to: making the voice, from the demo take when it's still there. */
 export function voiceRecordPath({ fromTry, cleanUp, takeKept }: VoiceSignupFrom): string {
-  const next = `next=${encodeURIComponent(VOICE_SAVED)}`;
-  if (fromTry && takeKept) return `/voice/record?from=try&${next}${cleanUp ? "&cleanup=1" : ""}`;
+  if (fromTry && takeKept) return `/voice/record?from=try${cleanUp ? "&cleanup=1" : ""}`;
   // The demo take is gone (or there never was one): the record page says so and records afresh.
-  return fromTry ? `/voice/record?from=try&expired=1&${next}` : `/voice/record?${next}`;
+  return fromTry ? "/voice/record?from=try&expired=1" : "/voice/record";
 }
 
 /** The way back from signup: to the demo stories in the voice already made, or to choosing an account. */

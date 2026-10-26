@@ -1,9 +1,9 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined, push: () => undefined }) }));
 vi.mock("@/components/teleprompter/TeleprompterRecorder", () => ({ TeleprompterRecorder: () => <div data-testid="recorder" /> }));
 
-import { VOICE_SAVED } from "@/lib/accounts/voice-signup";
 import { AccountVoiceSetup } from "./AccountVoiceSetup";
 
 const assign = vi.fn();
@@ -33,45 +33,80 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const agreeToAll = () => {
-  for (const box of screen.getAllByRole("checkbox")) fireEvent.click(box);
-};
+const agree = () => fireEvent.click(screen.getByRole("checkbox"));
 
 describe("AccountVoiceSetup from Save My Voice Free", () => {
-  it("saves the demo take once they agree, then goes straight to My Voice", async () => {
-    render(<AccountVoiceSetup hasVoice={false} next={VOICE_SAVED} guestTake={take} fromTry />);
-    expect(screen.getByRole("heading", { name: "Save the voice you just recorded" })).toBeTruthy();
-    expect(screen.getByTestId("save-demo-take").textContent).toContain("1:12");
-    agreeToAll();
-    fireEvent.click(screen.getByRole("button", { name: "I agree, save my voice" }));
-    // No separate "use this recording" step and no recording again.
+  it("offers the demo recording first, with one consent, then leads to choosing a story", async () => {
+    render(<AccountVoiceSetup hasVoice={false} guestTake={take} fromTry askName />);
+    expect(screen.getAllByRole("checkbox")).toHaveLength(1);
+    expect(screen.getByRole("radio", { name: /Use this recording/ })).toHaveProperty("checked", true);
+    expect(screen.getByTestId("guest-take-offer").textContent).toContain("1:12");
+    const create = screen.getByRole("button", { name: "Create & Hear My Voice" });
+    expect(create).toHaveProperty("disabled", true);
+    agree();
+    fireEvent.click(create);
     expect(screen.queryByTestId("recorder")).toBeNull();
-    fireEvent.click(await screen.findByRole("button", { name: "Keep my voice" }));
-    await waitFor(() => expect(assign).toHaveBeenCalledWith("/voice?saved=1"));
+    fireEvent.click(await screen.findByRole("button", { name: "Keep This Voice" }));
+    expect(await screen.findByRole("heading", { name: "Your Readli voice is ready!" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Choose a Story to Share" }).getAttribute("href")).toBe("/voice/invite");
+    expect(screen.getByRole("link", { name: "Go to My Voice" }).getAttribute("href")).toBe("/voice");
+    expect(screen.getByTestId("ask-name")).toBeTruthy();
     expect(calls).toEqual(["/api/voice/from-guest", "/api/voice/sample?candidate=1", "/api/voice/keep"]);
     expect(calls.join()).not.toMatch(/billing|checkout|family/);
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it("never autoplays the sample", async () => {
+    const { container } = render(<AccountVoiceSetup hasVoice={false} guestTake={take} fromTry />);
+    agree();
+    fireEvent.click(screen.getByRole("button", { name: "Create & Hear My Voice" }));
+    await screen.findByRole("button", { name: "Keep This Voice" });
+    const audio = container.querySelector("audio")!;
+    expect(audio.autoplay).toBe(false);
+  });
+
+  it("can record a new one instead of the demo take", () => {
+    render(<AccountVoiceSetup hasVoice={false} guestTake={take} fromTry />);
+    fireEvent.click(screen.getByRole("radio", { name: /Record a new one/ }));
+    agree();
+    fireEvent.click(screen.getByRole("button", { name: "Continue to recording" }));
+    expect(screen.getByTestId("recorder")).toBeTruthy();
   });
 
   it("says the demo recording expired and records afresh", () => {
-    render(<AccountVoiceSetup hasVoice={false} next={VOICE_SAVED} guestTake={null} fromTry />);
+    render(<AccountVoiceSetup hasVoice={false} guestTake={null} fromTry />);
     expect(screen.getByTestId("demo-take-expired").textContent).toContain("expired");
-    agreeToAll();
-    fireEvent.click(screen.getByRole("button", { name: "I agree" }));
+    expect(screen.queryByRole("radio")).toBeNull();
+    agree();
+    fireEvent.click(screen.getByRole("button", { name: "Continue to recording" }));
     expect(screen.getByTestId("recorder")).toBeTruthy();
   });
 
   it("falls back to recording when the take is deleted partway through", async () => {
     fromGuestStatus = 410;
-    render(<AccountVoiceSetup hasVoice={false} next={VOICE_SAVED} guestTake={take} fromTry />);
-    agreeToAll();
-    fireEvent.click(screen.getByRole("button", { name: "I agree, save my voice" }));
+    render(<AccountVoiceSetup hasVoice={false} guestTake={take} fromTry />);
+    agree();
+    fireEvent.click(screen.getByRole("button", { name: "Create & Hear My Voice" }));
     expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Your earlier recording isn't here anymore. Please record your voice again.");
     expect(screen.getByTestId("recorder")).toBeTruthy();
-    expect(assign).not.toHaveBeenCalled();
   });
 
-  it("tells an existing Readli Voice user their current voice keeps working until they keep this one", () => {
-    render(<AccountVoiceSetup hasVoice next={VOICE_SAVED} guestTake={take} fromTry />);
-    expect(screen.getByText(/You already have a Readli voice/)).toBeTruthy();
+  it("keeps an existing voice working until the new one is kept, without first-time copy", async () => {
+    render(<AccountVoiceSetup hasVoice guestTake={take} fromTry />);
+    expect(screen.getByTestId("replacing-voice").textContent).toContain("keeps working");
+    agree();
+    fireEvent.click(screen.getByRole("button", { name: "Create & Hear My Voice" }));
+    await screen.findByRole("button", { name: "Keep This Voice" });
+    expect(screen.getByText("Your current voice stays in use until you keep this one.")).toBeTruthy();
+    expect(calls).not.toContain("/api/voice/keep");
+  });
+
+  it("goes back to an invitation's page when one sent them here", async () => {
+    render(<AccountVoiceSetup hasVoice={false} guestTake={take} next="/voice/join/h1" />);
+    agree();
+    fireEvent.click(screen.getByRole("button", { name: "Create & Hear My Voice" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Keep This Voice" }));
+    expect((await screen.findByRole("link", { name: "Continue" })).getAttribute("href")).toBe("/voice/join/h1");
+    expect(screen.queryByRole("link", { name: "Go to My Voice" })).toBeNull();
   });
 });

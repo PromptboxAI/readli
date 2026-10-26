@@ -16,8 +16,10 @@ import {
   respond,
   respondToken,
   sendInvitations,
+  settingsFromRow,
   settingsUpdate,
   type PreviewDeps,
+  listInvitations,
 } from "./server";
 
 type Row = Record<string, unknown>;
@@ -91,6 +93,27 @@ const deps = (synth: string[] = []): PreviewDeps => ({
 const settings = (over: Row = {}) => ({ id: true, sending_enabled: true, max_recipients_per_send: 10, max_recipients_per_day: 30, max_resends: 3, link_days: 14, ...over });
 
 describe("family invitations on the server", () => {
+  it("show each invitation's real delivery: sent, delivered once Resend says so, or didn't arrive", async () => {
+    const later = new Date(Date.now() + 7 * 86_400_000).toISOString();
+    const inv = (id: string) => ({ id, contributor_id: "u1", expires_at: later, sent_count: 1, last_sent_at: new Date().toISOString(), recipient_name: id });
+    const { db } = fakeDb({
+      voice_invitations: [inv("a"), inv("b"), inv("c"), inv("d")],
+      voice_invitation_sends: [
+        { invitation_id: "a", delivery: "sent", provider_message_id: "re_a", sent_at: "2026-10-26T00:00:00Z" },
+        { invitation_id: "b", delivery: "sent", provider_message_id: "re_b", sent_at: "2026-10-26T00:00:00Z" },
+        { invitation_id: "c", delivery: "sent", provider_message_id: "re_c", sent_at: "2026-10-26T00:00:00Z" },
+        { invitation_id: "d", delivery: "failed", provider_message_id: null, sent_at: "2026-10-26T00:00:00Z" },
+      ],
+      email_events: [
+        { type: "email.delivered", provider_ref: "re_b" },
+        { type: "email.delivered", provider_ref: "re_c" },
+        { type: "email.bounced", provider_ref: "re_c" },
+      ],
+    });
+    const rows = await listInvitations(db, SECRET, "u1", settingsFromRow(null));
+    expect(Object.fromEntries(rows.map((r) => [r.id, r.delivery]))).toEqual({ a: "sent", b: "delivered", c: "bounced", d: "failed" });
+  });
+
   it("sign decline and unsubscribe links so they can't be guessed or edited", () => {
     const tok = respondToken(SECRET, ID);
     expect(invitationIdFromRespondToken(SECRET, tok)).toBe(ID);
