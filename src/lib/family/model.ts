@@ -162,7 +162,7 @@ export interface HouseholdEntitlement {
    * A trial gives Family access for its days, with the trial narration allowance instead of the monthly one.
    * "tester" is a free Family plan an admin gave a tester household before payments are on.
    */
-  source: "subscription" | "gift" | "donated" | "trial" | "tester";
+  source: "subscription" | "gift" | "donated" | "trial" | "tester" | "sponsored";
   status: "active" | "canceled";
   /** Narrator slots bought on top of the plan's included slots. */
   extraNarratorSlots: number;
@@ -170,6 +170,20 @@ export interface HouseholdEntitlement {
   extraStreams: number;
   startsAt: string;
   endsAt: string | null;
+  /**
+   * A sponsored plan (Kevin, 2026-10-26): someone outside the household pays, and the household gets
+   * its own limits below. The sponsor's own voice doesn't use one of the household's narrator slots.
+   */
+  sponsorshipId?: string | null;
+  sponsorUserId?: string | null;
+  /** Per-plan limits. Null or missing means the plan settings' value. */
+  monthlyCredits?: number | null;
+  /** The credit share from the billing month starting at or after nextCreditsFrom. */
+  nextMonthlyCredits?: number | null;
+  nextCreditsFrom?: string | null;
+  includedNarratorSlots?: number | null;
+  includedStreams?: number | null;
+  maxChildProfiles?: number | null;
 }
 
 /** The household activating one shared voice into one of its narrator slots. */
