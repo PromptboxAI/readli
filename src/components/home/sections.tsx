@@ -8,8 +8,8 @@ import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
 import { COMPANY, COMPANY_ADDRESS } from "@/lib/content/company";
-import { rewardsConfig } from "@/lib/rewards/rewards";
 import { MORE_BOOKS_ON_PHONES, NEW_BOOKS } from "@/lib/library/catalog";
+import { bookPath } from "@/lib/library/paths";
 
 const GRANDPA = "/family-voices/grandpa.webp";
 
@@ -304,7 +304,7 @@ export function KidsShelf() {
             {/* Phones scroll through six more books; desktop keeps the six (Kevin, 2026-10-13). */}
             {[...NEW_BOOKS, ...MORE_BOOKS_ON_PHONES].map((book, i) => (
               <li key={book.slug} className={`w-28 shrink-0 snap-start sm:w-32 ${i >= NEW_BOOKS.length ? "sm:hidden" : ""}`}>
-                <Link href={`/books/${book.slug}`} className="block rounded-xl transition-transform hover:-translate-y-1">
+                <Link href={bookPath(book.slug)} className="block rounded-xl transition-transform hover:-translate-y-1">
                   <Image
                     src={book.coverUrl}
                     alt={book.title}
@@ -347,7 +347,6 @@ export function FamilyCircles() {
 }
 
 export function FinalCta() {
-  const { trialDays } = rewardsConfig();
   return (
     <section className="bg-sunshine">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-14 text-center sm:px-6">
@@ -358,11 +357,11 @@ export function FinalCta() {
             Hear a story in your voice, free
           </Link>
           <Link href="/signup/family" className={`${buttonSecondary} w-full sm:w-auto`}>
-            Start your free trial
+            Start your family
           </Link>
         </div>
-        <p data-testid="family-trial-line">
-          Try Readli Family free for {trialDays} days. Card required, cancel any time.{" "}
+        <p data-testid="family-plan-line">
+          Readli Family is a monthly or yearly plan you can cancel any time.{" "}
           <Link href="/pricing" className="font-semibold underline underline-offset-4">
             See pricing
           </Link>
@@ -382,6 +381,7 @@ export function SiteFooter() {
     { href: "/help", label: "Help" },
     { href: "/accessibility", label: "Accessibility" },
     { href: "/parents/safety", label: "Parent Safety" },
+    { href: "/privacy/choices", label: "Do Not Sell or Share My Personal Information" },
   ];
   return (
     <footer className="bg-ivory">

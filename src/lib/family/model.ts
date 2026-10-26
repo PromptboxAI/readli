@@ -22,8 +22,6 @@ export interface Household {
 export interface Adult {
   id: string;
   displayName: string;
-  /** Display-only relationship label from the family tree (Amendment 001 F-8). Grants nothing. */
-  relationship: string;
   avatarUrl: string | null;
   /** Tailwind background class for the initials avatar when there is no selfie. */
   tint: string;
@@ -37,6 +35,11 @@ export interface HouseholdMember {
   removedAt: string | null;
   /** What this family calls the member, such as "Mommy". Display only, set by the family's parents. */
   nickname?: string | null;
+  /**
+   * How this family describes the member, such as "Grandma". Display only and per family (Amendment 001 F-8):
+   * the same person can be "Grandma" in one household and "Mom" in another. Grants nothing.
+   */
+  relationship?: string | null;
   /** Home's narration notice is hidden for this adult up to here (they dismissed it). */
   noticesSeenThrough?: string | null;
 }

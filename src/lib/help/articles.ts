@@ -222,6 +222,30 @@ export const HELP_ARTICLES: HelpArticle[] = [
 
   // Books & Listening
   A({
+    slug: "whats-in-the-library",
+    category: "books-and-listening",
+    question: "What books are in the Readli library?",
+    status: "published",
+    answer: [
+      "Classic children's stories: fairy tales, fables, nursery favorites, bedtime poems and longer chapter books like Winnie-the-Pooh and Heidi. They are public-domain books, so they are free for everyone to read.",
+      "Anyone can [browse the library](/books) without an account. Each book's page shows how long it takes to read aloud, its chapters, and how the story starts. Stories run from under a minute to a few hours, and we add new books regularly.",
+    ],
+    keywords: ["books", "stories", "catalog", "titles", "how long", "length", "minutes", "chapters"],
+    related: ["changed-words-in-old-stories", "what-is-readli"],
+  }),
+  A({
+    slug: "changed-words-in-old-stories",
+    category: "books-and-listening",
+    question: "Why do some stories use different words than the original?",
+    status: "published",
+    answer: [
+      "Many of our stories are more than a hundred years old, and a few of their words have changed meaning or are hurtful today. Before a book joins the library, we read it for those words and swap them for gentle ones that keep the story's sense.",
+      "That's why Edward Lear's poem is called The Owl and the Kitty-Cat in Readli. Everything else in the story stays as the author wrote it.",
+    ],
+    keywords: ["changed", "different", "original", "words", "edited", "pussy-cat", "kitty-cat", "language"],
+    related: ["whats-in-the-library"],
+  }),
+  A({
     slug: "prepare-a-book",
     category: "books-and-listening",
     question: "How do I prepare a book in a family member's voice?",

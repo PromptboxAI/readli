@@ -17,6 +17,7 @@ import {
   type StorytellerStatus,
 } from "./permissions";
 import { calledIn } from "./names";
+import { cleanRelationship } from "@/lib/invites/family-invites";
 import { DEFAULT_PLAN, type PlanConfig } from "./plan";
 import { MemoryNarrationStorage, type NarrationStorage } from "@/lib/narration/storage";
 
@@ -471,6 +472,8 @@ export interface NarratorCard {
   yours?: boolean;
   /** Why a voice isn't in "shared" yet; only set on waiting cards. */
   status?: "processing" | "not_shared" | "stopped_sharing";
+  /** Children in this family who can hear this voice right now (every permission check passes). Only on active cards. */
+  canHear?: string[];
 }
 
 /** A household member with no voice yet, such as someone who just accepted an invitation. */
@@ -497,6 +500,8 @@ export interface NarratorSlotsView {
   waiting: NarratorCard[];
   /** Household members who haven't made a voice yet. */
   joined: JoinedCard[];
+  /** This family's children, for the Family Circle. */
+  children: { id: string; nickname: string; tint: string }[];
   releasesLeft: number;
   extraSlotPriceCents: number;
   extraSlotPriceApproved: boolean;
@@ -516,13 +521,17 @@ export async function narratorSlots(store: FamilyStore, actor: Actor | null, hou
   const live = liveSlots(state, householdId, plan);
   const activeIds = new Set(live.map((a) => a.voiceId));
   const memberVoices = state.voices.filter((v) => v.deletedAt === null && isActiveMember(state, v.ownerId, householdId));
+  const kids = state.children.filter((c) => c.householdId === householdId && activeChild(state, c.id));
   return {
     householdId,
     hasPlan: entitlement !== null,
     total: narratorSlotCount(state, householdId, plan),
     included: entitlement ? plan.includedNarratorSlots : 0,
     extra: entitlement?.extraNarratorSlots ?? 0,
-    active: live.map((a) => card(state, a.voiceId, householdId)),
+    active: live.map((a) => ({
+      ...card(state, a.voiceId, householdId),
+      canHear: kids.filter((c) => childVoiceAccess(state, c.id, a.voiceId, plan).allowed).map((c) => c.id),
+    })),
     shared: memberVoices.filter((v) => !activeIds.has(v.id) && activeShare(state, v.id, householdId)).map((v) => card(state, v.id, householdId)),
     waiting: memberVoices
       .filter((v) => !activeShare(state, v.id, householdId))
@@ -544,6 +553,7 @@ export async function narratorSlots(store: FamilyStore, actor: Actor | null, hou
         if (!own || !a) return [];
         return [{ adultId: a.id, name: a.displayName, ...nameNote(own, a), relationship: a.relationship, avatarUrl: a.avatarUrl, tint: a.tint, ...(a.id === viewerId ? { yours: true } : {}) }];
       }),
+    children: kids.map((c) => ({ id: c.id, nickname: c.nickname, tint: c.tint })),
     releasesLeft: releasesLeft(state, householdId, plan, clock().toISOString()),
     extraSlotPriceCents: plan.extraSlotPriceCents,
     extraSlotPriceApproved: plan.extraSlotPriceApproved,
@@ -571,6 +581,22 @@ export async function setStorytellerNickname(store: FamilyStore, actor: Actor | 
   await store.write((s) => {
     const m = s.members.find((x) => x.householdId === householdId && x.adultId === adultId && x.removedAt === null);
     if (m) m.nickname = value || null;
+  });
+}
+
+/**
+ * Sets how this family describes one of its members, such as "Grandma" or "Nanny Pat". Only the family's
+ * parents can change it, at any time after the person joins. Display only and per family: it never shares a
+ * voice, uses a narrator slot or approves anyone for a child. An empty label clears it.
+ */
+export async function setStorytellerRelationship(store: FamilyStore, actor: Actor | null, householdId: string, adultId: string, relationship: string): Promise<void> {
+  const state = await store.read();
+  requireHouseholdGuardian(state, actor, householdId);
+  if (!isActiveMember(state, adultId, householdId)) throw new PermissionError(404, "not_member", "That storyteller isn't part of your family.");
+  const value = cleanRelationship(relationship);
+  await store.write((s) => {
+    const m = s.members.find((x) => x.householdId === householdId && x.adultId === adultId && x.removedAt === null);
+    if (m) m.relationship = value;
   });
 }
 

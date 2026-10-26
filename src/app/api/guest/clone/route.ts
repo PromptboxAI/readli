@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { currentGuest, effectiveMode, guestDemoDeps } from "@/lib/server/guest-demo";
 import { fail, NO_SESSION, PREVIEWS_OFF } from "@/lib/server/http";
 import { fileExtension } from "@/lib/audio/mime";
+import { attributionFrom, eventIdFrom, sendCapiEvent } from "@/lib/server/meta-capi";
 import { recordVoiceEvent } from "@/lib/server/voice-analytics";
 import { VoiceProviderError } from "@/lib/voice/provider";
 
@@ -11,7 +12,11 @@ export const maxDuration = 60;
 /** Each guest may make a few voices (retakes), never unlimited provider voice slots. */
 const MAX_VOICES_PER_GUEST = 3;
 
-/** Turns the guest's latest take into an instant voice clone. No stock voice is ever substituted. */
+/**
+ * Turns the guest's latest take into an instant voice clone. No stock voice is ever substituted. When the
+ * Try page sends a metaEventId (it does only where its pixel runs), Meta hears the Lead from here too,
+ * with that id and no voice details.
+ */
 export async function POST(req: Request) {
   const deps = guestDemoDeps();
   if ((await effectiveMode(deps)) === "off" || !deps) return fail(503, "previews_off", PREVIEWS_OFF);
@@ -25,7 +30,7 @@ export async function POST(req: Request) {
   }
 
   // The guest's choice from the preview panel; missing or malformed means the default (on).
-  const body = (await req.json().catch(() => null)) as { removeBackgroundNoise?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { removeBackgroundNoise?: unknown; metaEventId?: unknown } | null;
   const removeBackgroundNoise = body?.removeBackgroundNoise !== false;
 
   const previous = await deps.store.getVoice(guest.id);
@@ -47,5 +52,10 @@ export async function POST(req: Request) {
   // A retake replaces the earlier clone; remove the old one from the provider straight away.
   if (previous) await deps.provider.deleteVoice(previous).catch((err) => console.error("old voice delete failed", err));
 
+  const leadId = eventIdFrom(body?.metaEventId);
+  const attribution = leadId ? attributionFrom(req) : null;
+  if (leadId && attribution) {
+    after(() => sendCapiEvent({ name: "Lead", eventId: leadId, attribution, externalId: guest.id, customData: { content_name: "Voice demo" } }));
+  }
   return NextResponse.json({ status: "ready" }, { status: 201 });
 }

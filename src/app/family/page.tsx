@@ -10,10 +10,11 @@ import { ResetButton } from "@/components/family/ResetButton";
 import { SessionButton } from "@/components/family/SessionButton";
 import { SetKidsPin } from "@/components/family/SetKidsPin";
 import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
-import { FamilyBookshelf, KidCards, StorytellersCard, UnassignedBooks } from "@/components/family/HomeShelf";
+import { FamilyBookshelf, HOME_SHELF_BOOKS, KidCards, StorytellersCard, UnassignedBooks } from "@/components/family/HomeShelf";
 import { HomeNotice } from "@/components/family/HomeNotice";
 import { StoryRequests } from "@/components/family/StoryRequests";
-import { demoFamilyState } from "@/lib/family/demo-family";
+import { DEMO_HOUSEHOLD_ID, demoFamilyState } from "@/lib/family/demo-family";
+import { calledIn } from "@/lib/family/names";
 import { familyHome, homeNotice, noticeText } from "@/lib/family/home";
 import { homeHousehold } from "@/lib/family/service";
 import { planConfig } from "@/lib/family/plan";
@@ -26,7 +27,7 @@ import { pendingJoinPath } from "@/lib/invites/pending";
 import { isParent, isStorytellerOnly } from "@/lib/family/storyteller";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
 import { serverConfig } from "@/lib/server/config";
-import { creditBalance, displayCredits } from "@/lib/narration/credits";
+import { creditBalance, displayCredits, type CreditBalance } from "@/lib/narration/credits";
 
 function SignOutButton() {
   return (
@@ -36,6 +37,18 @@ function SignOutButton() {
       </button>
     </form>
   );
+}
+
+/** "23.3 of 40 monthly credits remaining", plus any bought or bonus credits on top. */
+function creditSummary(b: CreditBalance, trial: boolean): { amount: string; rest: string } {
+  const n = (units: number) => displayCredits(units, b.unitsPerCredit).toLocaleString("en-US");
+  if (!b.allowance) return { amount: n(b.available), rest: "credits remaining" };
+  const included = b.bySource.subscription + b.bySource.trial;
+  const extra = b.bySource.promotional + b.bySource.purchased;
+  return {
+    amount: `${n(included)} of ${n(b.allowance)}`,
+    rest: `${trial ? "trial" : "monthly"} credits remaining${extra > 0 ? `, plus ${n(extra)} extra` : ""}`,
+  };
 }
 
 export const dynamic = "force-dynamic";
@@ -72,7 +85,8 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   }
 
   if (!adult || !state) {
-    const people = demoFamilyState().adults;
+    const demo = demoFamilyState();
+    const people = demo.adults.map((a) => calledIn(demo, a, DEMO_HOUSEHOLD_ID)!);
     return (
       <FamilyShell>
         <h1 className="font-display text-4xl font-semibold">Readli Family</h1>
@@ -146,34 +160,31 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   const pinRegistry = isGuardian && home ? deviceRegistry(Boolean(account)) : null;
   const needsPin = Boolean(pinRegistry && kids.length > 0 && !(await pinRegistry.pinHash(home!)));
   const balance = isGuardian && home ? creditBalance(state, plan, home) : null;
-  const credits = balance ? displayCredits(balance.available, balance.unitsPerCredit).toLocaleString("en-US") : null;
+  const creditLine = balance ? creditSummary(balance, entitlement?.source === "trial") : null;
   const notice = isGuardian && home ? homeNotice(state, home, adult.id) : null;
   const slots = home ? narratorSlotCount(state, home, plan) : 0;
   const slotLine = home && entitlement && slots ? `${liveSlots(state, home, plan).length} of ${slots} ${entitlement.extraNarratorSlots ? "" : "included "}narrator slots in use` : null;
   const kidIds = new Set(kids.map((k) => k.id));
   const kidCards = view ? view.kids.filter((k) => kidIds.has(k.id)) : [];
+  const allBooks = (await searchParams).shelf === "all";
+  const shelfShown = view ? (allBooks ? view.shelf : view.shelf.slice(0, HOME_SHELF_BOOKS)) : [];
   return (
     <FamilyShell>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex items-center gap-4">
-          <StorytellerAvatar name={adult.displayName} avatarUrl={adult.avatarUrl} tint={adult.tint} size="lg" />
-          <div className="min-w-0">
-            {familyName && <p className="font-display text-lg text-muted">{familyName}</p>}
-            <h1 className="font-display text-3xl font-semibold sm:text-4xl">Welcome back, {adult.displayName}</h1>
-            {!isGuardian && <p className="text-lg text-muted">{adult.relationship}</p>}
-            {account && !adult.avatarUrl && (
-              <Link href="/family/account#photo" className="text-sm font-semibold underline underline-offset-4">
-                Add your photo
-              </Link>
-            )}
-          </div>
+      <div className="flex items-center gap-4">
+        <StorytellerAvatar name={adult.displayName} avatarUrl={adult.avatarUrl} tint={adult.tint} />
+        <div className="min-w-0 flex-1">
+          {familyName && <p className="font-display text-muted">{familyName}</p>}
+          {/* The account's own display name: a household's nickname for this grown-up belongs to that family's view of them. */}
+          <h1 className="font-display text-2xl leading-tight font-semibold sm:text-3xl">Welcome back, {adult.displayName}</h1>
+          {!isGuardian && <p className="text-muted">{calledIn(state, adult, home)?.relationship}</p>}
+          {account && !adult.avatarUrl && (
+            <Link href="/family/account#photo" className="text-sm font-semibold underline underline-offset-4">
+              Add your photo
+            </Link>
+          )}
         </div>
-        {notice && (
-          <div className="lg:max-w-xl">
-            <HomeNotice text={noticeText(notice)} through={notice.through} />
-          </div>
-        )}
       </div>
+      {notice && <HomeNotice text={noticeText(notice)} through={notice.through} />}
       <PreviewNote />
       {invited && (
         <Link href={`/v/${invited}/connect`} className="rounded-2xl bg-sky/50 px-4 py-3 font-semibold underline-offset-4 hover:underline" data-testid="invitation-waiting">
@@ -191,10 +202,11 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
         <section className="flex items-center justify-between gap-3 rounded-3xl bg-ink px-4 py-3 text-white lg:hidden" aria-label="Find your next story" data-testid="next-story-strip">
           <div className="min-w-0">
             <p className="font-display text-lg font-semibold leading-tight">Find your next story</p>
-            {credits !== null && (
-              <p className="text-sm text-white/80">
-                <strong className="text-white">{credits}</strong> credits available
-              </p>
+            {creditLine && (
+              <Link href="/family/credits" className="block text-sm text-white/80 underline-offset-4 hover:underline">
+                <strong className="text-white">{creditLine.amount}</strong> {creditLine.rest}
+                <span className="sr-only">. How credits work</span>
+              </Link>
             )}
           </div>
           <Link
@@ -245,19 +257,19 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
                 </Link>
               )}
               {kidCards.length > 0 && (
-                <p className="text-sm text-muted" data-testid="kids-mode-note">
-                  <span className="hidden sm:inline">
+                <details className="group self-start text-sm" data-testid="kids-mode-note">
+                  <summary className="cursor-pointer list-none font-semibold text-muted underline underline-offset-4 hover:text-ink [&::-webkit-details-marker]:hidden">
+                    About Kids Mode
+                  </summary>
+                  <p className="mt-2 max-w-prose rounded-2xl bg-surface p-3 ring-2 ring-ink/10">
                     Open Readli Kids starts Kids Mode for that child on this browser. A grown-up leaves it with the family PIN, and it ends on its own after{" "}
                     {TEMPORARY_KIDS_HOURS} hours. To give a child their own iPad,{" "}
                     <Link href="/family/devices" className="font-semibold underline underline-offset-4">
                       set up a kids device
                     </Link>
                     .
-                  </span>
-                  <span className="sm:hidden">
-                    Kids Mode stays on this browser until a grown-up enters the family PIN. It ends on its own after {TEMPORARY_KIDS_HOURS} hours.
-                  </span>
-                </p>
+                  </p>
+                </details>
               )}
             </section>
 
@@ -277,7 +289,17 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
                 </div>
                 {view.shelf.length > 0 ? (
                   <>
-                    <FamilyBookshelf books={view.shelf} />
+                    <FamilyBookshelf books={shelfShown} />
+                    {view.shelf.length > HOME_SHELF_BOOKS && (
+                      <Link
+                        href={allBooks ? "/family#bookshelf" : "/family?shelf=all#bookshelf"}
+                        className="self-start font-semibold underline underline-offset-4"
+                        data-testid="shelf-view-all"
+                        scroll={false}
+                      >
+                        {allBooks ? "Show fewer" : `View all ${view.shelf.length} books`}
+                      </Link>
+                    )}
                     <p className="text-sm text-muted">Listen plays here for you, from the start. Each child keeps their own place, which only moves when they listen in Readli Kids.</p>
                   </>
                 ) : (
@@ -300,9 +322,12 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
                 Find your next story
               </h2>
               <p className="text-white/85">Prepare another book in a family voice. Anything already prepared plays free.</p>
-              {credits !== null && (
+              {creditLine && (
                 <p>
-                  <strong>{credits} credits</strong> available
+                  <strong>{creditLine.amount}</strong> {creditLine.rest}{" "}
+                  <Link href="/family/credits" className="text-sm whitespace-nowrap text-white/85 underline underline-offset-4 hover:text-white">
+                    How credits work
+                  </Link>
                 </p>
               )}
               <Link href="/family/books" className={buttonPrimary}>

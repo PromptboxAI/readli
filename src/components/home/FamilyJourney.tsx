@@ -9,7 +9,7 @@ import { SamplePlayer } from "@/components/home/SamplePlayer";
 /**
  * Guided journey (designer brief, 2026-10-23): one Readli Family story in five steps that visitors
  * click through at their own pace (no autoplay, Kevin 2026-10-23). Replaces "Every family has a story" in the same spot, so the page doesn't grow.
- * Each screen redraws a real app screen (My voice, invitations, trial offer, Prepare, Kids player) with
+ * Each screen redraws a real app screen (My voice, invitations, family offer, Prepare, Kids player) with
  * the example family from the homepage tree. Marketing picture only: nothing here is interactive app UI.
  */
 
@@ -109,12 +109,12 @@ const STEPS: { title: string; body: string; screen: ReactNode }[] = [
   },
   {
     title: "Parents listen, start Family, and add Grandpa",
-    body: "Sara hears the sample, starts a Readli Family trial, and turns Grandpa Kevin on for her kids.",
+    body: "Sara hears the sample, starts Readli Family, and turns Grandpa Kevin on for her kids.",
     screen: (
       <Screen label="Sara's invitation">
         <p className="font-display text-xl font-semibold leading-tight">Hear Grandpa Kevin read to your children every night</p>
         <SamplePlayer />
-        <span className={`${buttonPrimary} pointer-events-none min-h-11 text-base`}>Start Your Free Family Trial</span>
+        <span className={`${buttonPrimary} pointer-events-none min-h-11 text-base`}>Start Readli Family</span>
         <div className="mt-auto flex items-center gap-3 rounded-2xl bg-ivory p-3 ring-1 ring-ink/10">
           <Grandpa />
           <span className="min-w-0 flex-1 font-semibold">{GRANDPA.name}</span>

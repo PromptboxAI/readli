@@ -176,10 +176,11 @@ test("phone menu closes when tapping outside it", async ({ page }, info) => {
   await expect(menu).toBeHidden();
 });
 
-test("the closing section offers the 14-day Readli Family trial", async ({ page }) => {
+test("the closing section offers Readli Family without a free trial", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByTestId("family-trial-line")).toContainText("Try Readli Family free for 14 days. Card required, cancel any time.");
-  await expect(page.getByRole("link", { name: "Start your free trial" })).toHaveAttribute("href", "/signup/family");
+  await expect(page.getByTestId("family-plan-line")).toContainText("Readli Family is a monthly or yearly plan you can cancel any time.");
+  await expect(page.getByTestId("family-plan-line")).not.toContainText("free");
+  await expect(page.getByRole("link", { name: "Start your family" }).last()).toHaveAttribute("href", "/signup/family");
 });
 
 test("family journey steps through all five screens without autoplay", async ({ page }) => {

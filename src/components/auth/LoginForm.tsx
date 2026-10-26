@@ -3,6 +3,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 import { useEffect, useId, useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { trackMetaCustom } from "@/lib/marketing/meta-pixel";
 
 const field = "min-h-12 w-full rounded-2xl border-[3px] border-ink/20 bg-surface px-4 text-lg focus:border-ink";
 
@@ -13,9 +14,11 @@ function client() {
 /**
  * Email link or Google. New grown-ups get an account the first time they sign in.
  * Pass onSentChange when the page owns the heading: it then shows "Check your email" itself and the card drops its title.
- * Signup pages pass askMarketing for an unticked opt-in to Bedtime Thursdays and news, saved after sign-in.
+ * Signup pages pass askMarketing for an unticked opt-in to Bedtime Thursdays and news, saved after sign-in,
+ * and signup, which tells the Meta Pixel a sign-up started when the link is sent or Google opens (the
+ * confirmed account is the server's CompleteRegistration).
  */
-export function LoginForm({ next, onSentChange, askMarketing = false }: { next: string; onSentChange?: (sent: boolean) => void; askMarketing?: boolean }) {
+export function LoginForm({ next, onSentChange, askMarketing = false, signup }: { next: string; onSentChange?: (sent: boolean) => void; askMarketing?: boolean; signup?: "Readli Family" | "Readli Voice" }) {
   const id = useId();
   const [email, setEmail] = useState("");
   const [state, setStateRaw] = useState<"idle" | "sending" | "sent">("idle");
@@ -32,11 +35,19 @@ export function LoginForm({ next, onSentChange, askMarketing = false }: { next: 
     window.addEventListener("pageshow", reset);
     return () => window.removeEventListener("pageshow", reset);
   }, []);
-  const callback = () => `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}${askMarketing && news ? "&news=1" : ""}`;
+  const callback = () => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}${askMarketing && news ? "&news=1" : ""}${tz ? `&tz=${encodeURIComponent(tz)}` : ""}`;
+  };
+
+  const signedUp = () => {
+    if (signup) trackMetaCustom("SignupStarted", { content_name: signup });
+  };
 
   const google = async () => {
     setError(null);
     setToGoogle(true);
+    signedUp();
     const { error } = await client().auth.signInWithOAuth({ provider: "google", options: { redirectTo: callback() } });
     if (error) {
       setToGoogle(false);
@@ -58,6 +69,7 @@ export function LoginForm({ next, onSentChange, askMarketing = false }: { next: 
       setError(error.status === 429 ? "Too many tries. Please wait a minute and try again." : "We couldn't send the email. Check the address and try again.");
       return;
     }
+    signedUp();
     setState("sent");
   };
 

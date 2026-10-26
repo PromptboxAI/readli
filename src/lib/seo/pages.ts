@@ -1,5 +1,6 @@
 import { HELP_CATEGORIES } from "@/lib/help/articles";
 import { articleHref, articlesIn, visibleArticles } from "@/lib/help/search";
+import { bookPath } from "@/lib/library/paths";
 import { publicLibrary } from "@/lib/library/public";
 
 export interface PublicPage {
@@ -26,7 +27,7 @@ export function publicPages(): PublicPage[] {
     { path: "/accessibility", title: "Accessibility Statement", priority: 0.3, changeFrequency: "yearly" },
   ];
   for (const b of publicLibrary()) {
-    pages.push({ path: `/books/${b.slug}`, title: `${b.title} by ${b.author}`, priority: b.comingSoon ? 0.5 : 0.8, changeFrequency: "monthly" });
+    pages.push({ path: bookPath(b.slug), title: `${b.title} by ${b.author}`, priority: b.comingSoon ? 0.5 : 0.8, changeFrequency: "monthly" });
   }
   for (const c of HELP_CATEGORIES) {
     if (articlesIn(c.slug).length > 0) pages.push({ path: `/help/${c.slug}`, title: c.title, priority: 0.5, changeFrequency: "monthly" });

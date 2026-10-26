@@ -7,6 +7,7 @@ import { authorizePlayback, kidsReadiness, readPlayback, requestGeneration, runP
 import { MemoryNarrationStorage } from "@/lib/narration/storage";
 import type { AccountVoiceDeps } from "@/lib/voice/account-voices";
 import { toneWav } from "@/lib/voice/stub";
+import { calledIn } from "@/lib/family/names";
 import { DEFAULT_PLAN } from "@/lib/family/plan";
 import {
   activateNarrator,
@@ -15,6 +16,7 @@ import {
   createHousehold,
   grantEntitlement,
   myVoices,
+  narratorSlots,
   narratorsFor,
   releaseNarrator,
   saveAdultProgress,
@@ -22,6 +24,7 @@ import {
   setChildApprovals,
   setFavorite,
   setHouseholdShare,
+  setStorytellerRelationship,
   startListening,
 } from "@/lib/family/service";
 import { decodeKidsProfile, encodeKidsProfile } from "@/lib/family/session";
@@ -179,6 +182,54 @@ describe("real family accounts", () => {
     await setHouseholdShare(new AccountFamilyStore(db, GRAN, DEFAULT_PLAN), gran, { voiceId: VOICE, householdId: home, shared: false, policyVersion: "v1" });
     expect(tables.voice_household_shares![0]).toMatchObject({ revoked_by: GRAN.id });
     expect(tables.voice_household_shares![0]!.revoked_at).not.toBeNull();
+  });
+
+  it("a storyteller in two families gets each family's own label and nickname, never the other's", async () => {
+    const KIM = { id: "55555555-5555-4555-8555-555555555555", name: "Kim" };
+    const GRAN = { id: "33333333-3333-4333-8333-333333333333", name: "June" };
+    const VOICE = "44444444-4444-4444-8444-444444444444";
+    const { db, tables } = fakeDb({
+      voice_profiles: [{ id: VOICE, owner_id: GRAN.id, display_name: "June", version: 1, status: "ready", created_at: "2026-10-01T00:00:00Z", deleted_at: null }],
+    });
+    const rivera = await createHousehold(new AccountFamilyStore(db, ME, DEFAULT_PLAN), ADULT, "The Rivera family");
+    const kims = await createHousehold(new AccountFamilyStore(db, KIM, DEFAULT_PLAN), { kind: "adult", adultId: KIM.id }, "Kim's family");
+    // Kim's family invited June first and calls her Mom; the Riveras call her Grandma and Nana.
+    tables.household_members!.push(
+      { household_id: kims, user_id: GRAN.id, role: "member", relationship_label: "Mom", storyteller_nickname: null, joined_at: "2026-10-02T00:00:00Z", removed_at: null },
+      { household_id: rivera, user_id: GRAN.id, role: "member", relationship_label: "Grandma", storyteller_nickname: "Nana", joined_at: "2026-10-03T00:00:00Z", removed_at: null },
+    );
+    tables.adult_profiles!.push({ user_id: GRAN.id, display_name: "June" });
+
+    // June sees both families at once, so each one's words must stay with that family.
+    const hers = await new AccountFamilyStore(db, GRAN, DEFAULT_PLAN).read();
+    const june = hers.adults.find((a) => a.id === GRAN.id);
+    expect(calledIn(hers, june, kims)).toMatchObject({ displayName: "June", relationship: "Mom" });
+    expect(calledIn(hers, june, rivera)).toMatchObject({ displayName: "Nana", relationship: "Grandma" });
+
+    // A family that never labelled her shows no label, not another family's.
+    tables.household_members!.find((m) => m.household_id === kims && m.user_id === GRAN.id)!.relationship_label = null;
+    const after = await new AccountFamilyStore(db, GRAN, DEFAULT_PLAN).read();
+    expect(calledIn(after, after.adults.find((a) => a.id === GRAN.id), kims)).toMatchObject({ displayName: "June", relationship: "" });
+    expect(calledIn(after, after.adults.find((a) => a.id === GRAN.id), rivera)).toMatchObject({ relationship: "Grandma" });
+
+    // Each family's storytellers page uses its own words, and the labels grant nothing.
+    const grans = { kind: "adult" as const, adultId: GRAN.id };
+    await setHouseholdShare(new AccountFamilyStore(db, GRAN, DEFAULT_PLAN), grans, { voiceId: VOICE, householdId: rivera, shared: true, policyVersion: "v1" });
+    await setHouseholdShare(new AccountFamilyStore(db, GRAN, DEFAULT_PLAN), grans, { voiceId: VOICE, householdId: kims, shared: true, policyVersion: "v1" });
+    const riveraView = await narratorSlots(new AccountFamilyStore(db, ME, DEFAULT_PLAN), ADULT, rivera);
+    expect(riveraView.shared).toMatchObject([{ voiceId: VOICE, name: "Nana", ownName: "June", relationship: "Grandma" }]);
+    const kimView = await narratorSlots(new AccountFamilyStore(db, KIM, DEFAULT_PLAN), { kind: "adult", adultId: KIM.id }, kims);
+    expect(kimView.shared).toMatchObject([{ voiceId: VOICE, name: "June", relationship: "" }]);
+    expect(kimView.shared[0]!.ownName).toBeUndefined();
+    expect(tables.narrator_slot_assignments ?? []).toEqual([]);
+    expect(tables.child_voice_approvals ?? []).toEqual([]);
+
+    // A parent's edit saves on their own family's row only.
+    await setStorytellerRelationship(new AccountFamilyStore(db, ME, DEFAULT_PLAN), ADULT, rivera, GRAN.id, "Caregiver");
+    const row = (home: string) => tables.household_members!.find((m) => m.household_id === home && m.user_id === GRAN.id)!;
+    expect([row(rivera).relationship_label, row(kims).relationship_label]).toEqual(["Caregiver", null]);
+    await setStorytellerRelationship(new AccountFamilyStore(db, ME, DEFAULT_PLAN), ADULT, rivera, GRAN.id, "");
+    expect(row(rivera).relationship_label).toBeNull();
   });
 
   it("prepares a book in the storyteller's real voice, saves it with the credits it used, and plays it to an approved child", async () => {

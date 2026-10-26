@@ -31,8 +31,24 @@ export const RELATIONSHIPS = [
   "Big sister",
   "Cousin",
   "Godparent",
+  "Caregiver",
   "Family friend",
 ] as const;
+
+export const RELATIONSHIP_MAX = 40;
+
+/**
+ * A family's own words for someone ("Grandma", "Nanny Pat", or nothing at all). Any short text is fine:
+ * the list above is only a set of suggestions, so no family shape is assumed. Display only; a label never
+ * grants voice access, a narrator slot or a child approval. Empty means no label.
+ */
+export function cleanRelationship(value: unknown): string | null {
+  const text = (typeof value === "string" ? value : "")
+    .replace(/[\u0000-\u001f\u007f<>]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text ? text.slice(0, RELATIONSHIP_MAX).trim() : null;
+}
 
 export interface FamilyInvite {
   id: string;

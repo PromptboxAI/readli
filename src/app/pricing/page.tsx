@@ -7,6 +7,7 @@ import { SiteFooter } from "@/components/home/sections";
 import { CREDIT_EXAMPLE_SLUGS, bookCredits, monthsOfCredits, storiesPerMonth } from "@/lib/content/credits-explained";
 import { annualSavingsPercent, monthlyTotalCents, pricing, type Pricing } from "@/lib/content/pricing";
 import { GIFT_PLANS } from "@/lib/gifting/plans";
+import { bookPath } from "@/lib/library/paths";
 import { publicLibrary } from "@/lib/library/public";
 import { formatPrice as dollars } from "@/lib/family/plan";
 import { SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
@@ -124,7 +125,7 @@ export default async function PricingPage() {
                   Start your family
                 </Link>
                 <p className="text-center text-sm text-muted">
-                  Try it free for {P.trialDays} days with {P.trialCredits} narration credits. Card required, cancel any time.
+                  Monthly or yearly, cancel any time.
                   Family accounts open soon, and nothing is charged yet.
                 </p>
               </div>
@@ -277,7 +278,7 @@ export default async function PricingPage() {
                       return (
                         <tr key={b.slug} className="border-b border-ink/10 align-top last:border-0">
                           <td className="py-2 pr-3">
-                            <Link href={`/books/${b.slug}`} className="underline-offset-4 hover:underline">
+                            <Link href={bookPath(b.slug)} className="underline-offset-4 hover:underline">
                               {b.title}
                             </Link>
                           </td>
