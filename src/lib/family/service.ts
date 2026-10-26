@@ -7,12 +7,16 @@ import {
   activeShare,
   activeSlot,
   approvedVoiceIds,
+  childProfileLimit,
   childVoiceAccess,
+  countedSlots,
   isActiveMember,
   isGuardianOf,
   liveSlots,
   narratorSlotCount,
+  planLimits,
   readyVoice,
+  sponsorVoiceIncluded,
   storytellerStatus,
   type StorytellerStatus,
 } from "./permissions";
@@ -513,6 +517,8 @@ export interface NarratorSlotsView {
   total: number;
   included: number;
   extra: number;
+  /** Voices in an included slot because their owner sponsors this family's plan. */
+  giftedVoiceIds: string[];
   active: NarratorCard[];
   /** Shared with this family by their owners, not yet in a slot. */
   shared: NarratorCard[];
@@ -540,13 +546,16 @@ export async function narratorSlots(store: FamilyStore, actor: Actor | null, hou
   const entitlement = activeEntitlement(state, householdId);
   const live = liveSlots(state, householdId, plan);
   const activeIds = new Set(live.map((a) => a.voiceId));
+  // A sponsor's own voice comes with a sponsored plan as an extra included slot, so the counts below stay whole.
+  const gifted = live.filter((a) => sponsorVoiceIncluded(state, a.voiceId, householdId)).map((a) => a.voiceId);
   const memberVoices = state.voices.filter((v) => v.deletedAt === null && isActiveMember(state, v.ownerId, householdId));
   const kids = state.children.filter((c) => c.householdId === householdId && activeChild(state, c.id));
   return {
     householdId,
     hasPlan: entitlement !== null,
-    total: narratorSlotCount(state, householdId, plan),
-    included: entitlement ? plan.includedNarratorSlots : 0,
+    total: narratorSlotCount(state, householdId, plan) + gifted.length,
+    included: entitlement ? planLimits(entitlement, plan).narratorSlots + gifted.length : 0,
+    giftedVoiceIds: gifted,
     extra: entitlement?.extraNarratorSlots ?? 0,
     active: live.map((a) => ({
       ...card(state, a.voiceId, householdId),
@@ -630,7 +639,7 @@ export async function activateNarrator(store: FamilyStore, actor: Actor | null, 
   if (!activeEntitlement(state, householdId)) throw new PermissionError(402, "no_family_plan", "Narrators need an active Readli Family plan.");
   if (!activeShare(state, voiceId, householdId)) throw new PermissionError(409, "waiting_for_owner", "This storyteller hasn't shared their voice with your family yet.");
   if (activeSlot(state, voiceId, householdId, store.plan)) return;
-  if (liveSlots(state, householdId, store.plan).length >= narratorSlotCount(state, householdId, store.plan)) {
+  if (!sponsorVoiceIncluded(state, voiceId, householdId) && countedSlots(state, householdId, store.plan).length >= narratorSlotCount(state, householdId, store.plan)) {
     throw new PermissionError(409, "no_free_slot", "All your narrator slots are in use. Free one up or add a slot.");
   }
   const at = clock().toISOString();
@@ -770,7 +779,7 @@ export async function childProfiles(store: FamilyStore, actor: Actor | null, hou
   requireHouseholdGuardian(state, actor, householdId);
   return {
     householdId,
-    max: store.plan.maxChildProfiles,
+    max: childProfileLimit(state, householdId, store.plan),
     children: state.children.filter((c) => c.householdId === householdId && c.deletedAt === null).map((c) => ({ id: c.id, nickname: c.nickname, tint: c.tint })),
   };
 }
@@ -786,8 +795,9 @@ export async function createChildProfile(store: FamilyStore, actor: Actor | null
   // Readli Voice (free contributor) households have no kids profiles.
   if (!activeEntitlement(state, householdId)) throw new PermissionError(402, "no_family_plan", "Kids profiles come with Readli Family.");
   const count = state.children.filter((c) => c.householdId === householdId && c.deletedAt === null).length;
-  if (count >= store.plan.maxChildProfiles) {
-    throw new PermissionError(409, "child_limit", `Readli Family includes up to ${store.plan.maxChildProfiles} child profiles.`);
+  const max = childProfileLimit(state, householdId, store.plan);
+  if (count >= max) {
+    throw new PermissionError(409, "child_limit", `Readli Family includes up to ${max} child profiles.`);
   }
   const id = randomUUID();
   const at = clock().toISOString();
@@ -821,7 +831,7 @@ export function liveSession(state: FamilyState, childId: string, plan: PlanConfi
 export function streamLimit(state: FamilyState, householdId: string, plan: PlanConfig): number {
   const e = activeEntitlement(state, householdId);
   if (!e) return 0;
-  return plan.includedConcurrentStreams + (plan.extraStreamsUpgradeEnabled ? e.extraStreams : 0);
+  return planLimits(e, plan).streams + (plan.extraStreamsUpgradeEnabled ? e.extraStreams : 0);
 }
 
 /**

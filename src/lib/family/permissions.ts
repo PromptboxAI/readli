@@ -61,9 +61,35 @@ export function activeEntitlement(state: FamilyState, householdId: string, at = 
   );
 }
 
+/** The plan's limits for this entitlement. A sponsored plan carries its own; every other plan uses the settings. */
+export function planLimits(e: HouseholdEntitlement, plan: PlanConfig = DEFAULT_PLAN) {
+  return {
+    narratorSlots: e.includedNarratorSlots ?? plan.includedNarratorSlots,
+    streams: e.includedStreams ?? plan.includedConcurrentStreams,
+    childProfiles: e.maxChildProfiles ?? plan.maxChildProfiles,
+  };
+}
+
+/** Child profiles this household may have now (0 without a plan). */
+export function childProfileLimit(state: FamilyState, householdId: string, plan: PlanConfig = DEFAULT_PLAN): number {
+  const e = activeEntitlement(state, householdId);
+  return e ? planLimits(e, plan).childProfiles : 0;
+}
+
+/** Slots the household can fill with storytellers of its choosing. A sponsor's own voice is on top of these. */
 export function narratorSlotCount(state: FamilyState, householdId: string, plan: PlanConfig = DEFAULT_PLAN): number {
   const e = activeEntitlement(state, householdId);
-  return e ? plan.includedNarratorSlots + e.extraNarratorSlots : 0;
+  return e ? planLimits(e, plan).narratorSlots + e.extraNarratorSlots : 0;
+}
+
+/**
+ * While a household's plan is sponsored, the sponsor's own voice comes with it and doesn't use a slot.
+ * It still needs the sponsor's share (gate 1) and a guardian's approval for each child (gate 3).
+ */
+export function sponsorVoiceIncluded(state: FamilyState, voiceId: string, householdId: string): boolean {
+  const e = activeEntitlement(state, householdId);
+  if (!e || e.source !== "sponsored" || !e.sponsorUserId) return false;
+  return state.voices.some((v) => v.id === voiceId && v.ownerId === e.sponsorUserId);
 }
 
 /**
@@ -71,10 +97,17 @@ export function narratorSlotCount(state: FamilyState, householdId: string, plan:
  * the earliest activations keep their places and the rest stop working until a slot is free.
  */
 export function liveSlots(state: FamilyState, householdId: string, plan: PlanConfig = DEFAULT_PLAN): NarratorSlotAssignment[] {
-  return state.slots
+  const live = state.slots
     .filter((a) => a.householdId === householdId && a.releasedAt === null && activeShare(state, a.voiceId, householdId))
-    .sort((a, b) => a.activatedAt.localeCompare(b.activatedAt))
-    .slice(0, narratorSlotCount(state, householdId, plan));
+    .sort((a, b) => a.activatedAt.localeCompare(b.activatedAt));
+  const included = live.filter((a) => sponsorVoiceIncluded(state, a.voiceId, householdId));
+  const counted = live.filter((a) => !included.includes(a)).slice(0, narratorSlotCount(state, householdId, plan));
+  return live.filter((a) => included.includes(a) || counted.includes(a));
+}
+
+/** Live slots that use up one of the household's own slots (everything but an included sponsor voice). */
+export function countedSlots(state: FamilyState, householdId: string, plan: PlanConfig = DEFAULT_PLAN): NarratorSlotAssignment[] {
+  return liveSlots(state, householdId, plan).filter((a) => !sponsorVoiceIncluded(state, a.voiceId, householdId));
 }
 
 /** Gate 2: the household activated this voice into a narrator slot it is entitled to. */

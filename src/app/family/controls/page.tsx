@@ -3,7 +3,7 @@ import Link from "next/link";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
 import { listDevices } from "@/lib/family/devices";
 import { familyPage } from "@/lib/family/page-data";
-import { activeEntitlement, liveSlots, narratorSlotCount } from "@/lib/family/permissions";
+import { activeEntitlement, childProfileLimit, countedSlots, narratorSlotCount } from "@/lib/family/permissions";
 import { guardianHousehold } from "@/lib/family/service";
 import { deviceRegistry, familyStore } from "@/lib/family/session";
 import { creditBalance, displayCredits } from "@/lib/narration/credits";
@@ -27,7 +27,7 @@ export default async function ParentControls() {
   const plan = store.plan;
   const kids = state.children.filter((c) => c.householdId === householdId && c.deletedAt === null).length;
   const slots = narratorSlotCount(state, householdId, plan);
-  const used = liveSlots(state, householdId, plan).length;
+  const used = countedSlots(state, householdId, plan).length;
   const credits = creditBalance(state, plan, householdId);
   const registry = deviceRegistry(Boolean(session.account));
   const devices = registry ? (await listDevices(registry, state, session.actor, householdId)).filter((d) => d.status === "active").length : null;
@@ -38,7 +38,7 @@ export default async function ParentControls() {
     {
       title: "Family",
       controls: [
-        { href: "/family/kids", title: "Kids profiles", text: "Add, rename or remove children, and open Readli Kids", value: `${kids} of ${plan.maxChildProfiles}` },
+        { href: "/family/kids", title: "Kids profiles", text: "Add, rename or remove children, and open Readli Kids", value: `${kids} of ${childProfileLimit(state, householdId, plan) || plan.maxChildProfiles}` },
         { href: "/family/narrators", title: "Family storytellers", text: "Narrator slots, sharing and who each child can hear", value: hasPlan ? `${used} of ${slots} slots` : undefined },
         { href: "/family/my-voice", title: "My Voice", text: "Your recordings, which families can use them, and deleting them" },
       ],

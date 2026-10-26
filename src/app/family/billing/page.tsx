@@ -26,12 +26,18 @@ const PLAN_NAMES: Record<BillingSummary["plan"], string> = {
   gift: "Readli Family (a gift)",
   donated: "Readli Family (complimentary)",
   tester: "Readli Family (tester plan)",
+  sponsored: "Readli Family (a gift)",
 };
 
 function planNote(s: BillingSummary): string {
   if (s.plan === "none") return "Start Readli Family to set up kids profiles, add family storytellers and prepare stories.";
   if (s.plan === "trial") return s.endsAt ? `Your trial ends ${day(s.endsAt)}.` : "You're on a free trial.";
   if (s.plan === "gift") return s.endsAt ? `Someone special covered your plan until ${day(s.endsAt)}. It won't turn into a paid plan when it ends.` : "Someone special is covering your plan.";
+  if (s.plan === "sponsored") {
+    return s.endsAt
+      ? `Your gift ends ${day(s.endsAt)}. Listening pauses after that unless you choose a plan. Your children's profiles, approvals and progress are kept.`
+      : "A family member is covering your plan. You still decide who each child hears.";
+  }
   if (s.plan === "subscription") return s.endsAt ? `Canceled. Your plan stays on until ${day(s.endsAt)}.` : "Renews automatically. You can cancel any time.";
   return s.endsAt ? `Your plan runs until ${day(s.endsAt)}.` : "Your plan has no end date.";
 }

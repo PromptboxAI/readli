@@ -51,6 +51,7 @@ function tintFor(id: string): string {
 
 type Row = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === "string" ? v : null);
+const num = (v: unknown) => (typeof v === "number" ? v : null);
 /** A profile photo is shown only when its owner consented to it (see src/lib/account/photos.ts). */
 const avatarFor = (p: Row | undefined) => (p && str(p.avatar_path) && str(p.photo_consent_at) ? photoUrl(p.user_id as string, str(p.photo_consent_at)) : null);
 
@@ -169,6 +170,14 @@ export class AccountFamilyStore implements FamilyStore {
         extraStreams: Number(e.extra_streams ?? 0),
         startsAt: e.starts_at as string,
         endsAt: str(e.ends_at),
+        sponsorshipId: str(e.sponsorship_id),
+        sponsorUserId: str(e.sponsor_user_id),
+        monthlyCredits: num(e.monthly_credits),
+        nextMonthlyCredits: num(e.next_monthly_credits),
+        nextCreditsFrom: str(e.next_credits_from),
+        includedNarratorSlots: num(e.included_narrator_slots),
+        includedStreams: num(e.included_streams),
+        maxChildProfiles: num(e.max_child_profiles),
       }));
       state.favorites = favorites.map((f) => ({ childId: f.child_id as string, bookSlug: f.book_slug as string }));
       state.progress = progress.map((p) => ({
@@ -427,7 +436,19 @@ export class AccountFamilyStore implements FamilyStore {
       const old = before.entitlements.find((x) => x.id === e.id);
       const row = { status: e.status, extra_narrator_slots: e.extraNarratorSlots, extra_streams: e.extraStreams, ends_at: e.endsAt };
       if (!old) {
-        await this.q(db.from("household_entitlements").insert({ id: e.id, household_id: e.householdId, source: e.source, starts_at: e.startsAt, ...row }), "add plan");
+        // A sponsored plan's sponsor and limits are written here only when the row is new; the sponsorship owns them
+        // after that. Other plans never send these columns.
+        const sponsored = e.source !== "sponsored" ? {} : {
+          sponsorship_id: e.sponsorshipId ?? null,
+          sponsor_user_id: e.sponsorUserId ?? null,
+          monthly_credits: e.monthlyCredits ?? null,
+          next_monthly_credits: e.nextMonthlyCredits ?? null,
+          next_credits_from: e.nextCreditsFrom ?? null,
+          included_narrator_slots: e.includedNarratorSlots ?? null,
+          included_streams: e.includedStreams ?? null,
+          max_child_profiles: e.maxChildProfiles ?? null,
+        };
+        await this.q(db.from("household_entitlements").insert({ id: e.id, household_id: e.householdId, source: e.source, starts_at: e.startsAt, ...row, ...sponsored }), "add plan");
       } else if (JSON.stringify(old) !== JSON.stringify(e)) {
         await this.q(db.from("household_entitlements").update(row).eq("id", e.id), "update plan");
       }

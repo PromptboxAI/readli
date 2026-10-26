@@ -1,10 +1,10 @@
 import type { FamilyState } from "@/lib/family/model";
-import { activeEntitlement } from "@/lib/family/permissions";
+import { activeEntitlement, planLimits } from "@/lib/family/permissions";
 import type { PlanConfig } from "@/lib/family/plan";
 
 /** What a parent sees about their household's plan on the billing page. */
 export interface BillingSummary {
-  plan: "none" | "trial" | "subscription" | "gift" | "donated" | "tester";
+  plan: "none" | "trial" | "subscription" | "gift" | "donated" | "tester" | "sponsored";
   /** Last day of access when the plan has an end (trial, gift, or a canceled subscription). */
   endsAt: string | null;
   narratorSlots: number;
@@ -23,7 +23,7 @@ export function billingSummary(state: FamilyState, plan: PlanConfig, householdId
   return {
     plan: e.source,
     endsAt: e.endsAt,
-    narratorSlots: plan.includedNarratorSlots + e.extraNarratorSlots,
+    narratorSlots: planLimits(e, plan).narratorSlots + e.extraNarratorSlots,
     extraNarratorSlots: e.extraNarratorSlots,
     extraSlotsMonthlyCents: e.source === "subscription" ? e.extraNarratorSlots * plan.extraSlotPriceCents : 0,
     canStartPlan: e.source === "trial" || e.source === "tester",

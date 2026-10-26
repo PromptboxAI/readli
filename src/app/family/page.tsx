@@ -20,7 +20,7 @@ import { familyHome, homeNotice, noticeText } from "@/lib/family/home";
 import { homeHousehold } from "@/lib/family/service";
 import { planConfig } from "@/lib/family/plan";
 import { familyPage, guardianChildren } from "@/lib/family/page-data";
-import { activeEntitlement, liveSlots, narratorSlotCount } from "@/lib/family/permissions";
+import { activeEntitlement, childProfileLimit, countedSlots, narratorSlotCount } from "@/lib/family/permissions";
 import { deviceRegistry, familyPreviewEnabled, TEMPORARY_KIDS_HOURS } from "@/lib/family/session";
 import { chosenName } from "@/lib/account/names";
 import { authConfigured } from "@/lib/auth/supabase";
@@ -177,7 +177,8 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   const creditLine = balance ? creditSummary(balance, entitlement?.source === "trial") : null;
   const notice = isGuardian && home ? homeNotice(state, home, adult.id) : null;
   const slots = home ? narratorSlotCount(state, home, plan) : 0;
-  const slotLine = home && entitlement && slots ? `${liveSlots(state, home, plan).length} of ${slots} ${entitlement.extraNarratorSlots ? "" : "included "}narrator slots in use` : null;
+  const kidsMax = home ? childProfileLimit(state, home, plan) : plan.maxChildProfiles;
+  const slotLine = home && entitlement && slots ? `${countedSlots(state, home, plan).length} of ${slots} ${entitlement.extraNarratorSlots ? "" : "included "}narrator slots in use` : null;
   const kidIds = new Set(kids.map((k) => k.id));
   const kidCards = view ? view.kids.filter((k) => kidIds.has(k.id)) : [];
   const allBooks = (await searchParams).shelf === "all";
@@ -241,9 +242,9 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
                 <h2 id="kids-h" className="font-display text-2xl font-semibold">
                   Your kids
                 </h2>
-                {kids.length >= plan.maxChildProfiles ? (
+                {kids.length >= kidsMax ? (
                   <span className="text-muted">
-                    {kids.length} of {plan.maxChildProfiles} profiles
+                    {kids.length} of {kidsMax} profiles
                   </span>
                 ) : (
                   <Link href="/family/kids" className="font-semibold underline underline-offset-4">
