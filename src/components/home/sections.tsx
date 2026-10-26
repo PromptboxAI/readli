@@ -7,6 +7,7 @@ import { HeroBedtimeScene } from "@/components/home/HeroBedtimeScene";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
+import { COMPANY, COMPANY_ADDRESS } from "@/lib/content/company";
 import { MORE_BOOKS_ON_PHONES, NEW_BOOKS } from "@/lib/library/catalog";
 import { bookPath } from "@/lib/library/paths";
 
@@ -401,7 +402,15 @@ export function SiteFooter() {
           ))}
         </ul>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} Readli. Every Book. Every Voice.</p>
+          <div className="flex flex-col gap-1">
+            <p>© {new Date().getFullYear()} Readli. Every Book. Every Voice.</p>
+            <p className="text-muted" data-testid="footer-company">
+              {COMPANY.legalName} · {COMPANY_ADDRESS} ·{" "}
+              <a href={`mailto:${COMPANY.email}`} className="underline-offset-4 hover:underline">
+                {COMPANY.email}
+              </a>
+            </p>
+          </div>
           <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
             {links.map((l) => (
               <Link key={l.href} href={l.href} className="underline-offset-4 hover:underline">
