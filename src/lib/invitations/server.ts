@@ -6,7 +6,7 @@ import { hashGiftCode } from "@/lib/gifting/codes.server";
 import { findCatalogBook } from "@/lib/library/catalog";
 import { ProviderRefCipher } from "@/lib/server/provider-ref";
 import type { VoiceProvider } from "@/lib/voice/provider";
-import { connectedEmail, invitationEmail, type Mailer } from "./email";
+import { connectedEmail, emailCoverUrl, invitationEmail, type Mailer } from "./email";
 import {
   DEFAULT_INVITATION_SETTINGS,
   REPORT_REASONS,
@@ -331,6 +331,7 @@ async function deliver(db: SupabaseClient, ctx: SendContext, invitation: { id: s
     recipientName: invitation.name,
     message: invitation.message,
     bookTitle: sender.book ? (findCatalogBook(sender.book)?.title ?? null) : null,
+    coverUrl: emailCoverUrl(ctx.origin, sender.book),
     linkDays,
     ...invitationLinks(ctx, invitation.id, invitation.token),
   });
@@ -565,6 +566,23 @@ export async function markOpened(db: SupabaseClient, token: string, now = new Da
   return true;
 }
 
+/** What the invitation page reports as the recipient moves on: listened to the end, or chose a path. */
+export const RECIPIENT_EVENTS = {
+  audio_completed: "invite_audio_completed",
+  family_cta: "invite_family_cta_clicked",
+  connect_cta: "invite_connect_cta_clicked",
+} as const;
+
+/** Records one recipient event against a usable invitation. Adult-only: the invitation and contributor, nothing about a child. */
+export async function recipientEvent(db: SupabaseClient, token: string, event: string, now = new Date()): Promise<boolean> {
+  const name = RECIPIENT_EVENTS[event as keyof typeof RECIPIENT_EVENTS];
+  if (!name) return false;
+  const inv = await invitationByToken(db, token);
+  if (!inv || !usable(invitationStatus(inv as never, now))) return false;
+  await track(db, name, { invitation_id: inv.id, contributor_id: inv.contributor_id });
+  return true;
+}
+
 /** A person pressed play: the strongest sign of a human. Returns a short-lived audio link. */
 export async function playPreview(db: SupabaseClient, token: string, now = new Date()): Promise<string | null> {
   const inv = await invitationByToken(db, token);
@@ -648,6 +666,18 @@ async function tellContributor(db: SupabaseClient, mailer: Mailer, origin: strin
   } catch (err) {
     console.error("connected email failed", contributorId, err);
   }
+}
+
+/**
+ * A child in a family that accepted an invitation played a prepared chapter in the storyteller's
+ * voice: the invite funnel's last step, noted once per invitation. Nothing about the child is stored.
+ */
+export async function noteInvitedStoryPlayed(db: SupabaseClient, contributorId: string, householdId: string): Promise<void> {
+  const [inv] = await q(db.from("voice_invitations").select("id").eq("contributor_id", contributorId).eq("household_id", householdId).not("accepted_at", "is", null).limit(1), "read invitation for play");
+  if (!inv) return;
+  const { count } = await db.from("analytics_events").select("id", { count: "exact", head: true }).eq("name", "invite_first_story_played").contains("properties", { invitation_id: inv.id });
+  if (count) return;
+  await track(db, "invite_first_story_played", { invitation_id: inv.id, contributor_id: contributorId, household_id: householdId });
 }
 
 /** The invitation id behind a preview token, for Checkout metadata. */

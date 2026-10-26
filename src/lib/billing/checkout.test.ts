@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { HouseholdEntitlement } from "@/lib/family/model";
 import { DEFAULT_PLAN } from "@/lib/family/plan";
 import { catalog, catalogItem, lookupKey } from "./catalog";
-import { checkoutRequest } from "./checkout";
+import { checkoutRequest, checkoutReturn } from "./checkout";
 import { billingConfig } from "./config";
 import { encodeForm, StripeApi, StripeError } from "./stripe-api";
 
@@ -97,5 +97,28 @@ describe("Stripe API", () => {
     expect(created).toContain("recurring[interval]=month");
     expect(created).toContain("lookup_key=readli_family_monthly_1999");
     expect(calls[0]!.init!.headers).toMatchObject({ authorization: "Bearer sk_test_x" });
+  });
+});
+
+describe("checkoutReturn", () => {
+  const origin = "https://readli.ai";
+  const token = "abcdefghijklmnopqrstuvwxyz012345";
+
+  it("returns an invitation's checkout to its guided steps, and an interrupted checkout to the same place", () => {
+    expect(checkoutReturn(origin, { fromSignup: false, invitationId: "inv-1", returnPath: `/v/${token}/connect` })).toEqual({
+      success: `${origin}/v/${token}/connect?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel: `${origin}/v/${token}/connect?checkout=canceled`,
+    });
+  });
+
+  it("only for an invitation this household accepted, and only to a connect page", () => {
+    expect(checkoutReturn(origin, { fromSignup: false, invitationId: null, returnPath: `/v/${token}/connect` }).success).toBe(`${origin}/family/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`);
+    for (const returnPath of ["https://evil.example/v/x/connect", `//evil.example/v/${token}/connect`, `/v/${token}/connect?x=1`, "/family", `/v/short/connect`, 42]) {
+      expect(checkoutReturn(origin, { fromSignup: false, invitationId: "inv-1", returnPath }).success).toBe(`${origin}/family/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`);
+    }
+  });
+
+  it("keeps Family signup going back to setup", () => {
+    expect(checkoutReturn(origin, { fromSignup: true, invitationId: null, returnPath: undefined })).toEqual({ success: `${origin}/family/setup?checkout=success&session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}/signup/family?checkout=canceled` });
   });
 });

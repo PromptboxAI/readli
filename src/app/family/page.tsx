@@ -24,7 +24,9 @@ import { activeEntitlement, liveSlots, narratorSlotCount } from "@/lib/family/pe
 import { deviceRegistry, familyPreviewEnabled, TEMPORARY_KIDS_HOURS } from "@/lib/family/session";
 import { chosenName } from "@/lib/account/names";
 import { authConfigured } from "@/lib/auth/supabase";
-import { carriedInvitationToken } from "@/lib/invitations/context";
+import { carriedInvitationToken, invitationContext } from "@/lib/invitations/context";
+import { invitationUnfinished } from "@/lib/invitations/journey";
+import { landingFor } from "@/lib/invitations/server";
 import { pendingJoinPath } from "@/lib/invites/pending";
 import { isParent, isStorytellerOnly } from "@/lib/family/storyteller";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
@@ -158,7 +160,11 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   const hasPlan = Boolean(entitlement);
   // Family signup continues to choosing a plan, so nobody lands on an empty portal with no way to check out.
   if (startingFamily && isGuardian && !hasPlan) redirect("/family/billing");
-  const invited = account && isGuardian ? await carriedInvitationToken() : null;
+  // An invitation carried through signup or checkout: offer the next step until a child can listen.
+  const carried = account && isGuardian && home ? await carriedInvitationToken() : null;
+  const inviteCtx = carried ? invitationContext() : null;
+  const carriedLanding = carried && inviteCtx ? await landingFor(inviteCtx.db, inviteCtx.secret, carried).catch(() => null) : null;
+  const invited = carriedLanding && invitationUnfinished(state, carriedLanding, home!) ? { token: carried!, name: carriedLanding.contributorName } : null;
   // A voice made on an older reading model can be heard on the newest one and switched, by its owner.
   const ownVoice = state.voices.find((v) => v.ownerId === adult.id && v.status === "ready" && v.deletedAt === null);
   const newerModel = Boolean(account && ownVoice?.modelId && ownVoice.modelId !== serverConfig().elevenLabsModel);
@@ -196,8 +202,8 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
       {!myName && <AskName />}
       <PreviewNote />
       {invited && (
-        <Link href={`/v/${invited}/connect`} className="rounded-2xl bg-sky/50 px-4 py-3 font-semibold underline-offset-4 hover:underline" data-testid="invitation-waiting">
-          A storyteller invited your family. Add them to your Family Circle →
+        <Link href={`/v/${invited.token}/connect`} className="rounded-2xl bg-sky/50 px-4 py-3 font-semibold underline-offset-4 hover:underline" data-testid="invitation-waiting">
+          Continue adding {invited.name} →
         </Link>
       )}
       {newerModel && (

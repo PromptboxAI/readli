@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { after, NextResponse } from "next/server";
-import { checkoutRequest } from "@/lib/billing/checkout";
+import { checkoutRequest, checkoutReturn } from "@/lib/billing/checkout";
 import { billingConfig } from "@/lib/billing/config";
 import { StripeApi, StripeError } from "@/lib/billing/stripe-api";
 import { catalogItem } from "@/lib/billing/catalog";
@@ -10,6 +10,7 @@ import { jsonBody, withFamily } from "@/lib/family/http";
 import { activeEntitlement } from "@/lib/family/permissions";
 import { guardianHousehold } from "@/lib/family/service";
 import { requireFullSignIn } from "@/lib/family/session";
+import { track } from "@/lib/invitations/server";
 import { fail } from "@/lib/server/http";
 import { attributionFrom, attributionMetadata, eventIdFrom, sendCapiEvent } from "@/lib/server/meta-capi";
 
@@ -20,7 +21,8 @@ export const runtime = "nodejs";
  * Starts a Stripe Checkout for Readli Family ({ item: "family_monthly" | "family_annual", extraSlots })
  * or a credit pack ({ item: "credit_pack:<id>" }) and returns its URL. A Family checkout may name the
  * storyteller invitation (invitationId) that brought the household in, and from: "signup" to come back
- * to setup instead of Plan and billing. Answers 404 while payments are off. Plans and credits are
+ * to setup instead of Plan and billing. With that invitation, returnPath "/v/<token>/connect" comes back
+ * to the storyteller's guided steps instead. Answers 404 while payments are off. Plans and credits are
  * granted from the webhook, never from here. Unless the browser opted out, Meta hears InitiateCheckout
  * (sharing metaEventId with the pixel), and the browser's ad details ride in the session's metadata so
  * the webhook can report the purchase.
@@ -57,10 +59,11 @@ export async function POST(req: Request) {
       item: request.mode === "subscription" ? request.plan.id : request.pack.id,
       // The credits paid for, so a later admin change to the packs can't change what this purchase grants.
       ...(request.mode === "payment" ? { credits: String(request.pack.credits ?? 0) } : {}),
-      // The storyteller invitation that brought this family in, so the webhook credits its trial and payment.
+      // The storyteller invitation that brought this family in, so the webhook credits its payment.
       ...(invitationId ? { invitation_id: invitationId } : {}),
     };
     const fromSignup = request.mode === "subscription" && body.from === "signup";
+    const back = checkoutReturn(origin, { fromSignup, invitationId, returnPath: body.returnPath });
     const attribution = attributionFrom(req);
     const stripe = new StripeApi(config);
     try {
@@ -79,11 +82,10 @@ export async function POST(req: Request) {
         customer_email: customer ? undefined : (session.account.email ?? undefined),
         metadata: { ...metadata, ...attributionMetadata(attribution) },
         ...(request.mode === "subscription" ? { subscription_data: { metadata } } : { payment_intent_data: { metadata } }),
-        // From Family signup: back to setup once paid, or to the plan choice if they turn back. Stripe
-        // fills in the session id; the thank-you page's pixel event shares it with the webhook's.
-        success_url: `${origin}${fromSignup ? "/family/setup" : "/family/billing"}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: fromSignup ? `${origin}/signup/family?checkout=canceled` : `${origin}/family/billing?checkout=canceled`,
+        success_url: back.success,
+        cancel_url: back.cancel,
       });
+      if (invitationId) await track(db, "invite_checkout_started", { invitation_id: invitationId, household_id: householdId, item: metadata.item }, actor.adultId);
       if (attribution) {
         const cents =
           request.mode === "subscription"

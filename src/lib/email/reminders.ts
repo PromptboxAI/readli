@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { familyInviteEmail, invitationEmail } from "@/lib/invitations/email";
+import { familyInviteEmail, emailCoverUrl, invitationEmail } from "@/lib/invitations/email";
 import { hashInvitationToken, invitationLinks, invitationSettings, newInvitationToken } from "@/lib/invitations/server";
 import { householdRespondToken } from "@/lib/invites/email";
 import { hashInviteToken, inviteLink, newInviteToken } from "@/lib/invites/server";
@@ -153,6 +153,7 @@ async function voiceReminders(ctx: SequenceContext, linkDays: number): Promise<{
       recipientName: String(r.recipient_name ?? ""),
       message: String(r.message ?? ""),
       bookTitle: typeof slug === "string" ? (findCatalogBook(slug)?.title ?? null) : null,
+      coverUrl: emailCoverUrl(ctx.base, typeof slug === "string" ? slug : null),
       linkDays,
       reminder: true,
       ...invitationLinks({ secret: ctx.secret, origin: ctx.base }, id, token),
