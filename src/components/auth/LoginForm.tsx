@@ -2,6 +2,7 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 import { useEffect, useId, useState } from "react";
+import { CODE_LENGTH, CodeBoxes } from "@/components/auth/CodeBoxes";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { trackMeta } from "@/lib/marketing/meta-pixel";
 
@@ -11,24 +12,20 @@ function client() {
   return createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 }
 
-/** Supabase sends 6 digits by default; a project set to a longer code still works. */
-const CODE = /^\d{6,10}$/;
-
 /**
  * A code typed on this page, or Google. New grown-ups get an account the first time they sign in.
  * The email carries a 6-digit code to type here, so nobody leaves the page, and a link as a fallback
  * (it opens /auth/callback). After the code checks out, /auth/finish does what that callback does,
  * then the page goes on to `next` itself, unless the page passes onSignedIn to carry on in place.
  * Pass onSentChange when the page owns the heading: it then shows "Check your email" itself and the card drops its title.
- * Signup pages pass askMarketing for an unticked opt-in to Bedtime Thursdays and news, saved after sign-in;
- * askName for an optional "What should we call you?"; and signup, which reports the sign-up to the Meta Pixel
- * when the code is sent or Google opens.
+ * Signup pages pass askMarketing for an unticked opt-in to Bedtime Thursdays and news (below both ways to
+ * sign in, saved after sign-in), and signup, which reports the sign-up to the Meta Pixel when the code is
+ * sent or Google opens. Names are asked for after sign-in, where they can't hold anything up.
  */
 export function LoginForm({
   next,
   onSentChange,
   askMarketing = false,
-  askName = false,
   signup,
   submitLabel = "Email me a code",
   onSignedIn,
@@ -36,7 +33,6 @@ export function LoginForm({
   next: string;
   onSentChange?: (sent: boolean) => void;
   askMarketing?: boolean;
-  askName?: boolean;
   signup?: "Readli Family" | "Readli Voice";
   submitLabel?: string;
   /** Instead of going to `next`: carry on from this page, signed in. Google sign-in still returns to `next`. */
@@ -44,7 +40,6 @@ export function LoginForm({
 }) {
   const id = useId();
   const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [state, setStateRaw] = useState<"idle" | "sending" | "sent" | "verifying" | "done">("idle");
   const setState = (s: "idle" | "sending" | "sent" | "verifying" | "done") => {
@@ -114,10 +109,8 @@ export function LoginForm({
     else setResent(true);
   };
 
-  const verify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const token = code.replace(/\s/g, "");
-    if (!CODE.test(token)) {
+  const verify = async (token: string) => {
+    if (token.length !== CODE_LENGTH) {
       setError("Enter the 6-digit code from the email.");
       return;
     }
@@ -126,6 +119,7 @@ export function LoginForm({
     const { error } = await client().auth.verifyOtp({ email: email.trim(), token, type: "email" });
     if (error) {
       setState("sent");
+      setCode("");
       setError(error.status === 429 ? "Too many tries. Please wait a minute and try again." : "That code didn't work. Check it, or send a new one.");
       return;
     }
@@ -135,10 +129,6 @@ export function LoginForm({
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ next, news: askMarketing && news, tz }),
     }).catch(() => null);
-    // The name is optional: if it doesn't save, they're still signed in and can add it later.
-    if (askName && name.trim()) {
-      await fetch("/api/account", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ displayName: name.trim() }) }).catch(() => null);
-    }
     const to = finished?.ok ? (((await finished.json().catch(() => ({}))) as { next?: string }).next ?? next) : next;
     setState("done");
     if (onSignedIn) return carryOn();
@@ -156,27 +146,23 @@ export function LoginForm({
 
   if (state === "sent" || state === "verifying" || state === "done") {
     return (
-      <div className="flex w-full flex-col gap-3 rounded-[var(--radius-panel)] bg-mint/50 p-5 text-left sm:p-6" data-testid="code-step">
+      <div className="flex w-full flex-col gap-3 rounded-[var(--radius-panel)] bg-mint/50 p-4 text-left sm:p-6" data-testid="code-step">
         {!onSentChange && <p className="font-display text-2xl font-semibold">Check your email</p>}
         <p role="status">
           We sent a 6-digit code to <strong>{email.trim()}</strong>. Enter it here to continue.
         </p>
-        <form onSubmit={verify} className="flex flex-col gap-3" aria-label="Enter your code">
-          <label htmlFor={`${id}-code`} className="font-semibold">
-            Code
-          </label>
-          <input
-            id={`${id}-code`}
-            className={`${field} max-w-48 text-center font-display text-2xl tracking-[0.3em]`}
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            pattern="[0-9 ]*"
-            maxLength={12}
-            autoFocus
-            required
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-          />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void verify(code);
+          }}
+          className="flex flex-col gap-3"
+          aria-label="Enter your code"
+        >
+          <p id={`${id}-code`} className="font-semibold">
+            Your 6-digit code
+          </p>
+          <CodeBoxes value={code} onChange={setCode} onComplete={(c) => void verify(c)} disabled={state !== "sent"} labelledBy={`${id}-code`} />
           <button type="submit" className={`${buttonPrimary} self-start`} disabled={state !== "sent"}>
             {state === "sent" ? "Continue" : "Signing you in…"}
           </button>
@@ -214,12 +200,6 @@ export function LoginForm({
 
   return (
     <div className="flex w-full flex-col gap-4 text-left">
-      {askMarketing && (
-        <label className="flex items-start gap-3 text-sm">
-          <input type="checkbox" className="mt-0.5 size-5 accent-ink" checked={news} onChange={(e) => setNews(e.target.checked)} />
-          <span>Send me Bedtime Thursdays, a weekly email with two new stories, and occasional Readli news. You can stop any time.</span>
-        </label>
-      )}
       <button type="button" onClick={google} disabled={toGoogle} aria-busy={toGoogle} className={`${buttonSecondary} w-full active:bg-ink/10 disabled:opacity-80`}>
         {toGoogle ? (
           <span aria-hidden="true" className="size-5 animate-spin rounded-full border-[3px] border-ink/25 border-t-ink" />
@@ -236,14 +216,6 @@ export function LoginForm({
         <span className="h-px flex-1 bg-ink/15" />
       </div>
       <form onSubmit={sendCode} className="flex flex-col gap-4" aria-label="Sign in with email">
-        {askName && (
-          <div className="flex flex-col gap-2">
-            <label htmlFor={`${id}-name`} className="font-semibold">
-              What should we call you? <span className="font-normal text-muted">(optional)</span>
-            </label>
-            <input id={`${id}-name`} className={field} autoComplete="name" maxLength={60} placeholder="Grandma June" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-        )}
         <div className="flex flex-col gap-2">
           <label htmlFor={`${id}-email`} className="font-semibold">
             Email
@@ -254,6 +226,12 @@ export function LoginForm({
           {state === "sending" ? "Sending…" : submitLabel}
         </button>
       </form>
+      {askMarketing && (
+        <label className="flex items-start gap-3 text-sm">
+          <input type="checkbox" className="mt-0.5 size-5 accent-ink" checked={news} onChange={(e) => setNews(e.target.checked)} />
+          <span>Send me Bedtime Thursdays, a weekly email with two new stories, and occasional Readli news. You can stop any time.</span>
+        </label>
+      )}
       {error && (
         <p role="alert" className="font-semibold text-coral-deep">
           {error}
