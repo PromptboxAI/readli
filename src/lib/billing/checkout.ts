@@ -29,3 +29,18 @@ export function checkoutRequest(plan: PlanConfig, entitlement: HouseholdEntitlem
   if (!entitlement) return no(403, "needs_family", "Credit packs are for families with Readli Family.");
   return { ok: true, mode: "payment", pack: chosen };
 }
+
+const INVITATION_RETURN = /^\/v\/[A-Za-z0-9_-]{20,64}\/connect$/;
+
+/**
+ * Where Stripe sends the parent back. A Family checkout started from an invitation's guided steps
+ * returns to them, so the invitation survives Stripe and the webhook; only for an invitation this
+ * household accepted, and only to an invitation's connect page. Family signup returns to setup.
+ */
+export function checkoutReturn(origin: string, opts: { fromSignup: boolean; invitationId: string | null; returnPath: unknown }): { success: string; cancel: string } {
+  if (opts.invitationId && typeof opts.returnPath === "string" && INVITATION_RETURN.test(opts.returnPath)) {
+    return { success: `${origin}${opts.returnPath}?checkout=success`, cancel: `${origin}${opts.returnPath}?checkout=canceled` };
+  }
+  if (opts.fromSignup) return { success: `${origin}/family/setup?checkout=success`, cancel: `${origin}/signup/family?checkout=canceled` };
+  return { success: `${origin}/family/billing?checkout=success`, cancel: `${origin}/family/billing?checkout=canceled` };
+}

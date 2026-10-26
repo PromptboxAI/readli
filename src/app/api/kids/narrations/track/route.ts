@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import { accountDb } from "@/lib/family/account-store";
 import { jsonBody, withFamily } from "@/lib/family/http";
+import type { FamilyStore } from "@/lib/family/service";
+import { noteInvitedStoryPlayed } from "@/lib/invitations/server";
 import { playbackKey } from "@/lib/family/session";
 import { authorizeChapterTrack } from "@/lib/narration/narration";
 import { fail } from "@/lib/server/http";
@@ -17,10 +20,23 @@ export async function POST(req: Request) {
   if (typeof childId !== "string" || typeof voiceId !== "string" || typeof bookSlug !== "string" || !Number.isInteger(chapter)) {
     return fail(400, "bad_request", "Choose a story and a storyteller.");
   }
-  return withFamily(async ({ store, actor }) =>
-    NextResponse.json(
-      await authorizeChapterTrack(store, actor, { childId, voiceId, bookSlug, chapter: chapter as number, revision: typeof revision === "string" ? revision : undefined }, playbackKey()),
-      { headers: { "cache-control": "no-store" } },
-    ),
-  );
+  return withFamily(async ({ store, actor }) => {
+    const grant = await authorizeChapterTrack(store, actor, { childId, voiceId, bookSlug, chapter: chapter as number, revision: typeof revision === "string" ? revision : undefined }, playbackKey());
+    await notePlay(store, childId, voiceId);
+    return NextResponse.json(grant, { headers: { "cache-control": "no-store" } });
+  });
+}
+
+/** Best effort: credits the storyteller invitation that brought this voice into the family. */
+async function notePlay(store: FamilyStore, childId: string, voiceId: string) {
+  const db = accountDb();
+  if (!db) return;
+  try {
+    const state = await store.read();
+    const owner = state.voices.find((v) => v.id === voiceId)?.ownerId;
+    const householdId = state.children.find((c) => c.id === childId)?.householdId;
+    if (owner && householdId) await noteInvitedStoryPlayed(db, owner, householdId);
+  } catch (err) {
+    console.error("invite play event failed", err);
+  }
 }

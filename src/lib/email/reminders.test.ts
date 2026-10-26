@@ -107,7 +107,7 @@ describe("invitation reminders", () => {
     await queueInvitationReminders(w.ctx());
     expect(w.calls[0]).toMatchObject({ name: "resend_voice_invitation", args: { p_contributor: ROSE, p_invitation: "inv1" } });
     const row = w.tables.email_outbox![0]!;
-    expect(row).toMatchObject({ email_id: "I2", subject: "Rose wants your family to hear them read" });
+    expect(row).toMatchObject({ email_id: "I2", subject: "Still waiting: Rose has a bedtime story for your family" });
     expect(row.body).toContain("https://readli.ai/v/");
   });
 

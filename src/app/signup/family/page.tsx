@@ -15,7 +15,6 @@ import { currentAdult } from "@/lib/auth/adult";
 import { navState } from "@/lib/auth/nav-state";
 import { billingConfig } from "@/lib/billing/config";
 import { familyAccountsEnabled } from "@/lib/family/session";
-import { rewardsConfig, rewardsVisible } from "@/lib/rewards/rewards";
 
 export const metadata: Metadata = { title: "Create a Family | Readli", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -42,9 +41,6 @@ export default async function FamilySignupPage({
   const carry = new URLSearchParams();
   if (fromTry) carry.set("from", "try");
   if (fromTry && params.cleanup === "1") carry.set("cleanup", "1");
-  const rewards = rewardsConfig();
-  // The trial shows on previews for review, and in production only once the program is public.
-  const showTrial = rewardsVisible(rewards);
   return (
     <AdultPage wide>
       <header className="flex flex-col gap-2">
@@ -106,15 +102,6 @@ export default async function FamilySignupPage({
               monthlyCredits={plan.monthlyCredits}
               initial={initial}
             />
-            {showTrial && (
-              <div className="flex flex-col gap-1 rounded-2xl bg-mint/60 p-4" data-testid="family-trial">
-                <p className="font-display text-lg font-semibold">Try it free for {rewards.trialDays} days</p>
-                <p className="text-sm">
-                  For new families. Your trial includes {rewards.trialCredits} narration credits for new stories in your storytellers&apos; voices.
-                </p>
-                {!rewards.programPublic && <p className="text-sm text-muted">Not switched on yet. This is how it will look.</p>}
-              </div>
-            )}
             <PlanList items={ACCOUNT_TYPES.family.includes} />
             {!open && (
               <p data-testid="checkout-off" className="rounded-2xl bg-surface/80 p-3 text-sm">

@@ -13,6 +13,8 @@ import {
   hashInvitationToken,
   invitationIdFromRespondToken,
   maskEmail,
+  noteInvitedStoryPlayed,
+  recipientEvent,
   respond,
   respondToken,
   sendInvitations,
@@ -45,6 +47,7 @@ function fakeDb(tables: Record<string, Row[]> = {}, rpc: (name: string, args: Ro
       not: (k: string) => (filters.push((r) => (r[k] ?? null) !== null), q),
       gte: (k: string, v: string) => (filters.push((r) => String(r[k] ?? "") >= v), q),
       in: (k: string, vs: unknown[]) => (filters.push((r) => vs.includes(r[k])), q),
+      contains: (k: string, v: Row) => (filters.push((r) => Object.entries(v).every(([kk, vv]) => (r[k] as Row | undefined)?.[kk] === vv)), q),
       insert: (row: Row) => ((op = "insert"), (payload = row), q),
       update: (row: Row) => ((op = "update"), (payload = row), q),
       single: () => ((one = "single"), q),
@@ -59,7 +62,7 @@ function fakeDb(tables: Record<string, Row[]> = {}, rpc: (name: string, args: Ro
           data = t(name).filter((r) => filters.every((f) => f(r)));
           if (op === "update") for (const r of data) Object.assign(r, payload);
         }
-        resolve({ data: one ? (data[0] ?? null) : data, error: null });
+        resolve({ data: one ? (data[0] ?? null) : data, error: null, count: data.length });
       },
     };
     return q;
@@ -161,9 +164,10 @@ describe("family invitations on the server", () => {
     expect((args.p_recipients as Row[])[0]!.email_hash).toBe(emailHash(SECRET, "sara@example.com"));
     expect(mailer.sent).toHaveLength(1);
     expect(mailer.sent[0]!.to).toBe("sara@example.com");
-    expect(mailer.sent[0]!.subject).toBe("June Walker wants to read stories to your family on Readli");
+    expect(mailer.sent[0]!.subject).toBe("June Walker has a bedtime story for your family");
     expect(mailer.sent[0]!.text).toContain("Love, Mom");
-    expect(mailer.sent[0]!.text).toContain("recorded a short preview from Winnie-the-Pooh");
+    expect(mailer.sent[0]!.text).toContain("Hear June Walker's voice reading Winnie-the-Pooh.");
+    expect(mailer.sent[0]!.html).toContain('src="https://readli.ai/email-covers/winnie-the-pooh.jpg"');
     const token = /readli\.ai\/v\/([A-Za-z0-9_-]+)/.exec(mailer.sent[0]!.text)![1]!;
     expect((args.p_recipients as Row[])[0]!.token_hash).toBe(hashInvitationToken(token));
     expect(tables.voice_invitation_sends![0]).toMatchObject({ delivery: "sent", provider_message_id: "mem_1" });
@@ -206,9 +210,10 @@ describe("family invitations on the server", () => {
     expect((await sendInvitations(db, { secret: SECRET, origin: "https://readli.ai", mailer }, deps(), { id: "u1", name: "Andrea" }, input))[0]!.result).toBe("created");
     expect(calls[0]!.args.p_preview).toBeNull();
     const text = mailer.sent[0]!.text;
-    expect(text).toContain("I've recorded my voice on Readli so I can read stories to your family. Connect my voice to your Readli Family!");
-    expect(text).toContain("Connect Andrea's voice: https://readli.ai/v/");
-    expect(text).not.toContain("preview from");
+    expect(text).toContain("I made my Readli voice so I can read bedtime stories to the kids. I hope you love it!");
+    expect(text).toContain("Hear Andrea read a story: https://readli.ai/v/");
+    expect(text).not.toContain("voice reading");
+    expect(mailer.sent[0]!.html).not.toContain("email-covers/winnie");
   });
 
   it("tell the contributor once when a family connects their voice", async () => {
@@ -259,5 +264,35 @@ describe("family invitations on the server", () => {
     expect(await giftPreview(db, code)).toBeNull();
     expect(await playGiftPreview(db, code)).toBeNull();
     expect(tables.analytics_events ?? []).toEqual([]);
+  });
+});
+
+describe("invitation funnel events", () => {
+  const live = (over: Row = {}) => ({ id: "inv-1", contributor_id: "june", token_hash: hashInvitationToken("tok-live"), expires_at: "2099-01-01T00:00:00Z", accepted_at: null, declined_at: null, revoked_at: null, ...over });
+
+  it("notes a listen to the end and each path chosen, only for a usable invitation", async () => {
+    const { db, tables } = fakeDb({ voice_invitations: [live()], analytics_events: [] });
+    expect(await recipientEvent(db, "tok-live", "audio_completed")).toBe(true);
+    expect(await recipientEvent(db, "tok-live", "connect_cta")).toBe(true);
+    expect(await recipientEvent(db, "tok-live", "made_up")).toBe(false);
+    expect(await recipientEvent(db, "wrong", "family_cta")).toBe(false);
+    expect(tables.analytics_events!.map((e) => e.name)).toEqual(["invite_audio_completed", "invite_connect_cta_clicked"]);
+    expect(tables.analytics_events![0]!.properties).toEqual({ invitation_id: "inv-1", contributor_id: "june" });
+
+    const expired = fakeDb({ voice_invitations: [live({ expires_at: "2020-01-01T00:00:00Z" })], analytics_events: [] });
+    expect(await recipientEvent(expired.db, "tok-live", "audio_completed")).toBe(false);
+  });
+
+  it("notes the first story played once per family's invitation, with nothing about the child", async () => {
+    const { db, tables } = fakeDb({
+      voice_invitations: [live({ household_id: "A", accepted_at: "2026-10-20T00:00:00Z" }), live({ id: "inv-2", household_id: "B", accepted_at: null, token_hash: "x" })],
+      analytics_events: [],
+    });
+    await noteInvitedStoryPlayed(db, "june", "A");
+    await noteInvitedStoryPlayed(db, "june", "A");
+    // Household B never accepted, so a play there credits nothing.
+    await noteInvitedStoryPlayed(db, "june", "B");
+    expect(tables.analytics_events).toHaveLength(1);
+    expect(tables.analytics_events![0]).toMatchObject({ name: "invite_first_story_played", properties: { invitation_id: "inv-1", contributor_id: "june", household_id: "A" } });
   });
 });
