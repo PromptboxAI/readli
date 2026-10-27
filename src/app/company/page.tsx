@@ -6,7 +6,7 @@ import { SiteFooter } from "@/components/home/sections";
 import { SocialIcon } from "@/components/brand/SocialIcon";
 import { COMPANY, COMPANY_ADDRESS, FOUNDERS } from "@/lib/content/company";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
-import { publicPageMetadata } from "@/lib/seo/site";
+import { SITE_LONG_DESCRIPTION, publicPageMetadata } from "@/lib/seo/site";
 
 export const metadata: Metadata = publicPageMetadata({
   title: "Company | Readli",
@@ -32,11 +32,7 @@ export default function CompanyPage() {
           <h1 id="about-heading" className="font-display text-4xl font-semibold sm:text-5xl">
             About Readli
           </h1>
-          <p className="max-w-2xl text-lg">
-            Readli lets families hear classic storybooks read in the voices of the people they love. Parents,
-            grandparents, aunts, uncles and family friends each record and approve their own voice, and choose who can
-            use it.
-          </p>
+          <p className="max-w-2xl text-lg">{SITE_LONG_DESCRIPTION}</p>
           <dl className="grid gap-4 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10 sm:grid-cols-2 sm:p-8" data-testid="company-details">
             <div>
               <dt className="text-sm font-semibold text-muted">Made by</dt>
