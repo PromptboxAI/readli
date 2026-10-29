@@ -126,9 +126,9 @@ describe("Stripe API", () => {
       if (init?.method === "GET") return Response.json({ data: existing ? [existing] : [] });
       return Response.json({ id: "price_new" });
     }) as typeof fetch;
-    const env = { PAYMENTS_ENABLED: "true", STRIPE_SECRET_KEY: "sk_test_x", STRIPE_WEBHOOK_SECRET: "w", STRIPE_PRODUCT_TAX_CODE: "txcd_10103001" };
+    const env = { PAYMENTS_ENABLED: "true", STRIPE_SECRET_KEY: "sk_test_x", STRIPE_WEBHOOK_SECRET: "w", STRIPE_PRODUCT_TAX_CODE: "txcd_10103000" };
     const config = billingConfig(env as unknown as NodeJS.ProcessEnv);
-    expect(config.productTaxCode).toBe("txcd_10103001");
+    expect(config.productTaxCode).toBe("txcd_10103000");
     expect(billingConfig({ ...env, STRIPE_PRODUCT_TAX_CODE: "nope" } as unknown as NodeJS.ProcessEnv).productTaxCode).toBeUndefined();
     const api = new StripeApi(config, fake);
     const item = catalogItem(DEFAULT_PLAN, "family_monthly")!;
@@ -136,16 +136,16 @@ describe("Stripe API", () => {
     expect(await api.priceFor(item)).toBe("price_old");
     expect(decodeURIComponent(calls[0]!.url)).toContain("expand[0]=data.product");
     expect(calls[1]!.url).toBe("https://api.stripe.com/v1/products/prod_1");
-    expect(decodeURIComponent(String(calls[1]!.init!.body))).toBe("tax_code=txcd_10103001");
+    expect(decodeURIComponent(String(calls[1]!.init!.body))).toBe("tax_code=txcd_10103000");
 
     calls.length = 0;
-    existing = { id: "price_old", product: { id: "prod_1", tax_code: "txcd_10103001" } };
+    existing = { id: "price_old", product: { id: "prod_1", tax_code: "txcd_10103000" } };
     expect(await api.priceFor(item)).toBe("price_old");
     expect(calls).toHaveLength(1);
 
     existing = null;
     expect(await api.priceFor(item)).toBe("price_new");
-    expect(decodeURIComponent(String(calls.at(-1)!.init!.body))).toContain("product_data[tax_code]=txcd_10103001");
+    expect(decodeURIComponent(String(calls.at(-1)!.init!.body))).toContain("product_data[tax_code]=txcd_10103000");
   });
 });
 
