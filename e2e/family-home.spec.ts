@@ -204,6 +204,10 @@ test("Back after approving a storyteller shows the change, not a stale page", as
 test("a ready story opens the grown-up player and plays stored audio", async ({ page }) => {
   await signIn(page, "adult:sara");
   await page.goto("/family");
+  // Anywhere else on the card opens the book's page, where a grown-up can change its voice.
+  await page.getByTestId("shelf-book-the-lion-and-the-mouse").click({ position: { x: 24, y: 24 } });
+  await expect(page).toHaveURL(/\/family\/books\/the-lion-and-the-mouse$/);
+  await page.goto("/family");
   await page.getByTestId("shelf-ready").getByTestId("home-book-the-lion-and-the-mouse").click();
   await expect(page).toHaveURL(/\/family\/books\/the-lion-and-the-mouse\/listen$/);
   const player = page.getByTestId("grown-up-player");

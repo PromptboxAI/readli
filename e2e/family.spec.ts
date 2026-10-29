@@ -133,6 +133,7 @@ test("reading sentence by sentence, the kids player buffers the next few sentenc
   await signIn(page, "adult:sara");
   await page.goto("/family");
   await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await expect(page.getByRole("heading", { name: /Hi Maya/ })).toBeVisible();
   await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
   await expect(page.getByTestId("current-narrator")).toHaveText("Mom");
   await expect(page.getByText(/Preview family: narration here is a stand-in sound/)).toBeVisible();
@@ -163,6 +164,7 @@ test("reading sentence by sentence, the kids player skips a sentence whose audio
   await signIn(page, "adult:sara");
   await page.goto("/family");
   await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await expect(page.getByRole("heading", { name: /Hi Maya/ })).toBeVisible();
   await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
   await expect(page.getByTestId("current-narrator")).toHaveText("Mom");
 
@@ -184,6 +186,7 @@ test("a chapter track that won't play is asked for once more, then the story car
   await signIn(page, "adult:sara");
   await page.goto("/family");
   await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await expect(page.getByRole("heading", { name: /Hi Maya/ })).toBeVisible();
   await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
   let tracks = 0;
   await page.route("**/api/kids/narrations/track", async (route) => {
@@ -210,6 +213,7 @@ test("reading sentence by sentence, the kids player keeps reading when its liste
   await signIn(page, "adult:sara");
   await page.goto("/family");
   await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await expect(page.getByRole("heading", { name: /Hi Maya/ })).toBeVisible();
   await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
   await expect(page.getByTestId("current-narrator")).toHaveText("Mom");
 

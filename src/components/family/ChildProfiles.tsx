@@ -46,29 +46,33 @@ export function ChildProfiles({ initial }: { initial: ChildProfilesView }) {
 
       <ul className="grid gap-3 sm:grid-cols-2">
         {view.children.map((c) => (
-          <li key={c.id} className="flex flex-wrap items-center gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
-            <StorytellerAvatar name={c.nickname} avatarUrl={null} tint={c.tint} />
-            <div className="min-w-0 flex-1">
-              <p className="font-display text-xl font-semibold">{c.nickname}</p>
-              <Link href={`/family/kids/${c.id}/storytellers`} className="text-sm font-semibold underline underline-offset-4">
-                Manage storytellers
-              </Link>
+          <li key={c.id} className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
+            <div className="flex min-w-0 items-center gap-3">
+              <StorytellerAvatar name={c.nickname} avatarUrl={null} tint={c.tint} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-display text-xl font-semibold">{c.nickname}</p>
+                <Link href={`/family/kids/${c.id}/storytellers`} className="text-sm font-semibold underline underline-offset-4">
+                  Manage storytellers
+                </Link>
+              </div>
             </div>
-            <SessionButton as={`child:${c.id}`} next="/kids" className={parentPrimary}>
-              Open Readli Kids<span className="sr-only"> for {c.nickname}</span>
-            </SessionButton>
-            <button
-              type="button"
-              className={buttonQuiet}
-              disabled={busy}
-              onClick={() => {
-                if (window.confirm(`Remove ${c.nickname}'s profile? Their bookshelf and places in books go too.`)) {
-                  void send(`/api/family/children/${c.id}`, { method: "DELETE" }, `${c.nickname}'s profile was removed.`);
-                }
-              }}
-            >
-              Remove<span className="sr-only"> {c.nickname}</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <SessionButton as={`child:${c.id}`} next="/kids" className={parentPrimary}>
+                Open Readli Kids<span className="sr-only"> for {c.nickname}</span>
+              </SessionButton>
+              <button
+                type="button"
+                className={buttonQuiet}
+                disabled={busy}
+                onClick={() => {
+                  if (window.confirm(`Remove ${c.nickname}'s profile? Their bookshelf and places in books go too.`)) {
+                    void send(`/api/family/children/${c.id}`, { method: "DELETE" }, `${c.nickname}'s profile was removed.`);
+                  }
+                }}
+              >
+                Remove<span className="sr-only"> {c.nickname}</span>
+              </button>
+            </div>
           </li>
         ))}
       </ul>
