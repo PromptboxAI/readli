@@ -221,6 +221,22 @@ test("a grown-up leaves temporary Kids Mode with the family PIN and is back in t
   await expect(page.getByTestId("profiles-count")).toHaveText("3 of 6 profiles");
 });
 
+test("a Kids Mode page left open after Kids Mode ended takes the grown-up home instead of a dead end", async ({ page, context }) => {
+  expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
+  expect((await page.request.put("/api/family/kids-pin", { data: { pin: PIN } })).status()).toBe(200);
+  await page.goto("/family");
+  await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await expect(page.getByRole("heading", { name: "Hi Maya! Pick a story." })).toBeVisible();
+  await page.getByRole("button", { name: "Grown-ups", exact: true }).click();
+  // Kids Mode ends while this page stays open (left with the PIN in another tab, or a grown-up signed in).
+  await context.clearCookies({ name: "readli_kids_profile" });
+  const exit = page.getByTestId("temporary-kids-exit");
+  await exit.getByLabel("Family PIN").fill(PIN);
+  await exit.getByRole("button", { name: "Back to Readli Family" }).click();
+  await expect(page).not.toHaveURL(/\/kids$/);
+  await expect(page.getByText("This browser isn't in temporary Kids Mode.")).toHaveCount(0);
+});
+
 test("the Kids Mode PIN locks after five wrong tries, and nothing else gets a grown-up back", async ({ page, context }) => {
   expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
   expect((await page.request.put("/api/family/kids-pin", { data: { pin: PIN } })).status()).toBe(200);
