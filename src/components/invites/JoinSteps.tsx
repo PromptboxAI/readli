@@ -15,6 +15,7 @@ export function JoinSteps({
   shared: initialShared,
   nickname: initialNickname,
   recordHref,
+  waitingRecording = false,
 }: {
   householdId: string;
   familyName: string;
@@ -22,6 +23,8 @@ export function JoinSteps({
   shared: boolean;
   nickname: string;
   recordHref: string;
+  /** They recorded but didn't keep it, so there's no voice yet. */
+  waitingRecording?: boolean;
 }) {
   const router = useRouter();
   const [shared, setShared] = useState(initialShared);
@@ -80,7 +83,17 @@ export function JoinSteps({
         ))}
       </ol>
 
-      {!voice && (
+      {!voice && waitingRecording && (
+        <section className="flex flex-col items-start gap-3 rounded-[var(--radius-panel)] bg-sunshine/60 p-6" data-testid="waiting-recording">
+          <h2 className="font-display text-2xl font-semibold">Keep your voice to finish</h2>
+          <p>You recorded your voice but haven&apos;t kept it yet, so it isn&apos;t saved and {familyName} can&apos;t see it. Listen to it, then tap Keep This Voice.</p>
+          <Link href={recordHref} className={buttonPrimary}>
+            Hear and keep my voice
+          </Link>
+        </section>
+      )}
+
+      {!voice && !waitingRecording && (
         <section className="flex flex-col items-start gap-3 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10">
           <h2 className="font-display text-2xl font-semibold">Record your voice</h2>
           <p>You&apos;ll agree to how your voice is used, read a short story aloud, then listen and keep it. It takes about five minutes.</p>

@@ -25,6 +25,8 @@ export default async function VoiceRecordPage({ searchParams }: { searchParams: 
   const deps = accountVoiceDeps(serverConfig());
   const user = deps ? await currentAdult() : null;
   const existing = deps && user ? await deps.store.findVoice(user.id).catch(() => null) : null;
+  // A recording made earlier but never kept, so they can hear and keep it instead of reading again.
+  const candidate = deps && user ? await deps.store.findCandidate(user.id).catch(() => null) : null;
   const page = user ? await familyPage() : null;
   const parent = Boolean(user && page?.enabled && isParent(page.state, user.id));
   const me = user && page?.enabled ? page.state?.adults.find((a) => a.id === user.id) : undefined;
@@ -50,6 +52,7 @@ export default async function VoiceRecordPage({ searchParams }: { searchParams: 
           guestCleanUp={p.cleanup === "1"}
           fromTry={p.from === "try"}
           askName={!named}
+          waiting={candidate ? { createdAt: candidate.createdAt, cleanUp: candidate.removeBackgroundNoise } : null}
         />
       ) : (
         <>

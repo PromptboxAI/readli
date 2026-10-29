@@ -10,15 +10,18 @@ const assign = vi.fn();
 const take = { durationMs: 72_000, expiresAt: "2026-10-27T00:00:00.000Z" };
 let calls: string[] = [];
 let fromGuestStatus = 200;
+let sampleStatus = 200;
 
 beforeEach(() => {
   calls = [];
   fromGuestStatus = 200;
+  sampleStatus = 200;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
       calls.push(url);
       if (url === "/api/voice/from-guest") return new Response(JSON.stringify(fromGuestStatus === 410 ? { error: { message: "Your earlier recording isn't here anymore. Please record your voice again." } } : {}), { status: fromGuestStatus });
+      if (url.startsWith("/api/voice/sample") && sampleStatus !== 200) return new Response(JSON.stringify({ error: { message: "Record your voice first, then you can hear a sample." } }), { status: sampleStatus });
       if (url.startsWith("/api/voice/sample")) return { ok: true, status: 200, headers: new Headers(), blob: async () => new Blob(["x"]) } as unknown as Response;
       return new Response("{}", { status: 200 });
     }),
@@ -108,5 +111,31 @@ describe("AccountVoiceSetup from Save My Voice Free", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Keep This Voice" }));
     expect((await screen.findByRole("link", { name: "Continue" })).getAttribute("href")).toBe("/voice/join/h1");
     expect(screen.queryByRole("link", { name: "Go to My Voice" })).toBeNull();
+  });
+});
+
+describe("AccountVoiceSetup with a recording that was never kept", () => {
+  const waiting = { createdAt: "2026-10-29T17:00:00.000Z", cleanUp: false };
+
+  it("opens on its sample so they can keep it without reading again", async () => {
+    render(<AccountVoiceSetup hasVoice={false} waiting={waiting} next="/voice/join/h1" />);
+    expect(screen.getByTestId("waiting-recording").textContent).toContain("haven't kept it yet");
+    fireEvent.click(await screen.findByRole("button", { name: "Keep This Voice" }));
+    expect((await screen.findByRole("link", { name: "Continue" })).getAttribute("href")).toBe("/voice/join/h1");
+    expect(calls).toEqual(["/api/voice/sample?candidate=1", "/api/voice/keep"]);
+  });
+
+  it("can record again instead", async () => {
+    render(<AccountVoiceSetup hasVoice={false} waiting={waiting} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Record Again" }));
+    expect(screen.getByTestId("recorder")).toBeTruthy();
+    expect(calls).toContain("/api/voice/candidate");
+  });
+
+  it("starts over when the recording has gone", async () => {
+    sampleStatus = 404;
+    render(<AccountVoiceSetup hasVoice={false} waiting={waiting} />);
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Record your voice first, then you can hear a sample.");
+    expect(screen.getByTestId("voice-start")).toBeTruthy();
   });
 });
