@@ -19,6 +19,7 @@ import { calledIn } from "@/lib/family/names";
 import { familyHome, homeNotice, noticeText } from "@/lib/family/home";
 import { homeHousehold } from "@/lib/family/service";
 import { planConfig } from "@/lib/family/plan";
+import { familyCheckoutOpen } from "@/lib/accounts/checkout";
 import { familyPage, guardianChildren } from "@/lib/family/page-data";
 import { activeEntitlement, childProfileLimit, countedSlots, narratorSlotCount } from "@/lib/family/permissions";
 import { deviceRegistry, familyPreviewEnabled, TEMPORARY_KIDS_HOURS } from "@/lib/family/session";
@@ -254,7 +255,14 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
               </div>
               {account && !hasPlan && (
                 <p className="rounded-2xl bg-sunshine/50 p-3 text-sm">
-                  Kids profiles come with Readli Family. Checkout isn&apos;t switched on yet, so this unlocks when it is.
+                  Kids profiles come with Readli Family.{" "}
+                  {familyCheckoutOpen() ? (
+                    <Link href="/family/settings/plan" className="font-semibold underline underline-offset-4">
+                      Choose a plan
+                    </Link>
+                  ) : (
+                    "Checkout isn't switched on yet, so this unlocks when it is."
+                  )}
                 </p>
               )}
               {needsPin && <SetKidsPin />}
