@@ -33,8 +33,8 @@ afterEach(() => {
 describe("FamilyStart", () => {
   it("shows the prices first, then takes a signed-in Voice account straight to the chosen plan's checkout", async () => {
     render(<FamilyStart {...props} signedInAs="kevin@example.com" />);
-    expect(screen.getByTestId("price-monthly").textContent).toBe("$19.99/month");
-    expect(screen.getByTestId("price-annual").textContent).toBe("$179.99/year");
+    expect(screen.getByTestId("price-monthly").textContent).toBe("$19.99 a month");
+    expect(screen.getByTestId("price-annual").textContent).toBe("$179.99 a year");
     fireEvent.click(screen.getByLabelText(/Yearly/));
     fireEvent.click(screen.getByTestId("family-checkout"));
     await waitFor(() => expect(assign).toHaveBeenCalledWith("https://checkout.stripe.com/c/test_123"));
@@ -47,7 +47,7 @@ describe("FamilyStart", () => {
 
   it("asks for the emailed code when signed out, before any checkout", () => {
     render(<FamilyStart {...props} signedInAs={null} />);
-    expect(screen.getByRole("button", { name: "Email me a code" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Email me my code" })).toBeTruthy();
     expect(screen.queryByTestId("family-checkout")).toBeNull();
   });
 
