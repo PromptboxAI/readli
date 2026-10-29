@@ -114,7 +114,50 @@ describe("Stripe API", () => {
     expect(created).toContain("unit_amount=1999");
     expect(created).toContain("recurring[interval]=month");
     expect(created).toContain("lookup_key=readli_family_monthly_1999");
+    expect(created).not.toContain("tax_code");
     expect(calls[0]!.init!.headers).toMatchObject({ authorization: "Bearer sk_test_x" });
+  });
+
+  it("with a tax code, gives products the code and makes prices include tax, fixing up older ones", async () => {
+    const calls: { url: string; init?: RequestInit }[] = [];
+    let existing: { id: string; tax_behavior?: string; product: { id: string; tax_code: string | null } } | null = { id: "price_old", product: { id: "prod_1", tax_code: null } };
+    const fake = (async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      if (init?.method === "GET") return Response.json({ data: existing ? [existing] : [] });
+      return Response.json({ id: "price_new" });
+    }) as typeof fetch;
+    const env = { PAYMENTS_ENABLED: "true", STRIPE_SECRET_KEY: "sk_test_x", STRIPE_WEBHOOK_SECRET: "w", STRIPE_PRODUCT_TAX_CODE: "txcd_10103000" };
+    const config = billingConfig(env as unknown as NodeJS.ProcessEnv);
+    expect(config.productTaxCode).toBe("txcd_10103000");
+    expect(billingConfig({ ...env, STRIPE_PRODUCT_TAX_CODE: "nope" } as unknown as NodeJS.ProcessEnv).productTaxCode).toBeUndefined();
+    const api = new StripeApi(config, fake);
+    const item = catalogItem(DEFAULT_PLAN, "family_monthly")!;
+
+    expect(await api.priceFor(item)).toBe("price_old");
+    expect(decodeURIComponent(calls[0]!.url)).toContain("expand[0]=data.product");
+    expect(calls[1]!.url).toBe("https://api.stripe.com/v1/products/prod_1");
+    expect(decodeURIComponent(String(calls[1]!.init!.body))).toBe("tax_code=txcd_10103000");
+    expect(calls[2]!.url).toBe("https://api.stripe.com/v1/prices/price_old");
+    expect(decodeURIComponent(String(calls[2]!.init!.body))).toBe("tax_behavior=inclusive");
+
+    calls.length = 0;
+    existing = { id: "price_old", tax_behavior: "inclusive", product: { id: "prod_1", tax_code: "txcd_10103000" } };
+    expect(await api.priceFor(item)).toBe("price_old");
+    expect(calls).toHaveLength(1);
+
+    calls.length = 0;
+    existing = { id: "price_old", tax_behavior: "exclusive", product: { id: "prod_1", tax_code: "txcd_10103000" } };
+    expect(await api.priceFor(item)).toBe("price_new");
+    const replaced = decodeURIComponent(String(calls.at(-1)!.init!.body));
+    expect(replaced).toContain("transfer_lookup_key=true");
+    expect(replaced).toContain("product=prod_1");
+    expect(replaced).toContain("tax_behavior=inclusive");
+
+    existing = null;
+    expect(await api.priceFor(item)).toBe("price_new");
+    const created = decodeURIComponent(String(calls.at(-1)!.init!.body));
+    expect(created).toContain("product_data[tax_code]=txcd_10103000");
+    expect(created).toContain("tax_behavior=inclusive");
   });
 });
 
@@ -130,9 +173,9 @@ describe("checkoutReturn", () => {
   });
 
   it("only for an invitation this household accepted, and only to a connect page", () => {
-    expect(checkoutReturn(origin, { fromSignup: false, invitationId: null, returnPath: `/v/${token}/connect` }).success).toBe(`${origin}/family/settings/plan?checkout=success&session_id={CHECKOUT_SESSION_ID}`);
+    expect(checkoutReturn(origin, { fromSignup: false, invitationId: null, returnPath: `/v/${token}/connect` }).success).toBe(`${origin}/family/billing/thanks?session_id={CHECKOUT_SESSION_ID}`);
     for (const returnPath of ["https://evil.example/v/x/connect", `//evil.example/v/${token}/connect`, `/v/${token}/connect?x=1`, "/family", `/v/short/connect`, 42]) {
-      expect(checkoutReturn(origin, { fromSignup: false, invitationId: "inv-1", returnPath }).success).toBe(`${origin}/family/settings/plan?checkout=success&session_id={CHECKOUT_SESSION_ID}`);
+      expect(checkoutReturn(origin, { fromSignup: false, invitationId: "inv-1", returnPath }).success).toBe(`${origin}/family/billing/thanks?session_id={CHECKOUT_SESSION_ID}`);
     }
   });
 

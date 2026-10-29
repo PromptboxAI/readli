@@ -45,7 +45,7 @@ export function checkoutReturn(origin: string, opts: { fromSignup: boolean; invi
     return { success: `${origin}${opts.returnPath}?checkout=success&session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}${opts.returnPath}?checkout=canceled` };
   }
   if (opts.fromSignup) return { success: `${origin}/family/setup?checkout=success&session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}/signup/family?checkout=canceled` };
-  return { success: `${origin}/family/settings/plan?checkout=success&session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}/family/settings/plan?checkout=canceled` };
+  return { success: `${origin}/family/billing/thanks?session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}/family/settings/plan?checkout=canceled` };
 }
 
 /** Stripe needs a trial end at least two days out; a gift ending sooner than that just hands straight over. */

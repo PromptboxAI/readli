@@ -54,11 +54,11 @@ export function activeShare(state: FamilyState, voiceId: string, householdId: st
 
 /** The household's live Readli Family entitlement (subscription, gift or donated membership). */
 export function activeEntitlement(state: FamilyState, householdId: string, at = new Date().toISOString()): HouseholdEntitlement | null {
-  return (
-    state.entitlements.find(
-      (e) => e.householdId === householdId && e.status === "active" && e.startsAt <= at && (e.endsAt === null || e.endsAt > at),
-    ) ?? null
+  const live = state.entitlements.filter(
+    (e) => e.householdId === householdId && e.status === "active" && e.startsAt <= at && (e.endsAt === null || e.endsAt > at),
   );
+  // A plan the family pays for wins over a free trial or tester plan that hasn't run out yet.
+  return live.find((e) => e.source === "subscription") ?? live.find((e) => e.source !== "trial" && e.source !== "tester") ?? live[0] ?? null;
 }
 
 /** The plan's limits for this entitlement. A sponsored plan carries its own; every other plan uses the settings. */

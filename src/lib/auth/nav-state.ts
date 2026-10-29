@@ -10,14 +10,14 @@ import { familyAccess, type FamilyAccess, type NavState } from "./nav-links";
 
 export * from "./nav-links";
 
-function adult(name: string, email: string | null, hasVoice: boolean, family: FamilyAccess, household: boolean, avatarUrl: string | null = null): NavState {
-  return { kind: "adult", name: chosenName(name, email) ?? "", email, hasVoice, family, household, avatarUrl };
+function adult(name: string, email: string | null, hasVoice: boolean, family: FamilyAccess, household: boolean, avatarUrl: string | null = null, named = false): NavState {
+  return { kind: "adult", name: chosenName(name, email, named) ?? "", email, hasVoice, family, household, avatarUrl };
 }
 
 /** Real accounts: a few small reads, so the header never shows the wrong buttons first. */
-async function accountNav(user: { id: string; name: string; email: string | null }): Promise<NavState> {
+async function accountNav(user: { id: string; name: string; email: string | null; named?: boolean }): Promise<NavState> {
   const db = accountDb();
-  if (!db) return adult(user.name, user.email, false, { plan: "none", hadFamily: true }, false);
+  if (!db) return adult(user.name, user.email, false, { plan: "none", hadFamily: true }, false, null, user.named);
   const [homes, voice, me] = await Promise.all([
     db.from("household_members").select("household_id").eq("user_id", user.id).eq("role", "guardian").is("removed_at", null),
     db.from("voice_profiles").select("id").eq("owner_id", user.id).neq("status", "deleted").limit(1),
@@ -36,7 +36,7 @@ async function accountNav(user: { id: string; name: string; email: string | null
     : [];
   // The name they chose in Readli wins over the one from sign-in.
   const name = (me.data?.display_name as string | null | undefined) || user.name;
-  return adult(name, user.email, (voice.data ?? []).length > 0, familyAccess(plans), ids.length > 0, avatarUrl);
+  return adult(name, user.email, (voice.data ?? []).length > 0, familyAccess(plans), ids.length > 0, avatarUrl, user.named);
 }
 
 function previewNav(state: FamilyState, adultId: string): NavState {

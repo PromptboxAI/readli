@@ -5,6 +5,8 @@ import { CreditsPanel } from "@/components/family/CreditsPanel";
 import { FamilyOff, NeedsGrownUp } from "@/components/family/FamilyShell";
 import { SettingsShell } from "@/components/family/SettingsShell";
 import { billingConfig } from "@/lib/billing/config";
+import { confirmCheckout } from "@/lib/billing/confirm";
+import { StripeApi } from "@/lib/billing/stripe-api";
 import { effectivePlan } from "@/lib/billing/price-settings";
 import { billingSummary, type BillingSummary } from "@/lib/billing/summary";
 import { accountDb } from "@/lib/family/account-store";
@@ -96,11 +98,17 @@ export default async function PlanAndCreditsPage({ searchParams }: { searchParam
   const store = (await familyStore(page.session))!;
   const householdId = await guardianHousehold(store, page.session.actor);
   if (!householdId) return <NeedsGrownUp text={NOT_GUARDIAN} />;
-  const state = await store.read();
+  const config = billingConfig();
+  const paymentsOn = config.mode !== "off";
   const db = page.session.account ? accountDb() : null;
+  // An older checkout link still lands here: confirm it with Stripe so a paid plan shows without the webhook.
+  if (q.checkout === "success" && q.session_id && db && paymentsOn) {
+    const stripe = new StripeApi(config);
+    await confirmCheckout(db, (id) => stripe.getCheckoutSession(id), q.session_id, householdId).catch((err: unknown) => console.error("confirm checkout failed", err));
+  }
+  const state = await store.read();
   const plan = await effectivePlan(db, store.plan);
   const s = billingSummary(state, plan, householdId);
-  const paymentsOn = billingConfig().mode !== "off";
   const gift = s.plan === "sponsored" && db ? await householdGift(db, householdId).catch(() => null) : null;
 
   // Credits use the family's stored plan, as narration does.

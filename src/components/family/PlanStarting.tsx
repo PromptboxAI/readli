@@ -8,7 +8,7 @@ const EVERY_MS = 3000;
 const TRIES = 20;
 
 /** Back from Stripe before the payment is confirmed: checks again every few seconds for about a minute. */
-export function PlanStarting() {
+export function PlanStarting({ waiting = "Thank you! Your plan starts as soon as the payment goes through, usually within a minute. You can name your family while you wait." }: { waiting?: string }) {
   const router = useRouter();
   const [tries, setTries] = useState(0);
   useEffect(() => {
@@ -22,7 +22,7 @@ export function PlanStarting() {
   return (
     <p role="status" className="rounded-2xl bg-sky/40 px-4 py-3" data-testid="plan-starting">
       {tries < TRIES ? (
-        "Thank you! Your plan starts as soon as the payment goes through, usually within a minute. You can name your family while you wait."
+        waiting
       ) : (
         <>
           Your payment is taking longer than usual to confirm. Refresh in a minute, or check{" "}
