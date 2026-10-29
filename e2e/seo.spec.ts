@@ -60,3 +60,21 @@ test("Readli is described the same way in the footer, on /company and in llms.tx
   expect(llms).toContain(short);
   expect(llms).toContain(long);
 });
+
+test("the explainer pages each have one heading, structured data and what's live versus coming", async ({ page }) => {
+  for (const [path, heading] of [
+    ["/how-it-works", "How Readli works"],
+    ["/family-voices", "Family Voices"],
+    ["/readli-kids", "Readli Kids"],
+  ] as const) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(heading);
+    await expect(page.getByTestId("live-today").getByRole("listitem").first()).toBeVisible();
+    await expect(page.getByTestId("coming-soon").getByRole("listitem").first()).toBeVisible();
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${SITE}${path}`);
+    expect(await page.locator('script[type="application/ld+json"]').count()).toBeGreaterThan(0);
+  }
+  // Phones and tablets get the same page without sideways scrolling.
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});

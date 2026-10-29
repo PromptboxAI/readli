@@ -374,6 +374,7 @@ export function FinalCta() {
 
 export function SiteFooter() {
   const links = [
+    { href: "/how-it-works", label: "How it works" },
     { href: "/books", label: "Library" },
     { href: "/company", label: "Company" },
     { href: "/pricing", label: "Pricing" },
