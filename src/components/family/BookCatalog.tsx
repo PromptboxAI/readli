@@ -141,25 +141,48 @@ export function BookCatalog({
   const select = "min-h-11 rounded-2xl border-2 border-ink/20 bg-surface px-3 font-semibold text-ink";
   return (
     <div className="flex flex-col gap-5" data-testid="catalog">
-      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)] lg:items-center lg:gap-x-4 lg:gap-y-4">
-        <label className="flex min-h-12 items-center gap-3 rounded-2xl border-2 border-ink/20 bg-surface px-4 lg:col-start-1 lg:row-start-1">
-          <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5 shrink-0 text-muted" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <circle cx="11" cy="11" r="7" />
-            <path d="M20 20l-3.5-3.5" />
-          </svg>
-          <span className="sr-only">Search books</span>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setShown(PAGE);
-            }}
-            placeholder={`Search ${books.length} stories`}
-            className="min-w-0 flex-1 bg-transparent py-2 outline-none"
-          />
-        </label>
-        <div role="group" aria-label="Filters" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 lg:col-span-2 lg:row-start-2">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex min-h-12 min-w-[min(100%,11rem)] flex-1 items-center gap-3 rounded-2xl border-2 border-ink/20 bg-surface px-4">
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5 shrink-0 text-muted" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M20 20l-3.5-3.5" />
+            </svg>
+            <span className="sr-only">Search books</span>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setShown(PAGE);
+              }}
+              placeholder={`Search ${books.length} stories`}
+              className="min-w-0 flex-1 bg-transparent py-2 outline-none"
+            />
+          </label>
+          {/* Costs and "Ready to play" depend on whose voice reads; with only one storyteller there's nothing to choose. On phones it drops below, so Sort stays beside search. */}
+          {narrators.length > 1 && (
+            <label className="order-last flex items-center gap-2 text-sm text-muted sm:order-none">
+              Storyteller
+              <select value={voiceId} onChange={(e) => setVoiceId(e.target.value)} className={select}>
+                {narrators.map((n) => (
+                  <option key={n.voiceId} value={n.voiceId}>
+                    {n.yours ? `${n.name} (you)` : n.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <span className="sr-only sm:not-sr-only">Sort</span>
+            <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className={`${select} min-h-12`} aria-label="Sort">
+              <option value="shortest">Shortest first</option>
+              <option value="longest">Longest first</option>
+              <option value="title">A to Z</option>
+            </select>
+          </label>
+        </div>
+        <div role="group" aria-label="Filters" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
           {filters.map((f) => (
             <button
               key={f.id}
@@ -175,32 +198,11 @@ export function BookCatalog({
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap gap-3 lg:col-start-2 lg:row-start-1">
-          {narrators.length > 0 && (
-            <label className="flex items-center gap-2 text-sm text-muted">
-              Costs for
-              <select value={voiceId} onChange={(e) => setVoiceId(e.target.value)} className={select}>
-                {narrators.map((n) => (
-                  <option key={n.voiceId} value={n.voiceId}>
-                    {n.yours ? `${n.name} (your voice)` : n.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          <label className="flex items-center gap-2 text-sm text-muted">
-            Sort
-            <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className={select}>
-              <option value="shortest">Shortest first</option>
-              <option value="longest">Longest first</option>
-              <option value="title">A to Z</option>
-            </select>
-          </label>
-        </div>
       </div>
 
       <p className="text-sm text-muted">
-        Costs are for {voiceName ?? "the storyteller you choose"}. You only pay for what isn&apos;t prepared yet in that voice, and listening again never costs credits.
+        {narrators.length > 1 ? `Costs are for ${voiceName ?? "the storyteller you choose"}. ` : ""}You only pay for what isn&apos;t prepared yet
+        {narrators.length > 1 ? " in that voice" : ""}, and listening again never costs credits.
       </p>
 
       {list.length === 0 ? (
