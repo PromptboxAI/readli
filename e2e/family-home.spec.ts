@@ -180,7 +180,11 @@ test("Settings goes back to the page that opened it", async ({ page }) => {
 test("a storyteller in a slot leads straight to choosing which kids hear them", async ({ page }) => {
   await signIn(page, "adult:sara");
   await page.goto("/family/narrators");
-  await expect(page.getByTestId("slot-voice-sara").getByRole("link", { name: "Choose kids" })).toHaveAttribute("href", "/family/kids");
+  await page.getByTestId("slot-voice-sara").getByRole("button", { name: "Choose kids" }).click();
+  await expect(page.getByRole("heading", { name: /Which children can hear/ })).toBeVisible();
+  // Home's "Not approved for a child yet" opens on the same choice.
+  await page.goto("/family/narrators?choose=voice-sara");
+  await expect(page.getByTestId("pick-kids")).toBeVisible();
 });
 
 test("Back after approving a storyteller shows the change, not a stale page", async ({ page }) => {

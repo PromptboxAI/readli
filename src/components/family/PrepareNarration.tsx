@@ -44,9 +44,10 @@ function StatusBadge({ availability, testId }: { availability: Availability; tes
 
 type Target = { voiceId: string; scope: "book" | "chapter"; chapter?: number };
 
-/** Who opens first: the narrator being resumed, then your own voice, then the first storyteller. */
-function firstVoice(view: PrepareBookView, resume: Target | null) {
-  return (resume && view.voices.find((v) => v.voiceId === resume.voiceId)?.voiceId) ?? view.voices.find((v) => v.yours)?.voiceId ?? view.voices[0]?.voiceId ?? null;
+/** Who opens first: the narrator being resumed or asked for, then your own voice, then the first storyteller. */
+function firstVoice(view: PrepareBookView, resume: Target | null, prefer: string | null) {
+  const wanted = resume?.voiceId ?? prefer;
+  return (wanted && view.voices.find((v) => v.voiceId === wanted)?.voiceId) ?? view.voices.find((v) => v.yours)?.voiceId ?? view.voices[0]?.voiceId ?? null;
 }
 
 /**
@@ -54,9 +55,9 @@ function firstVoice(view: PrepareBookView, resume: Target | null) {
  * whole book or a chapter costs in Readli credits, and confirm before anything is generated.
  * `resume` reopens the confirmation after buying credits, so the parent doesn't choose again.
  */
-export function PrepareNarration({ initial, resume }: { initial: PrepareBookView; resume: Target | null }) {
+export function PrepareNarration({ initial, resume, prefer = null }: { initial: PrepareBookView; resume: Target | null; prefer?: string | null }) {
   const [view, setView] = useState(initial);
-  const [selected, setSelected] = useState<string | null>(() => firstVoice(initial, resume));
+  const [selected, setSelected] = useState<string | null>(() => firstVoice(initial, resume, prefer));
   const [pending, setPending] = useState<{ target: Target; quote: GenerationQuote } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);

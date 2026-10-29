@@ -327,7 +327,6 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       return { slug: b.slug, title: b.title, coverUrl: b.coverUrl, tint: inCatalog?.tint ?? "bg-sunshine", href: inCatalog ? `/family/books/${b.slug}` : "/family/books", detail: b.author, percent: null, voices: [] };
     });
 
-  const approveHref = kids.length === 1 ? `/family/kids/${kids[0]!.id}/storytellers` : "/family/kids";
   const storytellers: HomeStoryteller[] = state.voices
     .filter((v) => v.deletedAt === null && v.status === "ready" && isActiveMember(state, v.ownerId, householdId))
     .map((v) => {
@@ -343,7 +342,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       if (approved.length && approved.length === kids.length) return { ...card, tone: "family" as const, detail: "Approved for every child" };
       if (approved.length) return { ...card, tone: "some" as const, detail: `Approved for ${names(approved)}` };
       // In a slot but no child may hear them yet: the card goes to where a parent approves them.
-      const next = activeSlot(state, v.id, householdId, plan) ? approveHref : "/family/narrators";
+      const next = activeSlot(state, v.id, householdId, plan) ? `/family/narrators?choose=${encodeURIComponent(v.id)}` : "/family/narrators";
       return { ...card, tone: "none" as const, detail: "Not approved for a child yet", href: next };
     })
     .sort((a, b) => ["family", "some", "none", "waiting"].indexOf(a.tone) - ["family", "some", "none", "waiting"].indexOf(b.tone));

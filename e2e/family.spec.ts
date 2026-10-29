@@ -80,7 +80,11 @@ test("a ready storyteller is added and approved for children from one page", asy
   await pick.getByRole("checkbox", { name: "Maya" }).check();
   await pick.getByRole("button", { name: "Approve for this child" }).click();
   await expect(page.getByText(/Maya can now hear/)).toBeVisible();
+  // Next step: a book in their voice, with books the kids already hear in another voice first.
+  await expect(page.getByTestId("prepare-next").getByRole("link")).toHaveAttribute("href", "/family/books?voice=voice-priya");
   await noOverflow(page);
+  await page.getByTestId("prepare-next").getByRole("link").click();
+  await expect(page.getByTestId("prepare-for-voice")).toBeVisible();
 
   await page.goto("/family/kids/maya/storytellers");
   await expect(page.getByTestId("storyteller-voice-priya")).toContainText("Approved for Maya");
@@ -430,7 +434,7 @@ test("Books is one catalog with search, simple filters and each book's cost in t
   await catalog.getByRole("searchbox", { name: "Search books" }).fill("");
   await filter("Quick stories").click();
   await book("the-lion-and-the-mouse").click();
-  await expect(page).toHaveURL(/\/family\/books\/the-lion-and-the-mouse$/);
+  await expect(page).toHaveURL(/\/family\/books\/the-lion-and-the-mouse\?voice=voice-[a-z]+$/);
   await page.goBack();
   await expect(filter("Quick stories")).toHaveAttribute("aria-pressed", "true");
   await expect(book("aesops-fables-retold")).toHaveCount(0);
