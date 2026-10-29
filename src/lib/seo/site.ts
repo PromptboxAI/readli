@@ -5,8 +5,11 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://readli.ai"
 
 export const SITE_NAME = "Readli";
 export const SITE_TAGLINE = "Every Book. Every Voice.";
-export const SITE_DESCRIPTION =
-  "Their favorite stories, read by their favorite people. Record a minute of your voice and hear classic storybooks read aloud the way only you can, then invite family to join your storytelling library.";
+/** Kevin's approved short description (2026-10-27): page descriptions, share cards and the footer. */
+export const SITE_DESCRIPTION = "Readli reads classic children's books aloud in the voices of the people your kids love.";
+/** Kevin's approved long description (2026-10-27): the company page, structured data and llms.txt. */
+export const SITE_LONG_DESCRIPTION =
+  "Readli is a family storytelling app. A parent, grandparent or other loved one records about a minute of their voice, and Readli reads classic storybooks aloud in that voice. Family voices are private: a child hears a storyteller only after both the storyteller and a parent approve. Readli Voice is free for anyone who records, and Readli Family is the paid plan for households.";
 
 /** Only the production deployment is open to search engines; previews and local builds ask not to be indexed. */
 export function indexable(env: Record<string, string | undefined> = process.env): boolean {

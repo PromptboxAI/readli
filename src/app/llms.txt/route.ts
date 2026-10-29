@@ -1,5 +1,5 @@
 import { publicPages } from "@/lib/seo/pages";
-import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, absoluteUrl } from "@/lib/seo/site";
+import { SITE_DESCRIPTION, SITE_LONG_DESCRIPTION, SITE_NAME, SITE_TAGLINE, absoluteUrl } from "@/lib/seo/site";
 
 export const dynamic = "force-static";
 
@@ -16,7 +16,7 @@ export function GET() {
     "",
     `> ${SITE_TAGLINE} ${SITE_DESCRIPTION}`,
     "",
-    "Readli is a family read-aloud app for children's stories. A parent, grandparent or other family member records about a minute of their natural storytime voice, and Readli uses it to narrate classic, public-domain storybooks. Family voices are private by default: a child hears a storyteller only after both the storyteller and a parent approve. Readli Voice, for recording and sharing your voice, is free. Readli Family is the paid plan for families who prepare stories for their kids.",
+    SITE_LONG_DESCRIPTION,
     "",
     "## Main pages",
     "",
