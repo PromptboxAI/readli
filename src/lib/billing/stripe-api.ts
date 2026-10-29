@@ -61,19 +61,37 @@ export class StripeApi {
       body: method === "POST" ? body : undefined,
     });
     const json = (await res.json().catch(() => ({}))) as T & { error?: { message?: string } };
-    if (!res.ok) throw new StripeError(res.status, json.error?.message ?? `Stripe ${res.status}`);
+    if (!res.ok) {
+      const message = json.error?.message ?? `Stripe ${res.status}`;
+      console.error(`Stripe ${method} /v1/${path} failed (${res.status}): ${message}`);
+      throw new StripeError(res.status, message);
+    }
     return json;
   }
 
-  /** The active Stripe price for a catalog item, created on first use from the plan settings. */
+  /**
+   * The active Stripe price for a catalog item, created on first use from the plan settings. Its product
+   * carries the configured tax code, and a product made before the code was set is given it here.
+   */
   async priceFor(item: CatalogItem): Promise<string> {
-    const found = await this.call<{ data: { id: string }[] }>("GET", "prices", { lookup_keys: [item.lookupKey], active: true });
-    if (found.data[0]) return found.data[0].id;
+    const taxCode = this.config.productTaxCode;
+    const found = await this.call<{ data: { id: string; product?: string | { id: string; tax_code?: string | { id: string } | null } }[] }>("GET", "prices", {
+      lookup_keys: [item.lookupKey],
+      active: true,
+      ...(taxCode ? { expand: ["data.product"] } : {}),
+    });
+    const price = found.data[0];
+    if (price) {
+      const product = typeof price.product === "object" ? price.product : null;
+      const current = typeof product?.tax_code === "object" ? product.tax_code?.id : product?.tax_code;
+      if (taxCode && product && current !== taxCode) await this.call("POST", `products/${encodeURIComponent(product.id)}`, { tax_code: taxCode });
+      return price.id;
+    }
     const created = await this.call<{ id: string }>("POST", "prices", {
       currency: "usd",
       unit_amount: item.amountCents,
       lookup_key: item.lookupKey,
-      product_data: { name: item.name, metadata: { readli_item: item.id } },
+      product_data: { name: item.name, metadata: { readli_item: item.id }, tax_code: taxCode },
       recurring: item.interval ? { interval: item.interval } : undefined,
       metadata: { readli_item: item.id },
     });
