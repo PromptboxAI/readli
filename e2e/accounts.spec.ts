@@ -40,7 +40,7 @@ test("the yearly link on the pricing page opens signup with yearly picked", asyn
 test("family checkout shows the plan and stays switched off", async ({ page }, info) => {
   await page.goto("/signup/family");
   // Step 1 is just email or Google; the name comes after payment.
-  await expect(page.getByLabel("Email")).toBeVisible();
+  await expect(page.getByLabel("Email", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Your name")).toHaveCount(0);
   await expect(page.getByTestId("family-price")).toContainText("$19.99");
   await page.getByLabel("Yearly").check();

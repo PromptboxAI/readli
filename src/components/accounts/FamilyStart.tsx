@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { BillingChoice, type Billing } from "@/components/accounts/BillingChoice";
 import { buttonPrimary } from "@/components/brand/buttons";
+import { PlanIncludes, StepHeading } from "@/components/accounts/SignupSteps";
 import { newMetaEventId, rememberCheckout, trackMeta } from "@/lib/marketing/meta-pixel";
 
 async function post(path: string, body: unknown): Promise<Record<string, unknown>> {
@@ -82,29 +83,30 @@ export function FamilyStart(props: {
   const next = `/signup/family?${back.toString()}`;
 
   return (
-    <div className="flex flex-col gap-6">
-      <section aria-labelledby="plan" className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-sunshine/50 p-6 sm:p-8">
-        <h2 id="plan" className="font-display text-2xl font-semibold">
-          1. Choose your plan
-        </h2>
+    <div className="flex flex-col gap-8">
+      <section aria-labelledby="plan" className="flex flex-col gap-6 rounded-[var(--radius-panel)] bg-sunshine/35 p-5 sm:p-8">
+        <StepHeading n={1} id="plan">
+          Choose how to pay
+        </StepHeading>
         <BillingChoice monthlyCents={props.monthlyCents} annualCents={props.annualCents} monthlyCredits={props.monthlyCredits} initial={props.initial} onChange={setBilling} />
+        <PlanIncludes />
         {!props.paymentsOn && (
-          <p data-testid="checkout-off" className="rounded-2xl bg-surface/80 p-3 text-sm">
+          <p data-testid="checkout-off" className="rounded-2xl bg-surface/80 p-4 text-lg">
             Checkout isn&apos;t switched on yet, so nothing will be charged.
           </p>
         )}
       </section>
-      <section aria-labelledby="acct" className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10 sm:p-8">
-        <h2 id="acct" className="font-display text-2xl font-semibold">
-          2. {props.signedInAs ? "Check out" : "Your account, then checkout"}
-        </h2>
+      <section aria-labelledby="acct" className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-surface p-5 text-lg ring-[3px] ring-ink/10 sm:p-8">
+        <StepHeading n={2} id="acct">
+          {props.signedInAs ? "Check out" : "Enter your email, then pay"}
+        </StepHeading>
         {props.signedInAs ? (
           <>
             <p>
               Signed in as <strong>{props.signedInAs}</strong>. Readli Family is added to this account, and anything you already have, like
               your voice and the families you share it with, stays as it is.
             </p>
-            <button type="button" className={`${buttonPrimary} self-start`} disabled={busy} onClick={() => void run()} data-testid="family-checkout">
+            <button type="button" className={`${buttonPrimary} min-h-16 w-full text-xl`} disabled={busy} onClick={() => void run()} data-testid="family-checkout">
               {busy ? "Opening checkout…" : props.paymentsOn ? "Continue to checkout" : "Start my family"}
             </button>
             {error && (
@@ -115,8 +117,8 @@ export function FamilyStart(props: {
           </>
         ) : (
           <>
-            <p>Enter your email and we&apos;ll send a 6-digit code to type right here. Then you go straight to checkout. Already have a Readli account? Use the same email.</p>
-            <LoginForm next={next} askMarketing signup="Readli Family" onSignedIn={checkout} />
+            <p>We&apos;ll email you a 6-digit code to type in here. Then you go straight to secure checkout. Already have a Readli account? Use the same email.</p>
+            <LoginForm next={next} askMarketing signup="Readli Family" submitLabel="Email me my code" onSignedIn={checkout} />
           </>
         )}
       </section>
