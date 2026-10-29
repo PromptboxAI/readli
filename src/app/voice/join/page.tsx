@@ -13,7 +13,8 @@ export const dynamic = "force-dynamic";
 /**
  * Where a family's storyteller invitation lands. Signed out: sign in or create a free Readli Voice
  * account with the invitation kept in the sign-in link. Signed in: accept, then record and share.
- * Accepting adds family membership only; it shares no voice and approves no child.
+ * Accepting adds family membership only; it shares no voice and approves no child. A co-parent
+ * invitation makes them a parent of the family instead, and lands them on Family Home.
  */
 export default async function JoinPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const p = await searchParams;
@@ -21,13 +22,18 @@ export default async function JoinPage({ searchParams }: { searchParams: Promise
   const db = familyAccountsEnabled() ? accountDb() : null;
   const user = db ? await currentAdult() : null;
   const invite = db && token ? await inviteForToken(db, token, user?.id ?? null) : null;
-  if (user && invite?.alreadyMember && invite.householdId) redirect(`/voice/join/${invite.householdId}`);
+  const coParent = invite?.role === "guardian";
+  if (user && invite?.alreadyMember && invite.householdId) redirect(coParent ? "/family" : `/voice/join/${invite.householdId}`);
   return (
     <AdultPage>
       <header className="flex flex-col gap-2">
-        <Eyebrow>Readli Voice · Free</Eyebrow>
+        <Eyebrow>{coParent ? "Readli Family · Free for you" : "Readli Voice · Free"}</Eyebrow>
         <h1 className="font-display text-4xl font-semibold sm:text-5xl">
-          {invite ? `${invite.inviterName} invited you to read stories to ${invite.familyName}` : "Storyteller invitation"}
+          {invite
+            ? coParent
+              ? `${invite.inviterName} invited you to be a parent in ${invite.familyName}`
+              : `${invite.inviterName} invited you to read stories to ${invite.familyName}`
+            : "Storyteller invitation"}
         </h1>
       </header>
       <JoinInvite token={token} invite={invite} signedIn={Boolean(user)} live={Boolean(db)} />

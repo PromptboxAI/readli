@@ -131,7 +131,7 @@ describe("real family accounts", () => {
     expect(tables.child_favorites).toMatchObject([{ child_id: maya, book_slug: "peter-rabbit" }]);
 
     const again = await new AccountFamilyStore(db, ME, DEFAULT_PLAN).read();
-    expect(again.households).toEqual([{ id: home, name: "The Rivera family" }]);
+    expect(again.households).toEqual([{ id: home, name: "The Rivera family", ownerId: ME.id }]);
     expect(again.children.map((c) => [c.nickname, c.guardianIds])).toEqual([["Maya", [ME.id]]]);
     expect(again.favorites).toEqual([{ childId: maya, bookSlug: "peter-rabbit" }]);
     expect(again.entitlements).toHaveLength(1);

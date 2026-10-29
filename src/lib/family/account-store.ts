@@ -106,7 +106,7 @@ export class AccountFamilyStore implements FamilyStore {
 
     if (homeIds.length > 0) {
       const [homes, members, children, entitlements] = await Promise.all([
-        this.q(this.db.from("households").select("id, name").in("id", homeIds), "read households"),
+        this.q(this.db.from("households").select("id, name, created_by").in("id", homeIds), "read households"),
         this.q(this.db.from("household_members").select("*").in("household_id", homeIds), "read members"),
         this.q(this.db.from("child_profiles").select("*").in("household_id", homeIds), "read kids"),
         this.q(this.db.from("household_entitlements").select("*").in("household_id", homeIds), "read plans"),
@@ -136,7 +136,7 @@ export class AccountFamilyStore implements FamilyStore {
       ]);
       const profiles = await this.q(this.db.from("adult_profiles").select("user_id, display_name, avatar_path, photo_consent_at").in("user_id", people), "read people");
 
-      state.households = homes.map((h) => ({ id: h.id as string, name: h.name as string }));
+      state.households = homes.map((h) => ({ id: h.id as string, name: h.name as string, ownerId: str(h.created_by) }));
       state.members = members.map((m) => ({
         householdId: m.household_id as string,
         adultId: m.user_id as string,

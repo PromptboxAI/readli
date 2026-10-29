@@ -231,23 +231,37 @@ export interface FamilyInviteEmailInput {
   linkDays: number;
   /** An automatic reminder (sequence email I1) rather than the first invitation. */
   reminder?: boolean;
+  /** Invites a second parent (Settings → Parents) rather than a storyteller. */
+  coParent?: boolean;
 }
 
-/** A family's parent invites a storyteller (Family storytellers → Invite a storyteller). */
+/** A family's parent invites a storyteller (Family storytellers → Invite a storyteller), or a co-parent. */
 export function familyInviteEmail(input: FamilyInviteEmailInput): Omit<OutgoingEmail, "to"> {
   const who = input.inviterName;
   const family = input.familyName;
   const hello = input.recipientName ? `Hi ${input.recipientName},` : "Hi,";
-  const subject = input.reminder ? `${who} is still saving a spot for your voice` : `${who} invited you to read stories to ${family} on Readli`;
+  const subject = input.coParent
+    ? input.reminder
+      ? `${who} is still waiting for you to join ${family} on Readli`
+      : `${who} invited you to be a parent in ${family} on Readli`
+    : input.reminder
+      ? `${who} is still saving a spot for your voice`
+      : `${who} invited you to read stories to ${family} on Readli`;
+  const intro = input.coParent
+    ? `${who} would love you to join ${family} on Readli as a parent. You'll share the family's account: choose which storytellers each child hears, prepare books, and open Readli Kids on your own phone or tablet.`
+    : `${who} would love you to read stories to the kids in ${family}. On Readli, you record your voice once, and the children your family's parents choose can hear you read classic books.`;
+  const terms = input.coParent
+    ? `It's free for you: ${who} looks after the family's plan and billing. Recording your own voice for the kids is optional. The link works once, for ${input.linkDays} days.`
+    : `It's free for you, with no card and no subscription. Your voice stays yours: it's shared with ${family} only after you agree, and you can stop sharing at any time. The link works once, for ${input.linkDays} days.`;
   const lines = [
     hello,
     "",
     ...(input.reminder ? [REMINDER_LINE, ""] : []),
-    `${who} would love you to read stories to the kids in ${family}. On Readli, you record your voice once, and the children your family's parents choose can hear you read classic books.`,
+    intro,
     "",
     `Accept the invitation: ${input.joinUrl}`,
     "",
-    `It's free for you, with no card and no subscription. Your voice stays yours: it's shared with ${family} only after you agree, and you can stop sharing at any time. The link works once, for ${input.linkDays} days.`,
+    terms,
     "",
     `Not for you? Decline: ${input.declineUrl}`,
     `Stop all Readli invitations: ${input.unsubscribeUrl}`,
@@ -260,9 +274,9 @@ export function familyInviteEmail(input: FamilyInviteEmailInput): Omit<OutgoingE
 <p style="font-size:22px;font-weight:700;margin:0 0 16px">Readli</p>
 <div style="background:#ffffff;border-radius:20px;padding:24px">
 <p style="margin:0 0 12px">${esc(hello)}</p>
-${input.reminder ? `<p style="margin:0 0 12px">${REMINDER_LINE}</p>\n` : ""}<p style="margin:0">${esc(who)} would love you to read stories to the kids in <strong>${esc(family)}</strong>. On Readli, you record your voice once, and the children your family's parents choose can hear you read classic books.</p>
+${input.reminder ? `<p style="margin:0 0 12px">${REMINDER_LINE}</p>\n` : ""}<p style="margin:0">${esc(intro)}</p>
 <p style="margin:24px 0;text-align:center"><a href="${esc(input.joinUrl)}" style="display:inline-block;background:#ff7a59;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 24px;border-radius:999px">Accept the invitation</a></p>
-<p style="margin:0;font-size:14px">It's free for you, with no card and no subscription. Your voice stays yours: it's shared with ${esc(family)} only after you agree, and you can stop sharing at any time. The link works once, for ${input.linkDays} days.</p>
+<p style="margin:0;font-size:14px">${esc(terms)}</p>
 </div>
 <p style="font-size:12px;color:#6b6480;margin:16px 0 0">Not for you? <a href="${esc(input.declineUrl)}" style="color:#6b6480">Decline</a> · <a href="${esc(input.unsubscribeUrl)}" style="color:#6b6480">Stop all Readli invitations</a> · <a href="${esc(input.reportUrl)}" style="color:#6b6480">Report this email</a></p>
 <p style="font-size:12px;color:#6b6480;margin:8px 0 0">You're getting this because ${esc(who)} entered your email address on Readli. We don't add you to any mailing list.</p>

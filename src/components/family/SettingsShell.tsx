@@ -16,6 +16,13 @@ const ICONS: Record<SettingsSection, React.ReactNode> = {
       <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
     </>,
   ),
+  parents: icon(
+    <>
+      <circle cx="9" cy="8" r="3.5" />
+      <circle cx="17" cy="9" r="2.5" />
+      <path d="M2.5 20c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5M15.5 13.6c3.2.1 6 2.6 6 6.4" />
+    </>,
+  ),
   plan: icon(
     <>
       <rect x="3" y="5" width="18" height="14" rx="3" />
@@ -30,12 +37,12 @@ const ICONS: Record<SettingsSection, React.ReactNode> = {
   ),
 };
 
-const TITLES: Record<SettingsSection, string> = { account: "Account", plan: "Plan & credits", "kids-mode": "Kids Mode" };
+const TITLES: Record<SettingsSection, string> = { account: "Account", parents: "Parents", plan: "Plan & credits", "kids-mode": "Kids Mode" };
 
 /**
- * Settings: the grown-up's account, the family's plan and credits, and Kids Mode, in one place. Desktop
- * keeps the sections in a rail beside the page; phones get a list of sections and a way back to it. Only
- * a family's parents see Plan & credits and Kids Mode.
+ * Settings: the grown-up's account, the family's parents, its plan and credits, and Kids Mode, in one
+ * place. Desktop keeps the sections in a rail beside the page; phones get a list of sections and a way
+ * back to it. Only a family's parents see Parents, Plan & credits and Kids Mode.
  *
  * `list` is the Settings home on phones: the sections with a short summary each, under a way back to
  * the page that opened Settings. The section itself then shows from tablet width up.

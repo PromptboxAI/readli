@@ -69,7 +69,7 @@ async function householdReminders(ctx: SequenceContext, linkDays: number): Promi
   const rows = await q(
     db
       .from("household_invitations")
-      .select("id, household_id, inviter_id, invitee_name, recipient_email_encrypted, created_at, last_sent_at, expires_at")
+      .select("*")
       .not("recipient_email_encrypted", "is", null)
       .is("accepted_at", null)
       .is("revoked_at", null)
@@ -107,6 +107,7 @@ async function householdReminders(ctx: SequenceContext, linkDays: number): Promi
       oneClickUnsubscribeUrl: `${ctx.base}/api/invitations/unsubscribe/${respond}`,
       linkDays,
       reminder: true,
+      coParent: r.invitee_role === "guardian",
     });
     emails.push({ emailId: "I1", dedupeKey: `I1:${id}:${n}`, to: { email: cipher.decrypt(r.recipient_email_encrypted as string) }, householdId: r.household_id as string, message });
     sent.push({ sends: "household_invitation_sends", invitationId: id, dedupeKey: `I1:${id}:${n}` });
@@ -168,10 +169,11 @@ async function voiceReminders(ctx: SequenceContext, linkDays: number): Promise<{
 export async function storytellerHeadsUps(ctx: SequenceContext): Promise<QueuedEmail[]> {
   const { db, now } = ctx;
   const rows = await q(
-    db.from("household_invitations").select("id, household_id, inviter_id, accepted_by, invitee_name, accepted_at").gte("accepted_at", ago(now, 14 * DAY)).lte("accepted_at", ago(now, 10 * DAY)),
+    db.from("household_invitations").select("*").gte("accepted_at", ago(now, 14 * DAY)).lte("accepted_at", ago(now, 10 * DAY)),
     "read accepted invitations",
   );
-  const accepted = rows.filter((r) => typeof r.accepted_by === "string");
+  // A co-parent records only if they want to, so nobody is nudged about them.
+  const accepted = rows.filter((r) => typeof r.accepted_by === "string" && r.invitee_role !== "guardian");
   if (!accepted.length) return [];
   const storytellers = accepted.map((r) => r.accepted_by as string);
   const [voices, members, names] = await Promise.all([
