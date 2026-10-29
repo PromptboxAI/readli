@@ -21,6 +21,18 @@ export function CreditsPanel({ packs, need, returnTo, canBuy, simulated }: { pac
   const buy = async (pack: CreditPack) => {
     setBusy(pack.id);
     setMessage(null);
+    if (!simulated) {
+      // Real purchases go through Stripe Checkout; the credits are added once the payment is confirmed.
+      const res = await fetch("/api/billing/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ item: `credit_pack:${pack.id}` }) });
+      const body = (await res.json().catch(() => null)) as { url?: string; error?: { message?: string } } | null;
+      if (res.ok && body?.url) {
+        window.location.assign(body.url);
+        return;
+      }
+      setBusy(null);
+      setMessage(body?.error?.message ?? "Checkout couldn't start. Please try again.");
+      return;
+    }
     const res = await fetch("/api/family/narration-credits", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ packId: pack.id }) });
     const body = await res.json().catch(() => null);
     setBusy(null);
