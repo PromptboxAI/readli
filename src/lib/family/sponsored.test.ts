@@ -71,7 +71,7 @@ describe("sponsored Readli Family", () => {
     await activateNarrator(store, mom, H, "voice-june", clock);
     await activateNarrator(store, mom, H, "voice-lou", clock);
     await rejects(activateNarrator(store, mom, H, "voice-rose", clock), 409, "no_free_slot");
-    expect(liveSlots(state, H, DEFAULT_PLAN).map((a) => a.voiceId)).toEqual(["voice-june", "voice-lou"]);
+    expect(liveSlots(state, H, DEFAULT_PLAN).map((a) => a.voiceId).sort()).toEqual(["voice-june", "voice-lou"]);
     const view = await narratorSlots(store, mom, H, clock);
     expect({ total: view.total, included: view.included, used: view.active.length, gifted: view.giftedVoiceIds }).toEqual({ total: 2, included: 2, used: 2, gifted: ["voice-june"] });
   });

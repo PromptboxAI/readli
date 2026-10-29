@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { currentAdult } from "@/lib/auth/adult";
 import { accountDb } from "@/lib/family/account-store";
 import { track } from "@/lib/invitations/server";
+import { shareKeptVoice } from "@/lib/invites/share-on-keep";
 import { serverConfig } from "@/lib/server/config";
 import { fail } from "@/lib/server/http";
 import { recordVoiceEvent } from "@/lib/server/voice-analytics";
@@ -21,7 +22,9 @@ export async function POST() {
     const db = accountDb();
     if (db && voice.version === 1) await track(db, "contributor_voice_created", {}, user.id);
     await recordVoiceEvent(config, { name: "voice_kept", userId: user.id, properties: { surface: "account", version: voice.version } });
-    return NextResponse.json({ voice });
+    // An invited storyteller's families get the voice as soon as it's kept.
+    const sharedWith = await shareKeptVoice();
+    return NextResponse.json({ voice, sharedWith });
   } catch (err) {
     if (err instanceof AccountVoiceError) return fail(err.status, err.code, err.userMessage);
     throw err;

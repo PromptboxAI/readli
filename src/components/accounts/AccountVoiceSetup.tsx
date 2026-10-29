@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonQuiet, buttonSecondary } from "@/components/brand/buttons";
 import { ImproveLink, RecordingTipsDialog } from "@/components/teleprompter/RecordingTips";
@@ -12,6 +12,12 @@ import { VOICE_CONSENTS, VOICE_CONSENT_SENTENCE } from "@/lib/content/voice-cons
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
 import { formatClock } from "@/lib/teleprompter/recorder-machine";
 import type { GuestTake } from "@/lib/voice/guest-handoff";
+
+/** A recording made earlier that was never kept, still waiting on the server for the owner's decision. */
+export interface WaitingRecording {
+  createdAt: string;
+  cleanUp: boolean;
+}
 
 type Phase = "idle" | "making" | "sampling" | "ready" | "keeping" | "error";
 
@@ -41,6 +47,7 @@ export function AccountVoiceSetup({
   guestCleanUp = false,
   fromTry = false,
   askName = false,
+  waiting = null,
 }: {
   hasVoice: boolean;
   next?: string;
@@ -53,14 +60,16 @@ export function AccountVoiceSetup({
   fromTry?: boolean;
   /** No name chosen yet: ask on the ready step, since invitations show it. */
   askName?: boolean;
+  /** A recording made earlier but never kept: opens on its sample, so they can keep it without reading again. */
+  waiting?: WaitingRecording | null;
 }) {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(waiting ? 2 : 0);
   const [agreed, setAgreed] = useState(false);
   /** On the first step: make the voice from the /try take (preferred) or record a new one. */
   const [useDemo, setUseDemo] = useState(guestTake !== null);
   const [take, setTake] = useState<TakeDetails | null>(null);
-  const [cleanUp, setCleanUp] = useState(false);
-  const [phase, setPhase] = useState<Phase>("idle");
+  const [cleanUp, setCleanUp] = useState(waiting?.cleanUp ?? false);
+  const [phase, setPhase] = useState<Phase>(waiting ? "sampling" : "idle");
   const [error, setError] = useState<string | null>(null);
   const [sample, setSample] = useState<{ url: string; cleanUp: boolean; standIn: boolean } | null>(null);
   const [tipsOpen, setTipsOpen] = useState(false);
@@ -68,6 +77,9 @@ export function AccountVoiceSetup({
   /** Making the voice from the /try take instead of a new recording. */
   const [fromGuest, setFromGuest] = useState(false);
   const [guestTakeLive, setGuestTakeLive] = useState(guestTake !== null);
+  /** Showing the waiting recording; there's no take in this browser to make it again from. */
+  const [resumed, setResumed] = useState(waiting !== null);
+  const resumeStarted = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -149,6 +161,25 @@ export function AccountVoiceSetup({
     }
   };
 
+  // The waiting recording's sample, made once on arrival. If it has gone meanwhile, start over.
+  useEffect(() => {
+    if (!waiting || resumeStarted.current) return;
+    resumeStarted.current = true;
+    void (async () => {
+      try {
+        const res = await fetch("/api/voice/sample?candidate=1", { method: "POST" });
+        if (!res.ok) throw new Error(await errorMessage(res, "We couldn't find your earlier recording. Please record your voice again."));
+        setSample({ url: URL.createObjectURL(await res.blob()), cleanUp: waiting.cleanUp, standIn: res.headers.get("x-readli-stand-in") === "1" });
+        setPhase("ready");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Please record your voice again.");
+        setResumed(false);
+        setPhase("idle");
+        setStep(0);
+      }
+    })();
+  }, [waiting]);
+
   const keepVoice = async () => {
     setError(null);
     setPhase("keeping");
@@ -169,6 +200,7 @@ export function AccountVoiceSetup({
     // Asking to record again means a new reading, not the /try take.
     if (fromGuest) setUseDemo(false);
     setFromGuest(false);
+    setResumed(false);
     setSample(null);
     setPhase("idle");
     setError(null);
@@ -185,6 +217,11 @@ export function AccountVoiceSetup({
     <div className="flex flex-col gap-6">
       {step === 0 && (
         <section className="flex max-w-2xl flex-col gap-5" data-testid="voice-start">
+          {error && (
+            <p role="alert" className="rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold">
+              {error}
+            </p>
+          )}
           {fromTry && !guestTake && (
             <p className="rounded-2xl bg-sunshine/60 p-4" data-testid="demo-take-expired">
               Your demo recording has expired (they&apos;re kept for 24 hours), so you&apos;ll read the short story once more. It takes about a minute.
@@ -247,9 +284,16 @@ export function AccountVoiceSetup({
         </section>
       )}
 
-      {step === 2 && (take || fromGuest) && (
+      {step === 2 && (take || fromGuest || resumed) && (
         <section className="flex max-w-2xl flex-col gap-4 rounded-[var(--radius-panel)] bg-sky/40 p-5 sm:p-8" data-testid="account-voice-check">
-          <h2 className="font-display text-2xl font-semibold">{busy && phase !== "keeping" ? "Creating your voice" : "Does this sound like you?"}</h2>
+          <h2 className="font-display text-2xl font-semibold">{busy && phase !== "keeping" ? (resumed ? "Finding your recording" : "Creating your voice") : "Does this sound like you?"}</h2>
+
+          {resumed && waiting && (
+            <p className="rounded-2xl bg-sunshine/60 p-4" data-testid="waiting-recording">
+              You recorded your voice {new Date(waiting.createdAt).toLocaleString(undefined, { weekday: "long", hour: "numeric", minute: "2-digit" })} but
+              haven&apos;t kept it yet, so it isn&apos;t saved. Listen, then tap Keep This Voice to finish. Recordings that aren&apos;t kept are deleted after a day.
+            </p>
+          )}
 
           {busy && (
             <div role="status" className="flex items-center gap-4 rounded-2xl bg-plum p-4 text-white">
@@ -270,7 +314,7 @@ export function AccountVoiceSetup({
             </div>
           )}
 
-          {!busy && (
+          {!busy && !resumed && (
             <label className="flex items-start gap-3 rounded-2xl bg-surface p-4">
               <input type="checkbox" className="mt-1 size-6 shrink-0 accent-coral-deep" checked={cleanUp} onChange={(e) => setCleanUp(e.target.checked)} />
               <span className="flex flex-col gap-1">
