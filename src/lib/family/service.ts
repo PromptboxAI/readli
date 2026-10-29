@@ -501,7 +501,7 @@ export async function createHousehold(store: FamilyStore, actor: Actor | null, n
   const id = randomUUID();
   const at = clock().toISOString();
   await store.write((s) => {
-    s.households.push({ id, name: familyName });
+    s.households.push({ id, name: familyName, ownerId: adultId });
     s.members.push({ householdId: id, adultId, role: "guardian", joinedAt: at, removedAt: null });
   });
   return id;
@@ -519,6 +519,116 @@ export async function renameHousehold(store: FamilyStore, actor: Actor | null, n
     if (home) home.name = familyName;
   });
   return familyName;
+}
+
+// Parents --------------------------------------------------------------------
+
+/**
+ * Who pays for the family's plan: the grown-up who started the family, while they're still one of its
+ * parents. Otherwise the parent who joined first stands in, so billing always has someone.
+ */
+export function householdOwner(state: FamilyState, householdId: string): string | null {
+  const parents = state.members.filter((m) => m.householdId === householdId && m.role === "guardian" && m.removedAt === null);
+  const set = state.households.find((h) => h.id === householdId)?.ownerId;
+  if (set && parents.some((p) => p.adultId === set)) return set;
+  parents.sort((a, b) => a.joinedAt.localeCompare(b.joinedAt) || a.adultId.localeCompare(b.adultId));
+  return parents[0]?.adultId ?? null;
+}
+
+/** Only the plan's owner buys, changes or cancels it. Co-parents share everything else. */
+export const isPlanOwner = (state: FamilyState, adultId: string, householdId: string) => householdOwner(state, householdId) === adultId;
+
+export interface ParentView {
+  adultId: string;
+  name: string;
+  relationship: string;
+  avatarUrl: string | null;
+  tint: string;
+  /** Pays for the plan. */
+  owner: boolean;
+  you: boolean;
+}
+
+export interface FamilyParentsView {
+  householdId: string;
+  familyName: string;
+  parents: ParentView[];
+  /** The viewer pays for the plan, so they can invite and remove co-parents. */
+  youOwn: boolean;
+  ownerName: string;
+}
+
+/** The family's parents, owner first. Any parent can see them. */
+export async function familyParents(store: FamilyStore, actor: Actor | null, householdId: string): Promise<FamilyParentsView> {
+  const state = await store.read();
+  const viewerId = requireHouseholdGuardian(state, actor, householdId);
+  const ownerId = householdOwner(state, householdId);
+  const parents = state.members
+    .filter((m) => m.householdId === householdId && m.role === "guardian" && m.removedAt === null)
+    .map((m) => {
+      const who = calledIn(state, state.adults.find((a) => a.id === m.adultId), householdId);
+      return {
+        adultId: m.adultId,
+        name: who?.displayName ?? "Parent",
+        relationship: who?.relationship ?? "",
+        avatarUrl: who?.avatarUrl ?? null,
+        tint: who?.tint ?? "bg-sky",
+        owner: m.adultId === ownerId,
+        you: m.adultId === viewerId,
+      };
+    })
+    .sort((a, b) => Number(b.owner) - Number(a.owner) || a.name.localeCompare(b.name));
+  return {
+    householdId,
+    familyName: state.households.find((h) => h.id === householdId)?.name ?? "Your family",
+    parents,
+    youOwn: ownerId === viewerId,
+    ownerName: parents.find((p) => p.owner)?.name ?? "the family's owner",
+  };
+}
+
+/**
+ * Takes a co-parent out of the family: the owner removes them, or they leave themselves. The owner
+ * can't be removed. Storytellers they approved for the children stay approved, now under the owner,
+ * so no child loses a voice. Their own voice leaves the family's slots, as any storyteller's would.
+ */
+export async function removeCoParent(store: FamilyStore, actor: Actor | null, householdId: string, adultId: string, clock: Clock = now): Promise<void> {
+  const state = await store.read();
+  const viewerId = requireHouseholdGuardian(state, actor, householdId);
+  const ownerId = householdOwner(state, householdId);
+  if (viewerId !== ownerId && viewerId !== adultId) throw new PermissionError(403, "not_owner", "Only the parent who manages the plan can remove another parent.");
+  const member = state.members.find((m) => m.householdId === householdId && m.adultId === adultId && m.role === "guardian" && m.removedAt === null);
+  if (!member) throw new PermissionError(404, "not_parent", "That person isn't a parent in your family.");
+  if (adultId === ownerId) throw new PermissionError(409, "is_owner", "The parent who manages the plan can't be removed.");
+  const at = clock().toISOString();
+  const voices = new Set(state.voices.filter((v) => v.ownerId === adultId).map((v) => v.id));
+  await store.write((s) => {
+    for (const m of s.members) if (m.householdId === householdId && m.adultId === adultId && m.removedAt === null) m.removedAt = at;
+    const kids = s.children.filter((c) => c.householdId === householdId);
+    for (const c of kids) c.guardianIds = c.guardianIds.filter((g) => g !== adultId);
+    const kidIds = new Set(kids.map((c) => c.id));
+    for (const a of s.slots) {
+      if (voices.has(a.voiceId) && a.householdId === householdId && a.releasedAt === null) {
+        a.releasedAt = at;
+        a.releasedBy = viewerId;
+        audit(s, viewerId, "narrator_released", at, { voiceId: a.voiceId, householdId, detail: "parent_removed" });
+      }
+    }
+    for (const a of [...s.approvals]) {
+      if (!kidIds.has(a.childId) || a.revokedAt !== null) continue;
+      if (voices.has(a.voiceId)) {
+        a.revokedAt = at;
+        a.revokedBy = viewerId;
+        a.revokeReason = "slot_released";
+      } else if (a.approvedBy === adultId && ownerId) {
+        a.revokedAt = at;
+        a.revokedBy = viewerId;
+        a.revokeReason = "guardian_removed";
+        s.approvals.push({ id: randomUUID(), voiceId: a.voiceId, childId: a.childId, approvedBy: ownerId, approvedAt: at, revokedAt: null, revokedBy: null, revokeReason: null });
+        audit(s, ownerId, "child_voice_approved", at, { voiceId: a.voiceId, childId: a.childId, detail: "kept_after_parent_left" });
+      }
+    }
+  });
 }
 
 const DAY = 24 * 60 * 60 * 1000;

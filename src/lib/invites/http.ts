@@ -1,7 +1,7 @@
 import { currentAdult } from "@/lib/auth/adult";
 import { accountDb } from "@/lib/family/account-store";
 import { withFamily } from "@/lib/family/http";
-import { guardianHousehold } from "@/lib/family/service";
+import { guardianHousehold, isPlanOwner } from "@/lib/family/service";
 import { fail } from "@/lib/server/http";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { InviteError } from "./server";
@@ -11,14 +11,18 @@ function handle(err: unknown): Response {
   throw err;
 }
 
-/** Runs an invitation route for a real grown-up who is a guardian of a family. */
-export function withInviter(run: (ctx: { db: SupabaseClient; householdId: string; userId: string }) => Promise<Response>): Promise<Response> {
+/**
+ * Runs an invitation route for a real grown-up who is a guardian of a family. `owner`: they manage the
+ * family's plan, the one parent who can invite or remove co-parents.
+ */
+export function withInviter(run: (ctx: { db: SupabaseClient; householdId: string; userId: string; owner: boolean }) => Promise<Response>): Promise<Response> {
   return withFamily(async ({ store, actor, session }) => {
     const db = accountDb();
     if (!session.account || !db) return fail(404, "accounts_off", "Saved invitations need a signed-in account.");
     const householdId = await guardianHousehold(store, actor);
     if (!householdId) return fail(403, "not_guardian", "Only a parent or guardian can invite family.");
-    return run({ db, householdId, userId: session.account.id }).catch(handle);
+    const owner = isPlanOwner(await store.read(), session.account.id, householdId);
+    return run({ db, householdId, userId: session.account.id, owner }).catch(handle);
   });
 }
 

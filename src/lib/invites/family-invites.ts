@@ -50,8 +50,16 @@ export function cleanRelationship(value: unknown): string | null {
   return text ? text.slice(0, RELATIONSHIP_MAX).trim() : null;
 }
 
+/**
+ * What accepting makes someone: a storyteller ('member') joins the family circle to record their voice;
+ * a co-parent ('guardian') becomes a second parent, with every parent's controls but not the plan's billing.
+ */
+export type InviteRole = "member" | "guardian";
+
 export interface FamilyInvite {
   id: string;
+  /** Older invitations have no role: they're storyteller invitations. */
+  role?: InviteRole;
   name: string;
   relationship: string;
   /** Email is optional: an invite can go out as a shared link instead. */

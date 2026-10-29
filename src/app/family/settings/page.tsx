@@ -5,6 +5,7 @@ import { SettingsShell } from "@/components/family/SettingsShell";
 import { listDevices } from "@/lib/family/devices";
 import { familyPage } from "@/lib/family/page-data";
 import { activeEntitlement } from "@/lib/family/permissions";
+import { householdOwner } from "@/lib/family/service";
 import { settingsHousehold } from "@/lib/family/settings-access";
 import { settingsBack, type SettingsSection } from "@/lib/family/settings-nav";
 import { deviceRegistry, familyStore } from "@/lib/family/session";
@@ -36,8 +37,11 @@ async function summaries(page: Extract<Awaited<ReturnType<typeof familyPage>>, {
   const registry = deviceRegistry(Boolean(session.account));
   const devices = registry ? (await listDevices(registry, state, session.actor, householdId)).filter((d) => d.status === "active").length : null;
   const hasPin = registry ? Boolean(await registry.pinHash(householdId)) : false;
+  const parents = state.members.filter((m) => m.householdId === householdId && m.role === "guardian" && m.removedAt === null).length;
+  const owner = householdOwner(state, householdId) === (session.actor.kind === "adult" ? session.actor.adultId : null);
   return {
     account: "Photo, name, emails and your data",
+    parents: parents > 1 ? `${parents} parents${owner ? " · you manage the plan" : ""}` : "Invite a co-parent",
     plan: activeEntitlement(state, householdId) ? `Readli Family · ${left}` : `No plan yet · ${left}`,
     "kids-mode": devices === null ? "Family PIN and kids devices" : `${hasPin ? "PIN set" : "No PIN yet"} · ${devices} ${devices === 1 ? "device" : "devices"}`,
   };

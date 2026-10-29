@@ -8,7 +8,7 @@ import { effectivePlan } from "@/lib/billing/price-settings";
 import { accountDb } from "@/lib/family/account-store";
 import { jsonBody, withFamily } from "@/lib/family/http";
 import { activeEntitlement } from "@/lib/family/permissions";
-import { guardianHousehold } from "@/lib/family/service";
+import { guardianHousehold, isPlanOwner } from "@/lib/family/service";
 import { requireFullSignIn } from "@/lib/family/session";
 import { track } from "@/lib/invitations/server";
 import { fail } from "@/lib/server/http";
@@ -46,6 +46,7 @@ export async function POST(req: Request) {
     if (!db || !session.account) return fail(503, "no_account", "Sign in with a Readli account to check out.");
 
     const state = await store.read();
+    if (!isPlanOwner(state, actor.adultId, householdId)) return fail(403, "not_owner", "Only the parent who manages your family's plan can buy Readli Family or credits.");
     const plan = await effectivePlan(db, store.plan);
     const request = checkoutRequest(plan, activeEntitlement(state, householdId), String(body.item ?? ""), body.extraSlots);
     if (!request.ok) return fail(request.status, request.code, request.message);

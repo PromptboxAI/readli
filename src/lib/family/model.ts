@@ -17,6 +17,11 @@ export type VoiceStatus = "processing" | "ready" | "deleted";
 export interface Household {
   id: string;
   name: string;
+  /**
+   * The grown-up who started the family and pays for its plan. Other parents (co-parents) share
+   * everything else but not billing. Unset on older snapshots: the first parent to join stands in.
+   */
+  ownerId?: string | null;
 }
 
 export interface Adult {

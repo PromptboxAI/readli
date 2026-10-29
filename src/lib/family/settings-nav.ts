@@ -1,10 +1,11 @@
 /** The sections of Settings, in rail order. Account is the Settings page itself on desktop. */
-export type SettingsSection = "account" | "plan" | "kids-mode";
+export type SettingsSection = "account" | "parents" | "plan" | "kids-mode";
 
 export const SETTINGS_HOME = "/family/settings";
 
 export const SETTINGS_SECTIONS: { id: SettingsSection; label: string; href: string; guardianOnly: boolean }[] = [
   { id: "account", label: "Account", href: SETTINGS_HOME, guardianOnly: false },
+  { id: "parents", label: "Parents", href: `${SETTINGS_HOME}/parents`, guardianOnly: true },
   { id: "plan", label: "Plan & credits", href: `${SETTINGS_HOME}/plan`, guardianOnly: true },
   { id: "kids-mode", label: "Kids Mode", href: `${SETTINGS_HOME}/kids-mode`, guardianOnly: true },
 ];

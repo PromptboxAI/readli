@@ -12,7 +12,7 @@ import { billingSummary, type BillingSummary } from "@/lib/billing/summary";
 import { accountDb } from "@/lib/family/account-store";
 import { familyPage } from "@/lib/family/page-data";
 import { formatPrice } from "@/lib/family/plan";
-import { guardianHousehold } from "@/lib/family/service";
+import { familyParents, guardianHousehold } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
 import { creditBalance, displayCredits } from "@/lib/narration/credits";
 import { creditHistory } from "@/lib/narration/narration";
@@ -107,6 +107,9 @@ export default async function PlanAndCreditsPage({ searchParams }: { searchParam
     await confirmCheckout(db, (id) => stripe.getCheckoutSession(id), q.session_id, householdId).catch((err: unknown) => console.error("confirm checkout failed", err));
   }
   const state = await store.read();
+  // Co-parents see the plan and credits; only the parent who started the family pays for them.
+  const parents = await familyParents(store, page.session.actor, householdId);
+  const owns = parents.youOwn;
   const plan = await effectivePlan(db, store.plan);
   const s = billingSummary(state, plan, householdId);
   const gift = s.plan === "sponsored" && db ? await householdGift(db, householdId).catch(() => null) : null;
@@ -141,6 +144,12 @@ export default async function PlanAndCreditsPage({ searchParams }: { searchParam
       )}
       {q.checkout === "canceled" && <p role="status" className="rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/10">Checkout was canceled. Nothing was charged.</p>}
 
+      {!owns && (
+        <p role="note" className="rounded-2xl bg-sky/30 px-4 py-3" data-testid="co-parent-billing">
+          {parents.ownerName} manages your family&apos;s plan and billing. You can use everything it includes, and ask {parents.ownerName} to change the plan or buy more credits.
+        </p>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <section className={card} aria-labelledby="plan-h" data-testid="current-plan">
           <p className={label}>Plan</p>
@@ -161,7 +170,7 @@ export default async function PlanAndCreditsPage({ searchParams }: { searchParam
               </Link>
             </p>
           )}
-          {s.plan === "subscription" && <ManagePlan paymentsOn={paymentsOn} />}
+          {s.plan === "subscription" && owns && <ManagePlan paymentsOn={paymentsOn} />}
         </section>
 
         <section className={card} aria-labelledby="credits-h" data-testid="credit-balance">
@@ -198,7 +207,7 @@ export default async function PlanAndCreditsPage({ searchParams }: { searchParam
 
       {gift && <GiftCard gift={gift} ends={gift.endsAt ?? s.endsAt} />}
 
-      {s.canStartPlan && (
+      {s.canStartPlan && owns && (
         <section className="flex flex-col gap-3" aria-labelledby="start-h">
           <h2 id="start-h" className="font-display text-2xl font-semibold">
             {s.plan === "none" ? "Start Readli Family" : s.plan === "sponsored" ? "Keep Readli with your own plan" : "Keep Readli Family going"}
@@ -219,13 +228,15 @@ export default async function PlanAndCreditsPage({ searchParams }: { searchParam
         </section>
       )}
 
-      <CreditsPanel
-        packs={store.plan.creditPacks}
-        need={need}
-        returnTo={returnTo}
-        canBuy={store.plan.narrationPurchasesEnabled || (store.plan.simulatedCheckout && !page.session.account)}
-        simulated={!store.plan.narrationPurchasesEnabled && store.plan.simulatedCheckout && !page.session.account}
-      />
+      {owns && (
+        <CreditsPanel
+          packs={store.plan.creditPacks}
+          need={need}
+          returnTo={returnTo}
+          canBuy={store.plan.narrationPurchasesEnabled || (store.plan.simulatedCheckout && !page.session.account)}
+          simulated={!store.plan.narrationPurchasesEnabled && store.plan.simulatedCheckout && !page.session.account}
+        />
+      )}
 
       <section className="flex flex-col gap-2" aria-labelledby="history-h" data-testid="credit-history">
         <h2 id="history-h" className="font-display text-xl font-semibold">
