@@ -62,13 +62,10 @@ export function KidsDevices({
   };
 
   return (
-    <div className="flex flex-col gap-8" data-testid="kids-devices">
-      <div className="flex flex-col gap-3">
-        <h1 className="font-display text-4xl font-semibold">Kids devices and PIN</h1>
-      </div>
+    <div className="flex flex-col gap-5" data-testid="kids-devices">
 
-      <section aria-labelledby="modes-h" className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-5 ring-2 ring-ink/10" data-testid="kids-modes">
-        <h2 id="modes-h" className="font-display text-2xl font-semibold">
+      <section aria-labelledby="modes-h" className="flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10" data-testid="kids-modes">
+        <h2 id="modes-h" className="font-display text-xl font-semibold">
           Two ways to use Readli Kids
         </h2>
         <div className="grid gap-5 md:grid-cols-2">
@@ -115,8 +112,8 @@ export function KidsDevices({
         {message}
       </p>
 
-      <section aria-labelledby="pin-h" className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-5 ring-2 ring-ink/10">
-        <h2 id="pin-h" className="font-display text-2xl font-semibold">
+      <section aria-labelledby="pin-h" className="flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10">
+        <h2 id="pin-h" className="font-display text-xl font-semibold">
           Family PIN
         </h2>
         <p>
@@ -143,8 +140,8 @@ export function KidsDevices({
         </div>
       </section>
 
-      <section aria-labelledby="setup-h" className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-5 ring-2 ring-ink/10">
-        <h2 id="setup-h" className="font-display text-2xl font-semibold">
+      <section aria-labelledby="setup-h" className="flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10">
+        <h2 id="setup-h" className="font-display text-xl font-semibold">
           Register this device for Readli Kids
         </h2>
         {kids.length === 0 ? (
@@ -191,7 +188,7 @@ export function KidsDevices({
       </section>
 
       <section aria-labelledby="devices-h" className="flex flex-col gap-3">
-        <h2 id="devices-h" className="font-display text-2xl font-semibold">
+        <h2 id="devices-h" className="font-display text-xl font-semibold">
           Your kids devices
         </h2>
         {devices.length === 0 ? (
@@ -199,9 +196,9 @@ export function KidsDevices({
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2">
             {devices.map((d) => (
-              <li key={d.id} className="flex flex-col gap-2 rounded-3xl bg-surface p-4 ring-2 ring-ink/10" data-testid={`device-${d.id}`}>
+              <li key={d.id} className="flex flex-col gap-1.5 rounded-3xl bg-surface p-4 ring-2 ring-ink/10" data-testid={`device-${d.id}`}>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="font-display text-xl font-semibold">{d.label}</p>
+                  <p className="font-display text-lg font-semibold">{d.label}</p>
                   <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${d.status === "active" ? "bg-mint" : "bg-ink/10"}`}>{STATUS[d.status]}</span>
                 </div>
                 <p className="text-sm">For {d.kids.join(", ") || "nobody now"}</p>

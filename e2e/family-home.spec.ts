@@ -39,7 +39,7 @@ test("the family home leads with the kids, stories and storytellers", async ({ p
   const next = info.project.name === "desktop" ? page.getByTestId("next-story") : page.getByTestId("next-story-strip");
   await expect(next.getByRole("link", { name: "Browse Books" })).toBeVisible();
   await expect(next).toContainText(/of [\d.,]+ (monthly|trial) credits remaining/);
-  await expect(next.getByRole("link", { name: /How credits work/ })).toHaveAttribute("href", "/family/credits");
+  await expect(next.getByRole("link", { name: /How credits work/ })).toHaveAttribute("href", "/family/settings/plan");
 
   // Home shows a few books, two across on wider screens, and the rest on request.
   const shelf = page.getByTestId("shelf-ready");
@@ -64,22 +64,62 @@ test("the family home leads with the kids, stories and storytellers", async ({ p
   await page.screenshot({ path: `e2e/screenshots/family-home-${info.project.name}.png`, fullPage: true });
 });
 
-test("parent controls gather the admin pages", async ({ page }, info) => {
+test("Settings gathers the account, plan and credits, and Kids Mode", async ({ page }, info) => {
   await signIn(page, "adult:sara");
   await page.goto("/family");
   const nav = page.getByRole("navigation", { name: "Readli Family" });
-  await expect(nav.getByRole("link")).toHaveText(["Home", "Books", "Family", "Parent Controls"]);
-  await nav.getByRole("link", { name: "Parent Controls" }).click();
-  await expect(page.getByRole("heading", { name: "Parent Controls" })).toBeVisible();
-  await expect(nav.getByRole("link", { name: "Parent Controls" })).toHaveAttribute("aria-current", "page");
-  const controls = page.getByTestId("parent-controls");
-  for (const name of ["Kids profiles", "Family storytellers", "My Voice", "Readli credits", "Plan and billing", "Kids devices and PIN", "Account settings", "Help"]) {
-    await expect(controls.getByRole("link", { name: new RegExp(name) })).toBeVisible();
+  await expect(nav.getByRole("link")).toHaveText(["Home", "Books", "Family", "Settings"]);
+  await nav.getByRole("link", { name: "Settings" }).click();
+  await expect(page).toHaveURL(/\/family\/settings$/);
+  await expect(nav.getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page");
+  if (info.project.name === "phone") {
+    // Phones open on the list of sections, each with a one-line summary.
+    const list = page.getByTestId("settings-list");
+    await expect(list.getByRole("heading", { name: "Settings" })).toBeVisible();
+    await expect(list.getByRole("link", { name: /Plan & credits/ })).toContainText("credits left");
+    await expect(list.getByRole("link", { name: /Kids Mode/ })).toBeVisible();
+    await page.screenshot({ path: `e2e/screenshots/settings-${info.project.name}.png`, fullPage: true });
+    await list.getByRole("link", { name: /Plan & credits/ }).click();
+  } else {
+    // Wider screens open on Account, beside the sections.
+    const rail = page.getByRole("navigation", { name: "Settings" });
+    await expect(rail.getByRole("link", { name: "Account" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("heading", { name: "Account", level: 1 })).toBeVisible();
+    await page.screenshot({ path: `e2e/screenshots/settings-${info.project.name}.png`, fullPage: true });
+    await rail.getByRole("link", { name: "Plan & credits" }).click();
   }
-  await expect(controls.getByRole("link", { name: /Kids profiles/ })).toContainText("2 of 6");
-  await expect(controls.getByRole("link", { name: /Readli credits/ })).toContainText("left");
+  await expect(page).toHaveURL(/\/family\/settings\/plan$/);
+  await expect(page.getByRole("heading", { name: "Plan & credits", level: 1 })).toBeVisible();
+  await expect(page.getByTestId("current-plan")).toBeVisible();
+  await expect(page.getByTestId("credit-balance")).toBeVisible();
   await noOverflow(page);
-  await page.screenshot({ path: `e2e/screenshots/parent-controls-${info.project.name}.png`, fullPage: true });
+  await page.screenshot({ path: `e2e/screenshots/settings-plan-${info.project.name}.png`, fullPage: true });
+});
+
+test("the Family tab holds the kids and who reads to them", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/kids");
+  const readers = page.getByTestId("family-readers");
+  await expect(readers.getByRole("link", { name: /Family storytellers/ })).toContainText("slots");
+  await readers.getByRole("link", { name: /My Voice/ }).click();
+  await expect(page).toHaveURL(/\/family\/my-voice$/);
+  await expect(page.getByRole("navigation", { name: "Readli Family" }).getByRole("link", { name: "Family" })).toHaveAttribute("aria-current", "page");
+});
+
+test("old settings links still open the right Settings page", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  for (const [from, to] of [
+    ["/family/controls", /\/family\/settings$/],
+    ["/family/account", /\/family\/settings\/account$/],
+    ["/family/billing?checkout=canceled", /\/family\/settings\/plan\?checkout=canceled$/],
+    ["/family/credits", /\/family\/settings\/plan$/],
+    ["/family/devices", /\/family\/settings\/kids-mode$/],
+  ] as const) {
+    await page.goto(from);
+    await expect(page, from).toHaveURL(to);
+  }
+  await page.goto("/family/billing?checkout=canceled");
+  await expect(page.getByText("Checkout was canceled. Nothing was charged.")).toBeVisible();
 });
 
 test("the Family tab lists the kids and opens Readli Kids from a child's profile", async ({ page }, info) => {
@@ -97,18 +137,18 @@ test("the Family tab lists the kids and opens Readli Kids from a child's profile
 test("a kids profile can't open parent controls", async ({ page }) => {
   await signIn(page, "adult:sara");
   await signIn(page, "child:maya");
-  await page.goto("/family/controls");
+  await page.goto("/family/settings");
   await expect(page).toHaveURL(/\/kids$/);
 });
 
 test("every page below the main tabs has a way back up", async ({ page }) => {
   await signIn(page, "adult:sara");
   const pages: [string, string][] = [
-    ["/family/narrators", "/family/controls"],
-    ["/family/my-voice", "/family"],
-    ["/family/billing", "/family/controls"],
-    ["/family/credits", "/family/controls"],
-    ["/family/devices", "/family/controls"],
+    ["/family/narrators", "/family/kids"],
+    ["/family/my-voice", "/family/kids"],
+    ["/family/settings/plan", "/family/settings"],
+    ["/family/settings/kids-mode", "/family/settings"],
+    ["/family/settings/account", "/family/settings"],
     ["/family/kids/maya/storytellers", "/family/kids"],
   ];
   for (const [path, up] of pages) {
@@ -117,7 +157,24 @@ test("every page below the main tabs has a way back up", async ({ page }) => {
   }
   await page.goto("/family/narrators");
   await page.getByTestId("back-link").click();
-  await expect(page).toHaveURL(/\/family\/controls$/);
+  await expect(page).toHaveURL(/\/family\/kids$/);
+});
+
+test("Settings goes back to the page that opened it", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/books");
+  await page.getByRole("banner").locator("button[aria-expanded]").filter({ visible: true }).click();
+  await page.getByRole("navigation", { name: "Account" }).getByRole("link", { name: "Settings" }).click();
+  await expect(page).toHaveURL(/\/family\/settings\?from=%2Ffamily%2Fbooks$/);
+  const back = page.getByTestId("back-link").filter({ visible: true });
+  await expect(back).toHaveText("← Books");
+  await back.click();
+  await expect(page).toHaveURL(/\/family\/books$/);
+  // Opened directly, or from anywhere it can't trust, the way back is Home.
+  for (const from of ["", "?from=https://example.com", "?from=//example.com"]) {
+    await page.goto(`/family/settings${from}`);
+    await expect(page.getByTestId("back-link").filter({ visible: true }), from).toHaveAttribute("href", "/family");
+  }
 });
 
 test("a storyteller in a slot leads straight to choosing which kids hear them", async ({ page }) => {
@@ -227,8 +284,8 @@ test("a book page sets up a storyteller in place, prepares the audiobook and pla
 
 test("Kids devices separates temporary Kids Mode from a registered device", async ({ page }, info) => {
   await signIn(page, "adult:sara");
-  await page.goto("/family/devices");
-  await expect(page.getByRole("heading", { name: "Kids devices and PIN" })).toBeVisible();
+  await page.goto("/family/settings/kids-mode");
+  await expect(page.getByRole("heading", { name: "Kids Mode", level: 1 })).toBeVisible();
   const modes = page.getByTestId("kids-modes");
   await expect(modes).toContainText("Temporary");
   await expect(modes).toContainText("Ends on its own after 12 hours, and never registers a device");

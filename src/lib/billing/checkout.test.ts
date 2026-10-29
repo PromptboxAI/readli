@@ -130,9 +130,9 @@ describe("checkoutReturn", () => {
   });
 
   it("only for an invitation this household accepted, and only to a connect page", () => {
-    expect(checkoutReturn(origin, { fromSignup: false, invitationId: null, returnPath: `/v/${token}/connect` }).success).toBe(`${origin}/family/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`);
+    expect(checkoutReturn(origin, { fromSignup: false, invitationId: null, returnPath: `/v/${token}/connect` }).success).toBe(`${origin}/family/settings/plan?checkout=success&session_id={CHECKOUT_SESSION_ID}`);
     for (const returnPath of ["https://evil.example/v/x/connect", `//evil.example/v/${token}/connect`, `/v/${token}/connect?x=1`, "/family", `/v/short/connect`, 42]) {
-      expect(checkoutReturn(origin, { fromSignup: false, invitationId: "inv-1", returnPath }).success).toBe(`${origin}/family/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`);
+      expect(checkoutReturn(origin, { fromSignup: false, invitationId: "inv-1", returnPath }).success).toBe(`${origin}/family/settings/plan?checkout=success&session_id={CHECKOUT_SESSION_ID}`);
     }
   });
 

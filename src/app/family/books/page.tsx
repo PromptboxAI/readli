@@ -27,7 +27,7 @@ export default async function FamilyBooksPage() {
       <PreviewNote />
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h1 className="font-display text-4xl font-semibold">Books</h1>
-        <Link href="/family/credits" className="font-semibold" data-testid="library-balance">
+        <Link href="/family/settings/plan" className="font-semibold" data-testid="library-balance">
           <span className="font-display text-xl">{displayCredits(lib.credits.available, lib.credits.unitsPerCredit).toLocaleString("en-US")} credits available</span>{" "}
           <span className="text-sm underline underline-offset-4">Credits and history</span>
         </Link>

@@ -586,7 +586,7 @@ async function endingNotices(ctx: SponsorshipContext, sp: Row, seats: Row[], now
           `Continue with your own plan: $19.99 a month, starting ${shortDate(end)}, so there's no gap and no double charge.`,
         ],
         cta: "Choose a plan",
-        path: "/family/billing",
+        path: "/family/settings/plan",
       });
       sent += 1;
       break;
@@ -678,7 +678,7 @@ export async function removeFamily(ctx: SponsorshipContext, sponsorId: string, i
         `Stories in ${from}'s voice stay with your family as long as ${from} keeps sharing their voice with you.`,
       ],
       cta: "Choose a plan",
-      path: "/family/billing",
+      path: "/family/settings/plan",
     });
   }
   return { accessUntil: until };
@@ -740,7 +740,7 @@ export async function rebalanceCredits(ctx: SponsorshipContext, sponsorId: strin
           title: `From ${shortDate(from)}, your family has ${share} story credits a month from ${giver}'s gift`,
           paragraphs: ["This month stays as it is. Credits you bought yourselves aren't affected."],
           cta: "See your credits",
-          path: "/family/credits",
+          path: "/family/settings/plan",
         },
         "S7",
       );

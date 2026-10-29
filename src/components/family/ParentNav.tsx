@@ -15,9 +15,9 @@ const icon = (paths: React.ReactNode) => (
 );
 
 /**
- * Parent Portal sections: Home | Books | Family | Parent Controls. Family is the kids and who reads to them
- * (each child's profile is where Readli Kids opens); Parent Controls opens every setting directly, including
- * Kids Mode devices, credits, billing, storytellers and voices.
+ * Parent Portal sections: Home | Books | Family | Settings. Family is the kids and who reads to them: kids
+ * profiles (each child's profile is where Readli Kids opens), family storytellers and My Voice. Settings is
+ * the grown-up's account, the family's plan and credits, and Kids Mode.
  */
 const NAV: Tab[] = [
   { label: "Home", href: "/family", match: ["/family"], icon: icon(<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" />) },
@@ -35,7 +35,7 @@ const NAV: Tab[] = [
   {
     label: "Family",
     href: "/family/kids",
-    match: ["/family/kids"],
+    match: ["/family/kids", "/family/narrators", "/family/my-voice"],
     icon: icon(
       <>
         <circle cx="9" cy="8" r="3" />
@@ -46,15 +46,13 @@ const NAV: Tab[] = [
     ),
   },
   {
-    label: "Parent Controls",
-    href: "/family/controls",
-    match: ["/family/controls", "/family/narrators", "/family/my-voice", "/family/devices", "/family/credits", "/family/billing", "/family/account"],
+    label: "Settings",
+    href: "/family/settings",
+    match: ["/family/settings"],
     icon: icon(
       <>
-        <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12" />
-        <circle cx="16" cy="6" r="2" />
-        <circle cx="10" cy="12" r="2" />
-        <circle cx="18" cy="18" r="2" />
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
       </>,
     ),
   },

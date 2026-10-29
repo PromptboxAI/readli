@@ -42,10 +42,13 @@ export function accountLinks(nav: Extract<NavState, { kind: "adult" }>): NavLink
   const links: NavLink[] = [];
   // A Family account's home is My Family; anyone else gets a way back to the Readli home page.
   links.push(nav.family.plan !== "none" ? { href: "/family", label: "My Family" } : { href: "/", label: "Home" });
-  links.push({ href: nav.family.plan === "none" ? "/voice" : "/family/my-voice", label: "My Voice" }, { href: "/family/account", label: "Account settings" }, { href: "/help", label: "Help" });
-  if (nav.family.plan === "trial") links.push({ href: "/family/billing", label: "Choose a plan", tone: "offer" });
+  links.push({ href: nav.family.plan === "none" ? "/voice" : "/family/my-voice", label: "My Voice" }, { href: "/family/settings", label: "Settings" });
+  // A paid family reaches its plan and credits straight from the menu; a trial has Choose a plan below instead.
+  if (nav.family.plan === "paid") links.push({ href: "/family/settings/plan", label: "Plan & credits" });
+  links.push({ href: "/help", label: "Help" });
+  if (nav.family.plan === "trial") links.push({ href: "/family/settings/plan", label: "Choose a plan", tone: "offer" });
   // There's no free trial: someone who already named a family picks a plan, anyone else starts a family first.
-  if (nav.family.plan === "none") links.push({ href: nav.household ? "/family/billing" : "/signup/family", label: "Start Readli Family", tone: "offer" });
+  if (nav.family.plan === "none") links.push({ href: nav.household ? "/family/settings/plan" : "/signup/family", label: "Start Readli Family", tone: "offer" });
   return links;
 }
 

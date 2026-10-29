@@ -456,7 +456,7 @@ test("short on credits: prepare a chapter, or buy credits and come straight back
 
   // Buying credits returns to this book and narrator with the confirmation already open.
   await june.getByTestId("get-credits").click();
-  await expect(page.getByRole("heading", { name: "Readli credits" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Plan & credits", level: 1 })).toBeVisible();
   await expect(page.getByTestId("need")).toContainText("more credits");
   await page.getByRole("button", { name: "Buy 20" }).click();
   await expect(page).toHaveURL(/\/family\/books\/aesops-fables-retold\?voice=voice-june&scope=book/);
@@ -466,7 +466,7 @@ test("short on credits: prepare a chapter, or buy credits and come straight back
   await confirm.getByRole("button", { name: "Prepare now" }).click();
   await expect(status("voice-june")).toHaveText("Ready", { timeout: 20_000 });
 
-  await page.goto("/family/credits");
+  await page.goto("/family/settings/plan");
   await expect(page.getByTestId("credit-history")).toContainText("Aesop's Fables read by Grandma June");
   await expect(page.getByTestId("credit-history")).toContainText("Credit pack (20)");
 });

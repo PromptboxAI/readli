@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
 import { KidsDevices } from "@/components/family/KidsDevices";
-import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
+import { FamilyOff, NeedsGrownUp } from "@/components/family/FamilyShell";
+import { SettingsShell } from "@/components/family/SettingsShell";
 import { DEVICE_IDLE_DAYS, listDevices } from "@/lib/family/devices";
 import { familyPage, guardianChildren } from "@/lib/family/page-data";
 import { guardianHousehold } from "@/lib/family/service";
 import { deviceRegistry, familyStore, TEMPORARY_KIDS_HOURS } from "@/lib/family/session";
-import { BackLink } from "@/components/family/BackLink";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Kids devices and PIN | Readli" };
+export const metadata: Metadata = { title: "Kids Mode | Readli" };
 
-export default async function KidsDevicesPage() {
+/** Kids Mode: the family PIN and the kids devices registered to the family. */
+export default async function KidsModePage() {
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   const session = page.session;
@@ -23,9 +24,7 @@ export default async function KidsDevicesPage() {
     .filter((c) => c.householdId === householdId)
     .map((c) => ({ id: c.id, nickname: c.nickname }));
   return (
-    <FamilyShell>
-      <PreviewNote />
-      <BackLink href="/family/controls" label="Parent Controls" />
+    <SettingsShell current="kids-mode" guardian>
       <KidsDevices
         kids={kids}
         initialDevices={await listDevices(registry, page.state, session.actor, householdId)}
@@ -33,6 +32,6 @@ export default async function KidsDevicesPage() {
         temporaryHours={TEMPORARY_KIDS_HOURS}
         idleDays={DEVICE_IDLE_DAYS}
       />
-    </FamilyShell>
+    </SettingsShell>
   );
 }

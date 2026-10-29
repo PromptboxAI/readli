@@ -3,13 +3,13 @@ import { adsOptedOut, loadPixel, newMetaEventId, pixelAllowed, setAdsOptOut, syn
 
 describe("Meta Pixel pages", () => {
   it("runs on the public grown-up pages", () => {
-    for (const p of ["/", "/try", "/pricing", "/books", "/books/peter-rabbit", "/help/recording-tips", "/signup", "/signup/family", "/signup/voice", "/gift", "/grandparents", "/family/billing"]) {
+    for (const p of ["/", "/try", "/pricing", "/books", "/books/peter-rabbit", "/help/recording-tips", "/signup", "/signup/family", "/signup/voice", "/gift", "/grandparents", "/family/settings/plan"]) {
       expect(pixelAllowed(p), p).toBe(true);
     }
   });
 
   it("never runs in Readli Kids, the parent portal, admin, invitations, sign-in or legal pages", () => {
-    for (const p of ["/kids", "/kids/listen/peter-rabbit", "/family", "/family/kids", "/family/billingx", "/admin", "/login", "/auth/callback", "/invite/abc", "/v/abc", "/voice/join", "/gift/open", "/privacy", "/terms", "/accessibility", "/trying"]) expect(pixelAllowed(p), p).toBe(false);
+    for (const p of ["/kids", "/kids/listen/peter-rabbit", "/family", "/family/kids", "/family/settings/planx", "/admin", "/login", "/auth/callback", "/invite/abc", "/v/abc", "/voice/join", "/gift/open", "/privacy", "/terms", "/accessibility", "/trying"]) expect(pixelAllowed(p), p).toBe(false);
   });
 
   it("is production only", () => {

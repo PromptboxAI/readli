@@ -156,7 +156,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Meta Pixel",
-        text: "on public website pages for grown-ups (such as the homepage, the Try page, pricing, the library, help, gifts, sign-up, and Plan and billing), we use the Meta Pixel from Meta Platforms, Inc. to measure and improve our ads on Facebook and Instagram. It sets Meta cookies and tells Meta which of these pages you visited and whether you made a demo voice, started sign-up, or started a plan and its price, along with your IP address and browser information. It does not receive voice recordings, email addresses, or child-profile information. It never runs in Readli Kids, in the rest of the parent portal, on invitation pages, or on the sign-in and legal pages. Meta may use this information under its own privacy policy, including to show you ads for Readli.",
+        text: "on public website pages for grown-ups (such as the homepage, the Try page, pricing, the library, help, gifts, sign-up, and Plan & credits), we use the Meta Pixel from Meta Platforms, Inc. to measure and improve our ads on Facebook and Instagram. It sets Meta cookies and tells Meta which of these pages you visited and whether you made a demo voice, started sign-up, or started a plan and its price, along with your IP address and browser information. It does not receive voice recordings, email addresses, or child-profile information. It never runs in Readli Kids, in the rest of the parent portal, on invitation pages, or on the sign-in and legal pages. Meta may use this information under its own privacy policy, including to show you ads for Readli.",
       },
       {
         lead: "Meta Conversions API",

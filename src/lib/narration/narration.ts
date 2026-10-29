@@ -461,7 +461,7 @@ function missingByChapter(state: FamilyState, plan: PlanConfig, library: Narrati
 
 /** The page where a parent clears the reason a narrator is unavailable. */
 function fixFor(state: FamilyState, plan: PlanConfig, householdId: string, voiceId: string, kids: { id: string }[]): { label: string; href: string } | null {
-  if (!activeEntitlement(state, householdId)) return { label: "See Readli Family plans", href: "/family/billing" };
+  if (!activeEntitlement(state, householdId)) return { label: "See Readli Family plans", href: "/family/settings/plan" };
   if (!readyVoice(state, voiceId) || !activeShare(state, voiceId, householdId)) return null;
   if (!activeSlot(state, voiceId, householdId, plan)) return { label: "Manage narrator slots", href: "/family/narrators" };
   if (kids.length === 0) return { label: "Add a child", href: "/family/kids" };

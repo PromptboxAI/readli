@@ -346,7 +346,7 @@ describe("prepare page", () => {
     const { state, store } = family();
     expect((await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-sara")!.fix).toBeNull();
     for (const e of state.entitlements) e.endsAt = "2026-01-01T00:00:00Z";
-    expect((await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-sara")!.fix?.href).toBe("/family/billing");
+    expect((await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-sara")!.fix?.href).toBe("/family/settings/plan");
   });
 
   it("calls a book prepared before The End was added Ready, everywhere, with nothing left to pay", async () => {

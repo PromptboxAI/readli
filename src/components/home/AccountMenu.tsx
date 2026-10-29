@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import type { NavLink } from "@/lib/auth/nav-links";
+import { settingsLink, SETTINGS_HOME } from "@/lib/family/settings-nav";
 
 const item = "block w-full rounded-2xl px-3 py-2 text-left font-display font-medium hover:bg-ivory";
 const tones = { offer: "text-mint-deep", danger: "text-coral-deep" } as const;
@@ -17,6 +19,9 @@ export function AccountMenu(props: { name: string; email: string | null; initial
   const ref = useRef<HTMLDivElement>(null);
   const id = useId();
   const name = props.name || "Your account";
+  // Settings remembers the page it was opened from, so its way back returns there.
+  const path = usePathname();
+  const href = (l: NavLink) => (l.href === SETTINGS_HOME ? settingsLink(l.href, path) : l.href);
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
@@ -67,7 +72,7 @@ export function AccountMenu(props: { name: string; email: string | null; initial
             {props.links.map((l, i) => (
               <span key={l.href} className="contents">
                 {l.tone === "offer" && props.links[i - 1]?.tone !== "offer" && <hr className="my-1 border-ink/15" />}
-                <Link href={l.href} className={`${item} ${l.tone ? tones[l.tone] : ""}`}>
+                <Link href={href(l)} className={`${item} ${l.tone ? tones[l.tone] : ""}`}>
                   {l.label}
                 </Link>
               </span>
