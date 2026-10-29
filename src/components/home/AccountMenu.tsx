@@ -11,9 +11,8 @@ const tones = { offer: "text-mint-deep", danger: "text-coral-deep" } as const;
 
 /**
  * The signed-in grown-up's account button and menu. Sign out lives here, never in the main nav.
- * On phones the menu also carries the public site links, since there is no separate Menu.
  */
-export function AccountMenu(props: { name: string; email: string | null; initials: string; avatarUrl?: string | null; badge: string | null; links: NavLink[]; explore?: NavLink[]; compact?: boolean }) {
+export function AccountMenu(props: { name: string; email: string | null; initials: string; avatarUrl?: string | null; badge: string | null; links: NavLink[]; compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const [brokenPhoto, setBrokenPhoto] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -78,17 +77,6 @@ export function AccountMenu(props: { name: string; email: string | null; initial
               </span>
             ))}
           </nav>
-          {props.explore && props.explore.length > 0 && (
-            <nav aria-label="Explore Readli" className="flex flex-col gap-0.5">
-              <hr className="my-1 border-ink/15" />
-              <p className="px-3 pt-1 text-xs font-bold tracking-wider text-muted uppercase">Explore Readli</p>
-              {props.explore.map((l) => (
-                <Link key={l.href} href={l.href} className={item}>
-                  {l.label}
-                </Link>
-              ))}
-            </nav>
-          )}
           <hr className="my-1 border-ink/15" />
           <form action="/auth/signout" method="post">
             <button type="submit" className={`${item} cursor-pointer ${tones.danger}`}>
