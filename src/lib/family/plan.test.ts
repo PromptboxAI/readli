@@ -19,6 +19,7 @@ import {
   setChildApprovals,
   setHouseholdShare,
   setStorytellerNickname,
+  shareWithJoinedFamilies,
   setStorytellerRelationship,
   startListening,
   stopListening,
@@ -69,6 +70,37 @@ describe("signup and pricing amendment", () => {
     // Grandpa Lou has no plan of his own; sharing needs only his consent.
     expect(state.entitlements.some((e) => e.householdId !== H)).toBe(false);
     await setHouseholdShare(store, { kind: "adult", adultId: "lou" }, { voiceId: "voice-lou", householdId: H, shared: true, policyVersion: "p" }, clock);
+    // The family has a free slot, so his first share takes it.
+    expect((await narratorSlots(store, mom, H, clock)).active.map((n) => n.voiceId)).toContain("voice-lou");
+  });
+
+  it("keeping a voice shares it with each family that invited them, into a free slot, approving no child", async () => {
+    const { state, store } = basePlanFamily();
+    state.adults.push({ id: "andrea", displayName: "Andrea", avatarUrl: null, tint: "bg-sky" });
+    state.members.push({ householdId: H, adultId: "andrea", role: "member", joinedAt: clock().toISOString(), removedAt: null });
+    const andrea: Actor = { kind: "adult", adultId: "andrea" };
+    // No voice yet: nothing to share.
+    expect(await shareWithJoinedFamilies(store, andrea, "p", clock)).toEqual([]);
+    state.voices.push({ id: "voice-andrea", ownerId: "andrea", version: 1, status: "ready", createdAt: clock().toISOString(), deletedAt: null });
+    const shared = await shareWithJoinedFamilies(store, andrea, "p", clock);
+    expect(shared.map((x) => x.householdId)).toEqual([H]);
+    const view = await narratorSlots(store, mom, H, clock);
+    expect(view.active.map((n) => n.voiceId)).toContain("voice-andrea");
+    expect(view.joined).toHaveLength(0);
+    expect(state.approvals.some((a) => a.voiceId === "voice-andrea")).toBe(false);
+    // Once she stops sharing, keeping again never shares behind her back, and re-sharing waits for a parent's slot.
+    await setHouseholdShare(store, andrea, { voiceId: "voice-andrea", householdId: H, shared: false, policyVersion: "p" }, clock);
+    expect(await shareWithJoinedFamilies(store, andrea, "p", clock)).toEqual([]);
+    await setHouseholdShare(store, andrea, { voiceId: "voice-andrea", householdId: H, shared: true, policyVersion: "p" }, clock);
+    expect((await narratorSlots(store, mom, H, clock)).shared.map((n) => n.voiceId)).toContain("voice-andrea");
+  });
+
+  it("a first share waits for a parent when every slot is in use", async () => {
+    const { store } = basePlanFamily();
+    await activateNarrator(store, mom, H, "voice-sara", clock);
+    await activateNarrator(store, mom, H, "voice-ben", clock);
+    const notice = await setHouseholdShare(store, { kind: "adult", adultId: "lou" }, { voiceId: "voice-lou", householdId: H, shared: true, policyVersion: "p" }, clock);
+    expect(notice).toMatchObject({ slotsFull: true, cta: "Open Family storytellers" });
     expect((await narratorSlots(store, mom, H, clock)).shared.map((n) => n.voiceId)).toContain("voice-lou");
   });
 
@@ -201,7 +233,7 @@ describe("signup and pricing amendment", () => {
     expect(view.active).toHaveLength(0);
     expect(view.waiting.find((n) => n.voiceId === "voice-lou")?.status).toBe("not_shared");
 
-    // Her voice is being made, then ready but not shared, then shared: ready to add.
+    // Her voice is being made, then ready but not shared, then shared: in a free slot at once.
     state.voices.push({ id: "voice-andrea", ownerId: "andrea", version: 1, status: "processing", createdAt: clock().toISOString(), deletedAt: null });
     view = await narratorSlots(store, mom, H, clock);
     expect(view.joined).toHaveLength(0);
@@ -210,7 +242,7 @@ describe("signup and pricing amendment", () => {
     expect((await narratorSlots(store, mom, H, clock)).waiting.find((n) => n.voiceId === "voice-andrea")?.status).toBe("not_shared");
     const andrea: Actor = { kind: "adult", adultId: "andrea" };
     await setHouseholdShare(store, andrea, { voiceId: "voice-andrea", householdId: H, shared: true, policyVersion: "p" }, clock);
-    expect((await narratorSlots(store, mom, H, clock)).shared.map((n) => n.voiceId)).toContain("voice-andrea");
+    expect((await narratorSlots(store, mom, H, clock)).active.map((n) => n.voiceId)).toContain("voice-andrea");
 
     // Stopping sharing is shown as such, not as never shared.
     await setHouseholdShare(store, andrea, { voiceId: "voice-andrea", householdId: H, shared: false, policyVersion: "p" }, clock);
@@ -242,7 +274,7 @@ describe("signup and pricing amendment", () => {
     await rejects(removeStoryteller(store, { kind: "adult", adultId: "lou" }, H, "sara", clock), 403);
   });
 
-  it("a family's nickname for a storyteller is display only, and sharing tells the parents without approving anyone", async () => {
+  it("a family's nickname for a storyteller is display only, and sharing fills a free slot and tells the parents without approving anyone", async () => {
     const { state, store } = basePlanFamily();
     addSecondHousehold(state);
     state.adults.push({ id: "andrea", displayName: "Andrea", avatarUrl: null, tint: "bg-sky" });
@@ -256,10 +288,13 @@ describe("signup and pricing amendment", () => {
     // Called "Mommy" in this family before sharing: the parents' notice uses it, once, and links to her card.
     await setStorytellerNickname(store, andrea, H, "andrea", "Mommy");
     const notice = await setHouseholdShare(store, andrea, { voiceId: "voice-andrea", householdId: H, shared: true, policyVersion: "p" }, clock);
-    expect(notice).toMatchObject({ title: "Mommy is ready to read!", cta: "Add Mommy to My Family", href: "/family/narrators?add=voice-andrea" });
+    expect(notice).toMatchObject({ title: "Mommy is ready to read!", cta: "Choose who hears Mommy", href: "/family/narrators?add=voice-andrea" });
     expect(state.notifications.at(-1)).toMatchObject({ householdId: H, href: "/family/narrators?add=voice-andrea", readAt: null });
     expect(state.notifications.at(-1)!.text).toContain("Andrea (Mommy) recorded a voice and shared it with");
-    expect(state.slots.some((s) => s.voiceId === "voice-andrea")).toBe(false);
+    expect(state.notifications.at(-1)!.text).toContain("is now in one of your narrator slots");
+    // A free slot takes her, recorded as the family's parent; no child is approved for her.
+    expect(state.slots.find((s) => s.voiceId === "voice-andrea" && s.releasedAt === null)).toMatchObject({ householdId: H, activatedBy: "sara" });
+    expect(state.approvals.some((a) => a.voiceId === "voice-andrea")).toBe(false);
     // Sharing again changes nothing and tells no one twice.
     const count = state.notifications.length;
     expect(await setHouseholdShare(store, andrea, { voiceId: "voice-andrea", householdId: H, shared: true, policyVersion: "p" }, clock)).toBeNull();
@@ -273,7 +308,7 @@ describe("signup and pricing amendment", () => {
     await rejects(setStorytellerNickname(store, andrea, H, "sara", "Queen"), 403);
     await rejects(setStorytellerNickname(store, mom, H, "andrea", "x".repeat(41)), 400, "nickname_too_long");
     await setStorytellerNickname(store, mom, H, "andrea", "  Mommy ");
-    const card = (await narratorSlots(store, mom, H, clock)).shared.find((n) => n.voiceId === "voice-andrea")!;
+    const card = (await narratorSlots(store, mom, H, clock)).active.find((n) => n.voiceId === "voice-andrea")!;
     expect(card).toMatchObject({ adultId: "andrea", name: "Mommy", ownName: "Andrea" });
     expect(state.adults.find((a) => a.id === "andrea")!.displayName).toBe("Andrea");
     expect(state.voices.find((v) => v.id === "voice-andrea")!.ownerId).toBe("andrea");

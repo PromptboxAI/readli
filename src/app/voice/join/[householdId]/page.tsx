@@ -11,6 +11,7 @@ import { myVoices } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
 import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
+import { shareKeptVoice } from "@/lib/invites/share-on-keep";
 
 export const metadata: Metadata = { title: "Your storyteller steps | Readli Voice", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -25,6 +26,8 @@ export default async function JoinStepsPage({ params }: { params: Promise<{ hous
   const here = `/voice/join/${householdId}`;
   const user = await currentAdult();
   if (!user) redirect(`/login?next=${encodeURIComponent(here)}`);
+  // A voice kept before keeping also shared it reaches this family now, with no separate step.
+  await shareKeptVoice();
   const page = await familyPage();
   const store = page.enabled && page.session?.account && page.session.actor.kind === "adult" ? await familyStore(page.session) : null;
   const state = page.enabled ? page.state : null;
