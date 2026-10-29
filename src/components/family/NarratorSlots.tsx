@@ -106,6 +106,7 @@ export function NarratorSlots({
   invites: initialInvites = [],
   kids = [],
   focus = null,
+  openOn = null,
 }: {
   initial: NarratorSlotsView;
   canBuy?: boolean;
@@ -116,11 +117,15 @@ export function NarratorSlots({
   kids?: { id: string; name: string }[];
   /** A voice to open on, from the "ready to read" notice or email. */
   focus?: string | null;
+  /** A narrator to open on "Which children can hear them?", from Home's "Not approved for a child yet". */
+  openOn?: string | null;
 }) {
   const router = useRouter();
   const [view, setView] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  /** Just approved for a child: offer to prepare a book in their voice. */
+  const [prepareFor, setPrepareFor] = useState<{ voiceId: string; name: string; after: string } | null>(null);
   const [buying, setBuying] = useState(false);
   const [invites, setInvites] = useState(initialInvites);
   const [inviting, setInviting] = useState<{ name: string } | null>(null);
@@ -128,7 +133,7 @@ export function NarratorSlots({
   const free = view.total - view.active.length;
   const price = formatPrice(view.extraSlotPriceCents);
   const canInvite = inviteMode !== "off";
-  const [picking, setPicking] = useState<{ voiceId: string; name: string } | null>(null);
+  const [picking, setPicking] = useState<{ voiceId: string; name: string; had: string[] } | null>(null);
   const [chosen, setChosen] = useState<string[]>([]);
   const pickRef = useRef<HTMLElement>(null);
   // Circle and List show the same data; switching only hides the other, so nothing open on the list is lost.
@@ -170,21 +175,33 @@ export function NarratorSlots({
     if (picking) pickRef.current?.scrollIntoView({ block: "start" });
   }, [picking]);
 
-  const pick = (voiceId: string, name: string) => {
-    setChosen([]);
-    setPicking({ voiceId, name });
+  /** Opens "Which children can hear them?" with the children who already can ticked. */
+  const pick = (voiceId: string, name: string, had: string[] = []) => {
+    setChosen(had);
+    setPicking({ voiceId, name, had });
   };
 
-  // Approves the new narrator for the children ticked here: one parent decision per child, never automatic.
+  // Home's "Not approved for a child yet" opens straight on the choice.
+  const chooseOpened = useRef(false);
+  useEffect(() => {
+    if (!openOn || chooseOpened.current || kids.length === 0) return;
+    chooseOpened.current = true;
+    const n = initial.active.find((x) => x.voiceId === openOn);
+    if (n) pick(n.voiceId, n.name, n.canHear ?? []);
+  }, [openOn, initial, kids.length]);
+
+  const changed = picking ? kids.filter((k) => chosen.includes(k.id) !== picking.had.includes(k.id)) : [];
+
+  // Saves the children ticked or unticked here: one parent decision per child, never automatic.
   const approveChosen = async () => {
-    if (!picking || chosen.length === 0) return;
+    if (!picking || changed.length === 0) return;
     setBusy(true);
     setMessage(null);
-    for (const childId of chosen) {
+    for (const { id: childId } of changed) {
       const res = await fetch(`/api/family/kids/${encodeURIComponent(childId)}/storytellers`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ changes: [{ voiceId: picking.voiceId, approved: true }] }),
+        body: JSON.stringify({ changes: [{ voiceId: picking.voiceId, approved: chosen.includes(childId) }] }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
@@ -194,7 +211,9 @@ export function NarratorSlots({
     }
     const names = kids.filter((k) => chosen.includes(k.id)).map((k) => k.name);
     setBusy(false);
-    setMessage(`${names.join(" and ")} can now hear ${picking.name}. Prepare a book in ${picking.name}'s voice from the library.`);
+    const done = names.length ? `${names.join(" and ")} can now hear ${picking.name}.` : `No children can hear ${picking.name} now.`;
+    setMessage(done);
+    setPrepareFor(names.length ? { voiceId: picking.voiceId, name: picking.name, after: done } : null);
     setPicking(null);
     router.refresh();
   };
@@ -357,6 +376,14 @@ export function NarratorSlots({
       <p role="status" aria-live="polite" className={message ? "rounded-2xl bg-ivory p-3 font-semibold ring-2 ring-ink/10" : "sr-only"}>
         {message}
       </p>
+      {prepareFor && prepareFor.after === message && (
+        <section className="flex flex-col items-start gap-2 rounded-2xl bg-sky/40 p-4" data-testid="prepare-next">
+          <p className="font-semibold">Next, prepare a book in {prepareFor.name}&apos;s voice. Books your kids already hear in another voice are shown first, so they can switch storytellers mid-story.</p>
+          <Link href={`/family/books?voice=${encodeURIComponent(prepareFor.voiceId)}`} className={buttonPrimary}>
+            Prepare a book in {prepareFor.name}&apos;s voice
+          </Link>
+        </section>
+      )}
       <div role="group" aria-label="Storytellers view" className="flex self-start rounded-full border-[3px] border-ink bg-surface p-1" data-testid="view-toggle">
         {(["list", "circle"] as const).map((v) => (
           <button
@@ -402,8 +429,8 @@ export function NarratorSlots({
               ))}
             </ul>
             <div className="flex flex-wrap gap-2">
-              <button type="button" className={buttonPrimary} disabled={busy || chosen.length === 0} onClick={approveChosen}>
-                Approve for {chosen.length === 1 ? "this child" : "these children"}
+              <button type="button" className={buttonPrimary} disabled={busy || changed.length === 0} onClick={approveChosen}>
+                {picking.had.length === 0 ? `Approve for ${chosen.length === 1 ? "this child" : "these children"}` : "Save"}
               </button>
               <button type="button" className={buttonSecondary} onClick={() => setPicking(null)}>
                 Not now
@@ -431,9 +458,15 @@ export function NarratorSlots({
                 </div>
                 <div className="flex items-center gap-4">{person(n)}</div>
                 <div className="flex flex-wrap gap-2">
-                  <Link href={approveHref} className={buttonSecondary}>
-                    Choose kids
-                  </Link>
+                  {kids.length > 0 ? (
+                    <button type="button" className={buttonSecondary} onClick={() => pick(n.voiceId, n.name, n.canHear ?? [])}>
+                      Choose kids
+                    </button>
+                  ) : (
+                    <Link href={approveHref} className={buttonSecondary}>
+                      Choose kids
+                    </Link>
+                  )}
                   {rename(n)}
                   <button
                     type="button"

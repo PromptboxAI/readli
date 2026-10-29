@@ -37,11 +37,14 @@ export function BookCatalog({
   unitsPerCredit,
   quickMaxMinutes,
   bedtime,
+  initialVoice = null,
 }: {
   books: LibraryCard[];
   unitsPerCredit: number;
   quickMaxMinutes: number;
   bedtime: string[];
+  /** A storyteller to show costs for first, such as one a parent just approved. */
+  initialVoice?: string | null;
 }) {
   // Your own voice first, then whoever has the most books ready, so the costs shown start from the likeliest choice.
   const narrators = useMemo(() => {
@@ -57,7 +60,7 @@ export function BookCatalog({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [sort, setSort] = useState<Sort>("shortest");
-  const [voiceId, setVoiceId] = useState(narrators[0]?.voiceId ?? "");
+  const [voiceId, setVoiceId] = useState((initialVoice && narrators.find((n) => n.voiceId === initialVoice)?.voiceId) ?? narrators[0]?.voiceId ?? "");
   const [shown, setShown] = useState(PAGE);
 
   // Coming back to Books from a book (Back, or the book page's link) brings back the same search, filter,
@@ -208,7 +211,7 @@ export function BookCatalog({
         <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {list.slice(0, shown).map((b) => (
             <li key={b.slug} className="min-w-0">
-              <Link href={`/family/books/${b.slug}`} onClick={rememberPlace} className="group flex h-full flex-col gap-1.5 rounded-2xl outline-offset-4" data-testid={`book-${b.slug}`}>
+              <Link href={`/family/books/${b.slug}${voiceId ? `?voice=${encodeURIComponent(voiceId)}` : ""}`} onClick={rememberPlace} className="group flex h-full flex-col gap-1.5 rounded-2xl outline-offset-4" data-testid={`book-${b.slug}`}>
                 {b.coverUrl ? (
                   <Image src={b.coverUrl} alt="" width={180} height={240} className="aspect-[3/4] w-full rounded-2xl object-cover shadow-md group-hover:ring-4 group-hover:ring-ink" />
                 ) : (

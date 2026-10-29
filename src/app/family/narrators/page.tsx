@@ -15,7 +15,8 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Family storytellers | Readli" };
 
 export default async function NarratorSlotsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const add = (await searchParams).add;
+  const params = await searchParams;
+  const add = params.add;
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   if (page.session?.actor.kind !== "adult") return <NeedsGrownUp text="Only a parent or guardian can manage narrator slots." />;
@@ -38,7 +39,8 @@ export default async function NarratorSlotsPage({ searchParams }: { searchParams
         inviteMode={inviteMode}
         invites={invites}
         kids={guardianChildren(page.state!, page.session.actor.adultId).filter((c) => c.householdId === householdId).map((c) => ({ id: c.id, name: c.nickname }))}
-        focus={typeof add === "string" ? add : null}
+        focus={typeof add === "string" ? add : typeof params.choose === "string" ? params.choose : null}
+        openOn={typeof params.choose === "string" ? params.choose : null}
       />
     </FamilyShell>
   );

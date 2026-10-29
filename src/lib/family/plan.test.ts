@@ -288,8 +288,8 @@ describe("signup and pricing amendment", () => {
     // Called "Mommy" in this family before sharing: the parents' notice uses it, once, and links to her card.
     await setStorytellerNickname(store, andrea, H, "andrea", "Mommy");
     const notice = await setHouseholdShare(store, andrea, { voiceId: "voice-andrea", householdId: H, shared: true, policyVersion: "p" }, clock);
-    expect(notice).toMatchObject({ title: "Mommy is ready to read!", cta: "Choose who hears Mommy", href: "/family/narrators?add=voice-andrea" });
-    expect(state.notifications.at(-1)).toMatchObject({ householdId: H, href: "/family/narrators?add=voice-andrea", readAt: null });
+    expect(notice).toMatchObject({ title: "Mommy is ready to read!", cta: "Choose who hears Mommy", href: "/family/narrators?choose=voice-andrea" });
+    expect(state.notifications.at(-1)).toMatchObject({ householdId: H, href: "/family/narrators?choose=voice-andrea", readAt: null });
     expect(state.notifications.at(-1)!.text).toContain("Andrea (Mommy) recorded a voice and shared it with");
     expect(state.notifications.at(-1)!.text).toContain("is now in one of your narrator slots");
     // A free slot takes her, recorded as the family's parent; no child is approved for her.

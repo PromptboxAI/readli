@@ -307,7 +307,7 @@ export function readyNotice(state: FamilyState, plan: PlanConfig, householdId: s
     title: `${name} is ready to read!`,
     body,
     cta: added ? `Choose who hears ${name}` : slotsFull ? "Open Family storytellers" : `Add ${name} to My Family`,
-    href: `/family/narrators?add=${encodeURIComponent(voiceId)}`,
+    href: added ? `/family/narrators?choose=${encodeURIComponent(voiceId)}` : `/family/narrators?add=${encodeURIComponent(voiceId)}`,
   };
 }
 
