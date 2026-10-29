@@ -124,7 +124,9 @@ export function TemporaryKidsExit({ childName, preview = false }: { childName: s
     const res = await fetch("/api/kids/temporary/exit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pin }) });
     const json = await res.json().catch(() => null);
     setPin("");
-    if (res.ok) return window.location.replace("/family");
+    // Kids Mode already ended on this browser (a grown-up signed in or left it in another tab, or this page
+    // was left open): there's nothing to unlock, so go where this browser belongs now.
+    if (res.ok || json?.error?.code === "not_temporary") return window.location.replace("/family");
     setBusy(false);
     setMessage(json?.error?.message ?? "That didn't work. Please try again.");
   };
@@ -141,7 +143,7 @@ export function TemporaryKidsExit({ childName, preview = false }: { childName: s
             className="flex flex-wrap items-end gap-3"
             onSubmit={(e) => {
               e.preventDefault();
-              if (pin.length === 4) void leave();
+              if (pin.length === 4 && !busy) void leave();
             }}
           >
             <label className="flex flex-col gap-1 text-sm font-semibold">
