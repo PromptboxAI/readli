@@ -8,6 +8,10 @@ import { FamilyOff, FamilyShell, NeedsGrownUp } from "@/components/family/Family
 import { NameFamily } from "@/components/family/NameFamily";
 import { PlanStarting } from "@/components/family/PlanStarting";
 import { chosenName } from "@/lib/account/names";
+import { billingConfig } from "@/lib/billing/config";
+import { confirmCheckout } from "@/lib/billing/confirm";
+import { StripeApi } from "@/lib/billing/stripe-api";
+import { accountDb } from "@/lib/family/account-store";
 import { familyPage, guardianChildren } from "@/lib/family/page-data";
 import { activeEntitlement } from "@/lib/family/permissions";
 import { homeHousehold, PROVISIONAL_FAMILY_NAME } from "@/lib/family/service";
@@ -48,7 +52,15 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   const adult = state.adults.find((a) => a.id === adultId);
   const home = homeHousehold(state, adultId);
   if (!adult || !home) redirect("/signup/family");
-  const plan = activeEntitlement(state, home);
+  let plan = Boolean(activeEntitlement(state, home));
+  // Back from Stripe: confirm the checkout now rather than waiting on the webhook to turn the plan on.
+  const config = billingConfig();
+  const db = accountDb();
+  if (!plan && q.checkout === "success" && q.session_id && db && config.mode !== "off") {
+    const stripe = new StripeApi(config);
+    const outcome = await confirmCheckout(db, (id) => stripe.getCheckoutSession(id), q.session_id, home).catch(() => null);
+    plan = outcome?.status === "done";
+  }
   const familyName = state.households.find((h) => h.id === home)?.name ?? "";
   const named = familyName !== "" && familyName !== PROVISIONAL_FAMILY_NAME;
   const myName = session.account ? chosenName(adult.displayName, session.account.email) : adult.displayName;

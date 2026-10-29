@@ -70,32 +70,57 @@ export class StripeApi {
   }
 
   /**
-   * The active Stripe price for a catalog item, created on first use from the plan settings. Its product
-   * carries the configured tax code, and a product made before the code was set is given it here.
+   * The active Stripe price for a catalog item, created on first use from the plan settings. With a tax
+   * code configured (Managed Payments), the product carries it and the price includes tax, so families
+   * pay the listed price. A price or product made before that is brought into line here.
    */
   async priceFor(item: CatalogItem): Promise<string> {
     const taxCode = this.config.productTaxCode;
-    const found = await this.call<{ data: { id: string; product?: string | { id: string; tax_code?: string | { id: string } | null } }[] }>("GET", "prices", {
+    type Found = { id: string; tax_behavior?: string | null; product?: string | { id: string; tax_code?: string | { id: string } | null } };
+    const found = await this.call<{ data: Found[] }>("GET", "prices", {
       lookup_keys: [item.lookupKey],
       active: true,
       ...(taxCode ? { expand: ["data.product"] } : {}),
     });
     const price = found.data[0];
-    if (price) {
+    if (price && taxCode) {
       const product = typeof price.product === "object" ? price.product : null;
       const current = typeof product?.tax_code === "object" ? product.tax_code?.id : product?.tax_code;
-      if (taxCode && product && current !== taxCode) await this.call("POST", `products/${encodeURIComponent(product.id)}`, { tax_code: taxCode });
-      return price.id;
+      if (product && current !== taxCode) await this.call("POST", `products/${encodeURIComponent(product.id)}`, { tax_code: taxCode });
+      if (price.tax_behavior === "inclusive") return price.id;
+      if (!price.tax_behavior || price.tax_behavior === "unspecified") {
+        await this.call("POST", `prices/${encodeURIComponent(price.id)}`, { tax_behavior: "inclusive" });
+        return price.id;
+      }
+      // Stripe won't change an exclusive price, so a tax-inclusive one takes over its lookup key.
+      const replaced = await this.call<{ id: string }>("POST", "prices", {
+        currency: "usd",
+        unit_amount: item.amountCents,
+        lookup_key: item.lookupKey,
+        transfer_lookup_key: true,
+        product: product?.id ?? (typeof price.product === "string" ? price.product : undefined),
+        tax_behavior: "inclusive",
+        recurring: item.interval ? { interval: item.interval } : undefined,
+        metadata: { readli_item: item.id },
+      });
+      return replaced.id;
     }
+    if (price) return price.id;
     const created = await this.call<{ id: string }>("POST", "prices", {
       currency: "usd",
       unit_amount: item.amountCents,
       lookup_key: item.lookupKey,
       product_data: { name: item.name, metadata: { readli_item: item.id }, tax_code: taxCode },
+      tax_behavior: taxCode ? "inclusive" : undefined,
       recurring: item.interval ? { interval: item.interval } : undefined,
       metadata: { readli_item: item.id },
     });
     return created.id;
+  }
+
+  /** A Checkout session with its subscription expanded, to confirm a purchase when the buyer lands back on Readli. */
+  async getCheckoutSession(id: string): Promise<Record<string, unknown>> {
+    return this.call("GET", `checkout/sessions/${encodeURIComponent(id)}`, { expand: ["subscription"] });
   }
 
   async createCheckoutSession(params: Params): Promise<{ id: string; url: string }> {
