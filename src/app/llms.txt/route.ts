@@ -9,7 +9,8 @@ export function GET() {
   const link = (p: { path: string; title: string }) => `- [${p.title}](${absoluteUrl(p.path)})`;
   const books = pages.filter((p) => p.path.startsWith("/books/"));
   const help = pages.filter((p) => p.path.startsWith("/help"));
-  const main = pages.filter((p) => !p.path.startsWith("/books/") && !p.path.startsWith("/help") && p.path !== "/");
+  const guides = pages.filter((p) => p.path.startsWith("/guides/"));
+  const main = pages.filter((p) => !p.path.startsWith("/books/") && !p.path.startsWith("/help") && !p.path.startsWith("/guides/") && p.path !== "/");
 
   const body = [
     `# ${SITE_NAME}`,
@@ -21,6 +22,10 @@ export function GET() {
     "## Main pages",
     "",
     ...main.map(link),
+    "",
+    "## Stories & Guides",
+    "",
+    ...guides.map(link),
     "",
     "## Library",
     "",

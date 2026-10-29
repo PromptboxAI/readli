@@ -376,6 +376,7 @@ export function SiteFooter() {
   const links = [
     { href: "/how-it-works", label: "How it works" },
     { href: "/books", label: "Library" },
+    { href: "/guides", label: "Guides" },
     { href: "/company", label: "Company" },
     { href: "/pricing", label: "Pricing" },
     { href: "/privacy", label: "Privacy" },

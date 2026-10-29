@@ -78,3 +78,18 @@ test("the explainer pages each have one heading, structured data and what's live
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("the guides hub lists each guide, and each guide names its author and date", async ({ page }) => {
+  await page.goto("/guides");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Guides for storytelling families");
+  const cards = page.getByTestId("guide-list").getByRole("link");
+  await expect(cards).toHaveCount(4);
+  await cards.first().click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("How to record your voice for your child's bedtime stories");
+  await expect(page.getByTestId("guide-byline")).toContainText("Kevin Godfrey");
+  await expect(page.getByTestId("guide-byline").locator("time")).toHaveAttribute("datetime", /^\d{4}-\d{2}-\d{2}$/);
+  const ld = await page.locator('script[type="application/ld+json"]').allTextContents();
+  expect(ld.some((t) => t.includes('"@type":"Article"') && t.includes('"name":"Kevin Godfrey"'))).toBe(true);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});
