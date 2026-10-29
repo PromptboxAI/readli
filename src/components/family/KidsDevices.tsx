@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { buttonPrimary, buttonQuiet, buttonSecondary } from "@/components/brand/buttons";
+import { parentPrimary, buttonQuiet, parentSecondary } from "@/components/brand/buttons";
 import type { DeviceView } from "@/lib/family/devices";
 
 const when = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -134,7 +134,7 @@ export function KidsDevices({
               className="w-32 rounded-2xl border-2 border-ink/20 bg-ivory px-3 py-2 text-center text-2xl tracking-[0.4em]"
             />
           </label>
-          <button type="button" className={buttonPrimary} disabled={busy || pin.length !== 4} onClick={savePin}>
+          <button type="button" className={parentPrimary} disabled={busy || pin.length !== 4} onClick={savePin}>
             {hasPin ? "Change PIN" : "Save PIN"}
           </button>
         </div>
@@ -180,7 +180,7 @@ export function KidsDevices({
               On an iPad or phone, once the bookshelf opens, tap Share and then Add to Home Screen. The Readli Kids shortcut opens straight
               to the bookshelf, and your kids pick who&apos;s listening.
             </p>
-            <button type="button" className={`${buttonSecondary} self-start`} disabled={busy || chosen.length === 0} onClick={setUp}>
+            <button type="button" className={`${parentSecondary} self-start`} disabled={busy || chosen.length === 0} onClick={setUp}>
               Start Readli Kids here
             </button>
           </>

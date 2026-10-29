@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { buttonSecondary } from "@/components/brand/buttons";
+import { parentSecondary } from "@/components/brand/buttons";
 import type { LibraryCard } from "@/lib/library/discovery";
 import { displayCredits } from "@/lib/narration/credits";
 
@@ -242,7 +242,7 @@ export function BookCatalog({
             Showing {Math.min(shown, list.length)} of {list.length}
           </span>
           {shown < list.length && (
-            <button type="button" className={buttonSecondary} onClick={() => setShown((s) => s + PAGE)}>
+            <button type="button" className={parentSecondary} onClick={() => setShown((s) => s + PAGE)}>
               Show more
             </button>
           )}

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { buttonPrimary } from "@/components/brand/buttons";
+import { parentPrimary } from "@/components/brand/buttons";
 import { CheckoutDone } from "@/components/family/BillingActions";
 import { FamilyOff, FamilyShell, NeedsGrownUp } from "@/components/family/FamilyShell";
 import { GoToFamily } from "@/components/family/GoToFamily";
@@ -49,7 +49,7 @@ export default async function CheckoutThanksPage({ searchParams }: { searchParam
         <section className="flex flex-col items-start gap-4 rounded-[var(--radius-panel)] bg-surface p-8 ring-2 ring-ink/10" data-testid="checkout-thanks">
           <h1 className="font-display text-4xl font-semibold">Thank you!</h1>
           <p className="text-lg">{what(outcome)} Taking you to your family now.</p>
-          <Link href="/family" className={buttonPrimary}>
+          <Link href="/family" className={parentPrimary}>
             Go to my family
           </Link>
           <GoToFamily />

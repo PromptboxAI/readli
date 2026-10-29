@@ -13,3 +13,10 @@ const small =
 export const buttonSmall = `${small} border-[3px] border-ink bg-surface text-ink hover:-translate-y-0.5`;
 export const buttonSmallPrimary = `${small} bg-coral-deep text-white shadow-[0_3px_0_#8f2a1e] hover:-translate-y-0.5`;
 export const buttonSmallQuiet = `${small} bg-transparent px-2 text-ink underline underline-offset-4`;
+
+/** Calmer buttons for the parents' pages: the chunky pills above are for kids and the marketing site. */
+const parent =
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 text-base font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+
+export const parentPrimary = `${parent} bg-ink text-white hover:bg-ink/85`;
+export const parentSecondary = `${parent} border border-ink/25 bg-surface text-ink hover:border-ink/60`;

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
 import type { NarratorSlotsView } from "@/lib/family/service";
 import type { SavedInvite } from "./InviteStoryteller";
 import { StorytellerAvatar } from "./StorytellerAvatar";
@@ -282,11 +282,11 @@ export function FamilyCircle({
             <p>{person.detail}</p>
             <div className="flex flex-wrap items-center gap-3">
               {person.next?.href ? (
-                <Link href={person.next.href === "approve" ? approveHref(person.canHear) : person.next.href} className={buttonPrimary}>
+                <Link href={person.next.href === "approve" ? approveHref(person.canHear) : person.next.href} className={parentPrimary}>
                   {person.next.label}
                 </Link>
               ) : person.next?.card ? (
-                <button type="button" className={buttonPrimary} onClick={() => onOpenCard(person.card)}>
+                <button type="button" className={parentPrimary} onClick={() => onOpenCard(person.card)}>
                   {person.next.label}
                 </button>
               ) : null}
@@ -311,7 +311,7 @@ export function FamilyCircle({
               const hears = people.filter((p) => p.canHear.includes(child.id)).map((p) => p.name);
               return <p>{hears.length ? `${child.nickname} can hear ${and(hears)}.` : `${child.nickname} can't hear any family voices yet.`}</p>;
             })()}
-            <Link href={`/family/kids/${child.id}/storytellers`} className={`${buttonSecondary} self-start`}>
+            <Link href={`/family/kids/${child.id}/storytellers`} className={`${parentSecondary} self-start`}>
               Manage {child.nickname}&apos;s storytellers
             </Link>
           </section>
