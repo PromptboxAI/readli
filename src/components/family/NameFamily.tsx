@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
-import { buttonPrimary } from "@/components/brand/buttons";
+import { parentPrimary } from "@/components/brand/buttons";
 
 /** Names (or renames) the family, as setup's first step after Family checkout. */
 export function NameFamily({ current }: { current: string }) {
@@ -32,7 +32,7 @@ export function NameFamily({ current }: { current: string }) {
       <div className="flex flex-wrap gap-2">
         <input
           id={`${id}-name`}
-          className="min-h-12 w-full max-w-sm flex-1 rounded-2xl border-[3px] border-ink/20 bg-surface px-4 text-lg focus:border-ink"
+          className="min-h-11 w-full max-w-sm flex-1 rounded-xl border border-ink/25 bg-surface px-4 focus:border-ink"
           value={name}
           placeholder="The Godfrey Family"
           autoComplete="off"
@@ -40,7 +40,7 @@ export function NameFamily({ current }: { current: string }) {
           required
           onChange={(e) => setName(e.target.value)}
         />
-        <button type="submit" className={buttonPrimary} disabled={busy || !name.trim()}>
+        <button type="submit" className={parentPrimary} disabled={busy || !name.trim()}>
           {busy ? "Saving…" : "Save"}
         </button>
       </div>
