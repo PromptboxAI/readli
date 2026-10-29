@@ -4,6 +4,8 @@ import { buttonSecondary } from "@/components/brand/buttons";
 import { CheckoutDone, ManagePlan, StartPlan } from "@/components/family/BillingActions";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
 import { billingConfig } from "@/lib/billing/config";
+import { confirmCheckout } from "@/lib/billing/confirm";
+import { StripeApi } from "@/lib/billing/stripe-api";
 import { effectivePlan } from "@/lib/billing/price-settings";
 import { billingSummary, type BillingSummary } from "@/lib/billing/summary";
 import { accountDb } from "@/lib/family/account-store";
@@ -82,9 +84,16 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const store = (await familyStore(page.session))!;
   const householdId = await guardianHousehold(store, page.session.actor);
   if (!householdId) return <NeedsGrownUp text={NOT_GUARDIAN} />;
+  const config = billingConfig();
+  const paymentsOn = config.mode !== "off";
+  // An older checkout link still lands here: confirm it with Stripe so a paid plan shows without the webhook.
+  const confirmDb = page.session.account ? accountDb() : null;
+  if (q.checkout === "success" && q.session_id && confirmDb && paymentsOn) {
+    const stripe = new StripeApi(config);
+    await confirmCheckout(confirmDb, (id) => stripe.getCheckoutSession(id), q.session_id, householdId).catch((err: unknown) => console.error("confirm checkout failed", err));
+  }
   const plan = await effectivePlan(page.session.account ? accountDb() : null, store.plan);
   const s = billingSummary(await store.read(), plan, householdId);
-  const paymentsOn = billingConfig().mode !== "off";
   const db = page.session.account ? accountDb() : null;
   const gift = s.plan === "sponsored" && db ? await householdGift(db, householdId).catch(() => null) : null;
 
