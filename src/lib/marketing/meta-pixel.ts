@@ -13,7 +13,7 @@ export const META_PIXEL_ID = "28060840410257774";
 /** Public marketing pages, and everything under them. */
 const PAGE_PREFIXES = ["/try", "/pricing", "/books", "/parents", "/help", "/company", "/signup", "/grandparents"];
 /** Single pages: the homepage, buying a gift, and Plan and billing (only for the checkout events). */
-const PAGES = ["/", "/gift", "/family/billing"];
+const PAGES = ["/", "/gift", "/family/settings/plan"];
 
 export function pixelAllowed(path: string): boolean {
   if (PAGES.includes(path)) return true;

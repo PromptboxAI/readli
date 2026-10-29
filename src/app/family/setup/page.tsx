@@ -80,8 +80,8 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
         </Step>
         <Step n={2} done={Boolean(myName)} title={myName ? `We'll call you ${myName}` : "What should we call you?"}>
           {myName ? (
-            <Link href="/family/account" className="self-start text-sm font-semibold underline underline-offset-4">
-              Change it in Account settings
+            <Link href="/family/settings/account" className="self-start text-sm font-semibold underline underline-offset-4">
+              Change it in Settings
             </Link>
           ) : (
             <AskName />

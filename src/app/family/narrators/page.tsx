@@ -30,7 +30,7 @@ export default async function NarratorSlotsPage({ searchParams }: { searchParams
   return (
     <FamilyShell>
       <PreviewNote />
-      <BackLink href="/family/controls" label="Parent Controls" />
+      <BackLink href="/family/kids" label="Family" />
       <NarratorSlots
         initial={await narratorSlots(store, page.session.actor, householdId)}
         canBuy={!page.session.account}

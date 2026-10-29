@@ -61,7 +61,7 @@ test("a kids device can't reach the grown-up side or leave without the PIN", asy
   expect(signOut.status()).toBe(403);
   expect((await signOut.json()).error.code).toBe("pin_required");
   expect((await page.request.post("/api/family/session", { data: { as: "child:leo" } })).status()).toBe(403);
-  await page.goto("/family/devices");
+  await page.goto("/family/settings/kids-mode");
   await expect(page).toHaveURL(/\/kids$/);
 
   const wrong = await page.request.post("/api/kids/device/exit", { data: { pin: "0000" } });
@@ -104,7 +104,7 @@ test("a parent sees and revokes a device, and it loses access on its next reques
   const phone = await browser.newContext();
   await phone.addCookies(parentCookies);
   const parent = await phone.newPage();
-  await parent.goto("/family/devices");
+  await parent.goto("/family/settings/kids-mode");
   const card = parent.getByTestId(`device-${deviceId}`);
   await expect(card).toContainText("Family iPad");
   await expect(card).toContainText("Maya, Leo");

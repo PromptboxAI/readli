@@ -13,7 +13,7 @@ export function JoinGiftButton({ token }: { token: string }) {
     const res = await fetch("/api/sponsorships/join", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }) }).catch(() => null);
     const json = (await res?.json().catch(() => ({}))) as { error?: { code?: string; message?: string } } | undefined;
     if (res?.ok) {
-      window.location.assign("/family/billing?gift=joined");
+      window.location.assign("/family/settings/plan?gift=joined");
       return;
     }
     setBusy(false);

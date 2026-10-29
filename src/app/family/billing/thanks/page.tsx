@@ -62,8 +62,8 @@ export default async function CheckoutThanksPage({ searchParams }: { searchParam
       ) : (
         <section className="flex flex-col items-start gap-4">
           <h1 className="font-display text-4xl font-semibold">We couldn&apos;t find that checkout</h1>
-          <Link href="/family/billing" className="font-semibold underline underline-offset-4">
-            See your plan and billing
+          <Link href="/family/settings/plan" className="font-semibold underline underline-offset-4">
+            See your plan and credits
           </Link>
         </section>
       )}

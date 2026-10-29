@@ -60,7 +60,7 @@ export function WelcomeSteps({ showRewards = true }: { showRewards?: boolean }) 
             <label htmlFor="welcome-name" className="font-display text-xl font-semibold">
               What should your family call you?
             </label>
-            <p className="-mt-2 text-sm">This is how you&apos;ll appear to your kids and storytellers. You can change it later in Account settings.</p>
+            <p className="-mt-2 text-sm">This is how you&apos;ll appear to your kids and storytellers. You can change it later in Settings.</p>
             <input
               id="welcome-name"
               value={name}

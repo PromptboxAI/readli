@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     const { data: customer } = await db.from("billing_customers").select("customer_ref").eq("household_id", householdId).maybeSingle();
     if (!customer?.customer_ref) return fail(404, "no_billing", "Your family doesn't have a paid plan yet.");
     try {
-      const portal = await new StripeApi(config).createPortalSession(customer.customer_ref, `${new URL(req.url).origin}/family/billing`);
+      const portal = await new StripeApi(config).createPortalSession(customer.customer_ref, `${new URL(req.url).origin}/family/settings/plan`);
       return NextResponse.json({ url: portal.url });
     } catch (err) {
       if (err instanceof StripeError) return fail(502, "stripe_error", "Billing couldn't open. Please try again.");

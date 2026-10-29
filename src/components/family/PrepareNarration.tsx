@@ -160,7 +160,7 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
 
   const creditsLink = (voice: PrepareVoiceView, need: number, target: Target) => {
     const back = `/family/books/${view.book.slug}?voice=${voice.voiceId}&scope=${target.scope}${target.chapter ? `&chapter=${target.chapter}` : ""}`;
-    return `/family/credits?need=${Math.ceil(need / view.credits.unitsPerCredit)}&return=${encodeURIComponent(back)}`;
+    return `/family/settings/plan?need=${Math.ceil(need / view.credits.unitsPerCredit)}&return=${encodeURIComponent(back)}`;
   };
 
   const openFor = (t: Target) => pending?.target.voiceId === t.voiceId && pending.target.scope === t.scope && pending.target.chapter === t.chapter;

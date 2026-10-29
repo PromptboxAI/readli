@@ -21,8 +21,8 @@ export default async function EmailPreferencesPage({ searchParams }: { searchPar
       <AdultPage>
         <section className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10 sm:p-8">
           <h1 className="font-display text-3xl font-semibold">Email settings</h1>
-          <p className="text-lg">This link doesn&apos;t work. Use the link in your latest Readli email, or sign in and open Account settings.</p>
-          <Link href="/login?next=/family/account" className="self-start font-semibold underline underline-offset-4">
+          <p className="text-lg">This link doesn&apos;t work. Use the link in your latest Readli email, or sign in and open Settings.</p>
+          <Link href="/login?next=/family/settings/account" className="self-start font-semibold underline underline-offset-4">
             Sign in
           </Link>
         </section>

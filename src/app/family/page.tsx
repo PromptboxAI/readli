@@ -146,8 +146,8 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
         {!myName && <AskName />}
         <CreateFamily />
         <div className="flex flex-wrap gap-2">
-          <Link href="/family/account" className={buttonSecondary}>
-            Account settings
+          <Link href="/family/settings" className={buttonSecondary}>
+            Settings
           </Link>
           <SignOutButton />
         </div>
@@ -159,7 +159,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   const entitlement = home ? activeEntitlement(state, home) : null;
   const hasPlan = Boolean(entitlement);
   // Family signup continues to choosing a plan, so nobody lands on an empty portal with no way to check out.
-  if (startingFamily && isGuardian && !hasPlan) redirect("/family/billing");
+  if (startingFamily && isGuardian && !hasPlan) redirect("/family/settings/plan");
   // An invitation carried through signup or checkout: offer the next step until a child can listen.
   const carried = account && isGuardian && home ? await carriedInvitationToken() : null;
   const inviteCtx = carried ? invitationContext() : null;
@@ -193,7 +193,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
           <h1 className="font-display text-2xl leading-tight font-semibold sm:text-3xl">{myName ? `Welcome back, ${myName}` : "Welcome back!"}</h1>
           {!isGuardian && <p className="text-muted">{calledIn(state, adult, home)?.relationship}</p>}
           {account && !adult.avatarUrl && (
-            <Link href="/family/account#photo" className="text-sm font-semibold underline underline-offset-4">
+            <Link href="/family/settings/account#profile" className="text-sm font-semibold underline underline-offset-4">
               Add your photo
             </Link>
           )}
@@ -219,7 +219,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
           <div className="min-w-0">
             <p className="font-display text-lg font-semibold leading-tight">Find your next story</p>
             {creditLine && (
-              <Link href="/family/credits" className="block text-sm text-white/80 underline-offset-4 hover:underline">
+              <Link href="/family/settings/plan" className="block text-sm text-white/80 underline-offset-4 hover:underline">
                 <strong className="text-white">{creditLine.amount}</strong> {creditLine.rest}
                 <span className="sr-only">. How credits work</span>
               </Link>
@@ -280,7 +280,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
                   <p className="mt-2 max-w-prose rounded-2xl bg-surface p-3 ring-2 ring-ink/10">
                     Open Readli Kids starts Kids Mode for that child on this browser. A grown-up leaves it with the family PIN, and it ends on its own after{" "}
                     {TEMPORARY_KIDS_HOURS} hours. To give a child their own iPad,{" "}
-                    <Link href="/family/devices" className="font-semibold underline underline-offset-4">
+                    <Link href="/family/settings/kids-mode" className="font-semibold underline underline-offset-4">
                       set up a kids device
                     </Link>
                     .
@@ -341,7 +341,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
               {creditLine && (
                 <p>
                   <strong>{creditLine.amount}</strong> {creditLine.rest}{" "}
-                  <Link href="/family/credits" className="text-sm whitespace-nowrap text-white/85 underline underline-offset-4 hover:text-white">
+                  <Link href="/family/settings/plan" className="text-sm whitespace-nowrap text-white/85 underline underline-offset-4 hover:text-white">
                     How credits work
                   </Link>
                 </p>

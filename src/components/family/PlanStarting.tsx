@@ -26,7 +26,7 @@ export function PlanStarting({ waiting = "Thank you! Your plan starts as soon as
       ) : (
         <>
           Your payment is taking longer than usual to confirm. Refresh in a minute, or check{" "}
-          <Link href="/family/billing" className="font-semibold underline underline-offset-4">
+          <Link href="/family/settings/plan" className="font-semibold underline underline-offset-4">
             Plan and billing
           </Link>
           .
