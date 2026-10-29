@@ -28,15 +28,24 @@ export interface SignedInUser {
   id: string;
   email: string | null;
   name: string;
+  /** True when the name is one they gave (at sign-up, from Google, or saved on /family/account), not the stand-in. */
+  named?: boolean;
 }
 
-export function displayName(user: { email?: string | null; user_metadata?: Record<string, unknown> }): string {
+type AuthUser = { email?: string | null; user_metadata?: Record<string, unknown> };
+
+/** The name in their sign-in details, if they ever gave one. Saving a name on /family/account writes full_name. */
+function givenName(user: AuthUser): string | null {
   const meta = user.user_metadata ?? {};
   for (const key of ["full_name", "name"]) {
     const v = meta[key];
     if (typeof v === "string" && v.trim()) return v.trim().slice(0, 60);
   }
-  return user.email?.split("@")[0]?.slice(0, 60) || "Grown-up";
+  return null;
+}
+
+export function displayName(user: AuthUser): string {
+  return givenName(user) ?? (user.email?.split("@")[0]?.slice(0, 60) || "Grown-up");
 }
 
 /** The signed-in grown-up, verified with Supabase Auth, or null. */
@@ -44,7 +53,7 @@ export async function currentUser(): Promise<SignedInUser | null> {
   if (!authConfigured()) return null;
   const { data, error } = await (await supabaseServer()).auth.getUser();
   if (error || !data.user) return null;
-  return { id: data.user.id, email: data.user.email ?? null, name: displayName(data.user) };
+  return { id: data.user.id, email: data.user.email ?? null, name: displayName(data.user), named: givenName(data.user) !== null };
 }
 
 /** Only same-site paths may follow sign-in, so a link can't bounce someone to another site. */

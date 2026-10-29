@@ -28,7 +28,7 @@ export default async function VoiceRecordPage({ searchParams }: { searchParams: 
   const page = user ? await familyPage() : null;
   const parent = Boolean(user && page?.enabled && isParent(page.state, user.id));
   const me = user && page?.enabled ? page.state?.adults.find((a) => a.id === user.id) : undefined;
-  const named = user ? Boolean(chosenName(me?.displayName ?? user.name, user.email)) : true;
+  const named = user ? Boolean(chosenName(me?.displayName ?? user.name, user.email, user.named)) : true;
   // The take this browser recorded on /try, while its 24 hours last, so they needn't read again.
   const guestDeps = user ? guestDemoDeps() : null;
   const guestTake = guestDeps ? await currentGuest(guestDeps).then((g) => findGuestTake(guestDeps.store, g)).catch(() => null) : null;

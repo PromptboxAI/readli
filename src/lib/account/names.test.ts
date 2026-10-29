@@ -7,6 +7,13 @@ describe("chosenName", () => {
     expect(chosenName("  Grandma June ", null)).toBe("Grandma June");
   });
 
+  it("keeps a name they gave even when it matches their email", () => {
+    expect(chosenName("Kevin", "kevin@promptbox.com", true)).toBe("Kevin");
+    expect(chosenName("kevin", "kevin@promptbox.com", true)).toBe("kevin");
+    expect(chosenName("Kevin", "kevin@promptbox.com")).toBeNull();
+    expect(chosenName("Grown-up", null, true)).toBeNull();
+  });
+
   it("treats the stand-in made from the email address as no name", () => {
     expect(chosenName("kevingodfrey.home", "kevingodfrey.home@gmail.com")).toBeNull();
     expect(chosenName("KevinGodfrey.Home", "kevingodfrey.home@gmail.com")).toBeNull();

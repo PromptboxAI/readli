@@ -51,7 +51,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   const plan = activeEntitlement(state, home);
   const familyName = state.households.find((h) => h.id === home)?.name ?? "";
   const named = familyName !== "" && familyName !== PROVISIONAL_FAMILY_NAME;
-  const myName = session.account ? chosenName(adult.displayName, session.account.email) : adult.displayName;
+  const myName = session.account ? chosenName(adult.displayName, session.account.email, session.account.named) : adult.displayName;
   const kids = guardianChildren(state, adultId).length;
 
   return (
