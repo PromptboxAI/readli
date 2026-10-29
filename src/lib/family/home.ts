@@ -55,6 +55,8 @@ export interface ShelfBook {
   tint: string;
   /** The grown-up player, which never moves a child's place. */
   href: string;
+  /** The book's page, where a grown-up changes its voice or sees its details. */
+  bookHref: string;
   state: ShelfState;
   narrators: HomePerson[];
   minutes: number;
@@ -256,6 +258,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       coverUrl: book.coverUrl,
       tint: book.tint,
       href: `/family/books/${book.slug}/listen`,
+      bookHref: `/family/books/${book.slug}`,
       state: shelfState,
       narrators: [...narrators.values()].map(person),
       minutes: Math.max(1, Math.round(bookMinutes(text, plan))),

@@ -120,7 +120,7 @@ export const HOME_SHELF_BOOKS = 4;
 /**
  * Prepared audiobooks the kids may hear, one card per book with its narrators grouped, two across on
  * wider screens. A book has no status of its own: each child's place shows on it and only moves in
- * Readli Kids. The whole card opens the grown-up player.
+ * Readli Kids. The whole card opens the book's page; only Listen opens the grown-up player.
  */
 export function FamilyBookshelf({ books }: { books: ShelfBook[] }) {
   return (
@@ -140,7 +140,13 @@ export function FamilyBookshelf({ books }: { books: ShelfBook[] }) {
             )}
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <p className="font-display text-lg leading-tight font-semibold">{b.title}</p>
+            <Link
+              href={b.bookHref}
+              className="font-display text-lg leading-tight font-semibold outline-none after:absolute after:inset-0 after:rounded-3xl"
+              data-testid={`home-book-page-${b.slug}`}
+            >
+              {b.title}
+            </Link>
             <p className="text-sm text-muted">
               Read by {names(b.narrators.map((n) => n.name))} · {b.minutes} min
             </p>
@@ -151,7 +157,7 @@ export function FamilyBookshelf({ books }: { books: ShelfBook[] }) {
             </ul>
             <Link
               href={b.href}
-              className="mt-1 inline-flex min-h-10 items-center gap-1.5 self-start rounded-xl bg-ink px-4 font-display font-semibold text-white outline-none after:absolute after:inset-0 after:rounded-3xl"
+              className="relative z-10 mt-1 inline-flex min-h-10 items-center gap-1.5 self-start rounded-xl bg-ink px-4 font-display font-semibold text-white hover:bg-ink/85"
               data-testid={`home-book-${b.slug}`}
             >
               <span aria-hidden="true">▶</span>
