@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { buttonPrimary } from "@/components/brand/buttons";
+import { parentPrimary } from "@/components/brand/buttons";
 
 /** Sets the family's 4-digit grown-up PIN, used to leave Readli Kids. Shown until a PIN is set. */
 export function SetKidsPin() {
@@ -51,7 +51,7 @@ export function SetKidsPin() {
             className="w-32 rounded-2xl border-2 border-ink/20 bg-ivory px-3 py-2 text-center text-2xl tracking-[0.4em]"
           />
         </label>
-        <button type="submit" className={buttonPrimary} disabled={busy || pin.length !== 4}>
+        <button type="submit" className={parentPrimary} disabled={busy || pin.length !== 4}>
           Save PIN
         </button>
       </div>

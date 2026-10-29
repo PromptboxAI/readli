@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
 import type { FamilyInvite } from "@/lib/invites/family-invites";
 import { RelationshipPicker } from "./RelationshipPicker";
 
@@ -89,7 +89,7 @@ export function InviteStoryteller({ live, initialName = "", onSent, onClose }: {
             <p className="w-full break-all rounded-2xl bg-surface p-3 font-mono text-sm" data-testid="invite-link">
               {sent.link}
             </p>
-            <button type="button" className={buttonPrimary} onClick={() => share(sent.link!, sent.name)}>
+            <button type="button" className={parentPrimary} onClick={() => share(sent.link!, sent.name)}>
               {copied ? "Link copied" : "Share the link"}
             </button>
           </>
@@ -97,7 +97,7 @@ export function InviteStoryteller({ live, initialName = "", onSent, onClose }: {
           <p>This is a preview, so nothing was sent.</p>
         )}
         <p className="text-sm text-muted">No narrator slot is used until you add {sent.name}. We&apos;ll show each step below.</p>
-        <button type="button" className={buttonSecondary} onClick={onClose}>
+        <button type="button" className={parentSecondary} onClick={onClose}>
           Done
         </button>
       </section>
@@ -138,10 +138,10 @@ export function InviteStoryteller({ live, initialName = "", onSent, onClose }: {
         </p>
       )}
       <div className="flex flex-wrap gap-3">
-        <button type="submit" className={buttonPrimary} disabled={!canSend}>
+        <button type="submit" className={parentPrimary} disabled={!canSend}>
           {busy ? "Creating invitation…" : "Create invitation"}
         </button>
-        <button type="button" className={buttonSecondary} onClick={onClose}>
+        <button type="button" className={parentSecondary} onClick={onClose}>
           Cancel
         </button>
       </div>

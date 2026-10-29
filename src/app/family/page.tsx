@@ -5,7 +5,7 @@ import { AskName } from "@/components/account/AskName";
 import { CreateFamily } from "@/components/family/CreateFamily";
 import { InviteActions } from "@/components/invites/InviteActions";
 import { FamilyRewardsCard } from "@/components/rewards/FamilyRewardsCard";
-import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
 import { FamilyOff, FamilyShell, PreviewNote } from "@/components/family/FamilyShell";
 import { ResetButton } from "@/components/family/ResetButton";
 import { SessionButton } from "@/components/family/SessionButton";
@@ -37,7 +37,7 @@ import { creditBalance, displayCredits, type CreditBalance } from "@/lib/narrati
 function SignOutButton() {
   return (
     <form action="/auth/signout" method="post">
-      <button type="submit" className={buttonSecondary}>
+      <button type="submit" className={parentSecondary}>
         Sign out
       </button>
     </form>
@@ -82,7 +82,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
       <FamilyShell>
         <h1 className="font-display text-4xl font-semibold">Readli Family</h1>
         <p className="text-lg">Log in to set up your family, add kids profiles and listen together.</p>
-        <Link href="/login?next=/family" className={`${buttonPrimary} self-start`}>
+        <Link href="/login?next=/family" className={`${parentPrimary} self-start`}>
           Log in
         </Link>
       </FamilyShell>
@@ -113,7 +113,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
                 <p className="font-display text-lg font-semibold">{p.displayName}</p>
                 <p className="text-sm text-muted">{p.relationship}</p>
               </div>
-              <SessionButton as={`adult:${p.id}`} next="/family" className={buttonSecondary}>
+              <SessionButton as={`adult:${p.id}`} next="/family" className={parentSecondary}>
                 <span className="sr-only">Sign in as {p.displayName}</span>
                 <span aria-hidden="true">I&apos;m {p.displayName.split(" ").pop()}</span>
               </SessionButton>
@@ -147,7 +147,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
         {!myName && <AskName />}
         <CreateFamily />
         <div className="flex flex-wrap gap-2">
-          <Link href="/family/settings" className={buttonSecondary}>
+          <Link href="/family/settings" className={parentSecondary}>
             Settings
           </Link>
           <SignOutButton />
@@ -228,7 +228,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
           </div>
           <Link
             href="/family/books"
-            className="inline-flex min-h-12 shrink-0 items-center rounded-full bg-coral-deep px-4 font-display font-semibold text-white shadow-[0_4px_0_#8f2a1e] hover:-translate-y-0.5"
+            className={`${parentSecondary} shrink-0`}
           >
             Browse Books
           </Link>
@@ -329,7 +329,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
                 ) : (
                   <div className="flex flex-col items-start gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10" data-testid="shelf-ready-empty">
                     <p>Pick a story and choose who reads it. Prepared audiobooks show up here, with each child&apos;s place.</p>
-                    <Link href="/family/books" className={buttonPrimary}>
+                    <Link href="/family/books" className={parentPrimary}>
                       Choose a story
                     </Link>
                   </div>
@@ -354,7 +354,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
                   </Link>
                 </p>
               )}
-              <Link href="/family/books" className={buttonPrimary}>
+              <Link href="/family/books" className={parentSecondary}>
                 Browse Books
               </Link>
             </section>
@@ -368,7 +368,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
           <h2 id="my-voice-h" className="font-display text-2xl font-semibold">Your voice</h2>
           <p>Your voice is private until you share it. You decide which families can use it, and you can record it again at any time.</p>
           <div className="flex flex-wrap gap-2">
-            <Link href="/family/my-voice" className={buttonSecondary}>
+            <Link href="/family/my-voice" className={parentSecondary}>
               My voice
             </Link>
             {account && (
@@ -390,7 +390,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
 
       {!account && (
         <div className="flex flex-wrap gap-2">
-          <SessionButton as={null} next="/family" className={buttonSecondary}>
+          <SessionButton as={null} next="/family" className={parentSecondary}>
             Sign out
           </SessionButton>
           <ResetButton />

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
 import { INVITE_TTL_DAYS } from "@/lib/invites/family-invites";
 import { formatPrice } from "@/lib/family/plan";
 import type { JoinedCard, NarratorCard, NarratorSlotsView } from "@/lib/family/service";
@@ -83,7 +83,7 @@ function NameEditor({
       )}
       <RelationshipPicker legend={`${ownName} is your kids'…`} value={label} onChange={setLabel} />
       <div className="flex flex-wrap items-center gap-2">
-        <button type="submit" className={buttonSecondary} disabled={busy}>
+        <button type="submit" className={parentSecondary} disabled={busy}>
           Save
         </button>
         <button type="button" className="font-display font-semibold underline underline-offset-4" onClick={() => setOpen(false)}>
@@ -379,7 +379,7 @@ export function NarratorSlots({
       {prepareFor && prepareFor.after === message && (
         <section className="flex flex-col items-start gap-2 rounded-2xl bg-sky/40 p-4" data-testid="prepare-next">
           <p className="font-semibold">Next, prepare a book in {prepareFor.name}&apos;s voice. Books your kids already hear in another voice are shown first, so they can switch storytellers mid-story.</p>
-          <Link href={`/family/books?voice=${encodeURIComponent(prepareFor.voiceId)}`} className={buttonPrimary}>
+          <Link href={`/family/books?voice=${encodeURIComponent(prepareFor.voiceId)}`} className={parentPrimary}>
             Prepare a book in {prepareFor.name}&apos;s voice
           </Link>
         </section>
@@ -429,17 +429,17 @@ export function NarratorSlots({
               ))}
             </ul>
             <div className="flex flex-wrap gap-2">
-              <button type="button" className={buttonPrimary} disabled={busy || changed.length === 0} onClick={approveChosen}>
+              <button type="button" className={parentPrimary} disabled={busy || changed.length === 0} onClick={approveChosen}>
                 {picking.had.length === 0 ? `Approve for ${chosen.length === 1 ? "this child" : "these children"}` : "Save"}
               </button>
-              <button type="button" className={buttonSecondary} onClick={() => setPicking(null)}>
+              <button type="button" className={parentSecondary} onClick={() => setPicking(null)}>
                 Not now
               </button>
             </div>
           </section>
         ) : (
           message?.includes("Now choose which children") && (
-            <Link href={approveHref} className={`${buttonPrimary} self-start`}>
+            <Link href={approveHref} className={`${parentPrimary} self-start`}>
               Approve for your kids
             </Link>
           )
@@ -459,18 +459,18 @@ export function NarratorSlots({
                 <div className="flex items-center gap-4">{person(n)}</div>
                 <div className="flex flex-wrap gap-2">
                   {kids.length > 0 ? (
-                    <button type="button" className={buttonSecondary} onClick={() => pick(n.voiceId, n.name, n.canHear ?? [])}>
+                    <button type="button" className={parentSecondary} onClick={() => pick(n.voiceId, n.name, n.canHear ?? [])}>
                       Choose kids
                     </button>
                   ) : (
-                    <Link href={approveHref} className={buttonSecondary}>
+                    <Link href={approveHref} className={parentSecondary}>
                       Choose kids
                     </Link>
                   )}
                   {rename(n)}
                   <button
                     type="button"
-                    className={buttonSecondary}
+                    className={parentSecondary}
                     disabled={busy || view.releasesLeft === 0}
                     onClick={() => call("/api/family/narrators", { voiceId: n.voiceId, action: "release" }, `${n.name}'s slot is free. Their approvals for each child were removed.`)}
                   >
@@ -494,7 +494,7 @@ export function NarratorSlots({
                     : "Invite a partner, grandparent or friend. They record for free and share their voice with your family, then you add them here."}
                 </p>
                 {canInvite && i === 0 && (
-                  <button type="button" className={`${buttonPrimary} self-start`} onClick={() => openInvite()}>
+                  <button type="button" className={`${parentPrimary} self-start`} onClick={() => openInvite()}>
                     Invite a storyteller
                   </button>
                 )}
@@ -538,7 +538,7 @@ export function NarratorSlots({
                 recording, and ready to add.
               </p>
               {canInvite && !inviting && (
-                <button type="button" className={buttonSecondary} onClick={() => openInvite()}>
+                <button type="button" className={parentSecondary} onClick={() => openInvite()}>
                   Invite someone
                 </button>
               )}
@@ -555,7 +555,7 @@ export function NarratorSlots({
                   <span className={`${pill} bg-mint`}>Ready to add</span>
                   <button
                     type="button"
-                    className={buttonPrimary}
+                    className={parentPrimary}
                     disabled={busy || free <= 0}
                     onClick={async () => {
                       if (await call("/api/family/narrators", { voiceId: n.voiceId, action: "activate" }, `${n.name} is in a narrator slot. Now choose which children can hear them.`)) pick(n.voiceId, n.name);
@@ -578,7 +578,7 @@ export function NarratorSlots({
                   <li key={n.voiceId} data-testid={`slot-${n.voiceId}`} className="flex flex-wrap items-center gap-4 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
                     {person(n, !n.yours)}
                     {n.yours && n.status !== "processing" ? (
-                      <Link href="/family/my-voice" className={buttonPrimary}>
+                      <Link href="/family/my-voice" className={parentPrimary}>
                         Share my voice
                       </Link>
                     ) : (
@@ -596,7 +596,7 @@ export function NarratorSlots({
                 <li key={p.adultId} data-testid={`joined-${p.adultId}`} className="flex flex-wrap items-center gap-4 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
                   {person(p, !p.yours)}
                   {p.yours ? (
-                    <Link href="/voice/record" className={buttonPrimary}>
+                    <Link href="/voice/record" className={parentPrimary}>
                       Record my voice
                     </Link>
                   ) : (
@@ -631,7 +631,7 @@ export function NarratorSlots({
                     {!declined && !expired && relabelInvite(inv)}
                     {declined ? null : inv.canResend && inviteMode === "live" ? (
                       <div className="flex flex-wrap items-center gap-3">
-                        <button type="button" className={buttonSecondary} disabled={busy} onClick={() => resend(inv)}>
+                        <button type="button" className={parentSecondary} disabled={busy} onClick={() => resend(inv)}>
                           {expired ? "Send a fresh link" : "Resend email"}
                         </button>
                         {!expired && (
@@ -641,7 +641,7 @@ export function NarratorSlots({
                         )}
                       </div>
                     ) : expired ? (
-                      <button type="button" className={buttonSecondary} onClick={() => openInvite(inv.name)}>
+                      <button type="button" className={parentSecondary} onClick={() => openInvite(inv.name)}>
                         Invite again
                       </button>
                     ) : (
@@ -666,7 +666,7 @@ export function NarratorSlots({
             {!canBuy ? (
               <p className="text-sm text-muted">Extra slots arrive with checkout, which isn&apos;t switched on yet.</p>
             ) : !buying ? (
-              <button type="button" className={`${buttonSecondary} self-start`} onClick={() => setBuying(true)}>
+              <button type="button" className={`${parentSecondary} self-start`} onClick={() => setBuying(true)}>
                 Add a slot
               </button>
             ) : (
@@ -679,7 +679,7 @@ export function NarratorSlots({
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    className={buttonPrimary}
+                    className={parentPrimary}
                     disabled={busy}
                     onClick={async () => {
                       await call("/api/family/narrators/slots", null, "Slot added. You can put another storyteller in it now.");
@@ -688,7 +688,7 @@ export function NarratorSlots({
                   >
                     Confirm slot
                   </button>
-                  <button type="button" className={buttonSecondary} onClick={() => setBuying(false)}>
+                  <button type="button" className={parentSecondary} onClick={() => setBuying(false)}>
                     Cancel
                   </button>
                 </div>

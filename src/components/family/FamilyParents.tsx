@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
-import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
 import type { FamilyParentsView } from "@/lib/family/service";
 import type { FamilyInvite } from "@/lib/invites/family-invites";
 import { StorytellerAvatar } from "./StorytellerAvatar";
@@ -126,10 +126,10 @@ export function FamilyParents({ view, initialInvites, live }: { view: FamilyPare
                         : `${p.name} will stop being a parent in ${view.familyName}. The children keep every storyteller ${p.name} approved, and ${p.name}'s own voice leaves your storyteller slots.`}
                     </p>
                     <div className="flex flex-wrap gap-3">
-                      <button type="button" className={buttonPrimary} disabled={busy !== null} onClick={() => remove(p.adultId, p.you)}>
+                      <button type="button" className={parentPrimary} disabled={busy !== null} onClick={() => remove(p.adultId, p.you)}>
                         {busy === p.adultId ? "Working…" : p.you ? "Leave family" : `Remove ${p.name}`}
                       </button>
-                      <button type="button" className={buttonSecondary} onClick={() => setConfirming(null)}>
+                      <button type="button" className={parentSecondary} onClick={() => setConfirming(null)}>
                         Cancel
                       </button>
                     </div>
@@ -190,10 +190,10 @@ export function FamilyParents({ view, initialInvites, live }: { view: FamilyPare
                 {sent.link}
               </p>
               <div className="flex flex-wrap gap-3">
-                <button type="button" className={buttonPrimary} onClick={() => share(sent.link, sent.name)}>
+                <button type="button" className={parentPrimary} onClick={() => share(sent.link, sent.name)}>
                   {copied ? "Link copied" : "Share the link"}
                 </button>
-                <button type="button" className={buttonSecondary} onClick={() => setSent(null)}>
+                <button type="button" className={parentSecondary} onClick={() => setSent(null)}>
                   Done
                 </button>
               </div>
@@ -219,7 +219,7 @@ export function FamilyParents({ view, initialInvites, live }: { view: FamilyPare
                   {error}
                 </p>
               )}
-              <button type="submit" className={`${buttonPrimary} self-start`} disabled={!canSend}>
+              <button type="submit" className={`${parentPrimary} self-start`} disabled={!canSend}>
                 {busy === "invite" ? "Creating invitation…" : "Invite co-parent"}
               </button>
               {!live && <p className="text-sm text-muted">This is a preview, so invitations can&apos;t be sent here.</p>}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { buttonPrimary } from "@/components/brand/buttons";
+import { parentPrimary } from "@/components/brand/buttons";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { isTheEnd, THE_END_PAUSE_MS } from "@/lib/content/the-end";
 import type { ListenView } from "@/lib/narration/narration";
@@ -368,7 +368,7 @@ export function GrownUpPlayer({
         <h1 className="font-display text-4xl font-semibold">{book.title}</h1>
         <div className="flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10" data-testid="nothing-prepared">
           <p className="text-lg font-semibold">This book isn&apos;t prepared in a family voice yet.</p>
-          <Link href={`/family/books/${book.slug}`} className={`${buttonPrimary} self-start`}>
+          <Link href={`/family/books/${book.slug}`} className={`${parentPrimary} self-start`}>
             Prepare narration
           </Link>
         </div>

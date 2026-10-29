@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { buttonPrimary, buttonSmall } from "@/components/brand/buttons";
+import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
 import { formatPrice } from "@/lib/family/plan";
 import { newMetaEventId, rememberCheckout, takeCheckout, trackMeta } from "@/lib/marketing/meta-pixel";
 
@@ -73,7 +73,7 @@ export function StartPlan(props: { monthlyCents: number; annualCents: number; sl
       {error && <p role="alert" className="rounded-2xl bg-coral/30 p-3 text-sm">{error}</p>}
       <button
         type="button"
-        className={`${buttonPrimary} self-start`}
+        className={`${parentPrimary} self-start`}
         disabled={!props.paymentsOn || busy}
         onClick={() => {
           setBusy(true);
@@ -114,7 +114,7 @@ export function ManagePlan({ paymentsOn }: { paymentsOn: boolean }) {
       {error && <p role="alert" className="rounded-2xl bg-coral/30 p-3 text-sm">{error}</p>}
       <button
         type="button"
-        className={`${buttonSmall} self-start`}
+        className={`${parentSecondary} self-start`}
         disabled={!paymentsOn || busy}
         onClick={() => {
           setBusy(true);

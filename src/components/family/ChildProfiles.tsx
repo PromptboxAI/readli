@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { buttonPrimary, buttonQuiet } from "@/components/brand/buttons";
+import { parentPrimary, buttonQuiet } from "@/components/brand/buttons";
 import type { ChildProfilesView } from "@/lib/family/service";
 import { SessionButton } from "./SessionButton";
 import { StorytellerAvatar } from "./StorytellerAvatar";
@@ -54,7 +54,7 @@ export function ChildProfiles({ initial }: { initial: ChildProfilesView }) {
                 Manage storytellers
               </Link>
             </div>
-            <SessionButton as={`child:${c.id}`} next="/kids" className={buttonPrimary}>
+            <SessionButton as={`child:${c.id}`} next="/kids" className={parentPrimary}>
               Open Readli Kids<span className="sr-only"> for {c.nickname}</span>
             </SessionButton>
             <button
@@ -101,7 +101,7 @@ export function ChildProfiles({ initial }: { initial: ChildProfilesView }) {
               maxLength={30}
               className="min-h-12 flex-1 rounded-full border-[3px] border-ink bg-surface px-4 text-lg"
             />
-            <button type="submit" className={buttonPrimary} disabled={busy || !name.trim()}>
+            <button type="submit" className={parentPrimary} disabled={busy || !name.trim()}>
               Add profile
             </button>
           </div>
