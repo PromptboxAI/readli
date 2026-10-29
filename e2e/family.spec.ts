@@ -407,6 +407,10 @@ test("Books is one catalog with search, simple filters and each book's cost in t
   await expect(book("aesops-fables-retold")).toContainText("More credits needed");
   await expect(book("the-lion-and-the-mouse").getByTestId("cost")).toContainText("Ready · free to play");
   await expect(catalog.getByTestId("catalog-count")).toContainText("Showing 12 of");
+  // Sort sits on the same line as search.
+  const search = (await catalog.getByRole("searchbox", { name: "Search books" }).boundingBox())!;
+  const sort = (await catalog.getByRole("combobox", { name: "Sort" }).boundingBox())!;
+  expect(Math.abs(search.y + search.height / 2 - (sort.y + sort.height / 2))).toBeLessThan(8);
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/books-catalog-${info.project.name}.png`, fullPage: true });
 
