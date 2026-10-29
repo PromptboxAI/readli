@@ -54,7 +54,7 @@ export async function SiteHeader() {
             </Link>
           )}
           {account ? (
-            <AccountMenu {...account} explore={NAV} compact />
+            <AccountMenu {...account} compact />
           ) : (
             <MobileMenu>
               <nav
