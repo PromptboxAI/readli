@@ -113,7 +113,7 @@ describe("buying a gift", () => {
     expect(calls.some((c) => c[0] === "subscribe")).toBe(false);
     // The checkout's own first invoice arrives as paid, but delivery decides the paid month.
     await applySponsorshipChange(ctx, { kind: "renewed", sponsorshipId, paidThrough: "2027-01-25T12:00:00.000Z" });
-    expect(tables.sponsorships![0].paid_through).toBeUndefined();
+    expect(tables.sponsorships![0]!.paid_through).toBeUndefined();
   });
 
   it("a repeated payment event changes nothing", async () => {
