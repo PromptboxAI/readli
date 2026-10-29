@@ -55,7 +55,7 @@ export interface FamilySession {
   sandbox: string;
   actor: Actor;
   /** Set when a real grown-up is signed in; their families come from Supabase. */
-  account?: { id: string; name: string; email: string | null };
+  account?: { id: string; name: string; email: string | null; named?: boolean };
   /**
    * Set on a Readli Kids device. The device holds no grown-up sign-in; `account` is then the guardian
    * who set it up, used only to read the family. With no `activeChildId` the kids pick who's listening.
@@ -148,7 +148,7 @@ export const currentSession = cache(async (): Promise<FamilySession | null> => {
       return {
         sandbox: ACCOUNT_SANDBOX,
         actor: childId ? { kind: "child", childId } : { kind: "adult", adultId: user.id },
-        account: { id: user.id, name: user.name, email: user.email },
+        account: { id: user.id, name: user.name, email: user.email, named: user.named },
       };
     }
   }

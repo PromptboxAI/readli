@@ -54,7 +54,7 @@ export default async function VoiceHomePage({ searchParams }: { searchParams: Pr
   const recording = deps ? await deps.store.findVoice(user.id).catch(() => null) : null;
   const model = deps ? await voiceModelStatus(deps, user.id).catch(() => null) : null;
   const me = state?.adults.find((a) => a.id === user.id);
-  const named = Boolean(chosenName(me?.displayName ?? user.name, user.email));
+  const named = Boolean(chosenName(me?.displayName ?? user.name, user.email, user.named));
   // Invitations sent and how each is doing: sent, opened, connected.
   const ctx = invitationContext();
   const invitations = ctx ? await listInvitations(ctx.db, ctx.secret, user.id, await invitationSettings(ctx.db)).catch(() => []) : [];

@@ -126,7 +126,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   // Set by Family signup: this grown-up came to start Readli Family, not to see the portal.
   const startingFamily = (await searchParams).start === "1";
   // Until they've told us what to call them, all we have is their email address: ask, don't greet with it.
-  const myName = account ? chosenName(adult.displayName, account.email) : adult.displayName;
+  const myName = account ? chosenName(adult.displayName, account.email, account.named) : adult.displayName;
   if (account && !isParent(state, adult.id)) {
     // Storytellers have a free Readli Voice account, not a family: never send them into family setup.
     const pending = await pendingJoinPath(adult.id);
