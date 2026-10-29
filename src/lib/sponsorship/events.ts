@@ -13,8 +13,11 @@ const ref = (v: unknown): string | null => str(v) ?? str(o(v).id);
 export const SPONSORSHIP_KIND = "sponsorship";
 
 export type SponsorshipChange =
-  /** The first payment went through: the gift is scheduled (and, monthly, its subscription gets made). */
-  | { kind: "paid"; sponsorshipId: string; customerRef: string | null; paymentRef: string }
+  /**
+   * The first payment went through: the gift is scheduled. A monthly gift's checkout also made its
+   * subscription (subscriptionRef), and its first payment is found through the checkout's invoice.
+   */
+  | { kind: "paid"; sponsorshipId: string; customerRef: string | null; paymentRef: string | null; subscriptionRef?: string; invoiceRef?: string }
   /** The monthly subscription changed: renewal dates, failing card, cancel at period end, or ended. */
   | { kind: "subscription"; sponsorshipId: string; subscriptionRef: string; state: "live" | "past_due" | "canceling" | "ended"; paidThrough: string | null; endsAt: string | null }
   /** A renewal was paid: access runs to the end of that period. */
@@ -55,8 +58,9 @@ export function sponsorshipChange(event: { type: string; data?: { object?: Obj }
     if (meta.readli_kind !== SPONSORSHIP_KIND || !id) return { kind: "ignore", reason: "not a sponsorship" };
     if (obj.payment_status !== "paid") return { kind: "ignore", reason: "sponsorship not paid yet" };
     const paymentRef = ref(obj.payment_intent);
-    if (!paymentRef) return { kind: "ignore", reason: "sponsorship without payment" };
-    return { kind: "paid", sponsorshipId: id, customerRef: ref(obj.customer), paymentRef };
+    const invoiceRef = ref(obj.invoice) ?? undefined;
+    if (!paymentRef && !invoiceRef) return { kind: "ignore", reason: "sponsorship without payment" };
+    return { kind: "paid", sponsorshipId: id, customerRef: ref(obj.customer), paymentRef, subscriptionRef: ref(obj.subscription) ?? undefined, invoiceRef };
   }
   if (event.type.startsWith("customer.subscription.")) {
     const subscriptionRef = str(obj.id);

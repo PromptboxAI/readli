@@ -15,6 +15,7 @@ function fakeStripe() {
   const api = {
     priceFor: async (item: { lookupKey: string }) => (calls.push(["price", item.lookupKey]), `price_${item.lookupKey}`),
     createCheckoutSession: async (p: Row) => (calls.push(["checkout", p]), { id: "cs_1", url: "https://checkout.stripe.test/cs_1" }),
+    invoicePayment: async (id: string) => (calls.push(["invoice", id]), "pi_from_invoice"),
     getPaymentIntent: async (id: string) => (calls.push(["pi", id]), { id, payment_method: "pm_1", customer: "cus_1" }),
     createSubscription: async (p: Row, key: string) => (calls.push(["subscribe", p, key]), { id: "sub_1", status: "trialing" }),
     updateSubscription: async (id: string, p: Row) => (calls.push(["update", id, p]), { id, status: "trialing" }),
@@ -62,12 +63,18 @@ async function paidGift(over: Row = {}) {
 }
 
 describe("buying a gift", () => {
-  it("monthly: charges the first month now, saves the card, and prints the renewal date", async () => {
+  it("monthly: a Checkout subscription that charges the first month now and renews a month after delivery", async () => {
     const { ctx, tables, calls } = setup();
     await startGift(ctx, { id: "ruth", email: "ruth@example.com" }, give());
     const checkout = calls.find((c) => c[0] === "checkout")![1] as Row;
-    expect(checkout.mode).toBe("payment");
-    expect(checkout.payment_intent_data).toMatchObject({ setup_future_usage: "off_session", metadata: { readli_kind: "sponsorship" } });
+    expect(checkout.mode).toBe("subscription");
+    expect(checkout.line_items).toEqual([
+      { price: "price_readli_sponsored_family_monthly_1999", quantity: 1 },
+      { price: "price_readli_sponsored_family_first_month_1999", quantity: 1 },
+    ]);
+    expect(checkout.subscription_data).toMatchObject({ trial_end: Date.parse("2027-01-25T12:00:00.000Z") / 1000, metadata: { readli_kind: "sponsorship" } });
+    expect(checkout.payment_intent_data).toBeUndefined();
+    expect(checkout.customer_creation).toBeUndefined();
     expect((checkout.custom_text as { submit: { message: string } }).submit.message).toContain("Then $19.99 on Jan 25, 2027 and every month after, until you cancel.");
     expect(calls).toContainEqual(["price", "readli_sponsored_family_first_month_1999"]);
     expect(tables.sponsorships![0]).toMatchObject({ status: "awaiting_payment", plan: "monthly", price_cents: 1999, deliver_at: "2026-12-25T12:00:00.000Z" });
@@ -95,6 +102,18 @@ describe("buying a gift", () => {
     const [, params, key] = calls.find((c) => c[0] === "subscribe")!;
     expect(params).toMatchObject({ customer: "cus_1", default_payment_method: "pm_1", trial_end: Date.parse("2027-01-25T12:00:00.000Z") / 1000, metadata: { readli_kind: "sponsorship" } });
     expect(key).toBe(`sponsorship-renewals-${sp().id}`);
+  });
+
+  it("monthly paid through its checkout keeps that subscription and finds the payment on its invoice", async () => {
+    const { ctx, tables, calls } = setup();
+    const { sponsorshipId } = await startGift(ctx, { id: "ruth", email: "ruth@example.com" }, give());
+    await applySponsorshipChange(ctx, { kind: "paid", sponsorshipId, customerRef: "cus_1", paymentRef: null, subscriptionRef: "sub_cs", invoiceRef: "in_1" });
+    expect(tables.sponsorships![0]).toMatchObject({ status: "scheduled", provider_payment_ref: "pi_from_invoice", provider_subscription_ref: "sub_cs" });
+    expect(calls).toContainEqual(["invoice", "in_1"]);
+    expect(calls.some((c) => c[0] === "subscribe")).toBe(false);
+    // The checkout's own first invoice arrives as paid, but delivery decides the paid month.
+    await applySponsorshipChange(ctx, { kind: "renewed", sponsorshipId, paidThrough: "2027-01-25T12:00:00.000Z" });
+    expect(tables.sponsorships![0].paid_through).toBeUndefined();
   });
 
   it("a repeated payment event changes nothing", async () => {

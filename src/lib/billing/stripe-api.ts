@@ -148,6 +148,17 @@ export class StripeApi {
     return this.call("GET", `payment_intents/${encodeURIComponent(id)}`);
   }
 
+  /** The payment behind an invoice: older API versions name it on the invoice, newer ones list it under payments. */
+  async invoicePayment(id: string): Promise<string | null> {
+    const inv: { payment_intent?: string | { id: string } | null; payments?: { data?: { payment?: { payment_intent?: string | { id: string } | null } }[] } } = await this.call(
+      "GET",
+      `invoices/${encodeURIComponent(id)}`,
+      { expand: ["payments"] },
+    );
+    const pi = inv.payment_intent ?? inv.payments?.data?.find((p) => p.payment?.payment_intent)?.payment?.payment_intent ?? null;
+    return typeof pi === "string" ? pi : (pi?.id ?? null);
+  }
+
   async createSubscription(params: Params, idempotencyKey: string): Promise<StripeSubscription> {
     return this.call("POST", "subscriptions", params, idempotencyKey);
   }

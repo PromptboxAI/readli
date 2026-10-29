@@ -121,8 +121,9 @@ export interface StartedGift {
 
 /**
  * Saves the gift as awaiting payment and opens Stripe Checkout. The year is a one-time payment with no
- * card saved, so it can never renew without a new checkout. Monthly pays the first month now and saves
- * the card; the subscription is made when the payment is confirmed, first charging a month after delivery.
+ * card saved, so it can never renew without a new checkout. Monthly is a Checkout subscription, so Stripe
+ * (merchant of record under Managed Payments) handles every charge: the first month is paid now as a
+ * one-time item, and the subscription's trial runs until a month after delivery, when renewals begin.
  */
 export async function startGift(ctx: SponsorshipContext, sponsor: { id: string; email: string | null }, gift: GiveRequest): Promise<StartedGift> {
   if (!ctx.stripe) throw new SponsorshipError(404, "payments_off", "Gifts can't be bought yet.");
@@ -170,20 +171,34 @@ export async function startGift(ctx: SponsorshipContext, sponsor: { id: string; 
   const customer = (earlier as Row[] | null)?.[0]?.provider_customer_ref as string | undefined;
   const metadata = { ...metadataOf(sp), item: `sponsorship:${gift.plan}`, deliver_at: schedule.accessStarts.toISOString(), paid_through: schedule.paidThrough.toISOString() };
   const copy = chargeCopy(gift.plan, gift.deliverAt);
-  const price = await ctx.stripe.priceFor(sponsorPrice(gift.plan === "annual" ? "year" : "first_month"));
-  const checkout = await ctx.stripe.createCheckoutSession({
-    mode: "payment",
-    line_items: [{ price, quantity: 1 }],
+  const back = {
     client_reference_id: id,
     customer,
-    customer_creation: customer ? undefined : "always",
     customer_email: customer ? undefined : (sponsor.email ?? undefined),
     metadata,
-    payment_intent_data: { metadata, setup_future_usage: gift.plan === "monthly" ? "off_session" : undefined },
-    custom_text: { submit: { message: gift.plan === "annual" ? copy.summary : `${copy.summary}. ${copy.renewal}` } },
     success_url: `${ctx.base}${SPONSOR_HOME}?gift=${id}&checkout=success`,
     cancel_url: `${ctx.base}${SPONSOR_HOME}?gift=${id}&checkout=canceled`,
-  });
+  };
+  const checkout =
+    gift.plan === "annual"
+      ? await ctx.stripe.createCheckoutSession({
+          ...back,
+          mode: "payment",
+          line_items: [{ price: await ctx.stripe.priceFor(sponsorPrice("year")), quantity: 1 }],
+          customer_creation: customer ? undefined : "always",
+          payment_intent_data: { metadata },
+          custom_text: { submit: { message: copy.summary } },
+        })
+      : await ctx.stripe.createCheckoutSession({
+          ...back,
+          mode: "subscription",
+          line_items: [
+            { price: await ctx.stripe.priceFor(sponsorPrice("monthly")), quantity: 1 },
+            { price: await ctx.stripe.priceFor(sponsorPrice("first_month")), quantity: 1 },
+          ],
+          subscription_data: { metadata: metadataOf(sp), trial_end: Math.floor(schedule.nextChargeAt!.getTime() / 1000) },
+          custom_text: { submit: { message: `${copy.summary}. ${copy.renewal}` } },
+        });
   await track(ctx.db, "sponsor_checkout_started", {
     sponsorship_id: id,
     plan: gift.plan,
@@ -215,15 +230,11 @@ export async function applySponsorshipChange(ctx: SponsorshipContext, change: Sp
   if (change.kind === "paid") {
     const sp = await sponsorshipFor(ctx, change.sponsorshipId);
     if (sp.status === "awaiting_payment") {
-      await q(
-        ctx.db
-          .from("sponsorships")
-          .update({ status: "scheduled", provider_customer_ref: change.customerRef, provider_payment_ref: change.paymentRef })
-          .eq("id", sp.id as string)
-          .eq("status", "awaiting_payment"),
-        "mark gift paid",
-      );
-      Object.assign(sp, { status: "scheduled", provider_customer_ref: change.customerRef, provider_payment_ref: change.paymentRef });
+      // A monthly checkout pays through its first invoice; refunds and disputes find the gift by that payment.
+      const paymentRef = change.paymentRef ?? (change.invoiceRef && ctx.stripe ? await ctx.stripe.invoicePayment(change.invoiceRef) : null);
+      const paid = { status: "scheduled", provider_customer_ref: change.customerRef, provider_payment_ref: paymentRef, ...(change.subscriptionRef ? { provider_subscription_ref: change.subscriptionRef } : {}) };
+      await q(ctx.db.from("sponsorships").update(paid).eq("id", sp.id as string).eq("status", "awaiting_payment"), "mark gift paid");
+      Object.assign(sp, paid);
       await track(ctx.db, "sponsor_paid", { sponsorship_id: sp.id, plan: sp.plan }, (sp.sponsor_id as string | null) ?? null);
     }
     if (sp.plan === "monthly" && !sp.provider_subscription_ref && ["scheduled", "active"].includes(sp.status as string)) await createRenewals(ctx, sp);
@@ -270,6 +281,8 @@ export async function applySponsorshipChange(ctx: SponsorshipContext, change: Sp
   }
 
   if (change.kind === "renewed") {
+    // A monthly checkout's own first invoice (the first month, paid before delivery) isn't a renewal; delivery sets the paid month.
+    if (!sp.delivered_at) return;
     const paidThrough = later(sp.paid_through as string | null, change.paidThrough);
     await q(
       ctx.db
@@ -298,7 +311,10 @@ export async function applySponsorshipChange(ctx: SponsorshipContext, change: Sp
 
 const later = (a: string | null, b: string): string => (a && Date.parse(a) > Date.parse(b) ? a : b);
 
-/** The monthly renewals: a subscription on the saved card whose first charge is a month after delivery. */
+/**
+ * Renewals for a monthly gift paid before its checkout made the subscription itself (a card saved by a
+ * one-time payment): a subscription on that card whose first charge is a month after delivery.
+ */
 async function createRenewals(ctx: SponsorshipContext, sp: Row): Promise<void> {
   if (!ctx.stripe) throw new Error("payments are off");
   const pi = await ctx.stripe.getPaymentIntent(sp.provider_payment_ref as string);
