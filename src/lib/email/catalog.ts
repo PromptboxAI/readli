@@ -22,7 +22,7 @@ export const PREFERENCE_TOPICS: { topic: PreferenceTopic; label: string; hint: s
 export interface EmailDefinition {
   id: string;
   name: string;
-  sequence: "family_onboarding" | "contributor_onboarding" | "invitation_reminders" | "guest_demo" | "bedtime_thursdays" | "trial" | "billing" | "checkout" | "feedback" | "win_back" | "sponsorship";
+  sequence: "family_onboarding" | "contributor_onboarding" | "invitation_reminders" | "guest_demo" | "bedtime_thursdays" | "trial" | "billing" | "checkout" | "feedback" | "win_back" | "sponsorship" | "donations";
   category: EmailCategory;
   /** The preference that turns it off; transactional email has none. */
   topic: PreferenceTopic | null;
@@ -60,6 +60,11 @@ export const EMAILS: EmailDefinition[] = [
   { id: "S5", name: "Gift ending (to the family)", sequence: "sponsorship", category: "transactional", topic: null },
   { id: "S6", name: "A family asked for more credits (to the sponsor)", sequence: "sponsorship", category: "transactional", topic: null },
   { id: "S7", name: "Gift credit share changing (to the family)", sequence: "sponsorship", category: "transactional", topic: null },
+  { id: "D1", name: "Readli Gives Back: request received", sequence: "donations", category: "transactional", topic: null },
+  { id: "D2", name: "Readli Gives Back: donation approved", sequence: "donations", category: "transactional", topic: null },
+  { id: "D3", name: "Readli Gives Back: more information needed", sequence: "donations", category: "transactional", topic: null },
+  { id: "D4", name: "Readli Gives Back: not approved", sequence: "donations", category: "transactional", topic: null },
+  { id: "D6", name: "Readli Gives Back: winner welcome", sequence: "donations", category: "transactional", topic: null },
 ];
 
 const BY_ID = new Map(EMAILS.map((e) => [e.id, e]));

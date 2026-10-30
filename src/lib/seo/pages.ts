@@ -27,6 +27,7 @@ export function publicPages(): PublicPage[] {
     { path: "/help", title: "Help Center", priority: 0.7, changeFrequency: "weekly" },
     { path: "/help/recording-tips", title: "Tips for a better voice recording", priority: 0.5, changeFrequency: "monthly" },
     { path: "/company", title: "Company", priority: 0.4, changeFrequency: "yearly" },
+    { path: "/donations", title: "Readli Gives Back: donation requests for school raffles and charity auctions", priority: 0.6, changeFrequency: "monthly" },
     { path: "/privacy", title: "Privacy Policy", priority: 0.3, changeFrequency: "yearly" },
     { path: "/terms", title: "Terms of Service", priority: 0.3, changeFrequency: "yearly" },
     { path: "/accessibility", title: "Accessibility Statement", priority: 0.3, changeFrequency: "yearly" },

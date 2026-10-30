@@ -78,6 +78,8 @@ export interface Redeemed {
   paidThrough: string;
   /** True when a paid subscription's billing was paused for the gift instead of adding a separate plan. */
   billingPaused?: boolean;
+  /** The redeemed gift, so follow-ups (a Readli Gives Back welcome) can find it. */
+  giftId?: string;
 }
 
 export async function redeemGiftCode(db: SupabaseClient, code: string, user: { id: string; name: string }, opts: RedeemOptions = {}): Promise<Redeemed> {
@@ -96,9 +98,9 @@ export async function redeemGiftCode(db: SupabaseClient, code: string, user: { i
   const row = (Array.isArray(data) ? data[0] : data) as { household_id: string; paid_through: string | null; gift_id?: string; months?: number; subscription_ref?: string | null };
   if (row.subscription_ref && row.gift_id) {
     const paidThrough = await pauseSubscriptionForGift(db, opts.stripe!, { giftId: row.gift_id, subscriptionRef: row.subscription_ref, months: row.months ?? 12 });
-    return { householdId: row.household_id, paidThrough, billingPaused: true };
+    return { householdId: row.household_id, paidThrough, billingPaused: true, giftId: row.gift_id };
   }
-  return { householdId: row.household_id, paidThrough: row.paid_through as string };
+  return { householdId: row.household_id, paidThrough: row.paid_through as string, ...(row.gift_id ? { giftId: row.gift_id } : {}) };
 }
 
 /** When the subscription's current paid time runs out: the later of its period end and any free time already given. */

@@ -52,11 +52,26 @@ function Check() {
   );
 }
 
+/** The typed-code screen's words. /redeem (Readli Gives Back) uses the spec's wording. */
+export interface ClaimIntro {
+  title: string;
+  body: string;
+  label: string;
+  button: string;
+}
+
+const CLAIM_INTRO: ClaimIntro = {
+  title: "Claim your Readli gift",
+  body: "Type the code printed under the QR code on your certificate.",
+  label: "Gift code",
+  button: "Find my gift",
+};
+
 /**
- * /claim: the code arrives after # (from the QR code) or is typed in, waits in this browser while the
- * winner signs in, and is looked up without ever going into a URL the server sees.
+ * /claim and /redeem: the code arrives after # (from the QR code) or is typed in, waits in this
+ * browser while the winner signs in, and is looked up without ever going into a URL the server sees.
  */
-export function ClaimFromLink() {
+export function ClaimFromLink({ path = "/claim", intro = CLAIM_INTRO }: { path?: "/claim" | "/redeem"; intro?: ClaimIntro }) {
   const [code, setCode] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<{ gift: ComplimentaryLanding; viewer: GiftViewer } | null>(null);
   const [error, setError] = useState("");
@@ -89,7 +104,7 @@ export function ClaimFromLink() {
     else setChecking(false);
   }, []);
 
-  if (loaded && code) return <ComplimentaryGift code={code} gift={loaded.gift} viewer={loaded.viewer} />;
+  if (loaded && code) return <ComplimentaryGift code={code} gift={loaded.gift} viewer={loaded.viewer} path={path} />;
   if (checking) {
     return (
       <p aria-live="polite" className="py-16 text-center text-lg">
@@ -97,10 +112,10 @@ export function ClaimFromLink() {
       </p>
     );
   }
-  return <EnterCode error={error} onCode={lookUp} />;
+  return <EnterCode error={error} onCode={lookUp} intro={intro} />;
 }
 
-function EnterCode({ error, onCode }: { error: string; onCode: (code: string) => void }) {
+function EnterCode({ error, onCode, intro }: { error: string; onCode: (code: string) => void; intro: ClaimIntro }) {
   const id = useId();
   const [value, setValue] = useState("");
   const [problem, setProblem] = useState("");
@@ -108,8 +123,8 @@ function EnterCode({ error, onCode }: { error: string; onCode: (code: string) =>
   return (
     <section className="flex flex-col items-center gap-4 text-center">
       <GiftBoxArt className="w-28" />
-      <h1 className="font-display text-3xl font-semibold sm:text-4xl">Claim your Readli gift</h1>
-      <p className="max-w-md text-lg">Type the code printed under the QR code on your certificate.</p>
+      <h1 className="font-display text-3xl font-semibold sm:text-4xl">{intro.title}</h1>
+      <p className="max-w-md text-lg">{intro.body}</p>
       <form
         className="flex w-full max-w-md flex-col gap-3"
         aria-label="Claim a gift code"
@@ -123,7 +138,7 @@ function EnterCode({ error, onCode }: { error: string; onCode: (code: string) =>
         }}
       >
         <label htmlFor={`${id}-code`} className="font-display text-lg font-semibold">
-          Gift code
+          {intro.label}
         </label>
         <input
           id={`${id}-code`}
@@ -143,7 +158,7 @@ function EnterCode({ error, onCode }: { error: string; onCode: (code: string) =>
           </p>
         )}
         <button type="submit" className={buttonPrimary}>
-          Find my gift
+          {intro.button}
         </button>
       </form>
     </section>
@@ -151,7 +166,7 @@ function EnterCode({ error, onCode }: { error: string; onCode: (code: string) =>
 }
 
 /** The winner's page (approved mockup, 2026-10-22): short, one clear action, no card, nothing renews. */
-export function ComplimentaryGift({ code, gift, viewer }: { code: string; gift: ComplimentaryLanding; viewer: GiftViewer }) {
+export function ComplimentaryGift({ code, gift, viewer, path = "/claim" }: { code: string; gift: ComplimentaryLanding; viewer: GiftViewer; path?: "/claim" | "/redeem" }) {
   const id = useId();
   const [stage, setStage] = useState<"open" | "claimed">(gift.status === "redeemed" ? "claimed" : "open");
   const [familyName, setFamilyName] = useState("");
@@ -167,7 +182,7 @@ export function ComplimentaryGift({ code, gift, viewer }: { code: string; gift: 
   async function claim() {
     if (!viewer.signedIn) {
       stash(code);
-      window.location.assign("/login?next=/claim");
+      window.location.assign(`/login?next=${path}`);
       return;
     }
     setBusy(true);
@@ -208,7 +223,7 @@ export function ComplimentaryGift({ code, gift, viewer }: { code: string; gift: 
               : `Readli Family is on for your family until ${longDate(result.paidThrough)}. No card needed, and nothing renews on its own.`}
         </p>
         <Link href="/family" className={buttonPrimary}>
-          Go to my family
+          {result ? "Set up my family" : "Go to my family"}
         </Link>
       </section>
     );

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/access";
-import { claimLink, issueComplimentary, revealCode, revokeAndReplace } from "@/lib/admin/complimentary";
+import { claimLink, claimPath, issueComplimentary, revealCode, revokeAndReplace } from "@/lib/admin/complimentary";
 import { AdminActionError } from "@/lib/admin/tester-plans";
 import { accountDb } from "@/lib/family/account-store";
 import { giftCodeCipher } from "@/lib/gifting/code-cipher";
@@ -72,9 +72,9 @@ export async function revealCodeAction(batchId: string, giftId: string): Promise
   const ctx = await context(`/admin/complimentary/${batchId}`);
   if (!ctx) return { error: NOT_READY };
   try {
-    const { code } = await revealCode(ctx.db, ctx.admin, ctx.cipher, giftId);
+    const { code, program } = await revealCode(ctx.db, ctx.admin, ctx.cipher, giftId);
     revalidatePath(`/admin/complimentary/${batchId}`);
-    return { message: "Recorded in the audit trail.", code, link: claimLink(await requestOrigin(), code) };
+    return { message: "Recorded in the audit trail.", code, link: claimLink(await requestOrigin(), code, claimPath(program)) };
   } catch (err) {
     if (err instanceof AdminActionError) return { error: err.message };
     throw err;

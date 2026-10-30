@@ -18,6 +18,18 @@ export interface CertificateInput {
   termLine: string;
   claimByLine: string;
   certificateLabel: string;
+  /** Above the headline; "GIFT CERTIFICATE" unless set. */
+  eyebrow?: string;
+  /** Short lines under the presented line, e.g. "Proudly supporting Oak Street PTA". */
+  extraLines?: string[];
+  /** The bold line under the QR code. */
+  scanLine?: string;
+  /** Where to type the code; "/claim" unless set. */
+  claimPath?: string;
+  /** Small print along the bottom of the page. */
+  finePrint?: string;
+  /** A short line at the very bottom, e.g. "Every Book. Every Voice." */
+  tagline?: string;
 }
 
 type Font = "F1" | "F2" | "F3" | "F4";
@@ -147,7 +159,7 @@ function draw(c: Canvas, input: CertificateInput) {
   c.text(word, "F2", wordSize, "ink", top + logoH / 2 + wordSize * 0.36, { left: rowLeft + logoW + 8 });
   top += logoH + 30;
 
-  c.text("GIFT CERTIFICATE", "F2", 11, "ink", top, { tracking: 1.6 });
+  c.text(input.eyebrow ?? "GIFT CERTIFICATE", "F2", 11, input.eyebrow ? "plum" : "ink", top, { tracking: 1.6 });
   top += 40;
 
   let headSize = 37.5;
@@ -159,6 +171,13 @@ function draw(c: Canvas, input: CertificateInput) {
     c.text(line, "F1", 15, "ink", top);
     top += 19;
   }
+  for (const line of input.extraLines ?? []) {
+    top += 2;
+    for (const l of wrap(line, "F2", 13.5, frame.w - 100).slice(0, 2)) {
+      c.text(l, "F2", 13.5, "plum", top);
+      top += 18;
+    }
+  }
   if (input.message) {
     top += 4;
     for (const line of wrap(`“${input.message}”`, "F3", 12.75, frame.w - 120).slice(0, 3)) {
@@ -167,14 +186,15 @@ function draw(c: Canvas, input: CertificateInput) {
     }
   }
 
-  const box = 228;
-  const boxTop = Math.max(top + 28, 270);
+  const compact = Boolean(input.finePrint);
+  const box = compact ? 200 : 228;
+  const boxTop = Math.max(top + (compact ? 20 : 28), 270);
   const boxX = PAGE_W / 2 - box / 2;
   c.fill("white");
   c.stroke("ink", 2.25);
   c.roundRect(boxX, PAGE_H - boxTop - box, box, box, 15);
   c.ops.push("B");
-  const qrSide = 216;
+  const qrSide = box - 12;
   const full = input.qr.size + QUIET_MODULES * 2;
   const mod = qrSide / full;
   const qx = PAGE_W / 2 - qrSide / 2 + QUIET_MODULES * mod;
@@ -191,16 +211,28 @@ function draw(c: Canvas, input: CertificateInput) {
     }
   });
   c.ops.push(rects.join(" "), "f");
-  top = boxTop + box + 30;
+  top = boxTop + box + (compact ? 26 : 30);
 
-  c.text("Scan to claim your Readli Family membership.", "F2", 18, "ink", top);
+  c.text(input.scanLine ?? "Scan to claim your Readli Family membership.", "F2", 18, "ink", top);
   top += 22;
-  c.text(`Or visit ${input.claimHost}/claim and enter this code:`, "F1", 12, "ink", top);
+  c.text(`Or visit ${input.claimHost}${input.claimPath ?? "/claim"} and enter this code:`, "F1", 12, "ink", top);
   top += 30;
   c.text(input.code, "F4", 24, "ink", top, { tracking: 1.5 });
 
-  c.text(input.termLine, "F1", 11.25, "ink", PAGE_H - margin - 46);
-  c.text(input.claimByLine, "F1", 11.25, "muted", PAGE_H - margin - 30);
+  if (input.finePrint) {
+    const fine = wrap(input.finePrint, "F1", 8.25, frame.w - 120).slice(0, 3);
+    let bottom = PAGE_H - margin - 14 - (input.tagline ? 14 : 0) - fine.length * 10.5;
+    c.text(input.termLine, "F1", 11.25, "ink", bottom - 34);
+    c.text(input.claimByLine, "F2", 11.25, "ink", bottom - 18);
+    for (const l of fine) {
+      bottom += 10.5;
+      c.text(l, "F1", 8.25, "muted", bottom);
+    }
+    if (input.tagline) c.text(input.tagline, "F2", 10.5, "plum", PAGE_H - margin - 14);
+  } else {
+    c.text(input.termLine, "F1", 11.25, "ink", PAGE_H - margin - 46);
+    c.text(input.claimByLine, "F1", 11.25, "muted", PAGE_H - margin - 30);
+  }
   c.text(input.certificateLabel, "F1", 9, "muted", PAGE_H - margin - 12, { left: frame.x + 24 });
 }
 

@@ -109,9 +109,14 @@ export function certificateLabel(prefix: string, no: number | null): string {
   return no ? `${prefix}-${String(no).padStart(3, "0")}` : "Earlier code";
 }
 
+/** Where a batch's certificates send families: Readli Gives Back donations use /redeem, everything else /claim. */
+export function claimPath(program: string | null | undefined): "/redeem" | "/claim" {
+  return program === "readli_gives_back" ? "/redeem" : "/claim";
+}
+
 /** The claim link. The code rides after #, so it never reaches server logs, analytics or referrers. */
-export function claimLink(origin: string, code: string): string {
-  return `${origin.replace(/\/$/, "")}/claim#${code}`;
+export function claimLink(origin: string, code: string, path: "/redeem" | "/claim" = "/claim"): string {
+  return `${origin.replace(/\/$/, "")}${path}#${code}`;
 }
 
 const last4 = (code: string) => code.replace(/-/g, "").slice(-4);
@@ -192,6 +197,10 @@ export interface Batch {
   message: string | null;
   claimBy: string;
   createdAt: string;
+  /** "readli_gives_back" for a donation approved through /donations. */
+  program: string | null;
+  /** The organization a donation supports, printed on its certificate. */
+  supportingName: string | null;
 }
 
 export interface IssuedGift {
@@ -234,6 +243,8 @@ const toBatch = (b: Row): Batch => ({
   message: (b.message as string | null) ?? null,
   claimBy: b.claim_by as string,
   createdAt: b.created_at as string,
+  program: (b.program as string | null) ?? null,
+  supportingName: (b.supporting_name as string | null) ?? null,
 });
 
 const GIFT_COLUMNS = "id, batch_id, certificate_no, code_last4, code_encrypted, status, redeemed_at, revoked_at, replaced_by, claim_by, sent_at, recipient_name";
@@ -359,11 +370,11 @@ export async function logArtworkDownload(db: SupabaseClient, admin: AdminUser, b
 }
 
 /** Shows an admin the full code (for "Show full code" and "Copy link"), and records that they saw it. */
-export async function revealCode(db: SupabaseClient, admin: AdminUser, cipher: GiftCodeCipher, giftId: string): Promise<{ code: string; certificate: string }> {
+export async function revealCode(db: SupabaseClient, admin: AdminUser, cipher: GiftCodeCipher, giftId: string): Promise<{ code: string; certificate: string; program: string | null }> {
   const art = await membershipArtwork(db, cipher, giftId);
   if (!art) throw new AdminActionError("This code was issued before codes could be shown again. Revoke and replace it to get a new one.");
   await logAction(db, admin, "complimentary_code_revealed", { batch_id: art.batch.id, certificate: art.certificate });
-  return { code: art.code, certificate: art.certificate };
+  return { code: art.code, certificate: art.certificate, program: art.batch.program };
 }
 
 /** Revokes an unclaimed membership and issues a replacement in the same batch, with a new code. */
