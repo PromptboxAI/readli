@@ -59,7 +59,7 @@ describe("what the sponsor sees", () => {
     expect(gift).toMatchObject({ plan: "annual", status: "active", nextMonthFrom: "2027-01-25T12:00:00.000Z", freePlaces: [], canChangeFamilies: true });
     expect(gift!.places).toEqual([
       expect.objectContaining({ seat: 1, name: "Michael and Sarah", state: "joined", voice: "approved", creditShare: 20, usedThisMonth: 12 }),
-      expect.objectContaining({ seat: 2, name: "Emma and David", state: "invited", voice: "not_shared", usedThisMonth: 0 }),
+      expect.objectContaining({ seat: 2, name: "Emma and David", state: "invited", voice: "offered", usedThisMonth: 0 }),
     ]);
     // Nothing about children, books or other storytellers is in what the sponsor gets.
     expect(JSON.stringify(gift)).not.toMatch(/lily|plan-m|purchased/);

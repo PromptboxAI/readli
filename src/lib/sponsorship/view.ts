@@ -31,8 +31,8 @@ export interface PlaceView {
   /** When the invitation was opened, or the family joined. */
   openedAt: string | null;
   joinedAt: string | null;
-  /** The sponsor's voice in this family: not offered, waiting for the parents, or approved for at least one child. */
-  voice: "not_shared" | "waiting" | "approved";
+  /** The sponsor's voice in this family: not offered, offered before the family joins, waiting for the parents, or approved for at least one child. */
+  voice: "not_shared" | "offered" | "waiting" | "approved";
   creditShare: number;
   nextShare: number | null;
   nextFrom: string | null;
@@ -117,7 +117,7 @@ export async function sponsorGifts(db: SupabaseClient, sponsorId: string, now = 
         state: placeState({ status: s.status as SeatStatus }, delivered, Boolean(inv?.opened_at)),
         openedAt: iso(inv?.opened_at),
         joinedAt: iso(s.accepted_at),
-        voice: !home || !s.share_voice || !shares.some((x) => x.household_id === home) ? "not_shared" : approvals.some((x) => x.household_id === home) ? "approved" : "waiting",
+        voice: !s.share_voice ? "not_shared" : !home ? "offered" : !shares.some((x) => x.household_id === home) ? "not_shared" : approvals.some((x) => x.household_id === home) ? "approved" : "waiting",
         creditShare: Number(s.credit_share ?? 0),
         nextShare: s.next_credit_share == null ? null : Number(s.next_credit_share),
         nextFrom: iso(s.next_credits_from),
