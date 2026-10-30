@@ -19,7 +19,7 @@ test("inviting family adds a pending storyteller and shares no voice", async ({ 
   await page.getByLabel("Who are you inviting?").fill("Uncle Mike");
   await page.getByText("Uncle", { exact: true }).click();
   await expect(page.getByTestId("invite-preview")).toContainText("Hi Uncle Mike!");
-  await expect(page.getByTestId("invite-preview")).toContainText("private until you choose to share it");
+  await expect(page.getByTestId("invite-preview")).toContainText("the kids will love it");
   await page.screenshot({ path: `e2e/screenshots/invite-family-${info.project.name}.png`, fullPage: true });
   await page.getByRole("button", { name: "Create invite link" }).click();
   await expect(page.getByRole("heading", { name: "Invitation ready for Uncle Mike" })).toBeVisible();

@@ -271,9 +271,9 @@ async function voiceReady(ctx: SequenceContext): Promise<QueuedEmail[]> {
         message: voiceMessage(ctx, userId, name, "transactional", {
           subject: "Your voice is ready",
           title: "Your Readli voice is ready",
-          paragraphs: ["Your voice is saved and stays yours. It's shared only with the families you agree to, and you can stop sharing at any time."],
-          cta: "See my voice",
-          path: "/voice",
+          paragraphs: ["Now for the fun part: invite the families you love, and their kids can hear you read at bedtime."],
+          cta: "Invite a family",
+          path: "/voice/invite",
         }),
       });
     }
@@ -314,8 +314,7 @@ async function contributorOnboarding(ctx: SequenceContext): Promise<QueuedEmail[
           subject: "Welcome to Readli Voice. It's free",
           title: "Welcome to Readli Voice",
           paragraphs: [
-            "Readli Voice is free, with no card and nothing to pay. You record your voice once, and the children of the families you choose can hear you read classic books.",
-            "Your voice stays yours: it's shared only after you agree, and you can stop sharing at any time.",
+            "Record your voice once, and the kids in your family can hear you read classic stories at bedtime, wherever they are. It's free.",
           ],
           cta: mine.length ? "See my voice" : "Record my voice",
           path: mine.length ? "/voice" : "/voice/record",
@@ -345,7 +344,7 @@ async function contributorOnboarding(ctx: SequenceContext): Promise<QueuedEmail[
         message: voiceMessage(ctx, userId, name, "setup", {
           subject: "Share your voice with family",
           title: "Who should hear you read?",
-          paragraphs: ["Invite the grown-ups in your family, and their kids can hear stories in your voice. You choose who, and you can stop sharing at any time."],
+          paragraphs: ["Invite the grown-ups in your family, and their kids can hear bedtime stories in your voice tonight."],
           cta: "Invite family",
           path: "/voice/invite",
         }),

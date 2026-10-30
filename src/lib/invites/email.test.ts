@@ -87,7 +87,7 @@ describe("family storyteller invitation email", () => {
     expect(mail!.subject).toBe("Kevin invited you to read stories to The Godfrey family on Readli");
     expect(mail!.text).toContain("https://readli.ai/voice/join?invite=first");
     expect(mail!.text).toContain(`/v/respond/${householdRespondToken(SECRET, ID)}?action=decline`);
-    expect(mail!.text).toContain("no card and no subscription");
+    expect(mail!.text).toContain("free for you and takes about three minutes");
     expect(mail!.headers["List-Unsubscribe"]).toBe(`<https://readli.ai/api/invitations/unsubscribe/${householdRespondToken(SECRET, ID)}>`);
     expect(tables.household_invitation_sends![0]!.delivery).toBe("sent");
   });
