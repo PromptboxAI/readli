@@ -7,6 +7,7 @@ import { DemoBookShelf } from "@/components/books/DemoBookShelf";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import type { DemoBook } from "@/lib/content/demo-books";
 import { newMetaEventId, trackMeta } from "@/lib/marketing/meta-pixel";
+import { DemoEmailForm } from "./DemoEmailForm";
 import { ImproveLink, RecordingTipsDialog } from "./RecordingTips";
 import type { RecordedTake } from "./useMicrophone";
 
@@ -76,6 +77,7 @@ export function VoicePreview({
   const [previewsAllowed, setPreviewsAllowed] = useState<number | null>(null);
   const [playing, setPlaying] = useState<Played | null>(null);
   const [tipsOpen, setTipsOpen] = useState(false);
+  const [demoEmail, setDemoEmail] = useState(false);
   /** Stories already read, by voice ("take:clean-up") and book. */
   const heard = useRef(new Map<string, Played>());
   const [, setHeardCount] = useState(0);
@@ -91,10 +93,11 @@ export function VoicePreview({
   useEffect(() => {
     let cancelled = false;
     fetch("/api/demo/status", { cache: "no-store" })
-      .then((r) => r.json() as Promise<{ mode: Mode; guest: { previewsLeft: number; previewsAllowed: number } | null }>)
+      .then((r) => r.json() as Promise<{ mode: Mode; demoEmail?: boolean; guest: { previewsLeft: number; previewsAllowed: number } | null }>)
       .then((s) => {
         if (cancelled) return;
         setMode(s.mode);
+        setDemoEmail(s.demoEmail === true);
         if (s.guest) {
           setPreviewsLeft(s.guest.previewsLeft);
           setPreviewsAllowed(s.guest.previewsAllowed);
@@ -250,6 +253,8 @@ export function VoicePreview({
           </div>
         </div>
       )}
+
+      {playing && !busy && demoEmail && !playing.standIn && <DemoEmailForm />}
 
       {error && (
         <p role="alert" className="rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold">
