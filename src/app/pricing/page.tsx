@@ -315,7 +315,7 @@ export default async function PricingPage() {
           <div className="mx-auto flex max-w-5xl flex-col gap-6">
             <div className="flex flex-col gap-2 text-center">
               <h2 id="gift-heading" className="font-display text-3xl font-semibold sm:text-4xl">
-                Give Readli to a family
+                Give Readli as a gift
               </h2>
               <p className="text-lg">
                 Grandparents often give the stories as well as the voice. Your gift covers Readli Family for up to {SPONSORED.households} of
