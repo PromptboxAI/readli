@@ -8,6 +8,8 @@ import { SponsorDashboard } from "@/components/sponsorship/SponsorDashboard";
 import { currentAdult } from "@/lib/auth/adult";
 import { sponsorshipContext } from "@/lib/sponsorship/http";
 import { sponsorGifts } from "@/lib/sponsorship/view";
+import { serverConfig } from "@/lib/server/config";
+import { accountVoiceDeps } from "@/lib/voice/account-voices";
 
 export const metadata: Metadata = { title: "Give Readli Family | Readli", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -44,7 +46,14 @@ export default async function GiveFamilyPage({ searchParams }: { searchParams: P
 
   const gifts = await sponsorGifts(ctx.db, user.id);
   const giving = Boolean(selling) && (gifts.length === 0 || q.new === "1");
-  const { data: voice } = await ctx.db.from("voice_profiles").select("id").eq("owner_id", user.id).eq("status", "ready").is("deleted_at", null).limit(1);
+  // The same lookup My Voice uses, so a voice that's ready there can be shared here.
+  const deps = accountVoiceDeps(serverConfig());
+  const voice = deps
+    ? await deps.store.findVoice(user.id).catch((err) => {
+        console.error("gift page: voice lookup failed", err);
+        return null;
+      })
+    : null;
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -62,7 +71,7 @@ export default async function GiveFamilyPage({ searchParams }: { searchParams: P
             <h1 className="font-display text-4xl font-semibold sm:text-5xl">Give Readli Family as a gift</h1>
             <p className="max-w-2xl text-lg">You pay for one plan. Each family runs its own home, children and approvals.</p>
           </header>
-          <GiveFamilyForm today={today} hasVoice={Boolean(voice?.length)} defaultGiverName="" />
+          <GiveFamilyForm today={today} hasVoice={voice?.status === "ready"} defaultGiverName="" />
         </>
       ) : gifts.length ? (
         <>
