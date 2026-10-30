@@ -378,6 +378,7 @@ export function SiteFooter() {
     { href: "/books", label: "Library" },
     { href: "/guides", label: "Guides" },
     { href: "/company", label: "Company" },
+    { href: "/donations", label: "Readli Gives Back" },
     { href: "/pricing", label: "Pricing" },
     { href: "/privacy", label: "Privacy" },
     { href: "/terms", label: "Terms" },

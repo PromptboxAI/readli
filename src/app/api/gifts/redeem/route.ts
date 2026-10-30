@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { billingConfig } from "@/lib/billing/config";
 import { StripeApi } from "@/lib/billing/stripe-api";
+import { afterGiftRedeemed } from "@/lib/donations/server";
+import { emailSecret } from "@/lib/email/send";
 import { jsonBody } from "@/lib/family/http";
 import { GiftError, redeemGiftCode } from "@/lib/gifting/server";
+import { requestOrigin } from "@/lib/invitations/context";
 import { withAccount } from "@/lib/invites/http";
 import { fail } from "@/lib/server/http";
 
@@ -26,7 +29,14 @@ export async function POST(req: Request) {
         deferBilling: pauseBilling === true,
         stripe: config.mode === "off" ? null : new StripeApi(config),
       });
-      return NextResponse.json(result, { headers: { "cache-control": "no-store" } });
+      const secret = emailSecret();
+      if (result.giftId && secret) {
+        // A welcome email is a nice-to-have: the claim has already succeeded, so a failure here is only logged.
+        await afterGiftRedeemed({ db, secret, base: await requestOrigin() }, result.giftId, user, result.paidThrough).catch((err) =>
+          console.error("gift follow-up failed", err instanceof Error ? err.message : err),
+        );
+      }
+      return NextResponse.json({ householdId: result.householdId, paidThrough: result.paidThrough, ...(result.billingPaused ? { billingPaused: true } : {}) }, { headers: { "cache-control": "no-store" } });
     } catch (err) {
       if (err instanceof GiftError) return fail(err.status, err.code, err.message);
       throw err;

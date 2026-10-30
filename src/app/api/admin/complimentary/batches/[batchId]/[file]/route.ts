@@ -11,12 +11,12 @@ export const runtime = "nodejs";
 export async function GET(_req: Request, { params }: { params: Promise<{ batchId: string; file: string }> }) {
   const { batchId, file } = await params;
   if (file !== "certificates.zip" && file !== "qr-codes.zip") return fail(404, "not_found", "Not found.");
-  return withArtworkAdmin(async ({ db, admin, cipher, origin }) => {
+  return withArtworkAdmin(async ({ db, admin, cipher, origin, retailValue }) => {
     const all = await batchArtwork(db, cipher, batchId);
     if (!all.length) return fail(404, "no_artwork", "This batch has no memberships to download.");
     const entries =
       file === "certificates.zip"
-        ? all.map((a) => ({ name: `readli-${a.certificate}-certificate.pdf`, data: membershipCertificate(a, origin) }))
+        ? all.map((a) => ({ name: `readli-${a.certificate}-certificate.pdf`, data: membershipCertificate(a, origin, { retailValue }) }))
         : all.flatMap((a) => [
             { name: `readli-${a.certificate}-qr-code.png`, data: membershipQrPng(a, origin) },
             { name: `readli-${a.certificate}-qr-code.svg`, data: Buffer.from(membershipQrSvg(a, origin), "utf8") },
