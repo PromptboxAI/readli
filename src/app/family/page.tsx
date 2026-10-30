@@ -159,6 +159,10 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   const home = homeHousehold(state, adult.id) ?? undefined;
   const entitlement = home ? activeEntitlement(state, home) : null;
   const hasPlan = Boolean(entitlement);
+  // A family whose paid plan (or gift) has ended: everything they set up is kept, so offer to restart rather than start.
+  const pastPlans = home && !hasPlan ? state.entitlements.filter((e) => e.householdId === home && e.source !== "trial") : [];
+  const lapsed = isGuardian && pastPlans.length > 0;
+  const endedAt = pastPlans.map((e) => e.endsAt).filter((d): d is string => d !== null && d <= new Date().toISOString()).sort().at(-1) ?? null;
   // Family signup continues to choosing a plan, so nobody lands on an empty portal with no way to check out.
   if (startingFamily && isGuardian && !hasPlan) redirect("/family/settings/plan");
   // An invitation carried through signup or checkout: offer the next step until a child can listen.
@@ -201,6 +205,18 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
         </div>
       </div>
       {notice && <HomeNotice text={noticeText(notice)} through={notice.through} />}
+      {lapsed && (
+        <section className="flex flex-col items-start gap-3 rounded-2xl bg-surface p-5 ring-1 ring-ink/15" data-testid="plan-ended">
+          <h2 className="text-lg font-semibold">
+            Your Readli Family plan has ended
+            {endedAt ? ` (${new Date(endedAt).toLocaleDateString("en-US", { month: "long", day: "numeric" })})` : ""}
+          </h2>
+          <p>Your kids&apos; profiles, storytellers and prepared books are saved. Restart any time to pick up where you left off.</p>
+          <Link href="/family/settings/plan" className={parentPrimary}>
+            Restart Readli Family
+          </Link>
+        </section>
+      )}
       {!myName && <AskName />}
       <PreviewNote />
       {invited && (
@@ -253,7 +269,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
                   </Link>
                 )}
               </div>
-              {account && !hasPlan && (
+              {account && !hasPlan && !lapsed && (
                 <p className="rounded-2xl bg-sunshine/50 p-3 text-sm">
                   Kids profiles come with Readli Family.{" "}
                   {familyCheckoutOpen() ? (
