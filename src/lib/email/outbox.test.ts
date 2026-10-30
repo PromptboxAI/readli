@@ -63,6 +63,19 @@ describe("email outbox", () => {
     expect(await s.run()).toMatchObject({ sent: 1 });
   });
 
+  it("sends commercial email to someone without an account only while they're opted in", async () => {
+    const s = setup(["BT1"]);
+    const to = { email: "pat@example.com" };
+    await s.queue([{ emailId: "BT1", dedupeKey: "BT1:c1", to }]);
+    expect(await s.run()).toMatchObject({ suppressed: 1 });
+    s.tables.email_marketing_contacts = [{ email_hash: emailHash(SECRET, "pat@example.com"), unsubscribed_at: null }];
+    await s.queue([{ emailId: "BT1", dedupeKey: "BT1:c2", to }]);
+    expect(await s.run()).toMatchObject({ sent: 1 });
+    s.tables.email_marketing_contacts[0]!.unsubscribed_at = NOW.toISOString();
+    await s.queue([{ emailId: "BT1", dedupeKey: "BT1:c3", to }]);
+    expect(await s.run()).toMatchObject({ suppressed: 1 });
+  });
+
   it("respects a turned-off topic", async () => {
     const s = setup(["F2"], { email_preferences: [{ user_id: PARENT, setup_reminders: false }] });
     await s.queue([{ emailId: "F2" }]);

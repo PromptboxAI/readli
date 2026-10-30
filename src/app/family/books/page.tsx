@@ -4,6 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { BookCatalog } from "@/components/family/BookCatalog";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
+import { NewThisWeek } from "@/components/family/NewThisWeek";
+import { newThisWeekFor } from "@/lib/email/bedtime";
+import { accountDb } from "@/lib/family/account-store";
 import { familyPage } from "@/lib/family/page-data";
 import { guardianHousehold } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
@@ -32,6 +35,7 @@ export default async function FamilyBooksPage({ searchParams }: { searchParams: 
           b.narrators.some((n) => n.voiceId !== voice && ["ready", "partial"].includes(n.availability)),
       )
     : [];
+  const newBooks = await newThisWeekFor(page.session, accountDb());
   return (
     <FamilyShell>
       <PreviewNote />
@@ -42,6 +46,7 @@ export default async function FamilyBooksPage({ searchParams }: { searchParams: 
           <span className="text-sm underline underline-offset-4">Credits and history</span>
         </Link>
       </div>
+      {newBooks && <NewThisWeek weekOf={newBooks.weekOf} books={newBooks.books} />}
       {name && (
         <section className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-sky/40 p-5" aria-labelledby="for-voice-h" data-testid="prepare-for-voice">
           <h2 id="for-voice-h" className="font-display text-2xl font-semibold">

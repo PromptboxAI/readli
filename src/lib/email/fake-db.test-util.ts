@@ -10,7 +10,7 @@ export function fakeEmailDb(
 ) {
   const t = (name: string) => (tables[name] ??= []);
   let seq = 0;
-  const keys: Record<string, string> = { email_outbox: "dedupe_key", email_events: "provider_event_id", email_preferences: "user_id", email_delivery_suppressions: "email_hash", email_switches: "email_id" };
+  const keys: Record<string, string> = { email_outbox: "dedupe_key", email_events: "provider_event_id", email_preferences: "user_id", email_delivery_suppressions: "email_hash", email_switches: "email_id", book_features: "week_of" };
   const from = (name: string) => {
     const filters: ((r: Row) => boolean)[] = [];
     let op: { kind: "select" } | { kind: "insert"; rows: Row[] } | { kind: "update"; values: Row } | { kind: "upsert"; rows: Row[]; ignore: boolean; key: string } = { kind: "select" };
