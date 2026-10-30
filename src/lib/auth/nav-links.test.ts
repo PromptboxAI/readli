@@ -42,7 +42,7 @@ describe("header for each account", () => {
   it("never offers My Family just for being signed in", () => {
     const voice = adult({ plan: "none", hadFamily: false });
     expect(primaryAction(voice)).toEqual({ href: "/voice", label: "My Voice" });
-    expect(labels(voice)).toEqual(["Home", "My Voice", "Settings", "Help", "Start Readli Family"]);
+    expect(labels(voice)).toEqual(["Home", "My Voice", "Settings", "Give Readli as a gift", "Help", "Start Readli Family"]);
     expect(hrefs(voice).Home).toBe("/");
   });
 
@@ -60,14 +60,14 @@ describe("header for each account", () => {
   it("gives a trial My Family in the menu, its end date and a way to choose a plan", () => {
     const trial = adult({ plan: "trial", endsAt: "2026-10-27T00:00:00.000Z" });
     expect(primaryAction(trial)).toBeNull();
-    expect(labels(trial)).toEqual(["My Family", "My Voice", "Settings", "Help", "Choose a plan"]);
+    expect(labels(trial)).toEqual(["My Family", "My Voice", "Settings", "Give Readli as a gift", "Help", "Choose a plan"]);
     expect(accountBadge(trial)).toBe("Family trial · ends Oct 27");
   });
 
   it("gives a paid family My Family in the menu with no offers", () => {
     const paid = adult({ plan: "paid", endsAt: null });
     expect(primaryAction(paid)).toBeNull();
-    expect(labels(paid)).toEqual(["My Family", "My Voice", "Settings", "Plan & credits", "Help"]);
+    expect(labels(paid)).toEqual(["My Family", "My Voice", "Settings", "Plan & credits", "Give Readli as a gift", "Help"]);
     expect(accountBadge(paid)).toBeNull();
   });
 });

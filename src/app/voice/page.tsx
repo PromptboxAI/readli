@@ -19,6 +19,7 @@ import { invitationContext } from "@/lib/invitations/context";
 import { invitationSettings, listInvitations } from "@/lib/invitations/server";
 import { pendingJoinPath } from "@/lib/invites/pending";
 import { serverConfig } from "@/lib/server/config";
+import { sponsorshipContext } from "@/lib/sponsorship/http";
 import { accountVoiceDeps, voiceModelStatus } from "@/lib/voice/account-voices";
 
 export const metadata: Metadata = { title: "My voice | Readli Voice", robots: { index: false } };
@@ -59,6 +60,8 @@ export default async function VoiceHomePage({ searchParams }: { searchParams: Pr
   const ctx = invitationContext();
   const invitations = ctx ? await listInvitations(ctx.db, ctx.secret, user.id, await invitationSettings(ctx.db)).catch(() => []) : [];
   const ready = recording?.status === "ready";
+  // Storytellers are often the grandparents who'd give Readli Family, so the gift is offered here while it's on sale.
+  const gifting = Boolean(await sponsorshipContext({ newGifts: true }).catch(() => null));
   return (
     <AdultPage>
       <header className="flex flex-col gap-2">
@@ -82,6 +85,17 @@ export default async function VoiceHomePage({ searchParams }: { searchParams: Pr
         <MyVoiceSharing initial={voices} storyteller />
       </section>
       {invitations.length > 0 && <InvitationList items={invitations} />}
+      {gifting && (
+        <section aria-labelledby="gift-h" className="flex flex-col items-start gap-3 rounded-[var(--radius-panel)] bg-coral/15 p-6" data-testid="voice-gift">
+          <h2 id="gift-h" className="font-display text-2xl font-semibold">
+            Give Readli as a gift
+          </h2>
+          <p>Cover Readli Family for up to two of your children&apos;s families. They add their kids and choose who reads; you pay for the plan.</p>
+          <Link href="/gift/family" className={buttonSecondary}>
+            Give a gift
+          </Link>
+        </section>
+      )}
       <form action="/auth/signout" method="post">
         <button type="submit" className={buttonSecondary}>
           Sign out

@@ -45,7 +45,8 @@ export function accountLinks(nav: Extract<NavState, { kind: "adult" }>): NavLink
   links.push({ href: nav.family.plan === "none" ? "/voice" : "/family/my-voice", label: "My Voice" }, { href: "/family/settings", label: "Settings" });
   // A paid family reaches its plan and credits straight from the menu; a trial has Choose a plan below instead.
   if (nav.family.plan === "paid") links.push({ href: "/family/settings/plan", label: "Plan & credits" });
-  links.push({ href: "/help", label: "Help" });
+  // Every grown-up can give Readli Family to their children's families, wherever they are in the product.
+  links.push({ href: "/gift/family", label: "Give Readli as a gift" }, { href: "/help", label: "Help" });
   if (nav.family.plan === "trial") links.push({ href: "/family/settings/plan", label: "Choose a plan", tone: "offer" });
   // There's no free trial: someone who already named a family picks a plan, anyone else starts a family first.
   if (nav.family.plan === "none") links.push({ href: nav.household ? "/family/settings/plan" : "/signup/family", label: "Start Readli Family", tone: "offer" });
