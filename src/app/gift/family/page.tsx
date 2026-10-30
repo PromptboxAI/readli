@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Give Readli Family | Readli", robots
 export const dynamic = "force-dynamic";
 
 /**
- * A grandparent gives Readli Family to up to two of their children's families, and later manages it
+ * Anyone gives Readli Family to up to two families, and later manages it
  * here. Selling needs the sponsored_family switch; a sponsor with a gift can always see and manage it.
  */
 export default async function GiveFamilyPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -26,7 +26,7 @@ export default async function GiveFamilyPage({ searchParams }: { searchParams: P
         <section className="flex flex-col items-center gap-4 text-center">
           <GiftBoxArt className="w-32" />
           <Eyebrow>Readli Family gift</Eyebrow>
-          <h1 className="font-display text-4xl font-semibold sm:text-5xl">Give your grandchildren Readli Family</h1>
+          <h1 className="font-display text-4xl font-semibold sm:text-5xl">Give Readli Family as a gift</h1>
           {!ctx ? (
             <p className="max-w-lg text-lg">Family gifts are coming soon.</p>
           ) : (
@@ -59,7 +59,7 @@ export default async function GiveFamilyPage({ searchParams }: { searchParams: P
         <>
           <header className="flex flex-col gap-2">
             <Eyebrow>Readli Family gift</Eyebrow>
-            <h1 className="font-display text-4xl font-semibold sm:text-5xl">Give your grandchildren Readli Family</h1>
+            <h1 className="font-display text-4xl font-semibold sm:text-5xl">Give Readli Family as a gift</h1>
             <p className="max-w-2xl text-lg">You pay for one plan. Each family runs its own home, children and approvals.</p>
           </header>
           <GiveFamilyForm today={today} hasVoice={Boolean(voice?.length)} defaultGiverName="" />

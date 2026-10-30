@@ -318,8 +318,8 @@ export default async function PricingPage() {
                 Give Readli as a gift
               </h2>
               <p className="text-lg">
-                Grandparents often give the stories as well as the voice. Your gift covers Readli Family for up to {SPONSORED.households} of
-                your children&apos;s families, and they never enter a card.
+                Give the stories as well as the voice. Your gift covers Readli Family for up to {SPONSORED.households} families you love,
+                and they never enter a card.
               </p>
             </div>
             <ul className="mx-auto grid w-full max-w-3xl gap-4 sm:grid-cols-2">
