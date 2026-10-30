@@ -118,7 +118,7 @@ test("terms explain both voice approvals and accessibility gives a contact", asy
 
   await page.goto("/accessibility");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Accessibility Statement");
-  await expect(page.getByRole("link", { name: "admin@readli.ai" })).toHaveAttribute("href", "mailto:admin@readli.ai");
+  await expect(page.getByRole("main").getByRole("link", { name: "admin@readli.ai" })).toHaveAttribute("href", "mailto:admin@readli.ai");
   await expect(page.getByText("IMPLEMENTATION CHECK")).toHaveCount(0);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
@@ -176,10 +176,11 @@ test("phone menu closes when tapping outside it", async ({ page }, info) => {
   await expect(menu).toBeHidden();
 });
 
-test("the closing section offers the 14-day Readli Family trial", async ({ page }) => {
+test("the closing section offers Readli Family without a free trial", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByTestId("family-trial-line")).toContainText("Try Readli Family free for 14 days. Card required, cancel any time.");
-  await expect(page.getByRole("link", { name: "Start your free trial" })).toHaveAttribute("href", "/signup/family");
+  await expect(page.getByTestId("family-plan-line")).toContainText("Readli Family is a monthly or yearly plan you can cancel any time.");
+  await expect(page.getByTestId("family-plan-line")).not.toContainText("free");
+  await expect(page.getByRole("link", { name: "Start your family" }).last()).toHaveAttribute("href", "/signup/family");
 });
 
 test("family journey steps through all five screens without autoplay", async ({ page }) => {

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
-import { acceptInviteToken, createInvite, hashInviteToken, inviteForToken, inviteLink, InviteError, listInvites, revokeInvite, statusOf } from "./server";
+import { acceptInviteToken, createInvite, hashInviteToken, inviteForToken, inviteLink, InviteError, listInvites, revokeInvite, setInviteRelationship, statusOf } from "./server";
 
 type Row = Record<string, unknown>;
 
@@ -47,11 +47,30 @@ describe("family invitations for real accounts", () => {
     expect(inviteLink("https://readli.ai/", token)).toBe(`https://readli.ai/voice/join?invite=${token}`);
   });
 
-  it("need a name and drop relationships Readli doesn't offer", async () => {
+  it("need a name, and keep the family's own words for them, cleaned and short", async () => {
     const { db, tables } = fakeDb();
     await expect(createInvite(db, { householdId: "h1", inviterId: "u1", name: "  ", relationship: "Grandma" })).rejects.toBeInstanceOf(InviteError);
+    await createInvite(db, { householdId: "h1", inviterId: "u1", name: "Pat", relationship: "  Nanny   Pat " });
     await createInvite(db, { householdId: "h1", inviterId: "u1", name: "Lou", relationship: "<script>" });
+    await createInvite(db, { householdId: "h1", inviterId: "u1", name: "Ali", relationship: "" });
+    await createInvite(db, { householdId: "h1", inviterId: "u1", name: "Max", relationship: "x".repeat(60) });
+    expect(tables.household_invitations!.map((r) => r.relationship_label)).toEqual(["Nanny Pat", "script", null, "x".repeat(40)]);
+  });
+
+  it("let the family change an invited person's label until they accept, and only in their own family", async () => {
+    const { db, tables } = fakeDb({
+      household_invitations: [
+        { id: "a", household_id: "h1", invitee_name: "June", relationship_label: "Grandma", expires_at: "2026-10-20T00:00:00Z", accepted_at: null, revoked_at: null },
+        { id: "b", household_id: "h1", invitee_name: "Lou", relationship_label: null, expires_at: "2026-10-20T00:00:00Z", accepted_at: "2026-10-12T00:00:00Z", revoked_at: null },
+      ],
+    });
+    await expect(setInviteRelationship(db, "h2", "a", "Mom")).rejects.toMatchObject({ status: 404 });
+    await expect(setInviteRelationship(db, "h1", "b", "Grandpa")).rejects.toMatchObject({ status: 404 });
+    expect(await setInviteRelationship(db, "h1", "a", " Caregiver ")).toMatchObject({ id: "a", relationship: "Caregiver" });
+    expect(tables.household_invitations![0]!.relationship_label).toBe("Caregiver");
+    expect(await setInviteRelationship(db, "h1", "a", "")).toMatchObject({ relationship: "" });
     expect(tables.household_invitations![0]!.relationship_label).toBeNull();
+    expect(tables.household_invitations![1]!.relationship_label).toBeNull();
   });
 
   it("take an email instead of a name, keep only its hash, and refuse a bad address", async () => {
@@ -95,7 +114,7 @@ describe("family invitations for real accounts", () => {
       adult_profiles: [{ user_id: "u1", display_name: "Sara" }],
       household_members: [{ household_id: "h1", user_id: "u1", removed_at: null }],
     });
-    expect(await inviteForToken(db, "tok", "u2", NOW)).toEqual({ familyName: "The Riveras", inviterName: "Sara", inviteeName: "June", status: "invited", alreadyMember: false, householdId: null });
+    expect(await inviteForToken(db, "tok", "u2", NOW)).toEqual({ familyName: "The Riveras", inviterName: "Sara", inviteeName: "June", status: "invited", role: "member", alreadyMember: false, householdId: null });
     expect(await inviteForToken(db, "tok", "u1", NOW)).toMatchObject({ alreadyMember: true, householdId: "h1" });
     expect(await inviteForToken(db, "nope", null, NOW)).toBeNull();
   });
@@ -112,5 +131,38 @@ describe("family invitations for real accounts", () => {
     expect(calls[0]).toEqual({ name: "accept_household_invitation", p_token_hash: hashInviteToken("tok"), p_user: "u2" });
     await expect(acceptInviteToken(db, "tok", "u2")).rejects.toMatchObject({ status: 409, code: "already_member" });
     await expect(acceptInviteToken(db, "tok", "u2")).rejects.toMatchObject({ status: 410, code: "invite_invalid" });
+  });
+
+  it("invite a co-parent as a parent, kept apart from storyteller invitations", async () => {
+    const { db, tables } = fakeDb();
+    await createInvite(db, { householdId: "h1", inviterId: "u1", name: "June", relationship: "Grandma" }, NOW);
+    const { invite } = await createInvite(db, { householdId: "h1", inviterId: "u1", name: "Ben", relationship: "", role: "guardian" }, NOW);
+    expect(invite.role).toBe("guardian");
+    // Storyteller invitations never send the column, so they work before its migration runs.
+    expect(tables.household_invitations![0]).not.toHaveProperty("invitee_role");
+    expect(tables.household_invitations![1]).toMatchObject({ invitee_role: "guardian" });
+    expect((await listInvites(db, "h1")).map((i) => i.name)).toEqual(["June"]);
+    expect((await listInvites(db, "h1", { role: "guardian" })).map((i) => i.name)).toEqual(["Ben"]);
+  });
+
+  it("tell a co-parent invitee what they're joining as, and treat a storyteller asked to be a parent as not joined yet", async () => {
+    const { db } = fakeDb({
+      household_invitations: [
+        { token_hash: hashInviteToken("tok"), household_id: "h1", inviter_id: "u1", invitee_name: "Ben", invitee_role: "guardian", expires_at: "2026-10-20T00:00:00Z", accepted_at: null, revoked_at: null },
+      ],
+      households: [{ id: "h1", name: "The Riveras" }],
+      adult_profiles: [{ user_id: "u1", display_name: "Sara" }],
+      household_members: [
+        { household_id: "h1", user_id: "u1", role: "guardian", removed_at: null },
+        { household_id: "h1", user_id: "u2", role: "member", removed_at: null },
+      ],
+    });
+    expect(await inviteForToken(db, "tok", "u2", NOW)).toMatchObject({ role: "guardian", alreadyMember: false, householdId: null });
+    expect(await inviteForToken(db, "tok", "u1", NOW)).toMatchObject({ role: "guardian", alreadyMember: true, householdId: "h1" });
+  });
+
+  it("explain that a parent of another family can't join as a co-parent", async () => {
+    const { db } = fakeDb({}, () => ({ data: null, error: { message: "already a parent in another family" } }));
+    await expect(acceptInviteToken(db, "tok", "u2")).rejects.toMatchObject({ status: 409, code: "parent_elsewhere" });
   });
 });

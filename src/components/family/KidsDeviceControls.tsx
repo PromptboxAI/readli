@@ -1,12 +1,28 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { buttonPrimary, buttonQuiet, buttonSecondary } from "@/components/brand/buttons";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 
 async function pick(childId: string | null) {
   return fetch("/api/kids/device/listener", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ childId }) });
+}
+
+/**
+ * When the grown-up PIN panel opens, bring it into view and put the cursor in the PIN box. On a phone the
+ * panel opens below the fold, so without this a grown-up taps the button and sees nothing happen.
+ */
+function useRevealPin(open: boolean) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    panelRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+    inputRef.current?.focus({ preventScroll: true });
+  }, [open]);
+  return { panelRef, inputRef };
 }
 
 /** "Who's listening?" on a kids device. */
@@ -41,6 +57,7 @@ export function ListenerPicker({ kids }: { kids: { id: string; nickname: string;
 export function KidsDeviceFooter({ canSwitch }: { canSwitch: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const { panelRef, inputRef } = useRevealPin(open);
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -75,12 +92,13 @@ export function KidsDeviceFooter({ canSwitch }: { canSwitch: boolean }) {
         </button>
       </div>
       {open && (
-        <div className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10" data-testid="grown-up-pin">
+        <div ref={panelRef} className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10" data-testid="grown-up-pin">
           <p className="font-semibold">Grown-ups: enter your family PIN to leave Readli Kids on this device. No PIN yet? Sign in instead.</p>
           <div className="flex flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1 text-sm font-semibold">
               PIN
               <input
+                ref={inputRef}
                 type="password"
                 inputMode="numeric"
                 autoComplete="off"
@@ -114,6 +132,7 @@ export function KidsDeviceFooter({ canSwitch }: { canSwitch: boolean }) {
  */
 export function TemporaryKidsExit({ childName, preview = false }: { childName: string; preview?: boolean }) {
   const [open, setOpen] = useState(false);
+  const { panelRef, inputRef } = useRevealPin(open);
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -124,7 +143,9 @@ export function TemporaryKidsExit({ childName, preview = false }: { childName: s
     const res = await fetch("/api/kids/temporary/exit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pin }) });
     const json = await res.json().catch(() => null);
     setPin("");
-    if (res.ok) return window.location.replace("/family");
+    // Kids Mode already ended on this browser (a grown-up signed in or left it in another tab, or this page
+    // was left open): there's nothing to unlock, so go where this browser belongs now.
+    if (res.ok || json?.error?.code === "not_temporary") return window.location.replace("/family");
     setBusy(false);
     setMessage(json?.error?.message ?? "That didn't work. Please try again.");
   };
@@ -135,18 +156,19 @@ export function TemporaryKidsExit({ childName, preview = false }: { childName: s
         <span aria-hidden="true">🔒</span> Grown-ups
       </button>
       {open && (
-        <div className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10" data-testid="temporary-kids-exit">
+        <div ref={panelRef} className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10" data-testid="temporary-kids-exit">
           <p className="font-semibold">This browser is showing only {childName}&apos;s stories. Enter your family PIN to go back to Readli Family.</p>
           <form
             className="flex flex-wrap items-end gap-3"
             onSubmit={(e) => {
               e.preventDefault();
-              if (pin.length === 4) void leave();
+              if (pin.length === 4 && !busy) void leave();
             }}
           >
             <label className="flex flex-col gap-1 text-sm font-semibold">
               Family PIN
               <input
+                ref={inputRef}
                 type="password"
                 inputMode="numeric"
                 autoComplete="off"

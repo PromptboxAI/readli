@@ -47,10 +47,10 @@ export class StripeApi {
     this.fetchImpl = fetchImpl;
   }
 
-  private async call<T>(method: "GET" | "POST", path: string, params: Params = {}, idempotencyKey?: string): Promise<T> {
+  private async call<T>(method: "GET" | "POST" | "DELETE", path: string, params: Params = {}, idempotencyKey?: string): Promise<T> {
     if (this.config.mode === "off" || !this.config.secretKey) throw new StripeError(503, "Payments are switched off.");
     const body = encodeForm(params);
-    const url = `https://api.stripe.com/v1/${path}${method === "GET" && body ? `?${body}` : ""}`;
+    const url = `https://api.stripe.com/v1/${path}${method !== "POST" && body ? `?${body}` : ""}`;
     const res = await this.fetchImpl(url, {
       method,
       headers: {
@@ -61,23 +61,66 @@ export class StripeApi {
       body: method === "POST" ? body : undefined,
     });
     const json = (await res.json().catch(() => ({}))) as T & { error?: { message?: string } };
-    if (!res.ok) throw new StripeError(res.status, json.error?.message ?? `Stripe ${res.status}`);
+    if (!res.ok) {
+      const message = json.error?.message ?? `Stripe ${res.status}`;
+      console.error(`Stripe ${method} /v1/${path} failed (${res.status}): ${message}`);
+      throw new StripeError(res.status, message);
+    }
     return json;
   }
 
-  /** The active Stripe price for a catalog item, created on first use from the plan settings. */
+  /**
+   * The active Stripe price for a catalog item, created on first use from the plan settings. With a tax
+   * code configured (Managed Payments), the product carries it and the price includes tax, so families
+   * pay the listed price. A price or product made before that is brought into line here.
+   */
   async priceFor(item: CatalogItem): Promise<string> {
-    const found = await this.call<{ data: { id: string }[] }>("GET", "prices", { lookup_keys: [item.lookupKey], active: true });
-    if (found.data[0]) return found.data[0].id;
+    const taxCode = this.config.productTaxCode;
+    type Found = { id: string; tax_behavior?: string | null; product?: string | { id: string; tax_code?: string | { id: string } | null } };
+    const found = await this.call<{ data: Found[] }>("GET", "prices", {
+      lookup_keys: [item.lookupKey],
+      active: true,
+      ...(taxCode ? { expand: ["data.product"] } : {}),
+    });
+    const price = found.data[0];
+    if (price && taxCode) {
+      const product = typeof price.product === "object" ? price.product : null;
+      const current = typeof product?.tax_code === "object" ? product.tax_code?.id : product?.tax_code;
+      if (product && current !== taxCode) await this.call("POST", `products/${encodeURIComponent(product.id)}`, { tax_code: taxCode });
+      if (price.tax_behavior === "inclusive") return price.id;
+      if (!price.tax_behavior || price.tax_behavior === "unspecified") {
+        await this.call("POST", `prices/${encodeURIComponent(price.id)}`, { tax_behavior: "inclusive" });
+        return price.id;
+      }
+      // Stripe won't change an exclusive price, so a tax-inclusive one takes over its lookup key.
+      const replaced = await this.call<{ id: string }>("POST", "prices", {
+        currency: "usd",
+        unit_amount: item.amountCents,
+        lookup_key: item.lookupKey,
+        transfer_lookup_key: true,
+        product: product?.id ?? (typeof price.product === "string" ? price.product : undefined),
+        tax_behavior: "inclusive",
+        recurring: item.interval ? { interval: item.interval } : undefined,
+        metadata: { readli_item: item.id },
+      });
+      return replaced.id;
+    }
+    if (price) return price.id;
     const created = await this.call<{ id: string }>("POST", "prices", {
       currency: "usd",
       unit_amount: item.amountCents,
       lookup_key: item.lookupKey,
-      product_data: { name: item.name, metadata: { readli_item: item.id } },
+      product_data: { name: item.name, metadata: { readli_item: item.id }, tax_code: taxCode },
+      tax_behavior: taxCode ? "inclusive" : undefined,
       recurring: item.interval ? { interval: item.interval } : undefined,
       metadata: { readli_item: item.id },
     });
     return created.id;
+  }
+
+  /** A Checkout session with its subscription expanded, to confirm a purchase when the buyer lands back on Readli. */
+  async getCheckoutSession(id: string): Promise<Record<string, unknown>> {
+    return this.call("GET", `checkout/sessions/${encodeURIComponent(id)}`, { expand: ["subscription"] });
   }
 
   async createCheckoutSession(params: Params): Promise<{ id: string; url: string }> {
@@ -99,6 +142,39 @@ export class StripeApi {
    */
   async pauseBillingUntil(id: string, trialEnd: number, idempotencyKey: string): Promise<StripeSubscription> {
     return this.call("POST", `subscriptions/${encodeURIComponent(id)}`, { trial_end: trialEnd, proration_behavior: "none" }, idempotencyKey);
+  }
+
+  async getPaymentIntent(id: string): Promise<{ id: string; payment_method?: string | { id: string } | null; customer?: string | { id: string } | null }> {
+    return this.call("GET", `payment_intents/${encodeURIComponent(id)}`);
+  }
+
+  /** The payment behind an invoice: older API versions name it on the invoice, newer ones list it under payments. */
+  async invoicePayment(id: string): Promise<string | null> {
+    const inv: { payment_intent?: string | { id: string } | null; payments?: { data?: { payment?: { payment_intent?: string | { id: string } | null } }[] } } = await this.call(
+      "GET",
+      `invoices/${encodeURIComponent(id)}`,
+      { expand: ["payments"] },
+    );
+    const pi = inv.payment_intent ?? inv.payments?.data?.find((p) => p.payment?.payment_intent)?.payment?.payment_intent ?? null;
+    return typeof pi === "string" ? pi : (pi?.id ?? null);
+  }
+
+  async createSubscription(params: Params, idempotencyKey: string): Promise<StripeSubscription> {
+    return this.call("POST", "subscriptions", params, idempotencyKey);
+  }
+
+  async updateSubscription(id: string, params: Params, idempotencyKey?: string): Promise<StripeSubscription> {
+    return this.call("POST", `subscriptions/${encodeURIComponent(id)}`, params, idempotencyKey);
+  }
+
+  /** Ends a subscription now, with no final invoice. */
+  async cancelSubscription(id: string): Promise<StripeSubscription> {
+    return this.call("DELETE", `subscriptions/${encodeURIComponent(id)}`);
+  }
+
+  /** A full refund of a payment. The key makes a retry a no-op. */
+  async refundPayment(paymentIntent: string, metadata: Record<string, string>, idempotencyKey: string): Promise<{ id: string; status: string }> {
+    return this.call("POST", "refunds", { payment_intent: paymentIntent, metadata }, idempotencyKey);
   }
 }
 

@@ -142,7 +142,7 @@ export function RewardsTracker({
       <p className="text-sm text-muted" data-testid="rewards-fine-print">
         Rewards are for grown-ups in a Readli Family account. A referral counts for a new household that pays for Readli Family
         itself: not your own household or another account of yours, not someone who has had Readli Family before, and only once per
-        family. Trials, gifts and free months don&apos;t count as paid months. A free month covers your subscription price only; it
+        family. Gifts and free months don&apos;t count as paid months. A free month covers your subscription price only; it
         doesn&apos;t add narration minutes. Following or liking Readli on social media never earns rewards.
       </p>
     </div>

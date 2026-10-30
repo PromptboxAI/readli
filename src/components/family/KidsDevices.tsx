@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { buttonPrimary, buttonQuiet, buttonSecondary } from "@/components/brand/buttons";
+import { parentPrimary, buttonQuiet, parentSecondary } from "@/components/brand/buttons";
 import type { DeviceView } from "@/lib/family/devices";
 
 const when = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -62,13 +62,10 @@ export function KidsDevices({
   };
 
   return (
-    <div className="flex flex-col gap-8" data-testid="kids-devices">
-      <div className="flex flex-col gap-3">
-        <h1 className="font-display text-4xl font-semibold">Kids devices and PIN</h1>
-      </div>
+    <div className="flex flex-col gap-5" data-testid="kids-devices">
 
-      <section aria-labelledby="modes-h" className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-5 ring-2 ring-ink/10" data-testid="kids-modes">
-        <h2 id="modes-h" className="font-display text-2xl font-semibold">
+      <section aria-labelledby="modes-h" className="flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10" data-testid="kids-modes">
+        <h2 id="modes-h" className="font-display text-xl font-semibold">
           Two ways to use Readli Kids
         </h2>
         <div className="grid gap-5 md:grid-cols-2">
@@ -115,8 +112,8 @@ export function KidsDevices({
         {message}
       </p>
 
-      <section aria-labelledby="pin-h" className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-5 ring-2 ring-ink/10">
-        <h2 id="pin-h" className="font-display text-2xl font-semibold">
+      <section aria-labelledby="pin-h" className="flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10">
+        <h2 id="pin-h" className="font-display text-xl font-semibold">
           Family PIN
         </h2>
         <p>
@@ -137,14 +134,14 @@ export function KidsDevices({
               className="w-32 rounded-2xl border-2 border-ink/20 bg-ivory px-3 py-2 text-center text-2xl tracking-[0.4em]"
             />
           </label>
-          <button type="button" className={buttonPrimary} disabled={busy || pin.length !== 4} onClick={savePin}>
+          <button type="button" className={parentPrimary} disabled={busy || pin.length !== 4} onClick={savePin}>
             {hasPin ? "Change PIN" : "Save PIN"}
           </button>
         </div>
       </section>
 
-      <section aria-labelledby="setup-h" className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-5 ring-2 ring-ink/10">
-        <h2 id="setup-h" className="font-display text-2xl font-semibold">
+      <section aria-labelledby="setup-h" className="flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10">
+        <h2 id="setup-h" className="font-display text-xl font-semibold">
           Register this device for Readli Kids
         </h2>
         {kids.length === 0 ? (
@@ -183,7 +180,7 @@ export function KidsDevices({
               On an iPad or phone, once the bookshelf opens, tap Share and then Add to Home Screen. The Readli Kids shortcut opens straight
               to the bookshelf, and your kids pick who&apos;s listening.
             </p>
-            <button type="button" className={`${buttonSecondary} self-start`} disabled={busy || chosen.length === 0} onClick={setUp}>
+            <button type="button" className={`${parentSecondary} self-start`} disabled={busy || chosen.length === 0} onClick={setUp}>
               Start Readli Kids here
             </button>
           </>
@@ -191,7 +188,7 @@ export function KidsDevices({
       </section>
 
       <section aria-labelledby="devices-h" className="flex flex-col gap-3">
-        <h2 id="devices-h" className="font-display text-2xl font-semibold">
+        <h2 id="devices-h" className="font-display text-xl font-semibold">
           Your kids devices
         </h2>
         {devices.length === 0 ? (
@@ -199,9 +196,9 @@ export function KidsDevices({
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2">
             {devices.map((d) => (
-              <li key={d.id} className="flex flex-col gap-2 rounded-3xl bg-surface p-4 ring-2 ring-ink/10" data-testid={`device-${d.id}`}>
+              <li key={d.id} className="flex flex-col gap-1.5 rounded-3xl bg-surface p-4 ring-2 ring-ink/10" data-testid={`device-${d.id}`}>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="font-display text-xl font-semibold">{d.label}</p>
+                  <p className="font-display text-lg font-semibold">{d.label}</p>
                   <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${d.status === "active" ? "bg-mint" : "bg-ink/10"}`}>{STATUS[d.status]}</span>
                 </div>
                 <p className="text-sm">For {d.kids.join(", ") || "nobody now"}</p>

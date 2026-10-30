@@ -85,6 +85,27 @@ export interface HouseholdMargin {
   marginUsd: number;
 }
 
+/** One sponsorship's month: what the sponsor pays (the year counted as a twelfth) against its families' costs. */
+export interface SponsorshipMargin {
+  sponsorshipId: string;
+  interval: "month" | "year";
+  revenueCents: number;
+  families: number;
+  costUsd: number;
+  marginUsd: number;
+}
+
+export interface SponsorshipFinance {
+  /** Sponsors paying now. Each is one paying subscriber, whatever the number of families. */
+  sponsors: number;
+  /** Families covered by a sponsor now: activations, never paying customers. */
+  sponsoredFamilies: number;
+  monthlyMrrCents: number;
+  /** Prepaid years, recognised at a twelfth a month ($179.99 is $15.00). */
+  annualMrrCents: number;
+  margins: SponsorshipMargin[];
+}
+
 export interface FinanceReport {
   payingFamilies: number;
   giftFamilies: number;
@@ -116,6 +137,7 @@ export interface FinanceReport {
   revenue30dCents: number;
   operatingContributionUsd: number;
   households: HouseholdMargin[];
+  sponsorships: SponsorshipFinance;
   hasRevenueData: boolean;
   costs: CostConfig;
 }
@@ -136,7 +158,7 @@ function householdsWith(entitlements: Row[], sources: string[], t: number): Set<
 
 /** Monthly value of a recurring revenue line whose paid period covers now; 0 otherwise. */
 export function monthlyValueCents(r: Row, t: number): number {
-  if (r.kind !== "subscription" && r.kind !== "narrator_slot") return 0;
+  if (r.kind !== "subscription" && r.kind !== "narrator_slot" && r.kind !== "sponsorship") return 0;
   if (!(ts(r.period_start) <= t && ts(r.period_end) > t)) return 0;
   const amount = int(r.amount_cents);
   return r.billing_interval === "year" ? amount / 12 : amount;
@@ -164,7 +186,7 @@ export function financeReport(input: FinanceInputs): FinanceReport {
   const gifted = householdsWith(entitlements, ["gift"], now);
   const trialing = householdsWith(entitlements, ["trial"], now);
   const comp = householdsWith(entitlements, ["donated", "tester"], now);
-  const anyPlan = householdsWith(entitlements, ["subscription", "gift", "trial", "donated", "tester"], now);
+  const anyPlan = householdsWith(entitlements, ["subscription", "gift", "trial", "donated", "tester", "sponsored"], now);
   const withPlan = new Set(input.members.filter((m) => anyPlan.has(m.household_id as string)).map((m) => m.user_id as string));
   const slotsPurchased = entitlements
     .filter((e) => e.source === "subscription" && covers(e, now))
@@ -219,7 +241,8 @@ export function financeReport(input: FinanceInputs): FinanceReport {
 
   const creditPacks30d = sum(revenue, "credit_pack", since);
   const gifts30d = sum(revenue, "gift", since);
-  const revenue30dCents = subscriptionMrrCents + slotMrrCents + creditPacks30d.cents + gifts30d.cents;
+  const sponsorships = sponsorshipFinance(entitlements, revenue, costByHousehold, now);
+  const revenue30dCents = subscriptionMrrCents + slotMrrCents + sponsorships.monthlyMrrCents + sponsorships.annualMrrCents + creditPacks30d.cents + gifts30d.cents;
 
   const revenueByHousehold = new Map<string, number>();
   for (const r of revenue) {
@@ -259,9 +282,52 @@ export function financeReport(input: FinanceInputs): FinanceReport {
     revenue30dCents,
     operatingContributionUsd: revenue30dCents / 100 - totalUsd,
     households,
+    sponsorships,
     hasRevenueData: revenue.length > 0,
     costs,
   };
+}
+
+/**
+ * Sponsorships, kept apart from household plans: the sponsor is the paying subscriber, the families are
+ * activations, and monthly and prepaid-year margins are reported separately.
+ */
+export function sponsorshipFinance(entitlements: Row[], revenue: Row[], costByHousehold: Map<string, number>, t: number): SponsorshipFinance {
+  const value = new Map<string, { interval: "month" | "year"; cents: number }>();
+  const payers = new Set<string>();
+  let monthlyMrrCents = 0;
+  let annualMrrCents = 0;
+  for (const r of revenue) {
+    if (r.kind !== "sponsorship") continue;
+    const v = monthlyValueCents(r, t);
+    if (!v) continue;
+    const interval = r.billing_interval === "year" ? "year" : "month";
+    if (interval === "year") annualMrrCents += v;
+    else monthlyMrrCents += v;
+    if (r.payer_id) payers.add(r.payer_id as string);
+    const id = r.sponsorship_id as string | null | undefined;
+    if (id) value.set(id, { interval, cents: (value.get(id)?.cents ?? 0) + v });
+  }
+  const families = entitlements.filter((e) => e.source === "sponsored" && covers(e, t));
+  const margins = [...value.entries()].map(([sponsorshipId, v]) => {
+    const homes = families.filter((e) => e.sponsorship_id === sponsorshipId).map((e) => e.household_id as string);
+    const costUsd = homes.reduce((n, h) => n + (costByHousehold.get(h) ?? 0), 0);
+    const revenueCents = Math.round(v.cents);
+    return { sponsorshipId, interval: v.interval, revenueCents, families: homes.length, costUsd, marginUsd: revenueCents / 100 - costUsd };
+  });
+  return {
+    sponsors: payers.size,
+    sponsoredFamilies: new Set(families.map((e) => e.household_id as string)).size,
+    monthlyMrrCents: Math.round(monthlyMrrCents),
+    annualMrrCents: Math.round(annualMrrCents),
+    margins: margins.sort((a, b) => a.marginUsd - b.marginUsd),
+  };
+}
+
+/** Rows that need the sponsorship migration; empty before it runs, so the report still loads. */
+async function optionalRows(p: PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<Row[]> {
+  const { data, error } = await p;
+  return error ? [] : ((data ?? []) as Row[]);
 }
 
 async function rows(p: PromiseLike<{ data: unknown; error: { message: string } | null }>, what: string): Promise<Row[]> {
@@ -289,7 +355,7 @@ export async function loadFinance(db: SupabaseClient, { live, at = new Date() }:
   const jobsSince = new Date(at.getTime() - 2 * WINDOW_DAYS * DAY).toISOString();
   const [entitlements, revenue, members, adults, voices, usage, jobs, plays, stored, saved] = await Promise.all([
     all(() => db.from("household_entitlements").select("id, household_id, source, status, extra_narrator_slots, starts_at, ends_at"), "read plans"),
-    all(() => db.from("revenue_events").select("household_id, kind, amount_cents, billing_interval, period_start, period_end, occurred_at").eq("livemode", live), "read revenue"),
+    all(() => db.from("revenue_events").select("household_id, kind, amount_cents, billing_interval, period_start, period_end, occurred_at, provider_ref").eq("livemode", live), "read revenue"),
     all(() => db.from("household_members").select("household_id, user_id").is("removed_at", null), "read members"),
     all(() => db.from("adult_profiles").select("user_id"), "read grown-ups"),
     all(() => db.from("voice_profiles").select("owner_id").eq("status", "ready").is("deleted_at", null), "read voices"),
@@ -299,11 +365,21 @@ export async function loadFinance(db: SupabaseClient, { live, at = new Date() }:
     all(() => db.from("narration_provider_usage").select("bytes"), "read stored audio"),
     savedCostSettings(db),
   ]);
+  // Sponsorship ids and payers come from columns the sponsorship migration adds.
+  const [sponsoredPlans, sponsorRevenue] = await Promise.all([
+    optionalRows(db.from("household_entitlements").select("id, sponsorship_id").eq("source", "sponsored")),
+    optionalRows(db.from("revenue_events").select("provider_ref, sponsorship_id, payer_id").eq("kind", "sponsorship").eq("livemode", live)),
+  ]);
+  for (const e of entitlements) {
+    const extra = sponsoredPlans.find((x) => x.id === e.id);
+    if (extra) e.sponsorship_id = extra.sponsorship_id;
+  }
+  const sponsorRefs = new Map(sponsorRevenue.map((r) => [r.provider_ref as string, r]));
   if (plays.error) throw new Error(`count plays: ${plays.error.message}`);
   const report = financeReport({
     at,
     entitlements,
-    revenue,
+    revenue: revenue.map((r) => (r.kind === "sponsorship" ? { ...r, ...sponsorRefs.get(r.provider_ref as string) } : r)),
     members,
     adultIds: adults.map((a) => a.user_id as string),
     voices,

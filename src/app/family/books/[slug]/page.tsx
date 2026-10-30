@@ -26,7 +26,7 @@ export default async function PrepareNarrationPage({ params, searchParams }: { p
     return (
       <FamilyShell wide>
         <PreviewNote />
-        <PrepareNarration initial={view} resume={resumeTarget(q, view.voices.map((v) => v.voiceId))} />
+        <PrepareNarration initial={view} resume={resumeTarget(q, view.voices.map((v) => v.voiceId))} prefer={q.voice ?? null} />
       </FamilyShell>
     );
   } catch (err) {

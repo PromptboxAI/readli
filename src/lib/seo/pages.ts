@@ -1,3 +1,4 @@
+import { GUIDES, guideHref } from "@/lib/guides/guides";
 import { HELP_CATEGORIES } from "@/lib/help/articles";
 import { articleHref, articlesIn, visibleArticles } from "@/lib/help/search";
 import { bookPath } from "@/lib/library/paths";
@@ -15,7 +16,12 @@ export function publicPages(): PublicPage[] {
   const pages: PublicPage[] = [
     { path: "/", title: "Readli home", priority: 1, changeFrequency: "weekly" },
     { path: "/try", title: "Hear a story in your voice, free", priority: 0.9, changeFrequency: "monthly" },
+    { path: "/grandparents", title: "Read to your grandkids in your own voice", priority: 0.8, changeFrequency: "monthly" },
     { path: "/pricing", title: "Pricing", priority: 0.9, changeFrequency: "monthly" },
+    { path: "/how-it-works", title: "How Readli works", priority: 0.8, changeFrequency: "monthly" },
+    { path: "/family-voices", title: "Family Voices", priority: 0.8, changeFrequency: "monthly" },
+    { path: "/readli-kids", title: "Readli Kids", priority: 0.8, changeFrequency: "monthly" },
+    { path: "/guides", title: "Stories & Guides", priority: 0.7, changeFrequency: "weekly" },
     { path: "/books", title: "The Readli Library", priority: 0.9, changeFrequency: "weekly" },
     { path: "/parents/safety", title: "Family privacy & safety", priority: 0.7, changeFrequency: "monthly" },
     { path: "/help", title: "Help Center", priority: 0.7, changeFrequency: "weekly" },
@@ -25,6 +31,7 @@ export function publicPages(): PublicPage[] {
     { path: "/terms", title: "Terms of Service", priority: 0.3, changeFrequency: "yearly" },
     { path: "/accessibility", title: "Accessibility Statement", priority: 0.3, changeFrequency: "yearly" },
   ];
+  for (const g of GUIDES) pages.push({ path: guideHref(g), title: g.title, priority: 0.7, changeFrequency: "monthly" });
   for (const b of publicLibrary()) {
     pages.push({ path: bookPath(b.slug), title: `${b.title} by ${b.author}`, priority: b.comingSoon ? 0.5 : 0.8, changeFrequency: "monthly" });
   }

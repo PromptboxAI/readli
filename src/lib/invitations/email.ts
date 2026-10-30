@@ -80,7 +80,9 @@ export interface InvitationEmailInput {
   message: string;
   /** The approved preview's book, or null when the contributor sent no preview. */
   bookTitle: string | null;
-  /** The invitation page: hear the preview, connect an existing family or start a trial. */
+  /** A public JPG of that book's cover (see emailCoverUrl), or null. Never anything private. */
+  coverUrl?: string | null;
+  /** The invitation page: hear the preview, connect an existing family or start Readli Family. */
   previewUrl: string;
   declineUrl: string;
   unsubscribeUrl: string;
@@ -89,50 +91,97 @@ export interface InvitationEmailInput {
   linkDays: number;
   /** An automatic reminder (sequence email I2) rather than the first invitation. */
   reminder?: boolean;
+  /** When the link stops working; defaults to linkDays from now. */
+  now?: Date;
 }
 
 const REMINDER_LINE = "A quick reminder: this invitation is still open.";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+/** Books with an email-safe JPG cover in public/email-covers: the ones a preview can be made from. */
+const EMAIL_COVERS = new Set([
+  "aesops-fables-retold",
+  "alices-adventures-in-wonderland",
+  "goldilocks-and-the-three-bears",
+  "the-elves-and-the-shoemaker",
+  "the-gingerbread-man",
+  "the-lion-and-the-mouse",
+  "the-little-red-hen",
+  "the-princess-and-the-pea",
+  "the-tale-of-peter-rabbit",
+  "the-three-little-pigs",
+  "the-ugly-duckling",
+  "the-velveteen-rabbit",
+  "winnie-the-pooh",
+]);
 
-/** A contributor shares their voice with a family (My voice → Share your voice with another family). */
+/**
+ * A book cover the email can show in every client (JPG, since Outlook can't show WebP), from Readli's
+ * own public files: the image host learns only which public cover was opened, never a token or household.
+ */
+export function emailCoverUrl(origin: string, slug: string | null | undefined): string | null {
+  return slug && EMAIL_COVERS.has(slug) ? `${origin.replace(/\/$/, "")}/email-covers/${slug}.jpg` : null;
+}
+
+const longDate = (d: Date) => d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+
+/**
+ * A storyteller shares their voice with a family. Built around the approved preview: who, their
+ * note, the book's cover and one button to hear it. The button opens the invitation page (the
+ * preview plays there), never checkout, and no audio is in the email.
+ */
 export function invitationEmail(input: InvitationEmailInput): Omit<OutgoingEmail, "to"> {
   const who = input.contributorName;
-  const hello = input.recipientName ? `Hi ${input.recipientName},` : "Hi,";
+  const book = input.bookTitle;
   const said = input.message || DEFAULT_CONTRIBUTOR_MESSAGE;
-  const subject = input.reminder ? `${who} wants your family to hear them read` : `${who} wants to read stories to your family on Readli`;
-  const preview = input.bookTitle ? ` ${who} also recorded a short preview from ${input.bookTitle} for you to hear.` : "";
+  const headline = `${who} has a bedtime story for your family.`;
+  const subject = input.reminder ? `Still waiting: ${who} has a bedtime story for your family` : `${who} has a bedtime story for your family`;
+  const cta = `Hear ${who} read a story`;
+  const hear = book ? `Hear ${who}'s voice reading ${book}.` : null;
+  const support = `Already have Readli Family? Connect ${who} in a few taps. New to Readli? You can start Readli Family from the same page.`;
+  const expires = longDate(new Date((input.now ?? new Date()).getTime() + input.linkDays * 86_400_000));
+  const origin = new URL(input.previewUrl).origin;
   const lines = [
-    hello,
-    "",
+    ...(input.recipientName ? [`Hi ${input.recipientName},`, ""] : []),
     ...(input.reminder ? [REMINDER_LINE, ""] : []),
-    `${who} wrote:`,
-    said,
+    headline,
     "",
-    `Connect ${who}'s voice: ${input.previewUrl}`,
+    `"${said}"`,
+    `${who}`,
     "",
-    `Readli turns classic children's books into read-alongs in the voices of the people your kids love.${preview} Already have Readli Family? Sign in and connect ${who}. New to Readli? Start a free family trial from the same link. You choose which children hear ${who}. The link works for ${input.linkDays} days.`,
+    ...(hear ? [hear, ""] : []),
+    `${cta}: ${input.previewUrl}`,
     "",
+    support,
+    "",
+    `This invitation expires on ${expires}.`,
     `Not for you? Decline: ${input.declineUrl}`,
     `Stop all Readli invitations: ${input.unsubscribeUrl}`,
     `Report this email: ${input.reportUrl}`,
     "",
     `You're getting this because ${who} entered your email address on Readli. We don't add you to any mailing list.`,
   ];
-  const html = `<!doctype html><html><body style="margin:0;background:#fdf8f0;font-family:Arial,Helvetica,sans-serif;color:#2a2340">
-<div style="max-width:560px;margin:0 auto;padding:24px">
-<p style="font-size:22px;font-weight:700;margin:0 0 16px">Readli</p>
-<div style="background:#ffffff;border-radius:20px;padding:24px">
-<p style="margin:0 0 12px">${esc(hello)}</p>
-${input.reminder ? `<p style="margin:0 0 12px">${REMINDER_LINE}</p>\n` : ""}<p style="margin:0 0 4px;font-weight:600">${esc(who)} wrote:</p>
-<p style="margin:0;padding:12px 16px;background:#fff7e0;border-radius:12px;white-space:pre-line">${esc(said)}</p>
-<p style="margin:24px 0;text-align:center"><a href="${esc(input.previewUrl)}" style="display:inline-block;background:#ff7a59;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 24px;border-radius:999px">Connect ${esc(who)}'s voice</a></p>
-<p style="margin:0;font-size:14px">Readli turns classic children's books into read-alongs in the voices of the people your kids love.${esc(preview)} Already have Readli Family? Sign in and connect ${esc(who)}. New to Readli? Start a free family trial from the same link. You choose which children hear ${esc(who)}. The link works for ${input.linkDays} days.</p>
-</div>
-<p style="font-size:12px;color:#6b6480;margin:16px 0 0">Not for you? <a href="${esc(input.declineUrl)}" style="color:#6b6480">Decline</a> · <a href="${esc(input.unsubscribeUrl)}" style="color:#6b6480">Stop all Readli invitations</a> · <a href="${esc(input.reportUrl)}" style="color:#6b6480">Report this email</a></p>
-<p style="font-size:12px;color:#6b6480;margin:8px 0 0">You're getting this because ${esc(who)} entered your email address on Readli. We don't add you to any mailing list.</p>
-</div></body></html>`;
+  const cover = input.coverUrl
+    ? `<tr><td align="center" style="padding:4px 0 16px"><img src="${esc(input.coverUrl)}" width="200" height="267" alt="${esc(book ? `${book} book cover` : "Book cover")}" style="display:block;width:200px;height:267px;border:0;border-radius:14px;background:#f7e6cc;color:#283548;font:bold 14px Arial,Helvetica,sans-serif;text-align:center"></td></tr>`
+    : "";
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${esc(subject)}</title></head>
+<body style="margin:0;padding:0;background:#fff9ed;font-family:Arial,Helvetica,sans-serif;color:#283548">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#fff9ed" style="background:#fff9ed"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px">
+<tr><td align="center" style="padding:0 0 16px"><img src="${esc(origin)}/email-covers/readi.png" width="48" height="33" alt="" style="display:inline-block;vertical-align:middle;border:0"> <span style="display:inline-block;vertical-align:middle;font-size:26px;font-weight:700;color:#c9402f">Readli</span></td></tr>
+<tr><td bgcolor="#fffef9" style="background:#fffef9;border-radius:24px;padding:28px 24px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+${input.reminder ? `<tr><td align="center" style="padding:0 0 8px;font-size:14px;color:#5b6676">${REMINDER_LINE}</td></tr>
+` : ""}<tr><td align="center" style="padding:0 0 16px;font-size:26px;line-height:1.25;font-weight:700">${esc(headline)}</td></tr>
+<tr><td align="center" style="padding:0 0 18px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="max-width:420px"><tr><td bgcolor="#fff3c9" style="background:#fff3c9;border-radius:18px 18px 18px 4px;padding:12px 16px;font-size:16px;line-height:1.45;text-align:left;white-space:pre-line">${esc(said)}<br><span style="font-size:13px;color:#5b6676">${esc(who)}</span></td></tr></table></td></tr>
+${cover}${book ? `<tr><td align="center" style="padding:0 0 4px;font-size:21px;font-weight:700">${esc(book)}</td></tr>
+<tr><td align="center" style="padding:0 0 20px;font-size:16px">${esc(hear!)}</td></tr>
+` : ""}<tr><td align="center" style="padding:0 0 18px"><a href="${esc(input.previewUrl)}" style="display:inline-block;background:#c9402f;color:#ffffff;text-decoration:none;font-weight:700;font-size:18px;line-height:1.2;padding:16px 28px;border-radius:999px">&#9654;&nbsp; ${esc(cta)}</a></td></tr>
+<tr><td align="center" style="font-size:14px;line-height:1.5;color:#5b6676">${esc(support)}</td></tr>
+</table></td></tr>
+<tr><td align="center" style="padding:16px 8px 0;font-size:12px;line-height:1.6;color:#5b6676">This invitation expires on ${esc(expires)}.<br>Not for you? <a href="${esc(input.declineUrl)}" style="color:#5b6676">Decline</a> · <a href="${esc(input.unsubscribeUrl)}" style="color:#5b6676">Stop all Readli invitations</a> · <a href="${esc(input.reportUrl)}" style="color:#5b6676">Report this email</a><br>You're getting this because ${esc(who)} entered your email address on Readli. We don't add you to any mailing list.</td></tr>
+</table></td></tr></table></body></html>`;
   return {
     subject,
     html,
@@ -182,23 +231,37 @@ export interface FamilyInviteEmailInput {
   linkDays: number;
   /** An automatic reminder (sequence email I1) rather than the first invitation. */
   reminder?: boolean;
+  /** Invites a second parent (Settings → Parents) rather than a storyteller. */
+  coParent?: boolean;
 }
 
-/** A family's parent invites a storyteller (Family storytellers → Invite a storyteller). */
+/** A family's parent invites a storyteller (Family storytellers → Invite a storyteller), or a co-parent. */
 export function familyInviteEmail(input: FamilyInviteEmailInput): Omit<OutgoingEmail, "to"> {
   const who = input.inviterName;
   const family = input.familyName;
   const hello = input.recipientName ? `Hi ${input.recipientName},` : "Hi,";
-  const subject = input.reminder ? `${who} is still saving a spot for your voice` : `${who} invited you to read stories to ${family} on Readli`;
+  const subject = input.coParent
+    ? input.reminder
+      ? `${who} is still waiting for you to join ${family} on Readli`
+      : `${who} invited you to be a parent in ${family} on Readli`
+    : input.reminder
+      ? `${who} is still saving a spot for your voice`
+      : `${who} invited you to read stories to ${family} on Readli`;
+  const intro = input.coParent
+    ? `${who} would love you to join ${family} on Readli as a parent. You'll share the family's account: choose which storytellers each child hears, prepare books, and open Readli Kids on your own phone or tablet.`
+    : `${who} would love you to read stories to the kids in ${family}. On Readli, you record your voice once, and the children your family's parents choose can hear you read classic books.`;
+  const terms = input.coParent
+    ? `It's free for you: ${who} looks after the family's plan and billing. Recording your own voice for the kids is optional. The link works once, for ${input.linkDays} days.`
+    : `It's free for you, with no card and no subscription. Your voice stays yours: it's shared with ${family} only after you agree, and you can stop sharing at any time. The link works once, for ${input.linkDays} days.`;
   const lines = [
     hello,
     "",
     ...(input.reminder ? [REMINDER_LINE, ""] : []),
-    `${who} would love you to read stories to the kids in ${family}. On Readli, you record your voice once, and the children your family's parents choose can hear you read classic books.`,
+    intro,
     "",
     `Accept the invitation: ${input.joinUrl}`,
     "",
-    `It's free for you, with no card and no subscription. Your voice stays yours: it's shared with ${family} only after you agree, and you can stop sharing at any time. The link works once, for ${input.linkDays} days.`,
+    terms,
     "",
     `Not for you? Decline: ${input.declineUrl}`,
     `Stop all Readli invitations: ${input.unsubscribeUrl}`,
@@ -211,9 +274,9 @@ export function familyInviteEmail(input: FamilyInviteEmailInput): Omit<OutgoingE
 <p style="font-size:22px;font-weight:700;margin:0 0 16px">Readli</p>
 <div style="background:#ffffff;border-radius:20px;padding:24px">
 <p style="margin:0 0 12px">${esc(hello)}</p>
-${input.reminder ? `<p style="margin:0 0 12px">${REMINDER_LINE}</p>\n` : ""}<p style="margin:0">${esc(who)} would love you to read stories to the kids in <strong>${esc(family)}</strong>. On Readli, you record your voice once, and the children your family's parents choose can hear you read classic books.</p>
+${input.reminder ? `<p style="margin:0 0 12px">${REMINDER_LINE}</p>\n` : ""}<p style="margin:0">${esc(intro)}</p>
 <p style="margin:24px 0;text-align:center"><a href="${esc(input.joinUrl)}" style="display:inline-block;background:#ff7a59;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 24px;border-radius:999px">Accept the invitation</a></p>
-<p style="margin:0;font-size:14px">It's free for you, with no card and no subscription. Your voice stays yours: it's shared with ${esc(family)} only after you agree, and you can stop sharing at any time. The link works once, for ${input.linkDays} days.</p>
+<p style="margin:0;font-size:14px">${esc(terms)}</p>
 </div>
 <p style="font-size:12px;color:#6b6480;margin:16px 0 0">Not for you? <a href="${esc(input.declineUrl)}" style="color:#6b6480">Decline</a> · <a href="${esc(input.unsubscribeUrl)}" style="color:#6b6480">Stop all Readli invitations</a> · <a href="${esc(input.reportUrl)}" style="color:#6b6480">Report this email</a></p>
 <p style="font-size:12px;color:#6b6480;margin:8px 0 0">You're getting this because ${esc(who)} entered your email address on Readli. We don't add you to any mailing list.</p>

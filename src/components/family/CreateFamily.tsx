@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
-import { buttonPrimary } from "@/components/brand/buttons";
+import { parentPrimary } from "@/components/brand/buttons";
 
 /** A signed-in grown-up's first step: name the family they'll set up. Starts blank: we don't know their last name. */
 export function CreateFamily() {
@@ -26,7 +26,8 @@ export function CreateFamily() {
       setError(body?.error?.message ?? "Something went wrong. Please try again.");
       return;
     }
-    router.refresh();
+    // A new family has no plan yet, so the next step is choosing one.
+    router.push("/family/settings/plan");
   };
   return (
     <form onSubmit={submit} className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10" aria-labelledby={`${id}-h`}>
@@ -47,7 +48,7 @@ export function CreateFamily() {
         required
         onChange={(e) => setName(e.target.value)}
       />
-      <button type="submit" className={`${buttonPrimary} self-start`} disabled={busy}>
+      <button type="submit" className={`${parentPrimary} self-start`} disabled={busy}>
         Create our family
       </button>
       {error && (

@@ -7,9 +7,10 @@ import { HeroBedtimeScene } from "@/components/home/HeroBedtimeScene";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
-import { rewardsConfig } from "@/lib/rewards/rewards";
+import { COMPANY, COMPANY_ADDRESS } from "@/lib/content/company";
 import { MORE_BOOKS_ON_PHONES, NEW_BOOKS } from "@/lib/library/catalog";
 import { bookPath } from "@/lib/library/paths";
+import { SITE_DESCRIPTION } from "@/lib/seo/site";
 
 const GRANDPA = "/family-voices/grandpa.webp";
 
@@ -347,7 +348,6 @@ export function FamilyCircles() {
 }
 
 export function FinalCta() {
-  const { trialDays } = rewardsConfig();
   return (
     <section className="bg-sunshine">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-14 text-center sm:px-6">
@@ -358,11 +358,11 @@ export function FinalCta() {
             Hear a story in your voice, free
           </Link>
           <Link href="/signup/family" className={`${buttonSecondary} w-full sm:w-auto`}>
-            Start your free trial
+            Start your family
           </Link>
         </div>
-        <p data-testid="family-trial-line">
-          Try Readli Family free for {trialDays} days. Card required, cancel any time.{" "}
+        <p data-testid="family-plan-line">
+          Readli Family is a monthly or yearly plan you can cancel any time.{" "}
           <Link href="/pricing" className="font-semibold underline underline-offset-4">
             See pricing
           </Link>
@@ -374,7 +374,9 @@ export function FinalCta() {
 
 export function SiteFooter() {
   const links = [
+    { href: "/how-it-works", label: "How it works" },
     { href: "/books", label: "Library" },
+    { href: "/guides", label: "Guides" },
     { href: "/company", label: "Company" },
     { href: "/pricing", label: "Pricing" },
     { href: "/privacy", label: "Privacy" },
@@ -382,6 +384,7 @@ export function SiteFooter() {
     { href: "/help", label: "Help" },
     { href: "/accessibility", label: "Accessibility" },
     { href: "/parents/safety", label: "Parent Safety" },
+    { href: "/privacy/choices", label: "Do Not Sell or Share My Personal Information" },
   ];
   return (
     <footer className="bg-ivory">
@@ -402,7 +405,16 @@ export function SiteFooter() {
           ))}
         </ul>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} Readli. Every Book. Every Voice.</p>
+          <div className="flex flex-col gap-1">
+            <p>{SITE_DESCRIPTION}</p>
+            <p>© {new Date().getFullYear()} Readli. Every Book. Every Voice.</p>
+            <p className="text-muted" data-testid="footer-company">
+              {COMPANY.legalName} · {COMPANY_ADDRESS} ·{" "}
+              <a href={`mailto:${COMPANY.email}`} className="underline-offset-4 hover:underline">
+                {COMPANY.email}
+              </a>
+            </p>
+          </div>
           <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
             {links.map((l) => (
               <Link key={l.href} href={l.href} className="underline-offset-4 hover:underline">

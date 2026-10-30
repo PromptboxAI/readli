@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Availability, BookUpdate, GenerationQuote, PrepareBookView, PrepareVoiceView } from "@/lib/narration/narration";
+import { GiftShortOptions } from "@/components/sponsorship/GiftShortOptions";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 
 /** Units (characters) as credits, to one decimal place. */
@@ -43,9 +44,10 @@ function StatusBadge({ availability, testId }: { availability: Availability; tes
 
 type Target = { voiceId: string; scope: "book" | "chapter"; chapter?: number };
 
-/** Who opens first: the narrator being resumed, then your own voice, then the first storyteller. */
-function firstVoice(view: PrepareBookView, resume: Target | null) {
-  return (resume && view.voices.find((v) => v.voiceId === resume.voiceId)?.voiceId) ?? view.voices.find((v) => v.yours)?.voiceId ?? view.voices[0]?.voiceId ?? null;
+/** Who opens first: the narrator being resumed or asked for, then your own voice, then the first storyteller. */
+function firstVoice(view: PrepareBookView, resume: Target | null, prefer: string | null) {
+  const wanted = resume?.voiceId ?? prefer;
+  return (wanted && view.voices.find((v) => v.voiceId === wanted)?.voiceId) ?? view.voices.find((v) => v.yours)?.voiceId ?? view.voices[0]?.voiceId ?? null;
 }
 
 /**
@@ -53,9 +55,9 @@ function firstVoice(view: PrepareBookView, resume: Target | null) {
  * whole book or a chapter costs in Readli credits, and confirm before anything is generated.
  * `resume` reopens the confirmation after buying credits, so the parent doesn't choose again.
  */
-export function PrepareNarration({ initial, resume }: { initial: PrepareBookView; resume: Target | null }) {
+export function PrepareNarration({ initial, resume, prefer = null }: { initial: PrepareBookView; resume: Target | null; prefer?: string | null }) {
   const [view, setView] = useState(initial);
-  const [selected, setSelected] = useState<string | null>(() => firstVoice(initial, resume));
+  const [selected, setSelected] = useState<string | null>(() => firstVoice(initial, resume, prefer));
   const [pending, setPending] = useState<{ target: Target; quote: GenerationQuote } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -159,7 +161,7 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
 
   const creditsLink = (voice: PrepareVoiceView, need: number, target: Target) => {
     const back = `/family/books/${view.book.slug}?voice=${voice.voiceId}&scope=${target.scope}${target.chapter ? `&chapter=${target.chapter}` : ""}`;
-    return `/family/credits?need=${Math.ceil(need / view.credits.unitsPerCredit)}&return=${encodeURIComponent(back)}`;
+    return `/family/settings/plan?need=${Math.ceil(need / view.credits.unitsPerCredit)}&return=${encodeURIComponent(back)}`;
   };
 
   const openFor = (t: Target) => pending?.target.voiceId === t.voiceId && pending.target.scope === t.scope && pending.target.chapter === t.chapter;
@@ -473,6 +475,11 @@ function WholeBook({
             <dd className="text-right" data-testid="balance">
               {n(balance)}
             </dd>
+            {view.gift && (
+              <dd className="col-span-2 text-sm text-muted" data-testid="balance-sources">
+                From {view.gift.giverName}&apos;s gift: {n(view.credits.bySource.subscription)} · Bought by you: {n(view.credits.bySource.purchased + view.credits.bySource.promotional)}
+              </dd>
+            )}
             {short > 0 && (
               <>
                 <dt className="border-t border-ink/10 pt-2 text-muted">Still needed</dt>
@@ -490,12 +497,15 @@ function WholeBook({
             <button type="button" className={btnPrimary} disabled={busy || short > 0} onClick={onEstimate}>
               {v.status.ready ? "Prepare the rest" : "Prepare whole book"}
             </button>
-            {short > 0 && view.canBuyCredits && (
+            {short > 0 && view.gift && (
+              <GiftShortOptions giverName={view.gift.giverName} renewsAt={view.gift.renewsAt} chapters={view.chapterGenerationEnabled} buyCreditsHref={view.canBuyCredits ? getCredits : null} />
+            )}
+            {short > 0 && !view.gift && view.canBuyCredits && (
               <Link href={getCredits} className={btnAccent} data-testid="get-credits">
                 Buy more credits
               </Link>
             )}
-            {short > 0 && view.chapterGenerationEnabled && (
+            {short > 0 && !view.gift && view.chapterGenerationEnabled && (
               <a href="#chapters" className={btnSecondary}>
                 Prepare by chapter
               </a>

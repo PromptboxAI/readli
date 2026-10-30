@@ -40,7 +40,7 @@ test("the yearly link on the pricing page opens signup with yearly picked", asyn
 test("family checkout shows the plan and stays switched off", async ({ page }, info) => {
   await page.goto("/signup/family");
   // Step 1 is just email or Google; the name comes after payment.
-  await expect(page.getByLabel("Email")).toBeVisible();
+  await expect(page.getByLabel("Email", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Your name")).toHaveCount(0);
   await expect(page.getByTestId("family-price")).toContainText("$19.99");
   await page.getByLabel("Yearly").check();
@@ -50,8 +50,9 @@ test("family checkout shows the plan and stays switched off", async ({ page }, i
   await expect(page.getByTestId("family-price")).toContainText("$19.99");
   await expect(page.getByText("Up to six child profiles").first()).toBeVisible();
   await expect(page.getByTestId("checkout-off")).toBeVisible();
-  await expect(page.getByTestId("family-trial")).toContainText("Try it free for 14 days");
-  await expect(page.getByTestId("family-trial")).toContainText("Not switched on yet");
+  // There is no free trial: the plan is charged at checkout.
+  await expect(page.getByTestId("family-trial")).toHaveCount(0);
+  await expect(page.getByText(/free trial|days free/i)).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Start Readli Family" })).toBeDisabled();
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/signup-family-${info.project.name}.png`, fullPage: true });
@@ -159,8 +160,8 @@ test("contributors verify, consent, record and approve their voice", async ({ pa
 });
 
 test("account settings and the account API need a real signed-in grown-up", async ({ page }) => {
-  await page.goto("/family/account");
-  await expect(page.getByRole("heading", { name: "Account settings" })).toBeVisible();
+  await page.goto("/family/settings");
+  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
   await expect(page.getByText("Log in to your own family to change your name")).toBeVisible();
   await noOverflow(page);
   expect((await page.request.get("/api/account/export")).status()).toBe(401);

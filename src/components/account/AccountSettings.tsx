@@ -2,12 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
-import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { buttonSmall, buttonSmallPrimary, buttonSmallQuiet } from "@/components/brand/buttons";
 import type { DeletionBlocker } from "@/lib/account/privacy";
 
 const DELETE_CONFIRMATION = "DELETE";
-const input = "min-h-12 w-full rounded-2xl border-[3px] border-ink/20 bg-surface px-4 text-lg focus:border-ink";
-const panel = "flex flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10";
 
 async function errorText(res: Response) {
   const body = await res.json().catch(() => null);
@@ -21,37 +19,23 @@ function blockerText(b: DeletionBlocker): string {
   return `Your gift for ${b.recipientName} still renews every month. Stop the renewals first.`;
 }
 
-/** A signed-in grown-up's name, a copy of their data, and deleting their account. */
-export function AccountSettings({ name, email, blockers }: { name: string; email: string | null; blockers: DeletionBlocker[] }) {
+/** A copy of a grown-up's data and deleting their account, as two rows. Deleting opens its warning first. */
+export function AccountSettings({ blockers }: { blockers: DeletionBlocker[] }) {
   const id = useId();
   const router = useRouter();
-  const [draft, setDraft] = useState(name);
-  const [saved, setSaved] = useState(false);
-  const [nameError, setNameError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState("");
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"name" | "delete" | null>(null);
-
-  const saveName = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy("name");
-    setSaved(false);
-    setNameError(null);
-    const res = await fetch("/api/account", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ displayName: draft }) });
-    setBusy(null);
-    if (!res.ok) return setNameError(await errorText(res));
-    setSaved(true);
-    router.refresh();
-  };
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const remove = async (e: React.FormEvent) => {
     e.preventDefault();
-    setBusy("delete");
-    setDeleteError(null);
+    setBusy(true);
+    setError(null);
     const res = await fetch("/api/account", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ confirm }) });
     if (!res.ok) {
-      setBusy(null);
-      setDeleteError(await errorText(res));
+      setBusy(false);
+      setError(await errorText(res));
       router.refresh();
       return;
     }
@@ -59,77 +43,81 @@ export function AccountSettings({ name, email, blockers }: { name: string; email
   };
 
   return (
-    <>
-      <form onSubmit={saveName} className={panel} aria-labelledby={`${id}-name-h`}>
-        <h2 id={`${id}-name-h`} className="font-display text-2xl font-semibold">
-          Your name
-        </h2>
-        <p>This is how your family sees you in Readli.{email ? ` You sign in as ${email}.` : ""}</p>
-        <label htmlFor={`${id}-name`} className="font-semibold">
-          Name
-        </label>
-        <input id={`${id}-name`} className={input} value={draft} maxLength={60} required onChange={(e) => setDraft(e.target.value)} />
-        <button type="submit" className={`${buttonSecondary} self-start`} disabled={busy !== null || draft.trim() === name}>
-          Save name
-        </button>
-        {saved && <p role="status" className="font-semibold">Saved.</p>}
-        {nameError && (
-          <p role="alert" className="font-semibold text-coral-deep">
-            {nameError}
-          </p>
-        )}
-      </form>
-
-      <section className={panel} aria-labelledby={`${id}-data-h`}>
-        <h2 id={`${id}-data-h`} className="font-display text-2xl font-semibold">
-          Download my data
-        </h2>
-        <p>
-          Get a copy of what Readli keeps about you: your profile, families, the kids profiles you look after, your voices and who
-          you shared them with, and your consents. Voice recordings and narration audio aren&apos;t in the file.
-        </p>
-        <a href="/api/account/export" download className={`${buttonSecondary} self-start`}>
-          Download my data
+    <section className="divide-y-2 divide-ink/5 rounded-3xl bg-surface ring-2 ring-ink/10" aria-labelledby={`${id}-h`} data-testid="your-data">
+      <h2 id={`${id}-h`} className="sr-only">
+        Your data
+      </h2>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">Download my data</p>
+          <p className="text-sm text-muted">Your profile, families, kids profiles, voices, sharing and consents. Recordings and audio aren&apos;t included.</p>
+        </div>
+        <a href="/api/account/export" download className={buttonSmall}>
+          Download
         </a>
-      </section>
-
-      <form onSubmit={remove} className={`${panel} ring-coral-deep/40`} aria-labelledby={`${id}-delete-h`}>
-        <h2 id={`${id}-delete-h`} className="font-display text-2xl font-semibold">
-          Delete my account
-        </h2>
-        <p>This can&apos;t be undone. Deleting your account:</p>
-        <ul className="list-disc pl-6">
-          <li>removes your voice from our voice service, so no one can hear a story in your voice again,</li>
-          <li>deletes your recordings and every story made in your voice,</li>
-          <li>deletes families only you belong to, with their kids profiles,</li>
-          <li>removes you from families you share, which carry on without you.</li>
-        </ul>
-        {blockers.length > 0 ? (
-          <div role="status" className="flex flex-col gap-2 rounded-2xl bg-sunshine/50 p-3" data-testid="deletion-blockers">
-            <p className="font-semibold">Before you can delete your account:</p>
-            <ul className="list-disc pl-6">
-              {blockers.map((b) => (
-                <li key={b.kind === "only_guardian" ? b.householdId : b.giftId}>{blockerText(b)}</li>
-              ))}
-            </ul>
+      </div>
+      <div className="flex flex-col gap-3 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">Delete my account</p>
+            <p className="text-sm text-muted">Removes your voice, recordings and every story made in it. This can&apos;t be undone.</p>
           </div>
-        ) : (
-          <>
-            <label htmlFor={`${id}-confirm`} className="font-semibold">
-              Type {DELETE_CONFIRMATION} to confirm
-            </label>
-            <input id={`${id}-confirm`} className={input} value={confirm} autoComplete="off" onChange={(e) => setConfirm(e.target.value)} />
-            <button type="submit" className={`${buttonPrimary} self-start`} disabled={busy !== null || confirm !== DELETE_CONFIRMATION}>
-              {busy === "delete" ? "Deleting…" : "Delete my account"}
+          {!open && (
+            <button type="button" className={`${buttonSmall} border-coral-deep text-coral-deep`} onClick={() => setOpen(true)}>
+              Delete…
             </button>
-          </>
+          )}
+        </div>
+        {open && (
+          <form onSubmit={remove} className="flex flex-col gap-3 rounded-2xl bg-ivory p-4 ring-2 ring-coral-deep/30">
+            <p>Deleting your account:</p>
+            <ul className="list-disc pl-6 text-sm">
+              <li>removes your voice from our voice service, so no one can hear a story in your voice again,</li>
+              <li>deletes your recordings and every story made in your voice,</li>
+              <li>deletes families only you belong to, with their kids profiles,</li>
+              <li>removes you from families you share, which carry on without you.</li>
+            </ul>
+            {blockers.length > 0 ? (
+              <div role="status" className="flex flex-col gap-2 rounded-2xl bg-sunshine/50 p-3" data-testid="deletion-blockers">
+                <p className="font-semibold">Before you can delete your account:</p>
+                <ul className="list-disc pl-6">
+                  {blockers.map((b) => (
+                    <li key={b.kind === "only_guardian" ? b.householdId : b.giftId}>{blockerText(b)}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <>
+                <label htmlFor={`${id}-confirm`} className="font-semibold">
+                  Type {DELETE_CONFIRMATION} to confirm
+                </label>
+                <input
+                  id={`${id}-confirm`}
+                  className="min-h-11 w-full max-w-xs rounded-2xl border-[3px] border-ink/20 bg-surface px-4 text-lg focus:border-ink"
+                  value={confirm}
+                  autoComplete="off"
+                  onChange={(e) => setConfirm(e.target.value)}
+                />
+              </>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {blockers.length === 0 && (
+                <button type="submit" className={buttonSmallPrimary} disabled={busy || confirm !== DELETE_CONFIRMATION}>
+                  {busy ? "Deleting…" : "Delete my account"}
+                </button>
+              )}
+              <button type="button" className={buttonSmallQuiet} disabled={busy} onClick={() => (setOpen(false), setConfirm(""))}>
+                Keep my account
+              </button>
+            </div>
+          </form>
         )}
-        {deleteError && (
+        {error && (
           <p role="alert" className="font-semibold text-coral-deep">
-            {deleteError}
+            {error}
           </p>
         )}
-      </form>
-    </>
+      </div>
+    </section>
   );
 }

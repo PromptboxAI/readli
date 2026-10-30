@@ -32,9 +32,9 @@ export function demoFamilyState(): FamilyState {
     ["leo", "rose"],
   ];
   return {
-    households: [{ id: DEMO_HOUSEHOLD_ID, name: "Our family" }],
-    adults: adults.map((a) => ({ id: a.id, displayName: a.displayName, relationship: a.relationship, tint: a.tint, avatarUrl: null })),
-    members: adults.map((a) => ({ householdId: DEMO_HOUSEHOLD_ID, adultId: a.id, role: a.role, joinedAt: T0, removedAt: null })),
+    households: [{ id: DEMO_HOUSEHOLD_ID, name: "Our family", ownerId: "sara" }],
+    adults: adults.map((a) => ({ id: a.id, displayName: a.displayName, tint: a.tint, avatarUrl: null })),
+    members: adults.map((a) => ({ householdId: DEMO_HOUSEHOLD_ID, adultId: a.id, role: a.role, relationship: a.relationship, joinedAt: T0, removedAt: null })),
     children: [
       { id: "maya", householdId: DEMO_HOUSEHOLD_ID, nickname: "Maya", tint: "bg-coral", guardianIds: ["sara", "ben"], deletedAt: null },
       { id: "leo", householdId: DEMO_HOUSEHOLD_ID, nickname: "Leo", tint: "bg-sunshine", guardianIds: ["sara", "ben"], deletedAt: null },

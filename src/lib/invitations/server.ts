@@ -6,7 +6,7 @@ import { hashGiftCode } from "@/lib/gifting/codes.server";
 import { findCatalogBook } from "@/lib/library/catalog";
 import { ProviderRefCipher } from "@/lib/server/provider-ref";
 import type { VoiceProvider } from "@/lib/voice/provider";
-import { connectedEmail, invitationEmail, type Mailer } from "./email";
+import { connectedEmail, emailCoverUrl, invitationEmail, type Mailer } from "./email";
 import {
   DEFAULT_INVITATION_SETTINGS,
   REPORT_REASONS,
@@ -331,6 +331,7 @@ async function deliver(db: SupabaseClient, ctx: SendContext, invitation: { id: s
     recipientName: invitation.name,
     message: invitation.message,
     bookTitle: sender.book ? (findCatalogBook(sender.book)?.title ?? null) : null,
+    coverUrl: emailCoverUrl(ctx.origin, sender.book),
     linkDays,
     ...invitationLinks(ctx, invitation.id, invitation.token),
   });
@@ -447,11 +448,43 @@ export interface InvitationRow {
   expiresAt: string;
   canResend: boolean;
   canRevoke: boolean;
+  /** The latest email's delivery: from the send itself, then Resend's webhook events when they arrive. */
+  delivery: InvitationDelivery;
+}
+
+export type InvitationDelivery = "sending" | "sent" | "delivered" | "bounced" | "failed";
+
+/** Latest send per invitation, upgraded by Resend's delivered / bounced / complained events. */
+async function deliveries(db: SupabaseClient, ids: string[]): Promise<Map<string, InvitationDelivery>> {
+  const out = new Map<string, InvitationDelivery>();
+  if (!ids.length) return out;
+  const sends = await q(db.from("voice_invitation_sends").select("invitation_id, delivery, provider_message_id, sent_at").in("invitation_id", ids).order("sent_at", { ascending: false }), "read sends").catch(() => [] as Row[]);
+  const latest = new Map<string, Row>();
+  for (const s of sends) if (!latest.has(s.invitation_id as string)) latest.set(s.invitation_id as string, s);
+  const refs = [...latest.values()].map((s) => s.provider_message_id as string | null).filter((r): r is string => Boolean(r));
+  const events = refs.length ? await q(db.from("email_events").select("type, provider_ref").in("provider_ref", refs), "read email events").catch(() => [] as Row[]) : [];
+  for (const [id, send] of latest) {
+    const types = events.filter((e) => e.provider_ref === send.provider_message_id).map((e) => String(e.type));
+    out.set(
+      id,
+      types.some((t) => t === "email.bounced" || t === "email.complained")
+        ? "bounced"
+        : types.includes("email.delivered")
+          ? "delivered"
+          : send.delivery === "failed"
+            ? "failed"
+            : send.delivery === "sent"
+              ? "sent"
+              : "sending",
+    );
+  }
+  return out;
 }
 
 export async function listInvitations(db: SupabaseClient, secret: string, userId: string, settings: InvitationSettings, now = new Date()): Promise<InvitationRow[]> {
   const rows = await q(db.from("voice_invitations").select("*").eq("contributor_id", userId).order("created_at", { ascending: false }).limit(200), "read invitations");
   const cipher = new ProviderRefCipher(secret);
+  const delivery = await deliveries(db, rows.map((r) => r.id as string));
   return rows.map((r) => {
     const status = invitationStatus(r as never, now);
     let email = "";
@@ -472,6 +505,7 @@ export async function listInvitations(db: SupabaseClient, secret: string, userId
       expiresAt: r.expires_at as string,
       canResend: open && Number(r.sent_count ?? 1) - 1 < settings.maxResends,
       canRevoke: open,
+      delivery: delivery.get(r.id as string) ?? "sent",
     };
   });
 }
@@ -529,6 +563,23 @@ export async function markOpened(db: SupabaseClient, token: string, now = new Da
   if (!inv || !usable(invitationStatus(inv as never, now))) return false;
   if (!inv.opened_at) await q(db.from("voice_invitations").update({ opened_at: now.toISOString() }).eq("id", inv.id as string).is("opened_at", null), "mark opened");
   await track(db, "invite_landing_viewed", { invitation_id: inv.id, contributor_id: inv.contributor_id });
+  return true;
+}
+
+/** What the invitation page reports as the recipient moves on: listened to the end, or chose a path. */
+export const RECIPIENT_EVENTS = {
+  audio_completed: "invite_audio_completed",
+  family_cta: "invite_family_cta_clicked",
+  connect_cta: "invite_connect_cta_clicked",
+} as const;
+
+/** Records one recipient event against a usable invitation. Adult-only: the invitation and contributor, nothing about a child. */
+export async function recipientEvent(db: SupabaseClient, token: string, event: string, now = new Date()): Promise<boolean> {
+  const name = RECIPIENT_EVENTS[event as keyof typeof RECIPIENT_EVENTS];
+  if (!name) return false;
+  const inv = await invitationByToken(db, token);
+  if (!inv || !usable(invitationStatus(inv as never, now))) return false;
+  await track(db, name, { invitation_id: inv.id, contributor_id: inv.contributor_id });
   return true;
 }
 
@@ -615,6 +666,18 @@ async function tellContributor(db: SupabaseClient, mailer: Mailer, origin: strin
   } catch (err) {
     console.error("connected email failed", contributorId, err);
   }
+}
+
+/**
+ * A child in a family that accepted an invitation played a prepared chapter in the storyteller's
+ * voice: the invite funnel's last step, noted once per invitation. Nothing about the child is stored.
+ */
+export async function noteInvitedStoryPlayed(db: SupabaseClient, contributorId: string, householdId: string): Promise<void> {
+  const [inv] = await q(db.from("voice_invitations").select("id").eq("contributor_id", contributorId).eq("household_id", householdId).not("accepted_at", "is", null).limit(1), "read invitation for play");
+  if (!inv) return;
+  const { count } = await db.from("analytics_events").select("id", { count: "exact", head: true }).eq("name", "invite_first_story_played").contains("properties", { invitation_id: inv.id });
+  if (count) return;
+  await track(db, "invite_first_story_played", { invitation_id: inv.id, contributor_id: contributorId, household_id: householdId });
 }
 
 /** The invitation id behind a preview token, for Checkout metadata. */

@@ -3,66 +3,80 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { AccountFields } from "@/components/accounts/AccountFields";
-import { PlanList } from "@/components/accounts/PlanList";
+import { DemoRecordingCard } from "@/components/accounts/DemoRecordingCard";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
-import { ACCOUNT_TYPES } from "@/lib/accounts/accounts";
+import { signedInVoiceSignup, voiceRecordPath, voiceSignupBack } from "@/lib/accounts/voice-signup";
 import { currentAdult } from "@/lib/auth/adult";
+import { DEMO_BOOKS } from "@/lib/content/demo-books";
 import { familyAccountsEnabled } from "@/lib/family/session";
+import { serverConfig } from "@/lib/server/config";
+import { currentGuest, guestDemoDeps } from "@/lib/server/guest-demo";
+import { accountVoiceDeps } from "@/lib/voice/account-voices";
+import { findGuestTake } from "@/lib/voice/guest-handoff";
 
-export const metadata: Metadata = { title: "Share Your Voice | Readli", robots: { index: false } };
+export const metadata: Metadata = { title: "Save Your Voice | Readli", robots: { index: false } };
 
-const STEPS_FROM_TRY = [
-  ["Create your free account", "Just you. Your voice belongs to you."],
-  ["Verify it's you", "A quick identity check, so only you can make your voice."],
-  ["Use your Try recording", "No need to read again. We make your voice from the story you just read."],
-  ["Invite your family", "Approve each family that asks. Change your mind any time."],
+const BENEFITS = [
+  ["Save your voice", "The story you just read becomes your Readli voice. No need to read it again."],
+  ["Invite your family", "Send a link to the families you love. Their kids hear classic stories read by you."],
+  ["Stay in control", "Your voice is private until you share it. Parents approve it for each child, and you can stop sharing any time."],
 ] as const;
 
-const STEPS = [
-  ["Create your free account", "Just you. Your voice belongs to you."],
-  ["Verify it's you", "A quick identity check, so only you can make your voice."],
-  ["Record with the teleprompter", "Read a short story out loud. We'll guide you."],
-  ["Choose who can use it", "Approve each family that asks. Change your mind any time."],
-] as const;
+const BENEFITS_NO_DEMO = [["Record once", "Read a short story out loud with our teleprompter. It takes about a minute."], ...BENEFITS.slice(1)] as const;
 
-/** Readli Voice: free contributor signup. With accounts on, it signs in for real; otherwise it previews. */
+/**
+ * Save My Voice Free: the free Readli Voice signup that follows the /try demo. It shows the recording
+ * being saved, signs in on this page (Google or the emailed code), then goes on to keep that voice and
+ * on to My Voice. Never Stripe, Family signup or a family dashboard. Without accounts, it previews.
+ */
 export default async function VoiceSignupPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const p = await searchParams;
   // Invitation links always go to the join page, which keeps the invitation through sign-in.
   if (typeof p.invite === "string" && p.invite) redirect(`/voice/join?invite=${encodeURIComponent(p.invite)}`);
   const accounts = familyAccountsEnabled();
-  // From /try: the voice is made from the take already recorded there, then straight on to inviting family.
   const fromTry = p.from === "try";
-  const record = fromTry ? `/voice/record?from=try&next=${encodeURIComponent("/voice/invite")}${p.cleanup === "1" ? "&cleanup=1" : ""}` : "/voice/record";
-  if (fromTry && accounts && (await currentAdult())) redirect(record);
+  const cleanUp = p.cleanup === "1";
+  // The take this browser recorded on /try, kept for 24 hours, so the visitor sees what they're saving.
+  const guestDeps = fromTry ? guestDemoDeps() : null;
+  const take = guestDeps ? await currentGuest(guestDeps).then((g) => findGuestTake(guestDeps.store, g)).catch(() => null) : null;
+  const from = { fromTry, cleanUp, takeKept: Boolean(take) };
+  const record = voiceRecordPath(from);
+  const user = accounts ? await currentAdult() : null;
+  if (user) {
+    const deps = accountVoiceDeps(serverConfig());
+    const voice = deps ? await deps.store.findVoice(user.id).catch(() => null) : null;
+    redirect(signedInVoiceSignup(from, Boolean(voice)));
+  }
+  const book = typeof p.book === "string" ? (DEMO_BOOKS.find((b) => b.slug === p.book) ?? null) : null;
+  const benefits = fromTry && take ? BENEFITS : BENEFITS_NO_DEMO;
   return (
     <AdultPage wide>
       <header className="flex flex-col gap-2">
-        <Link href={fromTry ? `/try?resume=1${p.cleanup === "1" ? "&cleanup=1" : ""}` : "/signup"} className="w-fit font-display font-semibold underline-offset-4 hover:underline">
+        <Link href={voiceSignupBack(from)} className="w-fit font-display font-semibold underline-offset-4 hover:underline">
           ← Back
         </Link>
         <Eyebrow>Readli Voice · Free</Eyebrow>
-        <h1 className="font-display text-4xl font-semibold sm:text-5xl">Share your voice</h1>
-        <p className="max-w-2xl text-lg">Read to the kids you love, even from far away. It&apos;s free, and you decide who hears you.</p>
-        {fromTry && (
-          <p className="max-w-2xl rounded-2xl bg-mint/50 p-4" data-testid="try-carry-note">
-            Your recording from the Try page comes with you, so you won&apos;t read the story again. Sign in within 24 hours to keep it.
-          </p>
-        )}
       </header>
       {!accounts && <PreviewNote>Readli Voice accounts are coming soon, so nothing here is saved yet.</PreviewNote>}
 
-      <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:gap-8">
         {accounts ? (
-          <section className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10 sm:p-8" aria-label="Create a free Readli Voice account">
-            <h2 className="font-display text-2xl font-semibold">Your free account</h2>
-            <p>Sign in with your email or Google. New here? This creates your free Readli Voice account. No card, no subscription.</p>
-            <LoginForm next={record} askMarketing />
+          <section className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10 sm:p-8" aria-labelledby="save-h">
+            <h1 id="save-h" className="font-display text-3xl font-semibold sm:text-4xl">
+              Save your voice for free
+            </h1>
+            <p className="text-lg">Keep the voice you just recorded and share it with the people you love. No card or subscription required.</p>
+            {fromTry && <DemoRecordingCard take={take} book={book} />}
+            <LoginForm next={record} askMarketing signup="Readli Voice" />
           </section>
         ) : (
-          <form action={record} className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10 sm:p-8" aria-label="Create a free Readli Voice account">
-            <h2 className="font-display text-2xl font-semibold">Your free account</h2>
+          <form action={record} className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10 sm:p-8" aria-labelledby="save-h">
+            <h1 id="save-h" className="font-display text-3xl font-semibold sm:text-4xl">
+              Save your voice for free
+            </h1>
+            <p className="text-lg">Keep the voice you just recorded and share it with the people you love. No card or subscription required.</p>
+            {fromTry && <DemoRecordingCard take={take} book={book} />}
             <AccountFields namePlaceholder="Grandma June" />
             <label className="flex items-start gap-3">
               <input type="checkbox" required className="mt-1 size-5 accent-coral-deep" />
@@ -71,44 +85,27 @@ export default async function VoiceSignupPage({ searchParams }: { searchParams: 
             <button type="submit" className={`${buttonPrimary} w-full`}>
               Create my free account
             </button>
-            <p className="text-sm text-muted">
-              Recording together? Grandma and Grandpa each sign up and verify on their own, then join the same free household. Each of
-              you controls your own voice.
-            </p>
           </form>
         )}
 
-        <div className="flex flex-col gap-6">
-          <section aria-labelledby="how" className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-mint/50 p-6">
-            <h2 id="how" className="font-display text-2xl font-semibold">
-              How it works
-            </h2>
-            <ol className="flex flex-col gap-3">
-              {(fromTry ? STEPS_FROM_TRY : STEPS).map(([t, d], i) => (
-                <li key={t} className="flex gap-3">
-                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-surface font-display font-semibold">{i + 1}</span>
-                  <span>
-                    <span className="block font-display font-semibold">{t}</span>
-                    {d}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </section>
-          <section aria-labelledby="not" className="rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10">
-            <h2 id="not" className="font-display text-xl font-semibold">
-              Readli Voice doesn&apos;t include
-            </h2>
-            <PlanList items={ACCOUNT_TYPES.voice.excludes} cross className="mt-3" />
-            <p className="mt-3 text-sm">
-              Want stories for your own kids? You can start{" "}
-              <Link href={fromTry ? `/signup/family?from=try${p.cleanup === "1" ? "&cleanup=1" : ""}` : "/signup/family"} className="font-semibold underline underline-offset-4">
-                Readli Family
-              </Link>{" "}
-              any time and keep your voice.
-            </p>
-          </section>
-        </div>
+        <section aria-labelledby="why" className="flex flex-col gap-4 self-start rounded-[var(--radius-panel)] bg-mint/40 p-6 sm:p-8">
+          <h2 id="why" className="font-display text-2xl font-semibold">
+            Free for storytellers
+          </h2>
+          <ul className="flex flex-col gap-4">
+            {benefits.map(([t, d]) => (
+              <li key={t} className="flex gap-3">
+                <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-full bg-surface font-bold text-mint-deep">
+                  ✓
+                </span>
+                <span>
+                  <span className="block font-display text-lg font-semibold">{t}</span>
+                  {d}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
       </div>
     </AdultPage>
   );

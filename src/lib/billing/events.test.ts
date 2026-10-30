@@ -36,6 +36,13 @@ describe("billingChange", () => {
     });
   });
 
+  it("starts a plan lined up to follow a family gift on the day the gift ends", () => {
+    const after = sub({ status: "trialing", metadata: { household_id: "h1", starts_after: "2027-01-25T12:00:00.000Z" } });
+    expect(billingChange(event("customer.subscription.created", after))).toMatchObject({ startsAt: "2027-01-25T12:00:00.000Z" });
+    const past = sub({ metadata: { household_id: "h1", starts_after: "2020-01-01T00:00:00.000Z" } });
+    expect(billingChange(event("customer.subscription.updated", past))).toMatchObject({ startsAt: "2025-10-09T08:53:20.000Z" });
+  });
+
   it("keeps the plan through a trial or a retried card", () => {
     for (const status of ["trialing", "past_due"]) {
       expect(billingChange(event("customer.subscription.updated", sub({ status })))).toMatchObject({ status: "active" });

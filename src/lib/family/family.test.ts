@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { demoFamilyState, DEMO_HOUSEHOLD_ID } from "./demo-family";
 import type { Actor, FamilyState } from "./model";
-import { childVoiceAccess, storytellerStatus } from "./permissions";
+import { activeSlot, childVoiceAccess, storytellerStatus } from "./permissions";
 import {
   activateNarrator,
   homeHousehold,
@@ -90,12 +90,9 @@ describe("family voice permissions (Amendment 002 acceptance criteria)", () => {
 
   it("2. household sharing alone does not expose the voice to children", async () => {
     const { state, store } = freshFamily();
+    // The first share takes a free narrator slot, but no child hears it without a parent's approval.
     await share(store, true);
-    expect(await names(store, maya, "maya")).not.toContain(VOICE);
-    expect(childVoiceAccess(state, "maya", VOICE).reason).toBe("not_activated_by_household");
-    expect(storytellerStatus(state, "maya", VOICE)).toBe("needs_slot");
-    // Nor does sharing plus a narrator slot, without a parent's approval for this child.
-    await activate(store);
+    expect(activeSlot(state, VOICE, DEMO_HOUSEHOLD_ID)).not.toBeNull();
     expect(await names(store, maya, "maya")).not.toContain(VOICE);
     expect(childVoiceAccess(state, "maya", VOICE).reason).toBe("not_approved_for_child");
     expect(storytellerStatus(state, "maya", VOICE)).toBe("available");

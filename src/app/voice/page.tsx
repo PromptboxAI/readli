@@ -1,17 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AskName } from "@/components/account/AskName";
 import { ContributorDashboard } from "@/components/accounts/ContributorDashboard";
 import { buttonSecondary } from "@/components/brand/buttons";
 import { AccountVoiceControls } from "@/components/family/AccountVoiceControls";
 import { MyVoiceSharing } from "@/components/family/MyVoiceSharing";
+import { InvitationList } from "@/components/invitations/InvitationList";
 import { VoiceModelUpgrade } from "@/components/family/VoiceModelUpgrade";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
+import { chosenName } from "@/lib/account/names";
 import { currentAdult } from "@/lib/auth/adult";
 import { familyPage } from "@/lib/family/page-data";
 import { myVoices } from "@/lib/family/service";
 import { familyAccountsEnabled, familyStore } from "@/lib/family/session";
 import { isParent } from "@/lib/family/storyteller";
+import { invitationContext } from "@/lib/invitations/context";
+import { invitationSettings, listInvitations } from "@/lib/invitations/server";
 import { pendingJoinPath } from "@/lib/invites/pending";
 import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps, voiceModelStatus } from "@/lib/voice/account-voices";
@@ -48,32 +53,35 @@ export default async function VoiceHomePage({ searchParams }: { searchParams: Pr
   const deps = accountVoiceDeps(serverConfig());
   const recording = deps ? await deps.store.findVoice(user.id).catch(() => null) : null;
   const model = deps ? await voiceModelStatus(deps, user.id).catch(() => null) : null;
+  const me = state?.adults.find((a) => a.id === user.id);
+  const named = Boolean(chosenName(me?.displayName ?? user.name, user.email, user.named));
+  // Invitations sent and how each is doing: sent, opened, connected.
+  const ctx = invitationContext();
+  const invitations = ctx ? await listInvitations(ctx.db, ctx.secret, user.id, await invitationSettings(ctx.db)).catch(() => []) : [];
+  const ready = recording?.status === "ready";
   return (
     <AdultPage>
       <header className="flex flex-col gap-2">
         <Eyebrow>Readli Voice · Free storyteller account</Eyebrow>
-        <h1 className="font-display text-4xl font-semibold sm:text-5xl">Your voice</h1>
+        <h1 className="font-display text-4xl font-semibold sm:text-5xl">My Voice</h1>
       </header>
+      {!named && <AskName label="What should families call you?" hint="Invitations use this name, like “Grandpa Joe has a bedtime story for your family.”" placeholder="Grandpa Joe, Nana, Aunt Sue…" />}
       {model?.canUpgrade && <VoiceModelUpgrade />}
       <AccountVoiceControls voice={recording && { status: recording.status, version: recording.version, updatedAt: recording.updatedAt }} />
       <section className="flex flex-col gap-3" aria-labelledby="families-h">
-        <h2 id="families-h" className="font-display text-2xl font-semibold">
-          Families using your voice
-        </h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="families-h" className="font-display text-2xl font-semibold">
+            Families using your voice
+          </h2>
+          {ready && (
+            <Link href="/voice/invite" className="font-display font-semibold underline underline-offset-4" data-testid="invite-family">
+              Invite a family
+            </Link>
+          )}
+        </div>
         <MyVoiceSharing initial={voices} storyteller />
       </section>
-      {recording?.status === "ready" && (
-        <section className="flex flex-col items-start gap-3 rounded-[var(--radius-panel)] bg-sky/40 p-6" data-testid="invite-family-card">
-          <h2 className="font-display text-2xl font-semibold">Share your voice with another family</h2>
-          <p className="max-w-2xl">
-            Send a family a link. They use their own Readli Family account, which they pay for, then add you as a narrator. You won&apos;t
-            record again.
-          </p>
-          <Link href="/voice/invite" className={buttonSecondary}>
-            Share my voice
-          </Link>
-        </section>
-      )}
+      {invitations.length > 0 && <InvitationList items={invitations} />}
       <form action="/auth/signout" method="post">
         <button type="submit" className={buttonSecondary}>
           Sign out

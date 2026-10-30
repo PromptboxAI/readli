@@ -11,8 +11,9 @@ import {
   SiteFooter,
   TryYourVoice,
 } from "@/components/home/sections";
+import { COMPANY } from "@/lib/content/company";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
-import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
+import { SITE_DESCRIPTION, SITE_LONG_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
 
 export const metadata: Metadata = publicPageMetadata({
   title: "Readli: Every Book. Every Voice.",
@@ -27,10 +28,20 @@ const siteLd = {
       "@type": "Organization",
       "@id": `${SITE_URL}/#organization`,
       name: SITE_NAME,
+      legalName: COMPANY.legalName,
+      email: COMPANY.email,
+      address: {
+        "@type": "PostalAddress",
+        streetAddress: COMPANY.street,
+        addressLocality: COMPANY.city,
+        addressRegion: COMPANY.region,
+        postalCode: COMPANY.postalCode,
+        addressCountry: COMPANY.country,
+      },
       url: SITE_URL,
       logo: absoluteUrl("/icon.png"),
       slogan: SITE_TAGLINE,
-      description: SITE_DESCRIPTION,
+      description: SITE_LONG_DESCRIPTION,
       sameAs: SOCIAL_ACCOUNTS.map((a) => a.url),
     },
     {

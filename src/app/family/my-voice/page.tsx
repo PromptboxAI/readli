@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { buttonSecondary } from "@/components/brand/buttons";
+import { parentSecondary } from "@/components/brand/buttons";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
 import { AccountVoiceControls } from "@/components/family/AccountVoiceControls";
 import { MyVoiceSharing } from "@/components/family/MyVoiceSharing";
@@ -34,7 +34,7 @@ export default async function MyVoicePage() {
   return (
     <FamilyShell>
       <PreviewNote />
-      <BackLink href="/family" label="Home" />
+      <BackLink href="/family/kids" label="Family" />
       <h1 className="font-display text-4xl font-semibold">My voice</h1>
       {model?.canUpgrade && <VoiceModelUpgrade />}
       {user && <AccountVoiceControls voice={recording && { status: recording.status, version: recording.version, updatedAt: recording.updatedAt }} />}
@@ -44,7 +44,7 @@ export default async function MyVoicePage() {
           <p className="max-w-2xl">
             Invite another family to connect your voice. Their parents choose which children hear you, and you can stop sharing at any time.
           </p>
-          <Link href="/voice/invite" className={buttonSecondary}>
+          <Link href="/voice/invite" className={parentSecondary}>
             Share my voice
           </Link>
           {parent && (

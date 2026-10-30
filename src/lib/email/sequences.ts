@@ -231,7 +231,7 @@ async function familySetup(ctx: SequenceContext): Promise<QueuedEmail[]> {
           title: "Set up your kids' tablet",
           paragraphs: ["Kids Mode turns a tablet into a Readli bookshelf for your kids, with only the books and storytellers you've chosen. Leaving it needs your PIN."],
           cta: "Set up a kids device",
-          path: "/family/devices",
+          path: "/family/settings/kids-mode",
         }),
       });
     }

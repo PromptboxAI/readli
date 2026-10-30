@@ -22,7 +22,7 @@ export const PREFERENCE_TOPICS: { topic: PreferenceTopic; label: string; hint: s
 export interface EmailDefinition {
   id: string;
   name: string;
-  sequence: "family_onboarding" | "contributor_onboarding" | "invitation_reminders" | "guest_demo" | "bedtime_thursdays" | "trial" | "billing" | "checkout" | "feedback" | "win_back";
+  sequence: "family_onboarding" | "contributor_onboarding" | "invitation_reminders" | "guest_demo" | "bedtime_thursdays" | "trial" | "billing" | "checkout" | "feedback" | "win_back" | "sponsorship";
   category: EmailCategory;
   /** The preference that turns it off; transactional email has none. */
   topic: PreferenceTopic | null;
@@ -53,6 +53,13 @@ export const EMAILS: EmailDefinition[] = [
   { id: "FB1", name: "How are bedtimes going?", sequence: "feedback", category: "relationship", topic: "feedback_requests" },
   { id: "W1", name: "Win-back: new stories", sequence: "win_back", category: "commercial", topic: "marketing" },
   { id: "W2", name: "Win-back: last check-in", sequence: "win_back", category: "commercial", topic: "marketing" },
+  { id: "S1", name: "Family gift invitation (sponsored)", sequence: "sponsorship", category: "transactional", topic: null },
+  { id: "S2", name: "Your gift has arrived (to the sponsor)", sequence: "sponsorship", category: "transactional", topic: null },
+  { id: "S3", name: "Gift renewal payment failed (to the sponsor)", sequence: "sponsorship", category: "transactional", topic: null },
+  { id: "S4", name: "Gift year ending (to the sponsor)", sequence: "sponsorship", category: "transactional", topic: null },
+  { id: "S5", name: "Gift ending (to the family)", sequence: "sponsorship", category: "transactional", topic: null },
+  { id: "S6", name: "A family asked for more credits (to the sponsor)", sequence: "sponsorship", category: "transactional", topic: null },
+  { id: "S7", name: "Gift credit share changing (to the family)", sequence: "sponsorship", category: "transactional", topic: null },
 ];
 
 const BY_ID = new Map(EMAILS.map((e) => [e.id, e]));

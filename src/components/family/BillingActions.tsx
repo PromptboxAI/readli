@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { useEffect, useState } from "react";
+import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
 import { formatPrice } from "@/lib/family/plan";
+import { newMetaEventId, rememberCheckout, takeCheckout, trackMeta } from "@/lib/marketing/meta-pixel";
 
-async function goTo(path: string, body: unknown, setError: (e: string) => void) {
+async function goTo(path: string, body: unknown, setError: (e: string) => void, beforeLeaving?: () => void) {
   const res = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const json = (await res.json().catch(() => ({}))) as { url?: string; error?: { message?: string } };
-  if (res.ok && json.url) window.location.assign(json.url);
-  else setError(json.error?.message ?? "Something went wrong. Please try again.");
+  if (res.ok && json.url) {
+    beforeLeaving?.();
+    window.location.assign(json.url);
+  } else setError(json.error?.message ?? "Something went wrong. Please try again.");
 }
 
 /** Pick monthly or annual Readli Family, with optional extra storyteller slots, then go to checkout. */
@@ -70,18 +73,36 @@ export function StartPlan(props: { monthlyCents: number; annualCents: number; sl
       {error && <p role="alert" className="rounded-2xl bg-coral/30 p-3 text-sm">{error}</p>}
       <button
         type="button"
-        className={`${buttonPrimary} self-start`}
+        className={`${parentPrimary} self-start`}
         disabled={!props.paymentsOn || busy}
         onClick={() => {
           setBusy(true);
           setError("");
-          void goTo("/api/billing/checkout", { item: choice, extraSlots: extra }, setError).finally(() => setBusy(false));
+          const cents = base + extra * props.slotCents;
+          // The server reports the same checkout with this id once Stripe's session exists.
+          const eventId = newMetaEventId();
+          void goTo("/api/billing/checkout", { item: choice, extraSlots: extra, ...(eventId ? { metaEventId: eventId } : {}) }, setError, () => {
+            trackMeta("InitiateCheckout", { value: cents / 100, currency: "USD", content_name: choice }, eventId);
+            rememberCheckout(cents);
+          }).finally(() => setBusy(false));
         }}
       >
         Continue to checkout
       </button>
     </div>
   );
+}
+
+/**
+ * Back from Stripe: reports the new plan to the Meta Pixel once, if this tab started the checkout. Its
+ * event_id is the one the Stripe webhook uses for the server's Subscribe, so Meta counts it once.
+ */
+export function CheckoutDone({ sessionId }: { sessionId?: string }) {
+  useEffect(() => {
+    const cents = takeCheckout();
+    if (cents !== null) trackMeta("Subscribe", { value: cents / 100, currency: "USD" }, sessionId ? `subscribe_${sessionId}` : null);
+  }, [sessionId]);
+  return null;
 }
 
 /** Opens Stripe's page for changing the card, slots or canceling. */
@@ -93,7 +114,7 @@ export function ManagePlan({ paymentsOn }: { paymentsOn: boolean }) {
       {error && <p role="alert" className="rounded-2xl bg-coral/30 p-3 text-sm">{error}</p>}
       <button
         type="button"
-        className={`${buttonSecondary} self-start`}
+        className={`${parentSecondary} self-start`}
         disabled={!paymentsOn || busy}
         onClick={() => {
           setBusy(true);

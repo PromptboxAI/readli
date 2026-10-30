@@ -45,7 +45,7 @@ function openKids(childId: string) {
     if (actor.kind !== "adult" || !isGuardianOf(state, actor.adultId, childId) || !activeChild(state, childId)) {
       return fail(403, "not_guardian", "Only this child's parent or guardian can open their profile.");
     }
-    // Temporary Kids Mode on this browser only. Dedicated kids devices are set up at /family/devices.
+    // Temporary Kids Mode on this browser only. Dedicated kids devices are set up at /family/settings/kids-mode.
     await startTemporaryKids(session, childId);
     return NextResponse.json({ ok: true });
   });

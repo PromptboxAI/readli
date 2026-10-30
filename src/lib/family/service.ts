@@ -7,16 +7,21 @@ import {
   activeShare,
   activeSlot,
   approvedVoiceIds,
+  childProfileLimit,
   childVoiceAccess,
+  countedSlots,
   isActiveMember,
   isGuardianOf,
   liveSlots,
   narratorSlotCount,
+  planLimits,
   readyVoice,
+  sponsorVoiceIncluded,
   storytellerStatus,
   type StorytellerStatus,
 } from "./permissions";
 import { calledIn } from "./names";
+import { cleanRelationship } from "@/lib/invites/family-invites";
 import { DEFAULT_PLAN, type PlanConfig } from "./plan";
 import { MemoryNarrationStorage, type NarrationStorage } from "@/lib/narration/storage";
 
@@ -175,6 +180,7 @@ export async function setHouseholdShare(
     const current = s.shares.find((x) => x.voiceId === voice.id && x.householdId === input.householdId && x.revokedAt === null);
     if (input.shared) {
       if (current) return;
+      const first = !s.shares.some((x) => x.voiceId === voice.id && x.householdId === input.householdId);
       s.shares.push({
         id: randomUUID(),
         voiceId: voice.id,
@@ -186,8 +192,10 @@ export async function setHouseholdShare(
         revokedBy: null,
       });
       audit(s, adultId, "voice_shared", at, { voiceId: voice.id, householdId: input.householdId });
-      // The parents hear about it; nothing is activated or approved on their behalf. One unread
-      // notice per storyteller, so sharing again after stopping never stacks up duplicates.
+      // The first share takes a free narrator slot at once; sharing again after stopping waits for a
+      // parent. Children are only ever approved by a parent. One unread notice per storyteller, so
+      // sharing again never stacks up duplicates.
+      if (first) fillFreeSlot(s, store.plan, input.householdId, voice.id, adultId, at);
       notice = readyNotice(s, store.plan, input.householdId, adultId, voice.id);
       const text = `${notice.title} ${notice.body}`;
       if (!s.notifications.some((n) => n.householdId === input.householdId && n.href === notice!.href && n.readAt === null)) {
@@ -217,6 +225,52 @@ export async function setHouseholdShare(
   return notice;
 }
 
+/**
+ * Puts a voice shared with a family for the first time into a free narrator slot, so a family that invited someone doesn't have to
+ * add them by hand. Recorded as the sharer when they're a parent here, otherwise as the family's first
+ * parent (only a parent may fill a slot). Leaves things as they are with no plan or no free slot.
+ */
+function fillFreeSlot(state: FamilyState, plan: PlanConfig, householdId: string, voiceId: string, sharerId: string, at: string): void {
+  if (!activeEntitlement(state, householdId, at) || activeSlot(state, voiceId, householdId, plan)) return;
+  const sponsored = sponsorVoiceIncluded(state, voiceId, householdId);
+  if (!sponsored && countedSlots(state, householdId, plan).length >= narratorSlotCount(state, householdId, plan)) return;
+  const guardians = state.members
+    .filter((m) => m.householdId === householdId && m.role === "guardian" && m.removedAt === null)
+    .sort((a, b) => a.joinedAt.localeCompare(b.joinedAt));
+  const by = guardians.find((m) => m.adultId === sharerId) ?? guardians[0];
+  if (!by) return;
+  for (const a of state.slots) if (a.voiceId === voiceId && a.householdId === householdId && a.releasedAt === null) a.releasedAt = at;
+  state.slots.push({ id: randomUUID(), householdId, voiceId, activatedBy: by.adultId, activatedAt: at, releasedAt: null, releasedBy: null });
+  audit(state, by.adultId, "narrator_activated", at, { voiceId, householdId, detail: "added_on_share" });
+}
+
+/**
+ * After an invited storyteller keeps their voice: shares it with each family they joined as a storyteller
+ * and haven't shared with before. Accepting the invitation and recording is their go-ahead, so there's no
+ * separate share step. A family they stopped sharing with stays unshared.
+ */
+export async function shareWithJoinedFamilies(
+  store: FamilyStore,
+  actor: Actor | null,
+  policyVersion: string,
+  clock: Clock = now,
+): Promise<{ householdId: string; notice: ReadyNotice }[]> {
+  const adultId = requireAdult(actor);
+  const state = await store.read();
+  const voice = state.voices.find((v) => v.ownerId === adultId && v.deletedAt === null && v.status === "ready");
+  if (!voice) return [];
+  const homes = state.members
+    .filter((m) => m.adultId === adultId && m.role === "member" && m.removedAt === null)
+    .map((m) => m.householdId)
+    .filter((h) => !state.shares.some((x) => x.voiceId === voice.id && x.householdId === h));
+  const out: { householdId: string; notice: ReadyNotice }[] = [];
+  for (const householdId of [...new Set(homes)]) {
+    const notice = await setHouseholdShare(store, actor, { voiceId: voice.id, householdId, shared: true, policyVersion }, clock);
+    if (notice) out.push({ householdId, notice });
+  }
+  return out;
+}
+
 /** What a family is told when a storyteller's voice is ready and shared with them. */
 export interface ReadyNotice {
   /** What the family's kids will call them, such as "Mommy". */
@@ -237,11 +291,14 @@ export function readyNotice(state: FamilyState, plan: PlanConfig, householdId: s
   const ownName = adult?.displayName || "Your storyteller";
   const name = calledIn(state, adult, householdId)?.displayName || ownName;
   const familyName = state.households.find((h) => h.id === householdId)?.name ?? "your family";
-  const slotsFull = liveSlots(state, householdId, plan).length >= narratorSlotCount(state, householdId, plan);
+  const added = activeSlot(state, voiceId, householdId, plan) !== null;
+  const slotsFull = !added && liveSlots(state, householdId, plan).length >= narratorSlotCount(state, householdId, plan);
   const who = name === ownName ? ownName : `${ownName} (${name})`;
-  const body = slotsFull
-    ? `${who} recorded a voice and shared it with ${familyName}. It's ready, but all your narrator slots are in use: free one up or add a slot to activate it.`
-    : `${who} recorded a voice and shared it with ${familyName}. Add them as a storyteller and choose which children can hear them.`;
+  const body = added
+    ? `${who} recorded a voice and shared it with ${familyName}, and is now in one of your narrator slots. Choose which children can hear them.`
+    : slotsFull
+      ? `${who} recorded a voice and shared it with ${familyName}. It's ready, but all your narrator slots are in use: free one up or add a slot to activate it.`
+      : `${who} recorded a voice and shared it with ${familyName}. Add them as a storyteller and choose which children can hear them.`;
   return {
     name,
     ownName,
@@ -249,8 +306,8 @@ export function readyNotice(state: FamilyState, plan: PlanConfig, householdId: s
     slotsFull,
     title: `${name} is ready to read!`,
     body,
-    cta: slotsFull ? "Open Family storytellers" : `Add ${name} to My Family`,
-    href: `/family/narrators?add=${encodeURIComponent(voiceId)}`,
+    cta: added ? `Choose who hears ${name}` : slotsFull ? "Open Family storytellers" : `Add ${name} to My Family`,
+    href: added ? `/family/narrators?choose=${encodeURIComponent(voiceId)}` : `/family/narrators?add=${encodeURIComponent(voiceId)}`,
   };
 }
 
@@ -428,6 +485,12 @@ export async function dismissNotices(store: FamilyStore, actor: Actor | null, th
 }
 
 /** Starts a family with this grown-up as its first parent or guardian. One family per grown-up for now. */
+/**
+ * The stand-in name for a family started from Family signup, which goes to checkout before asking
+ * anything else. Setup asks for the real name once the plan is paid for.
+ */
+export const PROVISIONAL_FAMILY_NAME = "My family";
+
 export async function createHousehold(store: FamilyStore, actor: Actor | null, name: string, clock: Clock = now): Promise<string> {
   const adultId = requireAdult(actor);
   const state = await store.read();
@@ -438,10 +501,134 @@ export async function createHousehold(store: FamilyStore, actor: Actor | null, n
   const id = randomUUID();
   const at = clock().toISOString();
   await store.write((s) => {
-    s.households.push({ id, name: familyName });
+    s.households.push({ id, name: familyName, ownerId: adultId });
     s.members.push({ householdId: id, adultId, role: "guardian", joinedAt: at, removedAt: null });
   });
   return id;
+}
+
+/** Renames the family a guardian looks after. */
+export async function renameHousehold(store: FamilyStore, actor: Actor | null, name: string): Promise<string> {
+  const adultId = requireAdult(actor);
+  const householdId = homeHousehold(await store.read(), adultId);
+  if (!householdId) throw new PermissionError(403, "not_guardian", "Only a parent or guardian can rename the family.");
+  const familyName = name.replace(/\s+/g, " ").trim().slice(0, 60);
+  if (!familyName) throw new PermissionError(400, "bad_name", "Give your family a name.");
+  await store.write((s) => {
+    const home = s.households.find((h) => h.id === householdId);
+    if (home) home.name = familyName;
+  });
+  return familyName;
+}
+
+// Parents --------------------------------------------------------------------
+
+/**
+ * Who pays for the family's plan: the grown-up who started the family, while they're still one of its
+ * parents. Otherwise the parent who joined first stands in, so billing always has someone.
+ */
+export function householdOwner(state: FamilyState, householdId: string): string | null {
+  const parents = state.members.filter((m) => m.householdId === householdId && m.role === "guardian" && m.removedAt === null);
+  const set = state.households.find((h) => h.id === householdId)?.ownerId;
+  if (set && parents.some((p) => p.adultId === set)) return set;
+  parents.sort((a, b) => a.joinedAt.localeCompare(b.joinedAt) || a.adultId.localeCompare(b.adultId));
+  return parents[0]?.adultId ?? null;
+}
+
+/** Only the plan's owner buys, changes or cancels it. Co-parents share everything else. */
+export const isPlanOwner = (state: FamilyState, adultId: string, householdId: string) => householdOwner(state, householdId) === adultId;
+
+export interface ParentView {
+  adultId: string;
+  name: string;
+  relationship: string;
+  avatarUrl: string | null;
+  tint: string;
+  /** Pays for the plan. */
+  owner: boolean;
+  you: boolean;
+}
+
+export interface FamilyParentsView {
+  householdId: string;
+  familyName: string;
+  parents: ParentView[];
+  /** The viewer pays for the plan, so they can invite and remove co-parents. */
+  youOwn: boolean;
+  ownerName: string;
+}
+
+/** The family's parents, owner first. Any parent can see them. */
+export async function familyParents(store: FamilyStore, actor: Actor | null, householdId: string): Promise<FamilyParentsView> {
+  const state = await store.read();
+  const viewerId = requireHouseholdGuardian(state, actor, householdId);
+  const ownerId = householdOwner(state, householdId);
+  const parents = state.members
+    .filter((m) => m.householdId === householdId && m.role === "guardian" && m.removedAt === null)
+    .map((m) => {
+      const who = calledIn(state, state.adults.find((a) => a.id === m.adultId), householdId);
+      return {
+        adultId: m.adultId,
+        name: who?.displayName ?? "Parent",
+        relationship: who?.relationship ?? "",
+        avatarUrl: who?.avatarUrl ?? null,
+        tint: who?.tint ?? "bg-sky",
+        owner: m.adultId === ownerId,
+        you: m.adultId === viewerId,
+      };
+    })
+    .sort((a, b) => Number(b.owner) - Number(a.owner) || a.name.localeCompare(b.name));
+  return {
+    householdId,
+    familyName: state.households.find((h) => h.id === householdId)?.name ?? "Your family",
+    parents,
+    youOwn: ownerId === viewerId,
+    ownerName: parents.find((p) => p.owner)?.name ?? "the family's owner",
+  };
+}
+
+/**
+ * Takes a co-parent out of the family: the owner removes them, or they leave themselves. The owner
+ * can't be removed. Storytellers they approved for the children stay approved, now under the owner,
+ * so no child loses a voice. Their own voice leaves the family's slots, as any storyteller's would.
+ */
+export async function removeCoParent(store: FamilyStore, actor: Actor | null, householdId: string, adultId: string, clock: Clock = now): Promise<void> {
+  const state = await store.read();
+  const viewerId = requireHouseholdGuardian(state, actor, householdId);
+  const ownerId = householdOwner(state, householdId);
+  if (viewerId !== ownerId && viewerId !== adultId) throw new PermissionError(403, "not_owner", "Only the parent who manages the plan can remove another parent.");
+  const member = state.members.find((m) => m.householdId === householdId && m.adultId === adultId && m.role === "guardian" && m.removedAt === null);
+  if (!member) throw new PermissionError(404, "not_parent", "That person isn't a parent in your family.");
+  if (adultId === ownerId) throw new PermissionError(409, "is_owner", "The parent who manages the plan can't be removed.");
+  const at = clock().toISOString();
+  const voices = new Set(state.voices.filter((v) => v.ownerId === adultId).map((v) => v.id));
+  await store.write((s) => {
+    for (const m of s.members) if (m.householdId === householdId && m.adultId === adultId && m.removedAt === null) m.removedAt = at;
+    const kids = s.children.filter((c) => c.householdId === householdId);
+    for (const c of kids) c.guardianIds = c.guardianIds.filter((g) => g !== adultId);
+    const kidIds = new Set(kids.map((c) => c.id));
+    for (const a of s.slots) {
+      if (voices.has(a.voiceId) && a.householdId === householdId && a.releasedAt === null) {
+        a.releasedAt = at;
+        a.releasedBy = viewerId;
+        audit(s, viewerId, "narrator_released", at, { voiceId: a.voiceId, householdId, detail: "parent_removed" });
+      }
+    }
+    for (const a of [...s.approvals]) {
+      if (!kidIds.has(a.childId) || a.revokedAt !== null) continue;
+      if (voices.has(a.voiceId)) {
+        a.revokedAt = at;
+        a.revokedBy = viewerId;
+        a.revokeReason = "slot_released";
+      } else if (a.approvedBy === adultId && ownerId) {
+        a.revokedAt = at;
+        a.revokedBy = viewerId;
+        a.revokeReason = "guardian_removed";
+        s.approvals.push({ id: randomUUID(), voiceId: a.voiceId, childId: a.childId, approvedBy: ownerId, approvedAt: at, revokedAt: null, revokedBy: null, revokeReason: null });
+        audit(s, ownerId, "child_voice_approved", at, { voiceId: a.voiceId, childId: a.childId, detail: "kept_after_parent_left" });
+      }
+    }
+  });
 }
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -471,6 +658,8 @@ export interface NarratorCard {
   yours?: boolean;
   /** Why a voice isn't in "shared" yet; only set on waiting cards. */
   status?: "processing" | "not_shared" | "stopped_sharing";
+  /** Children in this family who can hear this voice right now (every permission check passes). Only on active cards. */
+  canHear?: string[];
 }
 
 /** A household member with no voice yet, such as someone who just accepted an invitation. */
@@ -490,6 +679,8 @@ export interface NarratorSlotsView {
   total: number;
   included: number;
   extra: number;
+  /** Voices in an included slot because their owner sponsors this family's plan. */
+  giftedVoiceIds: string[];
   active: NarratorCard[];
   /** Shared with this family by their owners, not yet in a slot. */
   shared: NarratorCard[];
@@ -497,6 +688,8 @@ export interface NarratorSlotsView {
   waiting: NarratorCard[];
   /** Household members who haven't made a voice yet. */
   joined: JoinedCard[];
+  /** This family's children, for the Family Circle. */
+  children: { id: string; nickname: string; tint: string }[];
   releasesLeft: number;
   extraSlotPriceCents: number;
   extraSlotPriceApproved: boolean;
@@ -515,14 +708,21 @@ export async function narratorSlots(store: FamilyStore, actor: Actor | null, hou
   const entitlement = activeEntitlement(state, householdId);
   const live = liveSlots(state, householdId, plan);
   const activeIds = new Set(live.map((a) => a.voiceId));
+  // A sponsor's own voice comes with a sponsored plan as an extra included slot, so the counts below stay whole.
+  const gifted = live.filter((a) => sponsorVoiceIncluded(state, a.voiceId, householdId)).map((a) => a.voiceId);
   const memberVoices = state.voices.filter((v) => v.deletedAt === null && isActiveMember(state, v.ownerId, householdId));
+  const kids = state.children.filter((c) => c.householdId === householdId && activeChild(state, c.id));
   return {
     householdId,
     hasPlan: entitlement !== null,
-    total: narratorSlotCount(state, householdId, plan),
-    included: entitlement ? plan.includedNarratorSlots : 0,
+    total: narratorSlotCount(state, householdId, plan) + gifted.length,
+    included: entitlement ? planLimits(entitlement, plan).narratorSlots + gifted.length : 0,
+    giftedVoiceIds: gifted,
     extra: entitlement?.extraNarratorSlots ?? 0,
-    active: live.map((a) => card(state, a.voiceId, householdId)),
+    active: live.map((a) => ({
+      ...card(state, a.voiceId, householdId),
+      canHear: kids.filter((c) => childVoiceAccess(state, c.id, a.voiceId, plan).allowed).map((c) => c.id),
+    })),
     shared: memberVoices.filter((v) => !activeIds.has(v.id) && activeShare(state, v.id, householdId)).map((v) => card(state, v.id, householdId)),
     waiting: memberVoices
       .filter((v) => !activeShare(state, v.id, householdId))
@@ -544,6 +744,7 @@ export async function narratorSlots(store: FamilyStore, actor: Actor | null, hou
         if (!own || !a) return [];
         return [{ adultId: a.id, name: a.displayName, ...nameNote(own, a), relationship: a.relationship, avatarUrl: a.avatarUrl, tint: a.tint, ...(a.id === viewerId ? { yours: true } : {}) }];
       }),
+    children: kids.map((c) => ({ id: c.id, nickname: c.nickname, tint: c.tint })),
     releasesLeft: releasesLeft(state, householdId, plan, clock().toISOString()),
     extraSlotPriceCents: plan.extraSlotPriceCents,
     extraSlotPriceApproved: plan.extraSlotPriceApproved,
@@ -575,6 +776,22 @@ export async function setStorytellerNickname(store: FamilyStore, actor: Actor | 
 }
 
 /**
+ * Sets how this family describes one of its members, such as "Grandma" or "Nanny Pat". Only the family's
+ * parents can change it, at any time after the person joins. Display only and per family: it never shares a
+ * voice, uses a narrator slot or approves anyone for a child. An empty label clears it.
+ */
+export async function setStorytellerRelationship(store: FamilyStore, actor: Actor | null, householdId: string, adultId: string, relationship: string): Promise<void> {
+  const state = await store.read();
+  requireHouseholdGuardian(state, actor, householdId);
+  if (!isActiveMember(state, adultId, householdId)) throw new PermissionError(404, "not_member", "That storyteller isn't part of your family.");
+  const value = cleanRelationship(relationship);
+  await store.write((s) => {
+    const m = s.members.find((x) => x.householdId === householdId && x.adultId === adultId && x.removedAt === null);
+    if (m) m.relationship = value;
+  });
+}
+
+/**
  * Puts a shared voice into a free narrator slot. Consent alone never activates a voice: the
  * household chooses it here, and each child still needs a guardian's approval afterwards.
  */
@@ -584,7 +801,7 @@ export async function activateNarrator(store: FamilyStore, actor: Actor | null, 
   if (!activeEntitlement(state, householdId)) throw new PermissionError(402, "no_family_plan", "Narrators need an active Readli Family plan.");
   if (!activeShare(state, voiceId, householdId)) throw new PermissionError(409, "waiting_for_owner", "This storyteller hasn't shared their voice with your family yet.");
   if (activeSlot(state, voiceId, householdId, store.plan)) return;
-  if (liveSlots(state, householdId, store.plan).length >= narratorSlotCount(state, householdId, store.plan)) {
+  if (!sponsorVoiceIncluded(state, voiceId, householdId) && countedSlots(state, householdId, store.plan).length >= narratorSlotCount(state, householdId, store.plan)) {
     throw new PermissionError(409, "no_free_slot", "All your narrator slots are in use. Free one up or add a slot.");
   }
   const at = clock().toISOString();
@@ -724,7 +941,7 @@ export async function childProfiles(store: FamilyStore, actor: Actor | null, hou
   requireHouseholdGuardian(state, actor, householdId);
   return {
     householdId,
-    max: store.plan.maxChildProfiles,
+    max: childProfileLimit(state, householdId, store.plan),
     children: state.children.filter((c) => c.householdId === householdId && c.deletedAt === null).map((c) => ({ id: c.id, nickname: c.nickname, tint: c.tint })),
   };
 }
@@ -740,8 +957,9 @@ export async function createChildProfile(store: FamilyStore, actor: Actor | null
   // Readli Voice (free contributor) households have no kids profiles.
   if (!activeEntitlement(state, householdId)) throw new PermissionError(402, "no_family_plan", "Kids profiles come with Readli Family.");
   const count = state.children.filter((c) => c.householdId === householdId && c.deletedAt === null).length;
-  if (count >= store.plan.maxChildProfiles) {
-    throw new PermissionError(409, "child_limit", `Readli Family includes up to ${store.plan.maxChildProfiles} child profiles.`);
+  const max = childProfileLimit(state, householdId, store.plan);
+  if (count >= max) {
+    throw new PermissionError(409, "child_limit", `Readli Family includes up to ${max} child profiles.`);
   }
   const id = randomUUID();
   const at = clock().toISOString();
@@ -775,7 +993,7 @@ export function liveSession(state: FamilyState, childId: string, plan: PlanConfi
 export function streamLimit(state: FamilyState, householdId: string, plan: PlanConfig): number {
   const e = activeEntitlement(state, householdId);
   if (!e) return 0;
-  return plan.includedConcurrentStreams + (plan.extraStreamsUpgradeEnabled ? e.extraStreams : 0);
+  return planLimits(e, plan).streams + (plan.extraStreamsUpgradeEnabled ? e.extraStreams : 0);
 }
 
 /**

@@ -70,7 +70,7 @@ function family(plan: PlanConfig = DEFAULT_PLAN) {
 /** A second paying household where Grandma June is also a member; her voice is shared there too. */
 async function addSecondHousehold(state: FamilyState, store: MemoryFamilyStore) {
   state.households.push({ id: H2, name: "Kim's family" });
-  state.adults.push({ id: "kim", displayName: "Kim", relationship: "June's daughter-in-law", avatarUrl: null, tint: "bg-mint" });
+  state.adults.push({ id: "kim", displayName: "Kim", avatarUrl: null, tint: "bg-mint" });
   state.members.push(
     { householdId: H2, adultId: "kim", role: "guardian", joinedAt: "2026-10-01T00:00:00Z", removedAt: null },
     { householdId: H2, adultId: "june", role: "member", joinedAt: "2026-10-01T00:00:00Z", removedAt: null },
@@ -346,7 +346,7 @@ describe("prepare page", () => {
     const { state, store } = family();
     expect((await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-sara")!.fix).toBeNull();
     for (const e of state.entitlements) e.endsAt = "2026-01-01T00:00:00Z";
-    expect((await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-sara")!.fix?.href).toBe("/family/billing");
+    expect((await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-sara")!.fix?.href).toBe("/family/settings/plan");
   });
 
   it("calls a book prepared before The End was added Ready, everywhere, with nothing left to pay", async () => {

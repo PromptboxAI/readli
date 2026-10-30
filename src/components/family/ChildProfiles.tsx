@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { buttonPrimary, buttonQuiet } from "@/components/brand/buttons";
+import { parentPrimary, buttonQuiet } from "@/components/brand/buttons";
 import type { ChildProfilesView } from "@/lib/family/service";
 import { SessionButton } from "./SessionButton";
 import { StorytellerAvatar } from "./StorytellerAvatar";
@@ -46,29 +46,33 @@ export function ChildProfiles({ initial }: { initial: ChildProfilesView }) {
 
       <ul className="grid gap-3 sm:grid-cols-2">
         {view.children.map((c) => (
-          <li key={c.id} className="flex flex-wrap items-center gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
-            <StorytellerAvatar name={c.nickname} avatarUrl={null} tint={c.tint} />
-            <div className="min-w-0 flex-1">
-              <p className="font-display text-xl font-semibold">{c.nickname}</p>
-              <Link href={`/family/kids/${c.id}/storytellers`} className="text-sm font-semibold underline underline-offset-4">
-                Manage storytellers
-              </Link>
+          <li key={c.id} className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
+            <div className="flex min-w-0 items-center gap-3">
+              <StorytellerAvatar name={c.nickname} avatarUrl={null} tint={c.tint} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-display text-xl font-semibold">{c.nickname}</p>
+                <Link href={`/family/kids/${c.id}/storytellers`} className="text-sm font-semibold underline underline-offset-4">
+                  Manage storytellers
+                </Link>
+              </div>
             </div>
-            <SessionButton as={`child:${c.id}`} next="/kids" className={buttonPrimary}>
-              Open Readli Kids<span className="sr-only"> for {c.nickname}</span>
-            </SessionButton>
-            <button
-              type="button"
-              className={buttonQuiet}
-              disabled={busy}
-              onClick={() => {
-                if (window.confirm(`Remove ${c.nickname}'s profile? Their bookshelf and places in books go too.`)) {
-                  void send(`/api/family/children/${c.id}`, { method: "DELETE" }, `${c.nickname}'s profile was removed.`);
-                }
-              }}
-            >
-              Remove<span className="sr-only"> {c.nickname}</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <SessionButton as={`child:${c.id}`} next="/kids" className={parentPrimary}>
+                Open Readli Kids<span className="sr-only"> for {c.nickname}</span>
+              </SessionButton>
+              <button
+                type="button"
+                className={buttonQuiet}
+                disabled={busy}
+                onClick={() => {
+                  if (window.confirm(`Remove ${c.nickname}'s profile? Their bookshelf and places in books go too.`)) {
+                    void send(`/api/family/children/${c.id}`, { method: "DELETE" }, `${c.nickname}'s profile was removed.`);
+                  }
+                }}
+              >
+                Remove<span className="sr-only"> {c.nickname}</span>
+              </button>
+            </div>
           </li>
         ))}
       </ul>
@@ -101,7 +105,7 @@ export function ChildProfiles({ initial }: { initial: ChildProfilesView }) {
               maxLength={30}
               className="min-h-12 flex-1 rounded-full border-[3px] border-ink bg-surface px-4 text-lg"
             />
-            <button type="submit" className={buttonPrimary} disabled={busy || !name.trim()}>
+            <button type="submit" className={parentPrimary} disabled={busy || !name.trim()}>
               Add profile
             </button>
           </div>

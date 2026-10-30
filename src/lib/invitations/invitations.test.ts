@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { findCatalogBook } from "@/lib/library/catalog";
-import { invitationEmail } from "./email";
+import { emailCoverUrl, invitationEmail } from "./email";
 import { cleanMessage, invitationStatus, normalizeEmail, parseRecipients } from "./invitations";
 import { PREVIEW_PASSAGES } from "./passages";
 import { funnelFromRows } from "./report";
@@ -56,6 +56,7 @@ describe("family invitations", () => {
       recipientName: "Sara",
       message: "Love, Mom",
       bookTitle: "Winnie-the-Pooh",
+      coverUrl: emailCoverUrl("https://readli.ai", "winnie-the-pooh"),
       previewUrl: "https://readli.ai/v/tok",
       declineUrl: "https://readli.ai/v/respond/r?action=decline",
       unsubscribeUrl: "https://readli.ai/v/respond/r?action=unsubscribe",
@@ -63,9 +64,16 @@ describe("family invitations", () => {
       reportUrl: "https://readli.ai/v/respond/r?action=report",
       linkDays: 14,
     });
-    expect(email.subject).toBe("June <Walker> wants to read stories to your family on Readli");
-    expect(email.html).toContain("June &lt;Walker&gt;");
-    expect(email.html).not.toMatch(/<img/i);
+    expect(email.subject).toBe("June <Walker> has a bedtime story for your family");
+    expect(email.html).toContain("June &lt;Walker&gt; has a bedtime story for your family.");
+    expect(email.html).toContain("Hear June &lt;Walker&gt;&#39;s voice reading Winnie-the-Pooh.".replace("&#39;", "'"));
+    expect(email.html).toContain("Hear June &lt;Walker&gt; read a story");
+    expect(email.html).toContain('alt="Winnie-the-Pooh book cover"');
+    // Images are Readli's own public files: no token, audio or household in any image address.
+    const images = [...email.html.matchAll(/<img[^>]+src="([^"]+)"/g)].map((m) => m[1]);
+    expect(images).toEqual(["https://readli.ai/email-covers/readi.png", "https://readli.ai/email-covers/winnie-the-pooh.jpg"]);
+    expect(email.html).not.toMatch(/<audio|\.mp3|trial/i);
+    expect(email.text).toMatch(/This invitation expires on \w+ \d+, \d{4}\./);
     expect(email.html).toContain("https://readli.ai/v/tok");
     expect(email.text).toContain("Stop all Readli invitations: https://readli.ai/v/respond/r?action=unsubscribe");
     expect(email.headers).toEqual({ "List-Unsubscribe": "<https://readli.ai/api/invitations/unsubscribe/r>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" });

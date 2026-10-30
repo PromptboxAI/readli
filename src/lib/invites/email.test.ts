@@ -157,4 +157,14 @@ describe("family storyteller invitation email", () => {
     expect(mail.html).toContain("&lt;b&gt;Kev&lt;/b&gt;");
     expect(mail.text.startsWith("Hi,")).toBe(true);
   });
+
+  it("asks a co-parent to join as a parent, not to record", () => {
+    const input = { inviterName: "Kev", familyName: "The Godfreys", recipientName: "Ben", joinUrl: "j", declineUrl: "d", unsubscribeUrl: "u", oneClickUnsubscribeUrl: "o", reportUrl: "r", linkDays: 14 };
+    const mail = familyInviteEmail({ ...input, coParent: true });
+    expect(mail.subject).toBe("Kev invited you to be a parent in The Godfreys on Readli");
+    expect(mail.text).toContain("Kev looks after the family's plan and billing");
+    expect(mail.text).not.toContain("read stories to the kids");
+    expect(familyInviteEmail({ ...input, coParent: true, reminder: true }).subject).toBe("Kev is still waiting for you to join The Godfreys on Readli");
+    expect(familyInviteEmail(input).subject).toBe("Kev invited you to read stories to The Godfreys on Readli");
+  });
 });

@@ -15,6 +15,7 @@ export function JoinSteps({
   shared: initialShared,
   nickname: initialNickname,
   recordHref,
+  waitingRecording = false,
 }: {
   householdId: string;
   familyName: string;
@@ -22,6 +23,8 @@ export function JoinSteps({
   shared: boolean;
   nickname: string;
   recordHref: string;
+  /** They recorded but didn't keep it, so there's no voice yet. */
+  waitingRecording?: boolean;
 }) {
   const router = useRouter();
   const [shared, setShared] = useState(initialShared);
@@ -34,7 +37,7 @@ export function JoinSteps({
   const steps: Step[] = [
     { title: `Joined ${familyName}`, done: true, current: false },
     { title: "Record and keep your voice", done: ready, current: !ready },
-    { title: `Share it with ${familyName}`, done: shared, current: ready && !shared },
+    { title: `Read to ${familyName}`, done: shared, current: ready && !shared },
   ];
 
   async function share() {
@@ -80,10 +83,22 @@ export function JoinSteps({
         ))}
       </ol>
 
-      {!voice && (
+      {!voice && waitingRecording && (
+        <section className="flex flex-col items-start gap-3 rounded-[var(--radius-panel)] bg-sunshine/60 p-6" data-testid="waiting-recording">
+          <h2 className="font-display text-2xl font-semibold">Keep your voice to finish</h2>
+          <p>You recorded your voice but haven&apos;t kept it yet, so it isn&apos;t saved and {familyName} can&apos;t see it. Listen to it, then tap Keep This Voice.</p>
+          <ShareTerms familyName={familyName} />
+          <Link href={recordHref} className={buttonPrimary}>
+            Hear and keep my voice
+          </Link>
+        </section>
+      )}
+
+      {!voice && !waitingRecording && (
         <section className="flex flex-col items-start gap-3 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10">
           <h2 className="font-display text-2xl font-semibold">Record your voice</h2>
           <p>You&apos;ll agree to how your voice is used, read a short story aloud, then listen and keep it. It takes about five minutes.</p>
+          <ShareTerms familyName={familyName} />
           <Link href={recordHref} className={buttonPrimary}>
             Record my voice
           </Link>
@@ -141,12 +156,27 @@ export function JoinSteps({
       {ready && shared && (
         <section aria-live="polite" className="flex flex-col items-start gap-3 rounded-[var(--radius-panel)] bg-mint/50 p-6" data-testid="join-done">
           <h2 className="font-display text-2xl font-semibold">You&apos;re ready to read to {familyName}</h2>
-          <p>We&apos;ve let their parents know. They add you as a narrator and choose which children hear you. You can stop sharing any time.</p>
+          <p>Your voice is shared with {familyName} and we&apos;ve let their parents know. They choose which children hear you. You can stop sharing any time from your Readli Voice home.</p>
           <Link href="/voice" className={buttonPrimary}>
             Go to my Readli Voice home
           </Link>
         </section>
       )}
+    </div>
+  );
+}
+
+/** What keeping a voice means for the family that invited them, said before they record. */
+function ShareTerms({ familyName }: { familyName: string }) {
+  return (
+    <div className="flex flex-col gap-1 rounded-2xl bg-lavender/40 p-4" data-testid="share-terms">
+      <p className="font-semibold">When you keep your voice, it&apos;s shared with {familyName}:</p>
+      <ul className="flex list-disc flex-col gap-1 pl-5 text-sm">
+        <li>{familyName} can prepare audiobooks using your voice.</li>
+        <li>Their parents decide which children can hear it.</li>
+        <li>Sharing doesn&apos;t give them access to your account or your recording.</li>
+        <li>You can stop sharing any time from your Readli Voice home.</li>
+      </ul>
     </div>
   );
 }

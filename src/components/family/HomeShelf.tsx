@@ -24,7 +24,8 @@ function Bar({ percent }: { percent: number }) {
  */
 export function KidCards({ kids }: { kids: HomeKid[] }) {
   const layout = kids.length === 1 ? "wide" : kids.length === 2 ? "detailed" : "compact";
-  const grid = layout === "wide" ? "" : layout === "detailed" ? "sm:grid-cols-2" : "grid-cols-2 lg:grid-cols-3";
+  // Compact cards wrap into even rows (four kids two by two) instead of growing or scrolling sideways.
+  const grid = layout === "wide" ? "" : layout === "detailed" ? "sm:grid-cols-2" : kids.length === 4 ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-3";
   return (
     <ul className={`grid gap-3 ${grid}`} data-testid="home-kids" data-layout={layout}>
       {kids.map((k) => (
@@ -59,9 +60,9 @@ function readyLine(kid: HomeKid): string {
 function DetailedKid({ kid, wide }: { kid: HomeKid; wide: boolean }) {
   const story = (
     <div className="flex min-w-0 flex-col gap-2 rounded-2xl bg-ivory p-3">
-      <p className="truncate font-semibold">{kid.current?.title ?? "No story started"}</p>
+      <p className="line-clamp-2 font-semibold leading-snug">{kid.current?.title ?? "No story started"}</p>
       <Bar percent={kid.current?.percent ?? 0} />
-      <p className="truncate text-sm text-muted">
+      <p className="text-sm text-muted">
         {kid.current
           ? `${kid.current.percent}%${kid.current.narrator ? ` · read by ${kid.current.narrator}` : ""}`
           : kid.suggested
@@ -94,9 +95,9 @@ function CompactKid({ kid }: { kid: HomeKid }) {
         <StorytellerAvatar name={kid.name} avatarUrl={null} tint={kid.tint} size="sm" />
         <p className="truncate font-display text-xl font-semibold">{kid.name}</p>
       </div>
-      <p className="line-clamp-2 min-h-[2lh] text-sm font-semibold">{kid.current?.title ?? "No story started"}</p>
+      <p className="line-clamp-2 min-h-[2lh] text-sm font-semibold leading-snug">{kid.current?.title ?? "No story started"}</p>
       <Bar percent={kid.current?.percent ?? 0} />
-      <p className="truncate text-sm text-muted">
+      <p className="text-sm text-muted">
         {kid.current ? `${kid.current.percent}%` : kid.notStarted ? `${kid.notStarted} ready to start` : readyLine(kid)}
       </p>
       <OpenKids kid={kid} compact className="mt-auto" />
@@ -104,7 +105,7 @@ function CompactKid({ kid }: { kid: HomeKid }) {
   );
 }
 
-function kidChips(kids: ShelfKid[]): string[] {
+function kidPlaces(kids: ShelfKid[]): string[] {
   const place = (k: ShelfKid) => `${k.name} · ${k.percent === null ? "not started" : k.percent === 100 ? "finished" : `${k.percent}%`}`;
   // With three or more kids, the ones who haven't started are counted rather than listed.
   if (kids.length < 3) return kids.map(place);
@@ -113,40 +114,50 @@ function kidChips(kids: ShelfKid[]): string[] {
   return [...started.map(place), ...(waiting ? [`${waiting} not started`] : [])];
 }
 
+/** How many shelf books Home shows before "View all books". */
+export const HOME_SHELF_BOOKS = 4;
+
 /**
- * Every prepared audiobook the kids may hear, one row per book with its narrators grouped. A book has
- * no status of its own: each child's place shows beside it and only moves in Readli Kids. Listen opens
- * the grown-up player.
+ * Prepared audiobooks the kids may hear, one card per book with its narrators grouped, two across on
+ * wider screens. A book has no status of its own: each child's place shows on it and only moves in
+ * Readli Kids. The whole card opens the book's page; only Listen opens the grown-up player.
  */
 export function FamilyBookshelf({ books }: { books: ShelfBook[] }) {
   return (
-    <ul className="divide-y-2 divide-ink/5 rounded-3xl bg-surface px-4 ring-2 ring-ink/10" data-testid="shelf-ready">
+    <ul className="grid gap-3 md:grid-cols-2" data-testid="shelf-ready">
       {books.map((b) => (
-        <li key={b.slug} className="flex items-center gap-4 py-4" data-testid={`shelf-book-${b.slug}`} data-state={b.state}>
-          <span className="block w-20 shrink-0 overflow-hidden rounded-xl bg-bookcase shadow-[0_3px_0_rgba(40,53,72,0.12)] sm:w-24">
+        <li
+          key={b.slug}
+          className="relative flex gap-3 rounded-3xl bg-surface p-3 ring-2 ring-ink/10 focus-within:ring-ink hover:ring-ink/30"
+          data-testid={`shelf-book-${b.slug}`}
+          data-state={b.state}
+        >
+          <span className="block w-16 shrink-0 self-start overflow-hidden rounded-xl bg-bookcase shadow-[0_3px_0_rgba(40,53,72,0.12)]">
             {b.coverUrl ? (
-              <Image src={b.coverUrl} alt="" width={96} height={128} className="aspect-[3/4] w-full object-cover" />
+              <Image src={b.coverUrl} alt="" width={64} height={85} className="aspect-[3/4] w-full object-cover" />
             ) : (
-              <span className={`flex aspect-[3/4] w-full items-center justify-center p-2 text-center font-display text-sm font-semibold ${b.tint}`}>{b.title}</span>
+              <span className={`flex aspect-[3/4] w-full items-center justify-center p-1 text-center font-display text-[0.6rem] leading-tight font-semibold ${b.tint}`}>{b.title}</span>
             )}
           </span>
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-4">
-            <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-              <p className="font-display text-xl font-semibold leading-tight">{b.title}</p>
-              <p className="text-sm text-muted">
-                Read by {names(b.narrators.map((n) => n.name))} · about {b.minutes} min
-              </p>
-              <ul className="flex flex-wrap gap-1.5" aria-label="Each child's place">
-                {kidChips(b.kids).map((c) => (
-                  <li key={c} className="rounded-full bg-ink/5 px-2.5 py-0.5 text-sm font-semibold">
-                    {c}
-                  </li>
-                ))}
-              </ul>
-            </div>
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <Link
+              href={b.bookHref}
+              className="font-display text-lg leading-tight font-semibold outline-none after:absolute after:inset-0 after:rounded-3xl"
+              data-testid={`home-book-page-${b.slug}`}
+            >
+              {b.title}
+            </Link>
+            <p className="text-sm text-muted">
+              Read by {names(b.narrators.map((n) => n.name))} · {b.minutes} min
+            </p>
+            <ul className="flex flex-col text-sm" aria-label="Each child's place">
+              {kidPlaces(b.kids).map((c) => (
+                <li key={c}>{c}</li>
+              ))}
+            </ul>
             <Link
               href={b.href}
-              className="inline-flex min-h-11 shrink-0 items-center gap-2 self-start rounded-xl bg-ink px-5 font-display font-semibold text-white hover:-translate-y-0.5 sm:self-center"
+              className="relative z-10 mt-1 inline-flex min-h-10 items-center gap-1.5 self-start rounded-xl bg-ink px-4 font-display font-semibold text-white hover:bg-ink/85"
               data-testid={`home-book-${b.slug}`}
             >
               <span aria-hidden="true">▶</span>
