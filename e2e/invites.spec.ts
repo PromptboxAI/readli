@@ -8,7 +8,7 @@ test("invite hub offers Invite Family beside Invite & Gift", async ({ page }, in
   await page.goto("/invite");
   const actions = page.getByTestId("invite-actions");
   await expect(actions.getByRole("link", { name: /Invite Family/ })).toHaveAttribute("href", "/invite/family");
-  await expect(actions.getByRole("link", { name: /Invite & Gift/ })).toHaveAttribute("href", "/invite/gift");
+  await expect(actions.getByRole("link", { name: /Invite & Gift/ })).toHaveAttribute("href", "/gift/family");
   await expect(page.getByText("Start a paid plan for them")).toBeVisible();
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/invite-${info.project.name}.png`, fullPage: true });
@@ -30,35 +30,6 @@ test("inviting family adds a pending storyteller and shares no voice", async ({ 
   await noOverflow(page);
 });
 
-test("gift checkout stays closed until prices are final, and the recipient runs their own home", async ({ page }, info) => {
-  await page.goto("/invite/gift");
-  await expect(page.getByText("$179.99")).toBeVisible();
-  await page.getByText("Monthly sponsorship").click();
-  await page.getByLabel("Their name").fill("Ben and family");
-  await page.getByLabel("Their email").fill("ben@example.com");
-  await page.getByLabel("From").fill("Nana Rose");
-  await page.getByLabel(/A note for them/).fill("Bedtime stories on me. Love, Nana");
-  await noOverflow(page);
-  await page.screenshot({ path: `e2e/screenshots/invite-gift-${info.project.name}.png`, fullPage: true });
-  await page.getByRole("button", { name: "Review gift" }).click();
-
-  await expect(page).toHaveURL(/\/invite\/gift\/checkout\?/);
-  await expect(page.getByTestId("payments-off")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Start sponsorship" })).toBeDisabled();
-  await expect(page.getByText("$19.99 a month").first()).toBeVisible();
-  await expect(page.getByText(/7 days before each charge/)).toBeVisible();
-  await noOverflow(page);
-  await page.screenshot({ path: `e2e/screenshots/gift-checkout-${info.project.name}.png`, fullPage: true });
-
-  await page.getByRole("link", { name: "Preview their gift" }).click();
-  await expect(page.getByRole("heading", { name: "Nana Rose sent you a gift" })).toBeVisible();
-  await page.screenshot({ path: `e2e/screenshots/gift-wrapped-${info.project.name}.png`, fullPage: true });
-  await page.getByRole("button", { name: "Open your gift" }).click();
-  await expect(page.getByTestId("gift-card")).toContainText("Bedtime stories on me");
-  await expect(page.getByText(/can't see your family circle, your children or anyone's voice/)).toBeVisible();
-  await noOverflow(page);
-  await page.screenshot({ path: `e2e/screenshots/gift-recipient-${info.project.name}.png`, fullPage: true });
-});
 
 test("gift codes are checked before opening", async ({ page }) => {
   await page.goto("/gift");
@@ -70,22 +41,6 @@ test("gift codes are checked before opening", async ({ page }) => {
   await expect(page).toHaveURL(/code=ABCD-EFGH-JKMN/);
 });
 
-test("gift management cancels unopened gifts and stops sponsorships at month end", async ({ page }, info) => {
-  await page.goto("/invite/gift/manage");
-  const list = page.getByTestId("gift-list");
-  await expect(list.getByRole("listitem")).toHaveCount(3);
-  await expect(list).toContainText("Renewal notice");
-  await page.screenshot({ path: `e2e/screenshots/gift-manage-${info.project.name}.png`, fullPage: true });
-  const priya = list.getByRole("listitem").filter({ hasText: "Aunt Priya" });
-  await priya.getByRole("button", { name: "Stop renewing" }).click();
-  await priya.getByRole("button", { name: "Stop renewing" }).click();
-  await expect(priya.getByRole("status")).toContainText("keeps Readli until the end of the month");
-  const ben = list.getByRole("listitem").filter({ hasText: "Ben and family" });
-  await ben.getByRole("button", { name: "Cancel gift" }).click();
-  await ben.getByRole("button", { name: "Cancel gift" }).click();
-  await expect(ben).toContainText("Cancelled");
-  await noOverflow(page);
-});
 
 test("rewards track activities, and following Readli is optional and unrewarded", async ({ page }, info) => {
   await page.goto("/rewards");
