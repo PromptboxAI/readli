@@ -15,6 +15,12 @@ describe("sponsorship Stripe events", () => {
     expect(sponsorshipChange(paid)).toEqual({ kind: "paid", sponsorshipId: "sp-1", customerRef: "cus_1", paymentRef: "pi_1" });
   });
 
+  it("a monthly gift's subscription checkout pays through its invoice", () => {
+    const paid = ev("checkout.session.completed", { mode: "subscription", payment_status: "paid", payment_intent: null, invoice: "in_1", subscription: "sub_1", customer: "cus_1", metadata: { ...meta, item: "sponsorship:monthly" } });
+    expect(billingChange(paid)).toEqual({ kind: "ignore", reason: "sponsorship" });
+    expect(sponsorshipChange(paid)).toEqual({ kind: "paid", sponsorshipId: "sp-1", customerRef: "cus_1", paymentRef: null, subscriptionRef: "sub_1", invoiceRef: "in_1" });
+  });
+
   it("waits for an unpaid checkout", () => {
     expect(sponsorshipChange(ev("checkout.session.completed", { payment_status: "unpaid", payment_intent: "pi_1", metadata: meta })).kind).toBe("ignore");
   });
