@@ -90,7 +90,7 @@ export default async function VoiceHomePage({ searchParams }: { searchParams: Pr
           <h2 id="gift-h" className="font-display text-2xl font-semibold">
             Give Readli as a gift
           </h2>
-          <p>Cover Readli Family for up to two of your children&apos;s families. They add their kids and choose who reads; you pay for the plan.</p>
+          <p>Cover Readli Family for up to two families you love. They add their kids and choose who reads; you pay for the plan.</p>
           <Link href="/gift/family" className={buttonSecondary}>
             Give a gift
           </Link>
