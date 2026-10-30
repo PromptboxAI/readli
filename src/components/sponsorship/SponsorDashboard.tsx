@@ -25,10 +25,10 @@ async function post(path: string, body: unknown): Promise<{ ok: boolean; json: R
 }
 
 function summary(g: GiftView): string {
-  const what = g.plan === "annual" ? `a whole year, ${dollars(g.priceCents)} paid ${day(g.paidAt)}` : `monthly, ${dollars(g.priceCents)} a month`;
+  const what = g.plan === "annual" ? `A whole year, ${dollars(g.priceCents)} paid ${day(g.paidAt)}` : `Monthly, ${dollars(g.priceCents)} a month`;
   const covers = g.status === "scheduled" ? `arrives ${day(g.deliverAt)}` : g.startsAt && g.paidThrough ? `covers ${day(g.startsAt)} to ${lastDay(g.endsAt ?? g.paidThrough)}` : "";
   const renew = g.plan === "annual" ? "no automatic renewal" : g.nextChargeAt ? `next charge ${day(g.nextChargeAt)}` : g.endsAt ? `ends ${lastDay(g.endsAt)}` : "";
-  return ["Readli Family for your families", what, covers, renew].filter(Boolean).join(" · ");
+  return [what, covers, renew].filter(Boolean).join(" · ");
 }
 
 /** The sponsor's gift page: two private family cards, the credit split, and confirmed changes. */
@@ -52,7 +52,7 @@ export function SponsorDashboard({ gift }: { gift: GiftView }) {
     <section className="flex flex-col gap-6" aria-labelledby={`gift-${gift.id}`} data-testid="sponsor-gift">
       <header className="flex flex-col gap-1">
         <h2 id={`gift-${gift.id}`} className="font-display text-3xl font-semibold">
-          Your gift to the family
+          Your Readli Family gift
         </h2>
         <p>{summary(gift)}</p>
         {gift.status === "past_due" && (
@@ -82,13 +82,7 @@ export function SponsorDashboard({ gift }: { gift: GiftView }) {
 
       {!ended && live.length > 0 && <CreditSplit gift={gift} places={live} onSave={(shares) => act(`/api/sponsorships/${gift.id}/credits`, { shares })} />}
 
-      <section className="rounded-3xl bg-ivory p-5 text-sm" aria-label="What you can see">
-        <p className="font-semibold">What you can see</p>
-        <p>
-          Whether each family has joined, whether its parents have approved your voice, and how many credits it used. Their children, books, listening and other storytellers stay private to each
-          family.
-        </p>
-      </section>
+      <p className="text-sm text-muted">You see whether each family has joined and how many credits it uses. Their children, books and listening stay private to them.</p>
 
       {gift.plan === "annual" && gift.status === "active" && gift.paidThrough && (
         <p className="text-sm">Your year ends {lastDay(gift.paidThrough)}. We&apos;ll ask you 30 days before whether to give another year. Nothing renews without you.</p>
@@ -143,7 +137,13 @@ function FamilyCard({ place, gift, onRemove, onUndo }: { place: PlaceView; gift:
                 : "Sent, not opened yet"}
         </dd>
         <dt className="text-muted">Your voice</dt>
-        <dd>{place.voice === "approved" ? "Approved by the parents" : place.voice === "waiting" ? "Shared, waiting for the parents" : "Not shared"}</dd>
+        <dd>{place.voice === "approved"
+            ? "Approved by the parents"
+            : place.voice === "waiting"
+              ? "Shared, waiting for the parents"
+              : place.voice === "offered"
+                ? "Shared once they join"
+                : "Not shared"}</dd>
         <dt className="text-muted">Story credits this month</dt>
         <dd>
           {place.usedThisMonth.toLocaleString("en-US")} of {place.creditShare} used
