@@ -24,6 +24,6 @@ describe("family invitations", () => {
   it("says the voice stays theirs", () => {
     const msg = inviteMessage({ from: "Sara", to: "Grandpa Lou", relationship: "Grandpa" });
     expect(msg).toContain("Hi Grandpa Lou!");
-    expect(msg).toContain("private until you choose to share it");
+    expect(msg).toContain("the kids will love it");
   });
 });

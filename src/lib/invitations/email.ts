@@ -201,20 +201,17 @@ export function connectedEmail(input: ConnectedEmailInput): Omit<OutgoingEmail, 
   const lines = [
     `Hi ${input.contributorName},`,
     "",
-    `${input.familyName} connected your Readli voice. Their parents will choose which of their children hear you, and they can't change your voice or use it anywhere else.`,
+    `Good news: ${input.familyName} connected your Readli voice, so their kids can hear stories read by you.`,
     "",
-    `See every family using your voice, or stop sharing with any of them, on My voice: ${input.manageUrl}`,
-    "",
-    "If you stop sharing, their children stop hearing you right away.",
+    `See the families who hear you read: ${input.manageUrl}`,
   ];
   const html = `<!doctype html><html><body style="margin:0;background:#fdf8f0;font-family:Arial,Helvetica,sans-serif;color:#2a2340">
 <div style="max-width:560px;margin:0 auto;padding:24px">
 <p style="font-size:22px;font-weight:700;margin:0 0 16px">Readli</p>
 <div style="background:#ffffff;border-radius:20px;padding:24px">
 <p style="margin:0 0 12px">Hi ${esc(input.contributorName)},</p>
-<p style="margin:0"><strong>${esc(input.familyName)}</strong> connected your Readli voice. Their parents will choose which of their children hear you, and they can't change your voice or use it anywhere else.</p>
-<p style="margin:24px 0;text-align:center"><a href="${esc(input.manageUrl)}" style="display:inline-block;background:#ff7a59;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 24px;border-radius:999px">Manage who uses my voice</a></p>
-<p style="margin:0;font-size:14px">If you stop sharing, their children stop hearing you right away.</p>
+<p style="margin:0">Good news: <strong>${esc(input.familyName)}</strong> connected your Readli voice, so their kids can hear stories read by you.</p>
+<p style="margin:24px 0 0;text-align:center"><a href="${esc(input.manageUrl)}" style="display:inline-block;background:#ff7a59;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 24px;border-radius:999px">See my families</a></p>
 </div></div></body></html>`;
   return { subject: `${input.familyName} connected your Readli voice`, html, text: lines.join("\n"), headers: {} };
 }
@@ -252,7 +249,7 @@ export function familyInviteEmail(input: FamilyInviteEmailInput): Omit<OutgoingE
     : `${who} would love you to read stories to the kids in ${family}. On Readli, you record your voice once, and the children your family's parents choose can hear you read classic books.`;
   const terms = input.coParent
     ? `It's free for you: ${who} looks after the family's plan and billing. Recording your own voice for the kids is optional. The link works once, for ${input.linkDays} days.`
-    : `It's free for you, with no card and no subscription. Your voice stays yours: it's shared with ${family} only after you agree, and you can stop sharing at any time. The link works once, for ${input.linkDays} days.`;
+    : `It's free for you and takes about three minutes. This link is just for you and works for ${input.linkDays} days.`;
   const lines = [
     hello,
     "",

@@ -110,12 +110,12 @@ export function acceptInvite(invite: FamilyInvite, now: Date) {
   };
 }
 
-/** The message that goes with the link. Plain, warm and clear that nothing is shared yet. */
+/** The message that goes with the link: plain and warm. */
 export function inviteMessage({ from, to, relationship }: { from: string; to: string; relationship: string }): string {
   const greeting = to.trim() || relationship;
   return [
     `Hi ${greeting}! ${from.trim() || "Your family"} would love you to join our family circle on Readli.`,
     "You can record your voice reading a short story, and the kids could hear you read their favourite books.",
-    "Your voice stays yours: it's private until you choose to share it, and you can change your mind any time.",
+    "It only takes a few minutes, and the kids will love it!",
   ].join(" ");
 }

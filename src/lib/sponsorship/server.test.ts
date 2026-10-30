@@ -259,7 +259,7 @@ describe("families and credits", () => {
     expect(synced).toContain(id);
     const notice = tables.email_outbox!.find((e) => e.email_id === "S5")!;
     expect(notice).toMatchObject({ recipient_user_id: "sarah", household_id: "home-m" });
-    expect(notice.body).toContain("Your family keeps Readli until Jan 24, 2027.");
+    expect(notice.body).toContain("wraps up on Jan 24, 2027.");
 
     await undoRemoval(ctx, "ruth", id, 1);
     expect(tables.sponsorship_seats!.find((s) => s.seat === 1)).toMatchObject({ status: "active", access_until: null });

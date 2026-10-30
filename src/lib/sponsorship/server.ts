@@ -267,10 +267,10 @@ export async function applySponsorshipChange(ctx: SponsorshipContext, change: Sp
     await track(ctx.db, "sponsor_renewal_failed", { sponsorship_id: sp.id });
     await notifySponsor(ctx, sp, "S3", `S3:${sp.id}:${now.toISOString().slice(0, 10)}`, {
       subject: "Your Readli gift payment didn't go through",
-      title: "Please update your card",
+      title: "A quick card update keeps the stories going",
       paragraphs: [
-        "We couldn't take this month's payment for your Readli Family gift. Your families can still listen while we try again over the next two weeks.",
-        "If the payment still can't be taken, the gift ends and each family is told. Updating your card keeps everything as it is.",
+        "This month's payment for your Readli Family gift didn't go through. Don't worry, your families can keep listening while we try again over the next two weeks.",
+        "Updating your card keeps everything just as it is.",
       ],
       cta: "Update my card",
     });
@@ -389,11 +389,11 @@ async function deliver(ctx: SponsorshipContext, sp: Row): Promise<boolean> {
   for (const seat of seats) await sendInvitation(ctx, sp, seat);
   await track(ctx.db, "sponsor_gift_delivered", { sponsorship_id: sp.id, plan: sp.plan, families: seats.length, late_minutes: Math.round((now.getTime() - deliverAt.getTime()) / 60_000) });
   await notifySponsor(ctx, sp, "S2", `S2:${sp.id}`, {
-    subject: "Your Readli gift has arrived",
-    title: "Your families have their invitations",
+    subject: "Your Readli gift has been delivered",
+    title: "Your gift is on its way to bedtime",
     paragraphs: [
-      `We've sent ${seats.map((s) => s.recipient_name as string).join(" and ")} an invitation to your Readli Family gift.`,
-      "Each family adds their own children and decides who each child hears. You'll see when they join, never their children's details or what they listen to.",
+      `${seats.map((s) => s.recipient_name as string).join(" and ")} just received your Readli Family gift.`,
+      "We'll let you know as soon as they join. Thank you for giving the gift of stories!",
     ],
     cta: "See your gift",
   });
@@ -422,11 +422,14 @@ async function sendInvitation(ctx: SponsorshipContext, sp: Row, seat: Row): Prom
     message: readliEmail({
       subject: `${from} gave your family Readli`,
       name: String(seat.recipient_name ?? ""),
-      title: `${from} gave your family Readli`,
+      title: `A gift from ${from}!`,
       paragraphs: [
-        `You add your children and decide who each one hears, ${from} included. ${from} pays for the plan and doesn't see your children's profiles.`,
         ...(sp.message ? [`${from} wrote: "${sp.message as string}"`] : []),
-        `This invitation is open until ${shortDate(new Date(now.getTime() + SPONSORED.invitationDays * 86_400_000))}.`,
+        seat.share_voice
+          ? `${from} gave your family Readli: bedtime stories read aloud from a library of classic children's books, including stories in ${from}'s own voice.`
+          : `${from} gave your family Readli: bedtime stories read aloud from a library of classic children's books.`,
+        "Open your gift, add your kids, and pick tonight's story.",
+        `Your gift is waiting for you until ${shortDate(new Date(now.getTime() + SPONSORED.invitationDays * 86_400_000))}.`,
       ],
       cta: { label: "Open your gift", url: `${ctx.base}/gift/join/${token}` },
       reason: `You're getting this because ${from} gave your family a Readli gift.`,
@@ -572,8 +575,8 @@ async function yearEndNotice(ctx: SponsorshipContext, sp: Row, now: Date): Promi
     subject: "Your Readli Family gift year is ending",
     title: `Your gift ends on ${shortDate(new Date(end.getTime() - DAY_MS))}`,
     paragraphs: [
-      "Your year of Readli for your families doesn't renew on its own, and nothing will be charged.",
-      "If you'd like to keep it going, you can give another year or switch to monthly. Either is a new, separate purchase.",
+      "Thank you for a year of bedtime stories! Your gift doesn't renew on its own, so nothing will be charged.",
+      "Want to keep the stories going? You can give another year or switch to monthly.",
     ],
     cta: "Keep the gift going",
   });
@@ -594,9 +597,8 @@ async function endingNotices(ctx: SponsorshipContext, sp: Row, seats: Row[], now
         subject: `${from}'s Readli gift ends on ${last}`,
         title: `${from}'s gift ends on ${last}`,
         paragraphs: [
-          `Listening pauses on ${shortDate(end)} unless you choose a plan. Your children's profiles, approvals and progress are kept.`,
-          `Stories in ${from}'s voice stay with your family as long as ${from} keeps sharing their voice with you.`,
-          `Continue with your own plan: $19.99 a month, starting ${shortDate(end)}, so there's no gap and no double charge.`,
+          `We hope your family has loved ${from}'s gift! To keep the stories going, continue with your own plan for $19.99 a month from ${shortDate(end)}, with no gap in between.`,
+          "Everything you've set up, from your kids' bookshelves to their progress, stays just as it is.",
         ],
         cta: "Choose a plan",
         path: "/family/settings/plan",
@@ -686,9 +688,8 @@ export async function removeFamily(ctx: SponsorshipContext, sponsorId: string, i
       subject: `${from}'s Readli gift for your family ends on ${shortDate(new Date(until.getTime() - 86_400_000))}`,
       title: `Your gift ends on ${shortDate(new Date(until.getTime() - 86_400_000))}`,
       paragraphs: [
-        `${from} has changed who their Readli gift covers. Your family keeps Readli until ${shortDate(new Date(until.getTime() - 86_400_000))}.`,
-        "After that, listening pauses unless you choose your own plan. Your children's profiles, approvals and progress are kept.",
-        `Stories in ${from}'s voice stay with your family as long as ${from} keeps sharing their voice with you.`,
+        `${from}'s Readli gift for your family wraps up on ${shortDate(new Date(until.getTime() - 86_400_000))}. Until then, keep listening as usual.`,
+        "To keep the stories going after that, choose your own plan. Everything you've set up, from your kids' bookshelves to their progress, stays just as it is.",
       ],
       cta: "Choose a plan",
       path: "/family/settings/plan",
