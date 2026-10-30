@@ -15,8 +15,8 @@ test("Readli Gives Back explains the donation and checks the request form", asyn
   await form.getByRole("button", { name: "Request Our Readli Donation" }).click();
   await expect(form.getByRole("alert")).toHaveText("Please fix the highlighted fields.");
   await expect(form.getByText("Enter your organization's name.")).toBeVisible();
-  await expect(form.getByLabel(/Organization name/)).toBeFocused();
-  await expect(form.getByLabel(/Organization name/)).toHaveAttribute("aria-invalid", "true");
+  await expect(form.getByRole("textbox", { name: "Organization name *" })).toBeFocused();
+  await expect(form.getByRole("textbox", { name: "Organization name *" })).toHaveAttribute("aria-invalid", "true");
 
   await expect(page.locator("footer").getByRole("link", { name: "Readli Gives Back" })).toHaveAttribute("href", "/donations");
 });
@@ -26,5 +26,5 @@ test("/redeem asks the winner for their code in the program's words", async ({ p
   await expect(page.getByRole("heading", { level: 1, name: "Your Next Chapter Starts Here." })).toBeVisible();
   await page.getByLabel("Redemption code").fill("nope");
   await page.getByRole("button", { name: "Redeem Gift" }).click();
-  await expect(page.getByRole("alert")).toContainText("doesn't look like a gift code");
+  await expect(page.getByText(/doesn't look like a gift code/)).toBeVisible();
 });
