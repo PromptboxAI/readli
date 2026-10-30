@@ -6,7 +6,7 @@ import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { CREDIT_EXAMPLE_SLUGS, bookCredits, monthsOfCredits, storiesPerMonth } from "@/lib/content/credits-explained";
 import { annualSavingsPercent, monthlyTotalCents, pricing, type Pricing } from "@/lib/content/pricing";
-import { GIFT_PLANS } from "@/lib/gifting/plans";
+import { SPONSORED } from "@/lib/sponsorship/rules";
 import { bookPath } from "@/lib/library/paths";
 import { publicLibrary } from "@/lib/library/public";
 import { formatPrice as dollars } from "@/lib/family/plan";
@@ -74,8 +74,11 @@ const NARRATOR_EXAMPLES = [
   { who: "Mom + Dad + Grandma + Grandpa", count: 4 },
 ];
 
-/** Prepaid gifts only: the recipient never enters a card, and the gift never turns into a subscription. */
-const GIFTS = GIFT_PLANS.filter((g) => g.kind === "prepaid" && g.priceCents !== null);
+/** Readli's gift, Sponsored Family: one plan shared by up to two families, paid by the giver. */
+const GIFTS = [
+  { id: "annual", name: "A whole year", price: dollars(SPONSORED.annualCents), summary: "Paid once. It never renews on its own." },
+  { id: "monthly", name: "Month to month", price: `${dollars(SPONSORED.monthlyCents)} a month`, summary: "You cover it each month until you stop." },
+];
 
 export default async function PricingPage() {
   const P = await pricing();
@@ -315,27 +318,24 @@ export default async function PricingPage() {
                 Give Readli to a family
               </h2>
               <p className="text-lg">
-                Grandparents often give the stories as well as the voice. Pay once, and the family gets Readli Family with nothing to set up
-                and no card to enter.
+                Grandparents often give the stories as well as the voice. Your gift covers Readli Family for up to {SPONSORED.households} of
+                your children&apos;s families, and they never enter a card.
               </p>
             </div>
-            <ul className="grid gap-4 sm:grid-cols-3">
+            <ul className="mx-auto grid w-full max-w-3xl gap-4 sm:grid-cols-2">
               {GIFTS.map((g) => (
                 <li key={g.id} className="flex flex-col gap-1 rounded-[var(--radius-panel)] bg-surface p-6 text-center">
                   <span className="font-display text-xl font-semibold">{g.name}</span>
-                  <span className="font-display text-3xl font-semibold">{dollars(g.priceCents!)}</span>
+                  <span className="font-display text-3xl font-semibold">{g.price}</span>
                   <span className="text-sm text-muted">{g.summary}</span>
                 </li>
               ))}
             </ul>
             <div className="flex flex-col items-center gap-2 text-center">
-              <Link href="/invite/gift" className={buttonPrimary}>
+              <Link href="/gift/family" className={buttonPrimary}>
                 Give a gift
               </Link>
-              <p className="text-sm text-muted">
-                A gift never turns into a subscription. When it ends, the family simply chooses whether to keep going. Gift checkout opens
-                soon, and nothing is charged yet.
-              </p>
+              <p className="text-sm text-muted">Families are never charged for your gift. When it ends, each family chooses whether to keep going.</p>
             </div>
           </div>
         </section>

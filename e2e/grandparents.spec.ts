@@ -38,8 +38,8 @@ test("pricing explains credits in stories and offers a gift", async ({ page }) =
   await expect(examples).toContainText("Heidi");
   await expect(examples).toContainText("a chapter at a time");
   const gift = page.getByTestId("pricing-gift");
-  for (const price of ["$19.99", "$59.97", "$179.99"]) await expect(gift).toContainText(price);
-  await expect(gift.getByRole("link", { name: "Give a gift" })).toHaveAttribute("href", "/invite/gift");
+  for (const price of ["$19.99 a month", "$179.99"]) await expect(gift).toContainText(price);
+  await expect(gift.getByRole("link", { name: "Give a gift" })).toHaveAttribute("href", "/gift/family");
 });
 
 test("book pages show what preparing the book costs", async ({ page }) => {
