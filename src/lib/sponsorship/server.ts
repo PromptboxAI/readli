@@ -12,7 +12,6 @@ import {
   accessEnd,
   canOfferPlace,
   cancelOutcome,
-  chargeCopy,
   chargeSchedule,
   creditSplit,
   giftMonth,
@@ -170,7 +169,7 @@ export async function startGift(ctx: SponsorshipContext, sponsor: { id: string; 
   const { data: earlier } = await ctx.db.from("sponsorships").select("provider_customer_ref").eq("sponsor_id", sponsor.id).not("provider_customer_ref", "is", null).limit(1);
   const customer = (earlier as Row[] | null)?.[0]?.provider_customer_ref as string | undefined;
   const metadata = { ...metadataOf(sp), item: `sponsorship:${gift.plan}`, deliver_at: schedule.accessStarts.toISOString(), paid_through: schedule.paidThrough.toISOString() };
-  const copy = chargeCopy(gift.plan, gift.deliverAt);
+  // Managed Payments rejects custom_text, so the charge copy lives on the gift page, not on Stripe's.
   const back = {
     client_reference_id: id,
     customer,
@@ -187,7 +186,6 @@ export async function startGift(ctx: SponsorshipContext, sponsor: { id: string; 
           line_items: [{ price: await ctx.stripe.priceFor(sponsorPrice("year")), quantity: 1 }],
           customer_creation: customer ? undefined : "always",
           payment_intent_data: { metadata },
-          custom_text: { submit: { message: copy.summary } },
         })
       : await ctx.stripe.createCheckoutSession({
           ...back,
@@ -197,7 +195,6 @@ export async function startGift(ctx: SponsorshipContext, sponsor: { id: string; 
             { price: await ctx.stripe.priceFor(sponsorPrice("first_month")), quantity: 1 },
           ],
           subscription_data: { metadata: metadataOf(sp), trial_end: Math.floor(schedule.nextChargeAt!.getTime() / 1000) },
-          custom_text: { submit: { message: `${copy.summary}. ${copy.renewal}` } },
         });
   await track(ctx.db, "sponsor_checkout_started", {
     sponsorship_id: id,

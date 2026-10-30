@@ -75,7 +75,8 @@ describe("buying a gift", () => {
     expect(checkout.subscription_data).toMatchObject({ trial_end: Date.parse("2027-01-25T12:00:00.000Z") / 1000, metadata: { readli_kind: "sponsorship" } });
     expect(checkout.payment_intent_data).toBeUndefined();
     expect(checkout.customer_creation).toBeUndefined();
-    expect((checkout.custom_text as { submit: { message: string } }).submit.message).toContain("Then $19.99 on Jan 25, 2027 and every month after, until you cancel.");
+    // Managed Payments rejects custom_text.
+    expect(checkout.custom_text).toBeUndefined();
     expect(calls).toContainEqual(["price", "readli_sponsored_family_first_month_1999"]);
     expect(tables.sponsorships![0]).toMatchObject({ status: "awaiting_payment", plan: "monthly", price_cents: 1999, deliver_at: "2026-12-25T12:00:00.000Z" });
     expect(tables.sponsorship_seats!.map((s) => [s.seat, s.share_voice, s.credit_share])).toEqual([
@@ -90,9 +91,9 @@ describe("buying a gift", () => {
   it("the year saves no card, so it can't renew", async () => {
     const { ctx, calls } = setup();
     await startGift(ctx, { id: "ruth", email: null }, give({ plan: "annual" }));
-    const checkout = calls.find((c) => c[0] === "checkout")![1] as { payment_intent_data: Row; custom_text: { submit: { message: string } } };
+    const checkout = calls.find((c) => c[0] === "checkout")![1] as { payment_intent_data: Row; custom_text?: unknown };
     expect(checkout.payment_intent_data.setup_future_usage).toBeUndefined();
-    expect(checkout.custom_text.submit.message).toContain("No automatic renewal");
+    expect(checkout.custom_text).toBeUndefined();
   });
 
   it("monthly: once paid, waits for delivery with its first charge a month after it", async () => {
