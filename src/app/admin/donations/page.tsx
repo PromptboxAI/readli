@@ -124,12 +124,12 @@ export default async function DonationsAdminPage({ searchParams }: { searchParam
                         </td>
                         <td className="px-3 py-2">
                           {r.orgName}
-                          <span className="block text-muted">{ORG_TYPES[r.orgType as OrgType] ?? r.orgType}</span>
+                          {r.orgType !== "other" && <span className="block text-muted">{ORG_TYPES[r.orgType as OrgType] ?? r.orgType}</span>}
                         </td>
                         <td className="px-3 py-2">{r.state ?? "—"}</td>
                         <td className="px-3 py-2">
                           {r.eventName}
-                          <span className="block text-muted">{EVENT_TYPES[r.eventType as EventType] ?? r.eventType}</span>
+                          {r.eventType !== "other" && <span className="block text-muted">{EVENT_TYPES[r.eventType as EventType] ?? r.eventType}</span>}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">{shortDate(r.eventDate)}</td>
                         <td className="px-3 py-2">{r.contactEmail}</td>

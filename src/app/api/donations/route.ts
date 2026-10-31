@@ -43,9 +43,10 @@ export async function POST(req: Request) {
     certificateDelivery: text(form, "certificateDelivery"),
     certificateOrgName: text(form, "certificateOrgName"),
     notes: text(form, "notes"),
-    confirmAuthorized: yes("confirmAuthorized"),
-    confirmCharitable: yes("confirmCharitable"),
-    agreeTerms: yes("agreeTerms"),
+    // The form has one checkbox that covers all three.
+    confirmAuthorized: yes("confirm") || yes("confirmAuthorized"),
+    confirmCharitable: yes("confirm") || yes("confirmCharitable"),
+    agreeTerms: yes("confirm") || yes("agreeTerms"),
   };
   const checked = validateDonation(input);
   if (!checked.ok) return fail(400, "invalid", "Please fix the highlighted fields.", { fields: checked.errors });
