@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { buttonPrimary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow } from "@/components/invites/AdultPage";
 import { GiftBoxArt } from "@/components/invites/illustrations";
 import { GiveFamilyForm } from "@/components/sponsorship/GiveFamilyForm";
@@ -59,8 +59,11 @@ export default async function GiveFamilyPage({ searchParams }: { searchParams: P
   return (
     <AdultPage wide>
       {q.checkout === "success" && (
-        <p role="status" className="rounded-2xl bg-mint/40 px-4 py-3">
-          Thank you! Your gift is paid. It shows here as soon as the payment goes through, usually within a minute.
+        <p role="status" className="flex items-center gap-3 rounded-2xl bg-mint/40 px-4 py-3">
+          <GiftBoxArt open className="w-12 shrink-0" />
+          <span>
+            <span className="font-display text-lg font-semibold">Thank you, your gift is on its way!</span> It shows here as soon as the payment goes through, usually within a minute.
+          </span>
         </p>
       )}
       {q.checkout === "canceled" && <p role="status" className="rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/10">Checkout was canceled. Nothing was charged.</p>}
@@ -79,9 +82,16 @@ export default async function GiveFamilyPage({ searchParams }: { searchParams: P
             <SponsorDashboard key={g.id} gift={g} />
           ))}
           {selling && (
-            <Link href="/gift/family?new=1" className={`${buttonSecondary} self-start`}>
-              Give another gift
-            </Link>
+            <aside className="flex flex-col items-center gap-5 rounded-[32px] bg-lavender/30 px-6 py-8 text-center sm:flex-row sm:text-left">
+              <GiftBoxArt className="w-24 shrink-0" />
+              <div className="flex flex-1 flex-col gap-1">
+                <p className="font-display text-2xl font-semibold">Know another family who&apos;d love bedtime stories?</p>
+                <p className="text-lg text-ink/80">Another gift covers two more families, with their own stories every month.</p>
+              </div>
+              <Link href="/gift/family?new=1" className={`${buttonPrimary} shrink-0`}>
+                Give another gift
+              </Link>
+            </aside>
           )}
         </>
       ) : (
