@@ -5,7 +5,7 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://readli.ai"
 
 export const SITE_NAME = "Readli";
 export const SITE_TAGLINE = "Every Book. Every Voice.";
-/** Kevin's approved short description (2026-10-27): page descriptions, share cards and the footer. */
+/** Kevin's approved short description (2026-10-27): page descriptions and share cards. */
 export const SITE_DESCRIPTION = "Readli reads classic children's books aloud in the voices of the people your kids love.";
 /** Kevin's approved long description (2026-10-27): the company page, structured data and llms.txt. */
 export const SITE_LONG_DESCRIPTION =
