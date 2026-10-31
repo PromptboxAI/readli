@@ -15,8 +15,10 @@ test("Readli Gives Back explains the donation and checks the request form", asyn
   await form.getByRole("button", { name: "Request Our Readli Donation" }).click();
   await expect(form.getByRole("alert")).toHaveText("Please fix the highlighted fields.");
   await expect(form.getByText("Enter your organization's name.")).toBeVisible();
-  await expect(form.getByRole("textbox", { name: "Organization name *" })).toBeFocused();
+  await expect(form.getByText("Tell us a little about your fundraiser and who it helps.")).toBeVisible();
+  await expect(form.getByRole("textbox", { name: "Your name *" })).toBeFocused();
   await expect(form.getByRole("textbox", { name: "Organization name *" })).toHaveAttribute("aria-invalid", "true");
+  await expect(form.getByRole("combobox")).toHaveCount(0);
 
   await expect(page.locator("footer").getByRole("link", { name: "Readli Gives Back" })).toHaveAttribute("href", "/donations");
 });

@@ -147,34 +147,28 @@ export function normalizeUrl(input: string | undefined): string | null {
   }
 }
 
+/** The first web address written in a block of text, so a link in the description still gets checked. */
+function firstUrl(text: string | null): string | null {
+  const withoutEmails = text?.replace(/\S+@\S+/g, " ");
+  const m = withoutEmails?.match(/\b(?:https?:\/\/)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s)]*)?/i);
+  return m ? normalizeUrl(m[0].replace(/[.,;:!?]+$/, "")) : null;
+}
+
 const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 
 /** Checks the request form. Every message is written for the person filling it in. */
 export function validateDonation(form: DonationForm, at = new Date()): { ok: true; value: ValidDonation } | { ok: false; errors: FieldErrors } {
   const errors: FieldErrors = {};
-  const orgName = clean(form.orgName, 160);
-  if (!orgName) errors.orgName = "Enter your organization's name.";
-  if (!(form.orgType in ORG_TYPES)) errors.orgType = "Choose the kind of organization.";
-  const orgWebsite = normalizeUrl(form.orgWebsite);
-  const orgProof = cleanBlock(form.orgProof, 600);
-  if (form.orgWebsite.trim() && !orgWebsite) errors.orgWebsite = "That web address doesn't look right.";
-  else if (!orgWebsite && !orgProof) errors.orgWebsite = "Add your organization's website or official page, or tell us how we can confirm your organization.";
-  const orgEin = clean(form.orgEin, 20);
-  if (orgEin && !/^\d{2}-?\d{7}$/.test(orgEin)) errors.orgEin = "An EIN is 9 digits, like 12-3456789. You can leave it blank.";
-  const orgState = form.orgState ? form.orgState.toUpperCase() : null;
-  if (!orgState || !US_STATES[orgState]) errors.orgState = "Choose your state.";
-  const orgZip = clean(form.orgZip, 10);
-  if (orgZip && !/^\d{5}(-\d{4})?$/.test(orgZip)) errors.orgZip = "Enter a 5-digit ZIP code.";
+  // The public form asks for a few short facts and one free-text description. The other fields are
+  // optional: blank ones fall back to a sensible default, and the reviewer reads the description.
   const contactName = clean(form.contactName, 120);
   if (!contactName) errors.contactName = "Enter your name.";
   const contactEmail = clean(form.contactEmail, 254)?.toLowerCase() ?? null;
   if (!contactEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) errors.contactEmail = "Enter an email address we can reach you at.";
-  const contactPhone = clean(form.contactPhone, 40);
-  if (contactPhone && contactPhone.replace(/\D/g, "").length < 10) errors.contactPhone = "Enter a 10-digit phone number, or leave it blank.";
-
+  const orgName = clean(form.orgName, 160);
+  if (!orgName) errors.orgName = "Enter your organization's name.";
   const eventName = clean(form.eventName, 160);
   if (!eventName) errors.eventName = "Enter the name of your event.";
-  if (!(form.eventType in EVENT_TYPES)) errors.eventType = "Choose the kind of event.";
   let eventDate: string | null = null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(form.eventDate) || Number.isNaN(day(form.eventDate).getTime())) errors.eventDate = "Enter the date of your event.";
   else {
@@ -184,8 +178,28 @@ export function validateDonation(form: DonationForm, at = new Date()): { ok: tru
     else if (diff > EVENT_MAX_DAYS_AHEAD) errors.eventDate = "Please apply within a year of your event.";
     else eventDate = form.eventDate;
   }
-  const beneficiary = clean(form.beneficiary, 200);
-  if (!beneficiary) errors.beneficiary = "Tell us who or what the fundraiser benefits.";
+  const notes = cleanBlock(form.notes, 2000);
+  if (!notes) errors.notes = "Tell us a little about your fundraiser and who it helps.";
+  if (!form.confirmAuthorized || !form.confirmCharitable || !form.agreeTerms) {
+    errors.confirmAuthorized = "Please confirm you can request donations for this organization and agree to the program terms.";
+  }
+
+  const orgType = form.orgType ? form.orgType : "other";
+  if (!(orgType in ORG_TYPES)) errors.orgType = "Choose the kind of organization.";
+  const eventType = form.eventType ? form.eventType : "other";
+  if (!(eventType in EVENT_TYPES)) errors.eventType = "Choose the kind of event.";
+  const orgWebsite = normalizeUrl(form.orgWebsite) ?? firstUrl(notes);
+  if (form.orgWebsite.trim() && !normalizeUrl(form.orgWebsite)) errors.orgWebsite = "That web address doesn't look right.";
+  const orgProof = cleanBlock(form.orgProof, 600);
+  const orgEin = clean(form.orgEin, 20);
+  if (orgEin && !/^\d{2}-?\d{7}$/.test(orgEin)) errors.orgEin = "An EIN is 9 digits, like 12-3456789. You can leave it blank.";
+  const orgState = form.orgState ? form.orgState.toUpperCase() : null;
+  if (orgState && !US_STATES[orgState]) errors.orgState = "Choose your state.";
+  const orgZip = clean(form.orgZip, 10);
+  if (orgZip && !/^\d{5}(-\d{4})?$/.test(orgZip)) errors.orgZip = "Enter a 5-digit ZIP code.";
+  const contactPhone = clean(form.contactPhone, 40);
+  if (contactPhone && contactPhone.replace(/\D/g, "").length < 10) errors.contactPhone = "Enter a 10-digit phone number, or leave it blank.";
+  const beneficiary = clean(form.beneficiary, 200) ?? orgName;
   const eventLocation = clean(form.eventLocation, 160);
   const eventUrl = normalizeUrl(form.eventUrl);
   if (form.eventUrl.trim() && !eventUrl) errors.eventUrl = "That web address doesn't look right.";
@@ -197,16 +211,12 @@ export function validateDonation(form: DonationForm, at = new Date()): { ok: tru
   const donationUse = form.donationUse ? (form.donationUse in DONATION_USES ? (form.donationUse as DonationUse) : null) : null;
   if (form.donationUse && !donationUse) errors.donationUse = "Choose how you'll use the donation.";
 
-  if (!form.confirmAuthorized) errors.confirmAuthorized = "Please confirm you're authorized to request donations for this organization.";
-  if (!form.confirmCharitable) errors.confirmCharitable = "Please confirm the donation is for a charitable or community fundraiser.";
-  if (!form.agreeTerms) errors.agreeTerms = "Please agree to the program terms and privacy policy.";
-
   if (Object.keys(errors).length) return { ok: false, errors };
   return {
     ok: true,
     value: {
       orgName: orgName!,
-      orgType: form.orgType as OrgType,
+      orgType: orgType as OrgType,
       orgWebsite,
       orgProof,
       orgEin,
@@ -219,17 +229,17 @@ export function validateDonation(form: DonationForm, at = new Date()): { ok: tru
       contactEmail: contactEmail!,
       contactPhone,
       eventName: eventName!,
-      eventType: form.eventType as EventType,
+      eventType: eventType as EventType,
       eventDate: eventDate!,
       beneficiary: beneficiary!,
       eventLocation,
-      eventOnline: form.eventOnline || form.eventType === "online",
+      eventOnline: form.eventOnline || eventType === "online",
       eventUrl,
       attendance,
       donationUse,
       certificateDelivery: form.certificateDelivery === "download" ? "download" : "email",
       certificateOrgName: clean(form.certificateOrgName, 120),
-      notes: cleanBlock(form.notes, 2000),
+      notes,
     },
   };
 }

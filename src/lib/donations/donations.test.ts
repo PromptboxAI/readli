@@ -33,7 +33,7 @@ const form = (over: Partial<DonationForm> = {}): DonationForm => ({
   donationUse: "tricky_tray",
   certificateDelivery: "email",
   certificateOrgName: "",
-  notes: "",
+  notes: "Our spring tricky tray raises money for the school library.",
   confirmAuthorized: true,
   confirmCharitable: true,
   agreeTerms: true,
@@ -52,16 +52,22 @@ describe("donation request form", () => {
     expect(v).toMatchObject({ orgState: "NJ", contactEmail: "dana@oakstreetpta.org", orgWebsite: "https://oakstreetpta.org/", attendance: 250, orgEin: null });
   });
 
-  it("lets a group without a website or EIN apply with other proof", () => {
-    expect(validateDonation(form({ orgWebsite: "", orgProof: "Letter from the principal attached" }), AT).ok).toBe(true);
-    const r = validateDonation(form({ orgWebsite: "", orgProof: "" }), AT);
-    expect(r.ok ? null : r.errors.orgWebsite).toMatch(/website/);
+  it("takes the short public form: a few facts and one description", () => {
+    const short = form({
+      orgType: "", orgWebsite: "", orgCity: "", orgState: "", orgZip: "", contactRole: "", eventType: "", beneficiary: "", eventLocation: "", attendance: "",
+      donationUse: "", notes: "Basket raffle for Oak Street PTA, see oakstreetpta.org/events. Proceeds go to the library.",
+    });
+    const r = validateDonation(short, AT);
+    if (!r.ok) throw new Error(JSON.stringify(r.errors));
+    expect(r.value).toMatchObject({ orgType: "other", eventType: "other", beneficiary: "Oak Street PTA", orgState: null, orgWebsite: "https://oakstreetpta.org/events" });
+    const bare = validateDonation(form({ orgWebsite: "", notes: "Email me at dana@oakstreetpta.org." }), AT);
+    expect(bare.ok && bare.value.orgWebsite).toBeNull();
   });
 
-  it("needs the acknowledgments, a US state and an upcoming event", () => {
-    const r = validateDonation(form({ confirmAuthorized: false, agreeTerms: false, orgState: "ON", eventDate: "2026-09-01" }), AT);
+  it("needs the description, the acknowledgment and an upcoming event", () => {
+    const r = validateDonation(form({ confirmAuthorized: false, notes: " ", orgState: "ON", eventDate: "2026-09-01" }), AT);
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(Object.keys(r.errors).sort()).toEqual(["agreeTerms", "confirmAuthorized", "eventDate", "orgState"]);
+    if (!r.ok) expect(Object.keys(r.errors).sort()).toEqual(["confirmAuthorized", "eventDate", "notes", "orgState"]);
     const far = validateDonation(form({ eventDate: "2028-01-01" }), AT);
     expect(far.ok ? null : far.errors.eventDate).toMatch(/within a year/);
   });

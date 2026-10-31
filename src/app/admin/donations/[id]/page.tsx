@@ -167,7 +167,7 @@ export default async function DonationRequestPage({ params, searchParams }: { pa
             Organization
           </h2>
           <Row label="Name">{r.orgName}</Row>
-          <Row label="Type">{ORG_TYPES[r.orgType as OrgType] ?? r.orgType}</Row>
+          <Row label="Type">{r.orgType === "other" ? null : (ORG_TYPES[r.orgType as OrgType] ?? r.orgType)}</Row>
           <Row label="Website">{r.orgWebsite ? ext(r.orgWebsite) : null}</Row>
           <Row label="Other proof">{r.orgProof}</Row>
           <Row label="EIN">{r.orgEin}</Row>
@@ -186,9 +186,9 @@ export default async function DonationRequestPage({ params, searchParams }: { pa
         <dl className="flex flex-col">
           <h2 className="mb-2 font-display text-xl font-semibold">Event</h2>
           <Row label="Event">{r.eventName}</Row>
-          <Row label="Type">{EVENT_TYPES[r.eventType as EventType] ?? r.eventType}</Row>
+          <Row label="Type">{r.eventType === "other" ? null : (EVENT_TYPES[r.eventType as EventType] ?? r.eventType)}</Row>
           <Row label="Date">{eventDateLabel(r.eventDate)}</Row>
-          <Row label="Benefits">{r.beneficiary}</Row>
+          <Row label="Benefits">{r.beneficiary === r.orgName ? null : r.beneficiary}</Row>
           <Row label="Location">{[r.eventLocation, r.eventOnline ? "Online" : null].filter(Boolean).join(" · ") || null}</Row>
           <Row label="Event page">{r.eventUrl ? ext(r.eventUrl) : null}</Row>
           <Row label="Attendance">{r.attendance?.toLocaleString("en-US") ?? null}</Row>
@@ -202,7 +202,7 @@ export default async function DonationRequestPage({ params, searchParams }: { pa
           </Row>
           <Row label="Certificate name">{r.certificateOrgName}</Row>
           <Row label="Delivery">{r.certificateDelivery === "download" ? "Download from request page" : "Email"}</Row>
-          <Row label="Notes">{r.notes ? <span className="whitespace-pre-line">{r.notes}</span> : null}</Row>
+          <Row label="About the fundraiser">{r.notes ? <span className="whitespace-pre-line">{r.notes}</span> : null}</Row>
         </dl>
       </section>
 
