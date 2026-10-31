@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { queueBedtimeThursdays } from "@/lib/email/bedtime";
+import { queueBillingEmails } from "@/lib/email/billing";
 import { enabledEmails } from "@/lib/email/outbox";
 import { emailSecret, deliverEmails } from "@/lib/email/send";
 import { queueInvitationReminders, recordReminderDeliveries, type SentReminder } from "@/lib/email/reminders";
@@ -31,6 +32,8 @@ export async function GET(req: Request) {
   } catch (err) {
     scheduled.errors.push(`I1/I2: ${err instanceof Error ? err.message : String(err)}`);
   }
+  const billing = enabled.size ? await queueBillingEmails(ctx) : { queued: 0, errors: [] };
+  scheduled.errors.push(...billing.errors);
   let bedtime = 0;
   try {
     bedtime = await queueBedtimeThursdays(ctx);
@@ -42,5 +45,5 @@ export async function GET(req: Request) {
   if (reminders.length) await deliverEmails(db, reminders.map((r) => r.outboxId));
   const report = await deliverEmails(db);
   await recordReminderDeliveries(db, reminders).catch((err) => console.error("record reminder delivery failed", err));
-  return NextResponse.json({ scheduled: { ...scheduled, reminders: reminders.length, bedtime }, sent: report ?? { skipped: "email off" } });
+  return NextResponse.json({ scheduled: { ...scheduled, reminders: reminders.length, bedtime, billing: billing.queued }, sent: report ?? { skipped: "email off" } });
 }
