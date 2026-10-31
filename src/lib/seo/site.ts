@@ -7,8 +7,6 @@ export const SITE_NAME = "Readli";
 export const SITE_TAGLINE = "Every Book. Every Voice.";
 /** Kevin's approved short description (2026-10-27): page descriptions and share cards. */
 export const SITE_DESCRIPTION = "Readli reads classic children's books aloud in the voices of the people your kids love.";
-/** The footer's one-line pitch. Shorter than SITE_DESCRIPTION, which stays the meta description and share text. */
-export const SITE_FOOTER_LINE = "Classic children's books, read aloud in the voices your kids love.";
 /** Kevin's approved long description (2026-10-27): the company page, structured data and llms.txt. */
 export const SITE_LONG_DESCRIPTION =
   "Readli is a family storytelling app. A parent, grandparent or other loved one records about a minute of their voice, and Readli reads classic storybooks aloud in that voice. Family voices are private: a child hears a storyteller only after both the storyteller and a parent approve. Readli Voice is free for anyone who records, and Readli Family is the paid plan for households.";

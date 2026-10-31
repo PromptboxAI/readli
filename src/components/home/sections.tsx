@@ -10,7 +10,6 @@ import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
 import { COMPANY, COMPANY_ADDRESS } from "@/lib/content/company";
 import { MORE_BOOKS_ON_PHONES, NEW_BOOKS } from "@/lib/library/catalog";
 import { bookPath } from "@/lib/library/paths";
-import { SITE_FOOTER_LINE } from "@/lib/seo/site";
 
 const GRANDPA = "/family-voices/grandpa.webp";
 
@@ -407,7 +406,6 @@ export function SiteFooter() {
         </ul>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1">
-            <p>{SITE_FOOTER_LINE}</p>
             <p>© {new Date().getFullYear()} Readli. Every Book. Every Voice.</p>
             <p className="text-muted" data-testid="footer-company">
               {COMPANY.legalName} · {COMPANY_ADDRESS} ·{" "}
