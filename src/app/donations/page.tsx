@@ -141,8 +141,8 @@ export default async function DonationsPage() {
           <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 pt-10 pb-12 sm:px-6 lg:grid-cols-2 lg:gap-12 lg:pt-16 lg:pb-20">
             <div className="flex flex-col gap-5 text-center lg:text-left">
               <p className="text-sm font-extrabold tracking-[0.16em] text-coral-deep uppercase">Readli Gives Back</p>
-              <h1 id="gives-heading" className="font-display text-[40px] leading-[1.08] font-semibold sm:text-5xl lg:text-[56px]">
-                Helping Good Causes Tell Great Stories.
+              <h1 id="gives-heading" className="font-display text-[40px] leading-[1.08] font-semibold sm:text-5xl lg:text-[52px]">
+                <span className="block">Helping <span className="whitespace-nowrap">Good Causes</span></span> <span className="block">Tell Great Stories.</span>
               </h1>
               <p className="text-lg leading-relaxed sm:text-xl">At Readli, we believe every family deserves more moments together through the magic of storytelling.</p>
               <p className="text-lg leading-relaxed">

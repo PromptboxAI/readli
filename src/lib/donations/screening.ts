@@ -61,7 +61,7 @@ export function screen(v: ValidDonation, prior: PriorRequest[], at = new Date())
   if (FREE_MAIL.has(domain) && !isOfficialEmail(v.contactEmail, v.orgWebsite)) {
     flags.push({ code: "personal_email", text: `Applied from a personal email address (${domain}). Confirm they can act for the organization.` });
   }
-  if (!v.orgWebsite) flags.push({ code: "no_website", text: "No website or official page. Check the proof they gave instead." });
+  if (!v.orgWebsite) flags.push({ code: "no_website", text: "No website link in their description. Check what they wrote, or ask for a link." });
   for (const [what, url] of [["website", v.orgWebsite], ["event link", v.eventUrl]] as const) {
     const host = hostOf(url);
     if (host && SHORTENERS.has(host)) flags.push({ code: "short_link", text: `The ${what} is a shortened link (${host}). Open it with care.` });
