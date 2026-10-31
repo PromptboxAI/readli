@@ -57,6 +57,8 @@ export interface GiftView {
   /** Monthly: the next charge date, while renewing. */
   nextChargeAt: string | null;
   giverName: string;
+  /** The giver's own note to the families, if they wrote one. */
+  message: string;
   places: PlaceView[];
   /** Free places that can be offered to another family. */
   freePlaces: number[];
@@ -142,6 +144,7 @@ export async function sponsorGifts(db: SupabaseClient, sponsorId: string, now = 
       nextMonthFrom: facts.startsAt ? giftMonth(facts.startsAt, now).end.toISOString() : null,
       nextChargeAt: renewing ? iso(g.paid_through) : null,
       giverName: g.giver_display_name as string,
+      message: (g.message as string | null) ?? "",
       places,
       freePlaces: [1, 2].filter((n) => !live.includes(n)),
       canChangeFamilies: offered < 2,
