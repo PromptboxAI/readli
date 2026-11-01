@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomInt, randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AdminUser } from "@/lib/admin/access";
+import { adminEmails } from "@/lib/admin/emails";
 import { batchArtwork, issueComplimentary, type MembershipArtwork } from "@/lib/admin/complimentary";
 import type { ComplimentaryKind } from "@/lib/admin/complimentary-kinds";
 import { AdminActionError } from "@/lib/admin/tester-plans";
@@ -10,7 +11,7 @@ import { deliverEmails } from "@/lib/email/send";
 import { GIFT_CODE_ALPHABET } from "@/lib/gifting/codes";
 import type { GiftCodeCipher } from "@/lib/gifting/code-cipher";
 import { claimByLabel } from "@/lib/gifting/complimentary-copy";
-import { approvedEmail, infoNeededEmail, notApprovedEmail, requestReceivedEmail, winnerWelcomeEmail, type RequestFacts } from "./emails";
+import { adminReviewEmail, approvedEmail, infoNeededEmail, notApprovedEmail, requestReceivedEmail, winnerWelcomeEmail, type RequestFacts } from "./emails";
 import { claimByForEvent, DONATION_MONTHS, FLYER_MAX_BYTES, FLYER_TYPES, type DonationStatus, type DonationUse, type EventType, type ValidDonation } from "./program";
 import { eventKey, isOfficialEmail, screen, type Flag, type PriorRequest } from "./screening";
 
@@ -83,6 +84,22 @@ async function log(db: SupabaseClient, requestId: string, actor: "applicant" | "
 async function sendToApplicant(ctx: DonationContext, r: Row, emailId: string, dedupeKey: string, message: EmailMessage) {
   const ids = await queueEmails(ctx.db, ctx.secret, [{ emailId, dedupeKey, to: { email: r.contact_email as string }, message }]);
   if (ids.length) await deliverEmails(ctx.db, ids).catch((err) => console.error("donation email send failed", err instanceof Error ? err.message : err));
+}
+
+/** Tell every Readli admin that a request needs a look. A failure here never fails the applicant. */
+async function alertAdmins(ctx: DonationContext, r: Row, kind: "new" | "reply", dedupeKey: string) {
+  const flags = Array.isArray(r.flags) ? (r.flags as { text?: string }[]).map((f) => f.text ?? "").filter(Boolean) : [];
+  const message = adminReviewEmail(facts(r), { kind, flags, about: (r.notes as string | null) ?? null, adminUrl: `${ctx.base}/admin/donations/${r.id as string}` });
+  try {
+    const ids = await queueEmails(
+      ctx.db,
+      ctx.secret,
+      adminEmails().map((email) => ({ emailId: "D8", dedupeKey: `${dedupeKey}:${email}`, to: { email }, message })),
+    );
+    if (ids.length) await deliverEmails(ctx.db, ids);
+  } catch (err) {
+    console.error("donation admin alert failed", err instanceof Error ? err.message : err);
+  }
 }
 
 export interface Upload {
@@ -189,6 +206,7 @@ export async function submitDonationRequest(ctx: DonationContext, v: ValidDonati
   await log(ctx.db, id, "applicant", "submitted", { org_type: v.orgType, event_type: v.eventType, state: v.orgState });
   if (flags.length) await log(ctx.db, id, "system", "flagged", { flags: flags.map((f) => f.code) });
   await sendToApplicant(ctx, row, "D1", `D1:${id}`, requestReceivedEmail(facts(row), statusUrl(ctx.base, token)));
+  await alertAdmins(ctx, row, "new", `D8:${id}`);
   return { reference: row.reference as string };
 }
 
@@ -280,6 +298,7 @@ export async function applicantReply(ctx: DonationContext, token: string, text: 
   );
   if (!updated.length) throw new DonationError(409, "not_waiting", "This request isn't waiting on anything from you right now.");
   await log(ctx.db, r.id as string, "applicant", "applicant_replied", { attached: Boolean(path) });
+  await alertAdmins(ctx, r, "reply", `D8:reply:${r.id as string}:${Date.now()}`);
 }
 
 // ---------------------------------------------------------------------------

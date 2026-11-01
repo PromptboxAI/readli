@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { buttonPrimary } from "@/components/brand/buttons";
+import { FilePicker } from "@/components/donations/FilePicker";
 
 /** The applicant's answer when Readli asks for more information: a note and an optional document. */
 export function ReplyForm({ token }: { token: string }) {
@@ -34,10 +35,7 @@ export function ReplyForm({ token }: { token: string }) {
         Your reply
       </label>
       <textarea id={`${id}-reply`} name="reply" maxLength={2000} className="min-h-32 rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/20 focus:ring-ink" />
-      <label htmlFor={`${id}-doc`} className="font-semibold">
-        Attach a document <span className="font-normal text-muted">(optional: PDF, PNG, JPG or WebP, up to 10 MB)</span>
-      </label>
-      <input id={`${id}-doc`} name="document" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" />
+      <FilePicker id={`${id}-doc`} name="document" label="Attach a document" hint="PDF or image, up to 10 MB." />
       {error && (
         <p role="alert" className="font-semibold text-coral-deep">
           {error}

@@ -172,3 +172,15 @@ describe("CSV export", () => {
     expect(line).toContain('"Gala, 2027"');
   });
 });
+
+describe("admin review alert", () => {
+  it("names the request and links straight to it in admin", async () => {
+    const { adminReviewEmail } = await import("./emails");
+    const facts = { reference: "RGB-ABC123", orgName: "Oak Street PTA", eventName: "Spring Tricky Tray", eventDate: "2027-03-14", contactName: "Dana Lee" };
+    const m = adminReviewEmail(facts, { kind: "new", flags: ["Applied from a personal email address (gmail.com)."], about: "Basket raffle.", adminUrl: "https://readli.ai/admin/donations/x" });
+    expect(m.subject).toBe("New donation request: Oak Street PTA (RGB-ABC123)");
+    expect(m.text).toContain("https://readli.ai/admin/donations/x");
+    expect(m.text).toContain("personal email");
+    expect(adminReviewEmail(facts, { kind: "reply", flags: [], about: null, adminUrl: "u" }).subject).toMatch(/^Donation request reply to review/);
+  });
+});
