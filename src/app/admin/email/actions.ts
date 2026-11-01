@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/access";
-import { EmailAdminError, retryFailedEmail, setEmailSwitch } from "@/lib/email/admin";
+import { EmailAdminError, retryFailedEmail, setAllEmailSwitches, setEmailSwitch } from "@/lib/email/admin";
 import { emailDefinition } from "@/lib/email/catalog";
 import { accountDb } from "@/lib/family/account-store";
 
@@ -28,6 +28,14 @@ export async function setEmailSwitchAction(form: FormData) {
   await run(async (db, adminId) => {
     await setEmailSwitch(db, adminId, emailId, enabled);
     return `${emailDefinition(emailId)?.name ?? emailId} is now ${enabled ? "on" : "off"}.`;
+  });
+}
+
+export async function setAllEmailSwitchesAction(form: FormData) {
+  const enabled = form.get("enabled") === "on";
+  await run(async (db, adminId) => {
+    const count = await setAllEmailSwitches(db, adminId, enabled);
+    return `All ${count} emails are now ${enabled ? "on" : "off"}.`;
   });
 }
 

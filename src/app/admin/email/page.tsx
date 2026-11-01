@@ -6,7 +6,7 @@ import { loadEmailDashboard, STATE_LABELS, type DashboardState, type EmailDashbo
 import { emailDefinition } from "@/lib/email/catalog";
 import { readliMailer } from "@/lib/email/send";
 import { accountDb } from "@/lib/family/account-store";
-import { retryEmailAction, setEmailSwitchAction } from "./actions";
+import { retryEmailAction, setAllEmailSwitchesAction, setEmailSwitchAction } from "./actions";
 
 export const metadata: Metadata = { title: "Email | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -79,6 +79,19 @@ export default async function AdminEmailPage({ searchParams }: { searchParams: P
           <h2 id="emails-h" className="font-display text-2xl font-semibold">
             Emails and switches
           </h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm">
+              {dash.emails.filter((e) => e.enabled).length} of {dash.emails.length} on.
+            </p>
+            <form action={setAllEmailSwitchesAction}>
+              <input type="hidden" name="enabled" value="on" />
+              <button className="min-h-11 rounded-full bg-ink px-4 font-semibold text-surface">Turn all on</button>
+            </form>
+            <form action={setAllEmailSwitchesAction}>
+              <button className="min-h-11 rounded-full px-4 font-semibold underline underline-offset-4">Turn all off</button>
+            </form>
+          </div>
+          <p className="text-sm text-muted">Turning everything on still respects each family&apos;s consent, unsubscribes and the daily and weekly limits.</p>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead>
