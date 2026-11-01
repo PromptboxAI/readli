@@ -342,3 +342,25 @@ test("a grown-up picks up where they left off, without moving a child's place", 
   await page.goto("/kids/listen/the-lion-and-the-mouse");
   await expect(page.getByTestId("sentence-position")).toHaveText(/Sentence 1 of/);
 });
+
+test("the grown-up player has a sleep timer and a reading speed that this device remembers", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/books/the-lion-and-the-mouse/listen");
+  await page.waitForLoadState("networkidle");
+  const player = page.getByTestId("grown-up-player");
+  const sleep = player.getByRole("button", { name: /Sleep timer/ });
+  await expect(sleep).toHaveAccessibleName("Sleep timer: Off");
+  await sleep.click();
+  await expect(sleep).toHaveAccessibleName("Sleep timer: 15m");
+
+  const speed = player.getByRole("button", { name: /Reading speed/ });
+  await expect(speed).toHaveAccessibleName("Reading speed: normal");
+  await speed.click();
+  await expect(speed).toHaveAccessibleName("Reading speed: 1.2×");
+  await expect(speed).toHaveText("Speed 1.2×");
+  await page.reload();
+  await expect(speed).toHaveAccessibleName("Reading speed: 1.2×");
+  await expect(sleep).toHaveAccessibleName("Sleep timer: 15m");
+  // Still one screen with nothing to scroll.
+  expect(await player.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(0);
+});

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clock, nextSleep, pageCount, pageOf, pageRange, parseMode, sentenceAt, timeline } from "./pages";
+import { clock, endsChapter, nextSleep, nextSpeed, pageCount, pageOf, pageRange, parseMode, parseSpeed, sentenceAt, timeline } from "./pages";
 
 describe("player pages", () => {
   it("groups sentences into pages of two", () => {
@@ -18,6 +18,29 @@ describe("player pages", () => {
     expect(nextSleep(15)).toBe(30);
     expect(nextSleep(30)).toBe(45);
     expect(nextSleep(45)).toBeNull();
+  });
+
+  it("offers end of chapter only in books with more than one chapter", () => {
+    expect(nextSleep(45, true)).toBe("chapter");
+    expect(nextSleep("chapter", true)).toBeNull();
+    expect(nextSleep(45, false)).toBeNull();
+  });
+
+  it("finds the last sentence of each chapter", () => {
+    const chapters = [1, 1, 2, 2, 2];
+    expect(endsChapter(chapters, 0)).toBe(false);
+    expect(endsChapter(chapters, 1)).toBe(true);
+    expect(endsChapter(chapters, 3)).toBe(false);
+    expect(endsChapter(chapters, 4)).toBe(true);
+  });
+
+  it("cycles speed normal, faster, slower and remembers only known speeds", () => {
+    expect(nextSpeed(1)).toBe(1.2);
+    expect(nextSpeed(1.2)).toBe(0.8);
+    expect(nextSpeed(0.8)).toBe(1);
+    expect(parseSpeed("1.2")).toBe(1.2);
+    expect(parseSpeed("3")).toBe(1);
+    expect(parseSpeed(null)).toBe(1);
   });
 
   it("defaults to Listen mode", () => {
