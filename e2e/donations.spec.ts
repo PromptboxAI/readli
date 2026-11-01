@@ -19,6 +19,11 @@ test("Readli Gives Back explains the donation and checks the request form", asyn
   await expect(form.getByRole("textbox", { name: "Your name *" })).toBeFocused();
   await expect(form.getByRole("textbox", { name: "Organization name *" })).toHaveAttribute("aria-invalid", "true");
   await expect(form.getByRole("combobox")).toHaveCount(0);
+  // The flyer upload is a clear box, and shows the chosen file with a way to take it off.
+  await form.getByLabel("Event flyer or supporting letter", { exact: false }).setInputFiles({ name: "flyer.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") });
+  await expect(form.getByTestId("flyer-chosen")).toContainText("flyer.pdf");
+  await form.getByRole("button", { name: "Remove" }).click();
+  await expect(form.getByText("Upload a file")).toBeVisible();
 
   await expect(page.locator("footer").getByRole("link", { name: "Readli Gives Back" })).toHaveAttribute("href", "/donations");
 });

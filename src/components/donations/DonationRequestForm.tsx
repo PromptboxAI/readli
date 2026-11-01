@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useId, useRef, useState, type ReactNode } from "react";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
+import { FilePicker } from "@/components/donations/FilePicker";
 import { COMPANY } from "@/lib/content/company";
 import { FLYER_MAX_BYTES, validateDonation, type DonationForm, type FieldErrors } from "@/lib/donations/program";
 
@@ -157,15 +158,7 @@ export function DonationRequestForm() {
         >
           <textarea {...a11y("notes", true)} className={area} maxLength={2000} />
         </Field>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor={fid("flyer")} className="font-semibold">
-            Event flyer or supporting letter <span className="font-normal text-muted">(optional)</span>
-          </label>
-          <input id={fid("flyer")} name="flyer" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" aria-describedby={`${fid("flyer")}-hint`} className="text-base" />
-          <p id={`${fid("flyer")}-hint`} className="text-sm text-muted">
-            PDF or image, up to 10 MB. Only the Readli team sees it.
-          </p>
-        </div>
+        <FilePicker id={fid("flyer")} name="flyer" label="Event flyer or supporting letter" hint="PDF or image, up to 10 MB. Only the Readli team sees it." />
         <div className="flex flex-col gap-1">
           <label className="flex items-start gap-3">
             <input type="checkbox" {...a11y("confirmAuthorized")} name="confirm" className="mt-1 size-5 shrink-0" />

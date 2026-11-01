@@ -65,6 +65,7 @@ export const EMAILS: EmailDefinition[] = [
   { id: "D3", name: "Readli Gives Back: more information needed", sequence: "donations", category: "transactional", topic: null },
   { id: "D4", name: "Readli Gives Back: not approved", sequence: "donations", category: "transactional", topic: null },
   { id: "D6", name: "Readli Gives Back: winner welcome", sequence: "donations", category: "transactional", topic: null },
+  { id: "D8", name: "Readli Gives Back: request to review (to admins)", sequence: "donations", category: "transactional", topic: null },
 ];
 
 const BY_ID = new Map(EMAILS.map((e) => [e.id, e]));

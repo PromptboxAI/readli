@@ -98,3 +98,20 @@ export function winnerWelcomeEmail(opts: { name: string; endsLabel: string; even
     preferencesUrl: opts.preferencesUrl,
   });
 }
+
+/** To the Readli admins: a request is waiting in Admin → Readli Gives Back. */
+export function adminReviewEmail(r: RequestFacts, opts: { kind: "new" | "reply"; flags: string[]; about: string | null; adminUrl: string }): EmailMessage {
+  const isReply = opts.kind === "reply";
+  return readliEmail({
+    subject: isReply ? `Donation request reply to review: ${r.orgName} (${r.reference})` : `New donation request: ${r.orgName} (${r.reference})`,
+    name: "",
+    title: isReply ? "An applicant answered your question" : "A new Readli Gives Back request is waiting",
+    paragraphs: [
+      `${r.orgName}, ${r.eventName} on ${eventDateLabel(r.eventDate)}. From ${r.contactName}.`,
+      ...(opts.about && !isReply ? [`About the fundraiser: ${opts.about.length > 600 ? `${opts.about.slice(0, 600)}…` : opts.about}`] : []),
+      opts.flags.length ? `Things to check: ${opts.flags.join(" ")}` : "No automatic checks were flagged.",
+    ],
+    cta: { label: isReply ? "Review the reply" : "Review and approve", url: opts.adminUrl },
+    reason: "You're getting this because you're a Readli admin.",
+  });
+}
