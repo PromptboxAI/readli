@@ -77,6 +77,17 @@ export function ModeToggle({ mode, onChange }: { mode: PlayerMode; onChange: (mo
   );
 }
 
+/** The sleep timer's moon button: "Sleep" when off, otherwise the minutes left or "Chapter". */
+export function SleepButton({ label, onClick, className }: { label: string | null; onClick: () => void; className: string }) {
+  const spoken = label === null ? "Off" : label === "Chapter" ? "End of chapter" : label;
+  return (
+    <button type="button" onClick={onClick} aria-label={`Sleep timer: ${spoken}`} className={`justify-self-start ${className}`}>
+      <Icon name="moon" className="size-6" />
+      {label ?? "Sleep"}
+    </button>
+  );
+}
+
 /** Three small bars that bounce while a story plays. */
 export function PlayingBars() {
   return (
@@ -205,12 +216,15 @@ export function TimeBar({
   sentence,
   playing,
   onSeek,
+  rate = 1,
 }: {
   mode: PlayerMode;
   seconds: number[];
   sentence: number;
   playing: boolean;
   onSeek: (sentence: number) => void;
+  /** Playback speed, so the bar keeps pace with faster or slower reading. */
+  rate?: number;
 }) {
   const [spent, setSpent] = useState(0);
   const [scrub, setScrub] = useState<number | null>(null);
@@ -222,9 +236,9 @@ export function TimeBar({
   }, [sentence, playing]);
   useEffect(() => {
     if (!playing) return;
-    const id = window.setInterval(() => setSpent((t) => Math.min(t + 1, seconds[sentenceRef.current] ?? 0)), 1000);
+    const id = window.setInterval(() => setSpent((t) => Math.min(t + rate, seconds[sentenceRef.current] ?? 0)), 1000);
     return () => window.clearInterval(id);
-  }, [playing, seconds]);
+  }, [playing, seconds, rate]);
 
   const { listen, faint } = playerTone(mode);
   const starts = timeline(seconds);

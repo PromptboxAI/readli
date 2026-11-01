@@ -246,6 +246,18 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ["whats-in-the-library"],
   }),
   A({
+    slug: "sleep-timer-and-speed",
+    category: "books-and-listening",
+    question: "Is there a sleep timer, and can I change the reading speed?",
+    status: "published",
+    answer: [
+      "Yes. Tap the moon in the player, in Readli Kids or in Readli Family, to set a sleep timer for 15, 30 or 45 minutes. In books with chapters, keep tapping for End of chapter: the story stops after the chapter's last sentence, and Play picks up at the start of the next one. Tap again until it says Sleep to turn it off. The timer keeps running if the screen locks or the page reloads.",
+      "In the Readli Family player, tap Speed to switch between normal, a little faster (1.2×) and a little slower (0.8×). Slower is handy for early readers following the highlighted words. Your choice is remembered on that device.",
+    ],
+    keywords: ["sleep timer", "bedtime", "stop", "moon", "end of chapter", "speed", "faster", "slower", "playback speed"],
+    related: ["whats-in-the-library", "switch-narrators-during-story"],
+  }),
+  A({
     slug: "prepare-a-book",
     category: "books-and-listening",
     question: "How do I prepare a book in a family member's voice?",

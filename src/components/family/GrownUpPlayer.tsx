@@ -7,16 +7,18 @@ import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { isTheEnd, THE_END_PAUSE_MS } from "@/lib/content/the-end";
 import type { ListenView } from "@/lib/narration/narration";
 import { mapPosition } from "@/lib/narration/positions";
-import { parseMode, type PlayerMode } from "@/lib/player/pages";
+import { nextSpeed, parseMode, parseSpeed, type PlayerMode, type Speed } from "@/lib/player/pages";
 import { chapterReady, type Track } from "@/lib/player/tracks";
-import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, TimeBar } from "./PlayerParts";
+import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, SleepButton, TimeBar } from "./PlayerParts";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 import { AHEAD, useGaplessAudio } from "./useGaplessAudio";
 import { useMediaSession } from "./useMediaSession";
 import { usePlaceSaver } from "./usePlaceSaver";
+import { useSleepTimer } from "./useSleepTimer";
 import { useTrackAudio } from "./useTrackAudio";
 
 const MODE_KEY = "readli-grown-up-player-mode";
+const SPEED_KEY = "readli-grown-up-player-speed";
 
 /**
  * The Parent Portal player: plays a prepared book from stored audio, in any voice the family may use,
@@ -45,7 +47,7 @@ export function GrownUpPlayer({
     return r && texts.texts[r] ? r : texts.current;
   };
   const [shown, setShown] = useState(() => revisionOf(initialVoice));
-  const { sentences, sentenceIds, seconds } = texts.texts[shown] ?? texts.texts[texts.current]!;
+  const { sentences, sentenceIds, chapters, seconds } = texts.texts[shown] ?? texts.texts[texts.current]!;
   const [sentence, setSentence] = useState(Math.max(0, Math.min(resume, sentences.length - 1)));
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -92,6 +94,7 @@ export function GrownUpPlayer({
       onEnded();
     },
     error: (why) => onTrackFailed(why),
+    time: () => sleep.check(),
     interrupted: () => onInterrupted(),
     resumed: () => {
       setNotice(null);
@@ -134,6 +137,31 @@ export function GrownUpPlayer({
     track.pause();
     setPlaying(false);
     setLoading(false);
+  };
+
+  const sleep = useSleepTimer(`readli-sleep:adult:${view.householdId}`, stop, setNotice);
+
+  // Reading speed, remembered on this device.
+  const [speed, setSpeed] = useState<Speed>(1);
+  useEffect(() => {
+    try {
+      setSpeed(parseSpeed(window.localStorage.getItem(SPEED_KEY)));
+    } catch {
+      // Storage can be blocked; normal speed is fine.
+    }
+  }, []);
+  useEffect(() => {
+    audio.rate(speed);
+    track.rate(speed);
+  }, [audio, track, speed]);
+  const changeSpeed = () => {
+    const next = nextSpeed(speed);
+    setSpeed(next);
+    try {
+      window.localStorage.setItem(SPEED_KEY, String(next));
+    } catch {
+      // Not remembered this time.
+    }
   };
 
   /** A signed URL for one prepared sentence; the server re-checks plan, share and slot each time. */
@@ -279,8 +307,14 @@ export function GrownUpPlayer({
   };
 
   const onEnded = () => {
+    if (sleep.check()) return;
     const next = sentenceRef.current + 1;
     const id = voiceRef.current;
+    if (sleep.chapterEnd(chapters, next - 1)) {
+      setSentence(next);
+      sentenceRef.current = next;
+      return;
+    }
     if (next >= sentences.length || !id) return stop();
     // A book prepared before "The End." was added simply finishes without it.
     if (isTheEnd(sentences, next) && !readyAt(id, next)) return stop();
@@ -458,10 +492,10 @@ export function GrownUpPlayer({
           </p>
         )}
 
-        <TimeBar mode={mode} seconds={seconds} sentence={sentence} playing={playing} onSeek={goTo} />
+        <TimeBar mode={mode} seconds={seconds} sentence={sentence} playing={playing} onSeek={goTo} rate={speed} />
 
         <div className="mx-auto grid w-full max-w-[640px] grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-3.5 sm:gap-7">
-          <span />
+          <SleepButton label={sleep.label} onClick={() => sleep.cycle(new Set(chapters).size > 1)} className={side} />
           <button type="button" aria-label="Back" disabled={sentence === 0} onClick={() => goTo(sentence - 1)} className={round}>
             <Icon name="prev" className="size-[26px]" />
           </button>
@@ -502,6 +536,15 @@ export function GrownUpPlayer({
             <span />
           )}
         </div>
+
+        <button
+          type="button"
+          onClick={changeSpeed}
+          aria-label={`Reading speed: ${speed === 1 ? "normal" : `${speed}×`}`}
+          className={`-mt-2 min-h-10 self-center rounded-full px-4 font-display text-sm font-semibold ${soft} ${faint}`}
+        >
+          Speed {speed}×
+        </button>
 
         <p className="sr-only" data-testid="sentence-position">
           Sentence {sentence + 1} of {sentences.length}

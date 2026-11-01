@@ -7,13 +7,14 @@ import { isTheEnd, THE_END_PAUSE_MS } from "@/lib/content/the-end";
 import type { NarratorView } from "@/lib/family/service";
 import type { BookTexts, KidsNarratorReadiness } from "@/lib/narration/narration";
 import { mapPosition } from "@/lib/narration/positions";
-import { nextSleep, parseMode, type PlayerMode, type SleepMinutes } from "@/lib/player/pages";
+import { parseMode, type PlayerMode } from "@/lib/player/pages";
 import { chapterReady, type Track } from "@/lib/player/tracks";
-import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, TimeBar } from "./PlayerParts";
+import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, SleepButton, TimeBar } from "./PlayerParts";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 import { AHEAD, useGaplessAudio } from "./useGaplessAudio";
 import { useMediaSession } from "./useMediaSession";
 import { usePlaceSaver } from "./usePlaceSaver";
+import { useSleepTimer } from "./useSleepTimer";
 import { useTrackAudio } from "./useTrackAudio";
 
 const REFRESH_MS = 10_000;
@@ -70,15 +71,13 @@ export function KidsPlayer({
     const r = revisionOf(voiceId);
     return texts[r] ? r : initialTexts.current;
   });
-  const { sentences, sentenceIds, seconds: sentenceSeconds } = texts[shown] ?? texts[initialTexts.current]!;
+  const { sentences, sentenceIds, chapters, seconds: sentenceSeconds } = texts[shown] ?? texts[initialTexts.current]!;
   const [sentence, setSentence] = useState(Math.max(0, Math.min(resume.sentence, sentences.length - 1)));
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [picker, setPicker] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [mode, setMode] = useState<PlayerMode>("listen");
-  const [sleep, setSleep] = useState<{ minutes: SleepMinutes; until: number | null }>({ minutes: null, until: null });
-  const [now, setNow] = useState(() => Date.now());
   const voiceRef = useRef(voiceId);
   voiceRef.current = voiceId;
   const sentenceRef = useRef(sentence);
@@ -189,62 +188,8 @@ export function KidsPlayer({
 
   useEffect(() => endSession, [endSession]);
 
-  // The sleep timer is a deadline on the clock, kept on this device, so it holds across a reload and
-  // fires on time with the screen locked: it is checked every second on screen, and with every update
-  // of the story's audio in the background.
-  const sleepKey = `readli-sleep:${childId}`;
-  const sleepRef = useRef(sleep);
-  sleepRef.current = sleep;
-  const setSleepTimer = useCallback(
-    (next: { minutes: SleepMinutes; until: number | null }) => {
-      setSleep(next);
-      sleepRef.current = next;
-      try {
-        if (next.until === null) window.localStorage.removeItem(sleepKey);
-        else window.localStorage.setItem(sleepKey, JSON.stringify(next));
-      } catch {
-        // Not kept across a reload this time.
-      }
-    },
-    [sleepKey],
-  );
-  const checkSleep = useCallback(() => {
-    const { until } = sleepRef.current;
-    const t = Date.now();
-    setNow(t);
-    if (until === null || t < until) return false;
-    halt();
-    setSleepTimer({ minutes: null, until: null });
-    setNotice("The sleep timer paused the story. Night night!");
-    return true;
-  }, [halt, setSleepTimer]);
-
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(window.localStorage.getItem(sleepKey) ?? "null") as { minutes: SleepMinutes; until: number } | null;
-      if (saved && saved.until > Date.now()) setSleepTimer(saved);
-      else window.localStorage.removeItem(sleepKey);
-    } catch {
-      // Storage can be blocked; the timer starts off.
-    }
-  }, [sleepKey, setSleepTimer]);
-
-  useEffect(() => {
-    if (sleep.until === null) return;
-    const id = window.setInterval(checkSleep, 1000);
-    document.addEventListener("visibilitychange", checkSleep);
-    return () => {
-      window.clearInterval(id);
-      document.removeEventListener("visibilitychange", checkSleep);
-    };
-  }, [sleep.until, checkSleep]);
-
-  const cycleSleep = () => {
-    const minutes = nextSleep(sleep.minutes);
-    const t = Date.now();
-    setNow(t);
-    setSleepTimer({ minutes, until: minutes === null ? null : t + minutes * 60_000 });
-  };
+  const sleep = useSleepTimer(`readli-sleep:${childId}`, halt, setNotice);
+  const checkSleep = sleep.check;
 
   // Each child keeps their own place and narrator in every book. Opening a book saves nothing; a place
   // this device couldn't save last time is sent first, and picked up if it's the newest.
@@ -501,6 +446,11 @@ export function KidsPlayer({
     if (checkSleep()) return;
     const at = sentenceRef.current;
     const voice = voiceRef.current;
+    if (sleep.chapterEnd(chapters, at)) {
+      setSentence(at + 1);
+      sentenceRef.current = at + 1;
+      return;
+    }
     // A book prepared before "The End." was added simply finishes without it.
     if (isTheEnd(sentences, at + 1) && !readyAt(voice, at + 1)) {
       setPlaying(false);
@@ -607,7 +557,6 @@ export function KidsPlayer({
 
   const currentReady = readyAt(voiceId, sentence);
   const { listen, soft, faint, main, round, side } = playerTone(mode);
-  const sleepLeft = sleep.until === null ? null : Math.max(1, Math.ceil((sleep.until - now) / 60_000));
 
   const reading = current && (
     <p className={`flex items-center gap-2 font-bold ${faint}`}>
@@ -691,10 +640,7 @@ export function KidsPlayer({
         <TimeBar mode={mode} seconds={sentenceSeconds} sentence={sentence} playing={playing} onSeek={goTo} />
 
         <div className="mx-auto grid w-full max-w-[640px] grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-3.5 sm:gap-7">
-          <button type="button" onClick={cycleSleep} aria-label={`Sleep timer: ${sleepLeft === null ? "Off" : `${sleepLeft}m`}`} className={`justify-self-start ${side}`}>
-            <Icon name="moon" className="size-6" />
-            {sleepLeft === null ? "Sleep" : `${sleepLeft}m`}
-          </button>
+          <SleepButton label={sleep.label} onClick={() => sleep.cycle(new Set(chapters).size > 1)} className={side} />
           <button type="button" aria-label="Back" disabled={sentence === 0} onClick={() => goTo(sentence - 1)} className={round}>
             <Icon name="prev" className="size-[26px]" />
           </button>
