@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useId, useState } from "react";
 import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
+import { HelpLink } from "@/components/help/HelpLink";
 import type { FamilyInvite } from "@/lib/invites/family-invites";
 import { RelationshipPicker } from "./RelationshipPicker";
 
@@ -96,6 +98,12 @@ export function InviteStoryteller({ live, initialName = "", onSent, onClose }: {
         ) : (
           <p>This is a preview, so nothing was sent.</p>
         )}
+        <p className="text-sm">
+          Prefer paper?{" "}
+          <Link href="/help/print/record-your-voice" target="_blank" className="font-semibold underline underline-offset-4" data-testid="print-recording-guide">
+            Print the recording steps for {sent.name}
+          </Link>
+        </p>
         <p className="text-sm text-muted">No narrator slot is used until you add {sent.name}. We&apos;ll show each step below.</p>
         <button type="button" className={parentSecondary} onClick={onClose}>
           Done
@@ -145,7 +153,10 @@ export function InviteStoryteller({ live, initialName = "", onSent, onClose }: {
           Cancel
         </button>
       </div>
-      <p className="text-sm text-muted">Inviting doesn&apos;t use a narrator slot, and nothing is shared until they say yes.</p>
+      <p className="text-sm text-muted">
+        Inviting doesn&apos;t use a narrator slot, and nothing is shared until they say yes.{" "}
+        <HelpLink slug="invite-relatives-elsewhere">Inviting relatives who live elsewhere</HelpLink>
+      </p>
     </form>
   );
 }

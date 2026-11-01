@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { parentPrimary } from "@/components/brand/buttons";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
+import { HelpLink } from "@/components/help/HelpLink";
 import { isTheEnd, THE_END_PAUSE_MS } from "@/lib/content/the-end";
 import type { ListenView } from "@/lib/narration/narration";
 import { mapPosition } from "@/lib/narration/positions";
@@ -488,7 +489,7 @@ export function GrownUpPlayer({
         )}
         {notice && (
           <p role="alert" className="rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold text-ink">
-            {notice}
+            {notice} {!/sleep timer/i.test(notice) && <HelpLink slug="audiobook-not-playing">Playback help</HelpLink>}
           </p>
         )}
 

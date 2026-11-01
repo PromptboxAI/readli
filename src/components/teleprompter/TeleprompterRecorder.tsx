@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { HelpLink } from "@/components/help/HelpLink";
 import { splitSentences, type VoiceScriptVersion } from "@/lib/content/voice-scripts";
 import {
   canFinish,
@@ -354,7 +355,7 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
           ) : (
             mic.error && (
               <p role="alert" className="rounded-2xl bg-coral/25 p-3 text-sm">
-                {MIC_ERROR_MESSAGES[mic.error]}
+                {MIC_ERROR_MESSAGES[mic.error]} <HelpLink slug="microphone-not-recording">Microphone help</HelpLink>
               </p>
             )
           )}
@@ -683,7 +684,9 @@ function ReviewPanel({
     return (
       <div role="alert" className="flex flex-col gap-3 rounded-2xl bg-coral/25 p-4">
         <p className="font-display text-lg font-semibold">We didn&apos;t get any audio from that take.</p>
-        <p className="text-sm">Check your microphone, then record again.</p>
+        <p className="text-sm">
+          Check your microphone, then record again. <HelpLink slug="microphone-not-recording">Microphone help</HelpLink>
+        </p>
         <button type="button" className={buttonPrimary} onClick={onRecordAgain}>
           Record again
         </button>

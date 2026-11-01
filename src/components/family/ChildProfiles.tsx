@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { parentPrimary, buttonQuiet } from "@/components/brand/buttons";
+import { HelpLink } from "@/components/help/HelpLink";
 import type { ChildProfilesView } from "@/lib/family/service";
 import { SessionButton } from "./SessionButton";
 import { StorytellerAvatar } from "./StorytellerAvatar";
@@ -30,7 +31,10 @@ export function ChildProfiles({ initial }: { initial: ChildProfilesView }) {
     <div className="flex flex-col gap-8" data-testid="child-profiles">
       <div className="flex flex-col gap-3">
         <h1 className="font-display text-4xl font-semibold">Kids profiles</h1>
-        <p className="max-w-2xl text-lg text-muted">Open a child&apos;s Readli Kids here, or choose which storytellers they can hear.</p>
+        <p className="max-w-2xl text-lg text-muted">
+          Open a child&apos;s Readli Kids here, or choose which storytellers they can hear.{" "}
+          <HelpLink slug="parents-control-voices">How voice permissions work</HelpLink>
+        </p>
         <p className="max-w-2xl text-lg">
           Readli Family includes up to {view.max} kids profiles at no extra cost. Each child gets their own bookshelf, place in
           every book, favourite stories and storytellers you approve.
