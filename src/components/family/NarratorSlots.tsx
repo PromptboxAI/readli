@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
+import { HelpLink } from "@/components/help/HelpLink";
 import { INVITE_TTL_DAYS } from "@/lib/invites/family-invites";
 import { formatPrice } from "@/lib/family/plan";
 import type { JoinedCard, NarratorCard, NarratorSlotsView } from "@/lib/family/service";
@@ -589,6 +590,11 @@ export function NarratorSlots({
                     {!n.yours && rename(n)}
                     {!n.yours && removeButton(n)}
                     {!n.yours && <p className="w-full text-sm text-muted">{w.note(n.name)}</p>}
+                    {n.status === "processing" && (
+                      <HelpLink slug="voice-still-processing" className="w-full text-sm">
+                        How long does making a voice take?
+                      </HelpLink>
+                    )}
                   </li>
                 );
               })}
