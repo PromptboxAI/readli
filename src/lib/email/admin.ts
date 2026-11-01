@@ -146,3 +146,11 @@ export async function setEmailSwitch(db: SupabaseClient, adminId: string, emailI
     .upsert({ email_id: emailId, enabled, updated_by: adminId, updated_at: now.toISOString() }, { onConflict: "email_id" });
   if (error) throw new Error(`save email switch: ${error.message}`);
 }
+
+/** Kevin, 2026-11-01: one switch for every email at once. Consent, unsubscribes and frequency limits still apply to each send. */
+export async function setAllEmailSwitches(db: SupabaseClient, adminId: string, enabled: boolean, now = new Date()): Promise<number> {
+  const rows = EMAILS.map((e) => ({ email_id: e.id, enabled, updated_by: adminId, updated_at: now.toISOString() }));
+  const { error } = await db.from("email_switches").upsert(rows, { onConflict: "email_id" });
+  if (error) throw new Error(`save email switches: ${error.message}`);
+  return rows.length;
+}

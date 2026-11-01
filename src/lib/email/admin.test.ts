@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { dashboardState, EmailAdminError, loadEmailDashboard, retryFailedEmail, setEmailSwitch } from "./admin";
+import { dashboardState, EmailAdminError, loadEmailDashboard, retryFailedEmail, setAllEmailSwitches, setEmailSwitch } from "./admin";
+import { EMAILS } from "./catalog";
 import { fakeEmailDb } from "./fake-db.test-util";
 
 const NOW = new Date("2026-10-24T15:00:00Z");
@@ -69,5 +70,16 @@ describe("admin email dashboard", () => {
     await setEmailSwitch(db, "admin-1", "BT1", false, NOW);
     expect(tables.email_switches).toEqual([expect.objectContaining({ email_id: "BT1", enabled: false, updated_by: "admin-1" })]);
     await expect(setEmailSwitch(db, "admin-1", "ZZ9", true)).rejects.toBeInstanceOf(EmailAdminError);
+  });
+
+  it("turns every email on or off at once", async () => {
+    const { db, tables } = fakeEmailDb();
+    await setEmailSwitch(db, "admin-1", "BT1", true, NOW);
+    expect(await setAllEmailSwitches(db, "admin-1", true, NOW)).toBe(EMAILS.length);
+    expect(tables.email_switches).toHaveLength(EMAILS.length);
+    expect(tables.email_switches!.every((r) => r.enabled === true)).toBe(true);
+    await setAllEmailSwitches(db, "admin-1", false, NOW);
+    expect(tables.email_switches).toHaveLength(EMAILS.length);
+    expect(tables.email_switches!.every((r) => r.enabled === false)).toBe(true);
   });
 });
