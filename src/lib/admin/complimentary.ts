@@ -501,6 +501,9 @@ export async function emailMembership(
       claimUrl: claimLink(origin, art.code, claimPath(batch.program)),
     }),
   });
-  await logAction(db, admin, "complimentary_emailed", { batch_id: batch.id, certificate: art.certificate, outcome });
+  // The email has already gone, so a failed audit write is reported in the logs rather than shown as a failed send.
+  await logAction(db, admin, "complimentary_emailed", { batch_id: batch.id, certificate: art.certificate, outcome }).catch((err) =>
+    console.error("log complimentary email failed", err instanceof Error ? err.message : err),
+  );
   return { certificate: art.certificate, outcome };
 }
