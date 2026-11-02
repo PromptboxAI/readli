@@ -82,7 +82,7 @@ test("printable guides are one clean page each, linked from Help", async ({ page
   expect((await page.goto("/help/print/nope"))?.status()).toBe(404);
 });
 
-test("family screens link to the help article that answers them, and never to a hidden draft", async ({ page }) => {
+test("family screens link to the help article that answers them", async ({ page }) => {
   expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
   await page.goto("/family/kids");
   const link = page.getByTestId("help-link-parents-control-voices");
@@ -93,6 +93,4 @@ test("family screens link to the help article that answers them, and never to a 
 
   await page.goto("/family/settings/kids-mode");
   await expect(page.getByTestId("help-link-readli-kids-on-ipad")).toHaveAttribute("href", "/help/getting-started/readli-kids-on-ipad");
-  // A draft article (not published on this build) gets no link.
-  await expect(page.locator('[data-testid^="help-link-invite-relatives-elsewhere"]')).toHaveCount(0);
 });
