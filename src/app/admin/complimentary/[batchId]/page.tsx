@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow } from "@/components/invites/AdultPage";
 import { requireAdmin } from "@/lib/admin/access";
-import { batchDetail } from "@/lib/admin/complimentary";
+import { batchDetail, EMAIL_OUTCOME_TEXT, isEmailOutcome } from "@/lib/admin/complimentary";
 import { COMPLIMENTARY_KIND_LABELS } from "@/lib/admin/complimentary-kinds";
 import { accountDb } from "@/lib/family/account-store";
 import { claimByLabel } from "@/lib/gifting/complimentary-copy";
@@ -16,8 +16,15 @@ export const dynamic = "force-dynamic";
 const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
 /** One batch: every membership's status, downloads, revoke and replace, and the audit trail. */
-export default async function BatchPage({ params }: { params: Promise<{ batchId: string }> }) {
+export default async function BatchPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ batchId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { batchId } = await params;
+  const emailed = (await searchParams).emailed;
   const gate = await requireAdmin(`/admin/complimentary/${batchId}`);
   const db = gate.preview ? null : accountDb();
   const detail = db ? await batchDetail(db, batchId) : null;
@@ -50,6 +57,13 @@ export default async function BatchPage({ params }: { params: Promise<{ batchId:
         </div>
         <p className="text-sm">Downloading again always gives the same codes. Nothing new is issued until you press Revoke and replace.</p>
       </section>
+
+      {isEmailOutcome(emailed) && (
+        <p role={emailed === "sent" || emailed === "queued" ? "status" : "alert"} className={`rounded-2xl px-4 py-3 ${emailed === "sent" || emailed === "queued" ? "bg-mint/40" : "bg-coral/30"}`}>
+          {EMAIL_OUTCOME_TEXT[emailed]}
+          {emailed === "sent" || emailed === "queued" ? ` to ${gifts.find((g) => g.recipientEmail)?.recipientEmail ?? "the recipient"}.` : "."}
+        </p>
+      )}
 
       <IssuedTable batchId={batch.id} gifts={gifts} />
 

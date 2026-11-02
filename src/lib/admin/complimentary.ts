@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateGiftCode, hashGiftCode } from "@/lib/gifting/codes.server";
 import type { GiftCodeCipher } from "@/lib/gifting/code-cipher";
+import { complimentaryMembershipEmail } from "@/lib/gifting/complimentary-email";
+import type { QueuedEmail } from "@/lib/email/outbox";
 import type { AdminUser } from "./access";
 import {
   COMPLIMENTARY_KINDS,
@@ -209,6 +211,8 @@ export interface IssuedGift {
   last4: string | null;
   status: IssuedStatus;
   recipientName: string | null;
+  /** Where "Email it" sends the claim link; only a named adult has one. */
+  recipientEmail: string | null;
   redeemedAt: string | null;
   revokedAt: string | null;
   replacedBy: string | null;
@@ -247,7 +251,7 @@ const toBatch = (b: Row): Batch => ({
   supportingName: (b.supporting_name as string | null) ?? null,
 });
 
-const GIFT_COLUMNS = "id, batch_id, certificate_no, code_last4, code_encrypted, status, redeemed_at, revoked_at, replaced_by, claim_by, sent_at, recipient_name";
+const GIFT_COLUMNS = "id, batch_id, certificate_no, code_last4, code_encrypted, status, redeemed_at, revoked_at, replaced_by, claim_by, sent_at, recipient_name, recipient_email";
 
 export async function listBatches(db: SupabaseClient, now = new Date()): Promise<(Batch & { counts: Record<IssuedStatus, number> })[]> {
   const { data, error } = await db.from("complimentary_batches").select("*").order("created_at", { ascending: false }).limit(50);
@@ -288,6 +292,7 @@ export async function batchDetail(db: SupabaseClient, batchId: string, now = new
     last4: (r.code_last4 as string | null) ?? null,
     status: issuedStatus(r, now),
     recipientName: (r.recipient_name as string | null) ?? null,
+    recipientEmail: (r.recipient_email as string | null) ?? null,
     redeemedAt: (r.redeemed_at as string | null) ?? null,
     revokedAt: (r.revoked_at as string | null) ?? null,
     replacedBy: label(byId.get(r.replaced_by as string)),
@@ -317,6 +322,8 @@ function auditText(a: Row): string {
       return `${who} revoked ${d.certificate} and issued ${d.replacement} as its replacement`;
     case "complimentary_code_revealed":
       return `${who} revealed the code for ${d.certificate}`;
+    case "complimentary_emailed":
+      return `${who} emailed ${d.certificate} to the recipient${d.outcome === "sent" ? "" : ` (${d.outcome === "queued" ? "waiting to send" : "not sent"})`}`;
     case "complimentary_artwork_downloaded":
       return `${who} downloaded ${d.what}${d.certificate ? ` for ${d.certificate}` : ""}`;
     default:
@@ -334,6 +341,8 @@ export interface MembershipArtwork {
   certificate: string;
   code: string;
   recipientName: string | null;
+  recipientEmail: string | null;
+  status: IssuedStatus;
 }
 
 /** The membership's real code and facts, for its QR code and certificate. Null without a stored code. */
@@ -349,7 +358,15 @@ export async function membershipArtwork(db: SupabaseClient, cipher: GiftCodeCiph
   if (bErr) throw new Error(`read batch: ${bErr.message}`);
   if (!b) return null;
   const batch = toBatch(b as Row);
-  return { giftId, batch, certificate: certificateLabel(batch.prefix, g.certificate_no as number | null), code, recipientName: (g.recipient_name as string | null) ?? null };
+  return {
+    giftId,
+    batch,
+    certificate: certificateLabel(batch.prefix, g.certificate_no as number | null),
+    code,
+    recipientName: (g.recipient_name as string | null) ?? null,
+    recipientEmail: (g.recipient_email as string | null) ?? null,
+    status: issuedStatus(g as Row),
+  };
 }
 
 /** Every unrevoked membership in a batch with a stored code, in certificate order. */
@@ -429,4 +446,61 @@ export async function revokeAndReplace(db: SupabaseClient, admin: AdminUser, cip
   const replacement = certificateLabel(batch.prefix, no);
   await logAction(db, admin, "complimentary_revoked", { batch_id: batch.id, certificate, replacement });
   return { certificate, replacement };
+}
+
+// ---------------------------------------------------------------------------
+// Emailing a named adult their membership
+// ---------------------------------------------------------------------------
+
+/** What happened to the email: sent now, waiting in the outbox, switched off, not set up, or an error. */
+export type EmailOutcome = "sent" | "queued" | "switched_off" | "not_set_up" | "failed";
+
+/** Queues one email and tries to send it straight away. */
+export type SendOne = (email: QueuedEmail) => Promise<EmailOutcome>;
+
+export const EMAIL_OUTCOME_TEXT: Record<EmailOutcome, string> = {
+  sent: "Emailed the claim link",
+  queued: "The claim link is queued and will send shortly",
+  switched_off: "Not emailed: the complimentary membership email (M1) is switched off in Admin, Email",
+  not_set_up: "Not emailed: email isn't set up on this server",
+  failed: "Not emailed: something went wrong sending it. Try Email it again on its row",
+};
+
+export function isEmailOutcome(v: unknown): v is EmailOutcome {
+  return typeof v === "string" && Object.hasOwn(EMAIL_OUTCOME_TEXT, v);
+}
+
+/** Emails an unclaimed membership's claim link to the adult it was issued to, and records it. */
+export async function emailMembership(
+  db: SupabaseClient,
+  admin: AdminUser,
+  cipher: GiftCodeCipher,
+  origin: string,
+  giftId: string,
+  send: SendOne,
+  at = new Date(),
+): Promise<{ certificate: string; outcome: EmailOutcome }> {
+  const art = await membershipArtwork(db, cipher, giftId);
+  if (!art) throw new AdminActionError("This code was issued before codes could be shown again, so it can't be emailed.");
+  if (!art.recipientEmail) throw new AdminActionError("This membership has no email address. Copy the link and send it yourself.");
+  if (art.status !== "unclaimed") throw new AdminActionError("Only an unclaimed membership can be emailed.");
+  const { batch } = art;
+  const outcome = await send({
+    emailId: "M1",
+    dedupeKey: `M1:${giftId}:${at.getTime()}`,
+    to: { email: art.recipientEmail },
+    message: complimentaryMembershipEmail({
+      recipientName: art.recipientName,
+      months: batch.months,
+      occasion: batch.occasion,
+      sponsorName: batch.sponsorName,
+      sponsorIsReadli: batch.sponsorIsReadli,
+      eventName: batch.eventName,
+      message: batch.message,
+      claimBy: batch.claimBy,
+      claimUrl: claimLink(origin, art.code, claimPath(batch.program)),
+    }),
+  });
+  await logAction(db, admin, "complimentary_emailed", { batch_id: batch.id, certificate: art.certificate, outcome });
+  return { certificate: art.certificate, outcome };
 }

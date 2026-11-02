@@ -8,6 +8,7 @@ import {
   batchPrefix,
   certificateLabel,
   claimLink,
+  emailMembership,
   issueComplimentary,
   issuedStatus,
   membershipArtwork,
@@ -17,6 +18,7 @@ import {
   type ComplimentaryRequest,
 } from "./complimentary";
 import { AdminActionError } from "./tester-plans";
+import type { QueuedEmail } from "@/lib/email/outbox";
 
 type Row = Record<string, unknown>;
 
@@ -243,5 +245,42 @@ describe("issued memberships", () => {
     tables.gifts![1]!.redeemed_at = "2026-10-23";
     await expect(revokeAndReplace(db, admin, cipher, tables.gifts![1]!.id as string, AT)).rejects.toBeInstanceOf(AdminActionError);
     expect(tables.admin_actions!.filter((a) => a.action === "complimentary_revoked")).toHaveLength(1);
+  });
+
+  it("email a named adult their claim link, and log it without the code or address", async () => {
+    const { db, tables } = fakeDb();
+    await issueComplimentary(
+      db,
+      admin,
+      raffle({ count: 1, recipient: "named", recipientName: "Kristin Scher", recipientEmail: "Kristin@Example.com", occasion: "promotion", eventName: "" }),
+      cipher,
+      AT,
+    );
+    const gift = tables.gifts![0]!;
+    const sent: QueuedEmail[] = [];
+    const result = await emailMembership(db, admin, cipher, "https://readli.ai/", gift.id as string, async (e) => (sent.push(e), "sent"), AT);
+    expect(result.outcome).toBe("sent");
+    expect(sent).toHaveLength(1);
+    const code = cipher.decrypt(gift.code_encrypted as string)!;
+    expect(sent[0]).toMatchObject({ emailId: "M1", to: { email: "kristin@example.com" } });
+    expect(sent[0]!.message.text).toContain(`https://readli.ai/claim#${code}`);
+    expect(sent[0]!.message.text).toContain("Hi Kristin,");
+    expect(sent[0]!.message.subject).toBe("Readli gave you a year of Readli Family");
+    const log = tables.admin_actions!.at(-1)!;
+    expect(log).toMatchObject({ action: "complimentary_emailed", detail: { certificate: "REA-001", outcome: "sent" } });
+    expect(JSON.stringify(tables.admin_actions)).not.toContain(code);
+    expect(JSON.stringify(tables.admin_actions)).not.toContain("example.com");
+  });
+
+  it("refuse to email a membership with no address, or one already claimed", async () => {
+    const { db, tables } = fakeDb();
+    await issueComplimentary(db, admin, raffle({ count: 1 }), cipher, AT);
+    const send = async () => "sent" as const;
+    const id = tables.gifts![0]!.id as string;
+    await expect(emailMembership(db, admin, cipher, "https://readli.ai", id, send, AT)).rejects.toBeInstanceOf(AdminActionError);
+    tables.gifts![0]!.recipient_email = "a@b.co";
+    tables.gifts![0]!.status = "active";
+    tables.gifts![0]!.redeemed_at = "2026-10-23";
+    await expect(emailMembership(db, admin, cipher, "https://readli.ai", id, send, AT)).rejects.toBeInstanceOf(AdminActionError);
   });
 });

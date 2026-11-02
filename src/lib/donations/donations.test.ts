@@ -148,6 +148,8 @@ describe("certificates and links", () => {
       certificate: "STT-001",
       code: "ABCD-EFGH-JKMN",
       recipientName: null,
+      recipientEmail: null,
+      status: "unclaimed",
       batch: {
         id: "b1", label: null, prefix: "STT", sponsorName: "Readli", sponsorIsReadli: true, eventName: "Spring Tricky Tray", occasion: "raffle", months: 12,
         message: null, claimBy: "2028-03-14T23:59:59.000Z", createdAt: "2026-10-30T00:00:00Z", program: "readli_gives_back", supportingName: "Oak Street PTA",
