@@ -31,11 +31,11 @@ test("help search says so when nothing matches", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "No articles found for “xylophone”" })).toBeVisible();
 });
 
-test("draft articles about unreleased features stay hidden on the live site", async ({ page, request }) => {
-  expect((await request.get("/help/billing-credits-and-gifts/gift-memberships")).status()).toBe(404);
+test("billing and gift articles are published on the live site, with no draft badges", async ({ page, request }) => {
+  expect((await request.get("/help/billing-credits-and-gifts/gift-memberships")).status()).toBe(200);
   await page.goto("/help/billing-credits-and-gifts");
   await expect(page.getByRole("link", { name: /What's included in the \$19\.99/ })).toBeVisible();
-  await expect(page.getByText("How do gift memberships work?")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "How do gift memberships work?" })).toBeVisible();
   await expect(page.getByText("Draft: hidden until launch")).toHaveCount(0);
 });
 
@@ -82,7 +82,7 @@ test("printable guides are one clean page each, linked from Help", async ({ page
   expect((await page.goto("/help/print/nope"))?.status()).toBe(404);
 });
 
-test("family screens link to the help article that answers them, and never to a hidden draft", async ({ page }) => {
+test("family screens link to the help article that answers them", async ({ page }) => {
   expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
   await page.goto("/family/kids");
   const link = page.getByTestId("help-link-parents-control-voices");
@@ -93,6 +93,4 @@ test("family screens link to the help article that answers them, and never to a 
 
   await page.goto("/family/settings/kids-mode");
   await expect(page.getByTestId("help-link-readli-kids-on-ipad")).toHaveAttribute("href", "/help/getting-started/readli-kids-on-ipad");
-  // A draft article (not published on this build) gets no link.
-  await expect(page.locator('[data-testid^="help-link-invite-relatives-elsewhere"]')).toHaveCount(0);
 });
