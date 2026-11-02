@@ -138,6 +138,8 @@ export async function emailMembershipAction(batchId: string, giftId: string): Pr
     return outcome === "sent" || outcome === "queued" ? { message: `${EMAIL_OUTCOME_TEXT[outcome]}.` } : { error: `${EMAIL_OUTCOME_TEXT[outcome]}.` };
   } catch (err) {
     if (err instanceof AdminActionError) return { error: err.message };
-    throw err;
+    // Show the problem on the row instead of crashing the page.
+    console.error("email complimentary membership failed", err instanceof Error ? err.message : err);
+    return { error: `${EMAIL_OUTCOME_TEXT.failed}.` };
   }
 }
