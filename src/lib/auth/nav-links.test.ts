@@ -61,7 +61,7 @@ describe("header for each account", () => {
     const trial = adult({ plan: "trial", endsAt: "2026-10-27T00:00:00.000Z" });
     expect(primaryAction(trial)).toBeNull();
     expect(labels(trial)).toEqual(["My Family", "My Voice", "Settings", "Give Readli as a gift", "Help", "Choose a plan"]);
-    expect(accountBadge(trial)).toBe("Family trial · ends Oct 27");
+    expect(accountBadge(trial)).toBe("Family trial · ends Oct 26");
   });
 
   it("gives a paid family My Family in the menu with no offers", () => {

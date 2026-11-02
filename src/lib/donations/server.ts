@@ -14,6 +14,7 @@ import { claimByLabel } from "@/lib/gifting/complimentary-copy";
 import { adminReviewEmail, approvedEmail, infoNeededEmail, notApprovedEmail, requestReceivedEmail, winnerWelcomeEmail, type RequestFacts } from "./emails";
 import { claimByForEvent, DONATION_MONTHS, FLYER_MAX_BYTES, FLYER_TYPES, type DonationStatus, type DonationUse, type EventType, type ValidDonation } from "./program";
 import { eventKey, isOfficialEmail, screen, type Flag, type PriorRequest } from "./screening";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 /**
  * Readli Gives Back requests (spec sections 2, 3, 5 and 7; Phase 1). A request is reviewed by a person;
@@ -624,7 +625,7 @@ export async function afterGiftRedeemed(ctx: DonationContext, giftId: string, us
   if (batch?.program !== PROGRAM) return;
   const [request] = await q(ctx.db.from("donation_requests").select("id").eq("batch_id", gift.batch_id as string).limit(1), "read donation for gift");
   if (request) await log(ctx.db, request.id as string, "system", "redeemed", {});
-  const endsLabel = paidThrough ? new Date(paidThrough).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "a year from your current plan's end";
+  const endsLabel = paidThrough ? new Date(paidThrough).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: READLI_TIME_ZONE }) : "a year from your current plan's end";
   const ids = await queueEmails(ctx.db, ctx.secret, [
     {
       emailId: "D6",

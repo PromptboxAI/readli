@@ -6,6 +6,7 @@ import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
 import type { NarratorSlotsView } from "@/lib/family/service";
 import type { SavedInvite } from "./InviteStoryteller";
 import { StorytellerAvatar } from "./StorytellerAvatar";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 type Kind = "reading" | "ready" | "waiting" | "joined" | "invited";
 
@@ -35,7 +36,7 @@ const BADGE: Record<Kind, string> = {
   invited: "bg-ivory ring-2 ring-ink/20",
 };
 
-const day = (d: string | Date) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+const day = (d: string | Date) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: READLI_TIME_ZONE });
 const and = (names: string[]) => (names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`);
 
 /** Everyone in this family's storytelling circle, from the same data as the List view. Nothing here is a family tree. */

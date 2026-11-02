@@ -9,11 +9,12 @@ import { COMPLIMENTARY_KIND_LABELS } from "@/lib/admin/complimentary-kinds";
 import { accountDb } from "@/lib/family/account-store";
 import { claimByLabel } from "@/lib/gifting/complimentary-copy";
 import { IssuedTable } from "./IssuedTable";
+import { adminDateTime } from "@/lib/admin/time";
 
 export const metadata: Metadata = { title: "Issued memberships | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
-const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const when = (iso: string) => adminDateTime(iso);
 
 /** One batch: every membership's status, downloads, revoke and replace, and the audit trail. */
 export default async function BatchPage({

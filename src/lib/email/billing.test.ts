@@ -89,7 +89,7 @@ describe("B2 gift ending", () => {
   it("tells the recipient a week ahead, without anything about the giver beyond their name", async () => {
     const { ctx } = setup({ gifts: [gift()] }, ["B2"]);
     const [email] = await giftEnding(ctx);
-    expect(email!.message.subject).toBe("Your gift from Grandma Jo ends on October 30, 2026");
+    expect(email!.message.subject).toBe("Your gift from Grandma Jo ends on October 29, 2026");
   });
   it("skips a renewing gift or a family with its own plan", async () => {
     expect(await giftEnding(setup({ gifts: [gift({ plan_id: "sponsored_monthly" })] }, ["B2"]).ctx)).toEqual([]);

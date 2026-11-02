@@ -4,8 +4,9 @@ import { useState } from "react";
 import { HelpLink } from "@/components/help/HelpLink";
 import type { MyVoiceHousehold, MyVoiceView } from "@/lib/family/service";
 import { Toggle } from "./Toggle";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
-const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: READLI_TIME_ZONE });
 
 /** What the family has done with a shared voice. Read-only: the family's parents make these choices. */
 function FamilyStatus({ h, onRename }: { h: MyVoiceHousehold; onRename?: (nickname: string) => Promise<boolean> }) {

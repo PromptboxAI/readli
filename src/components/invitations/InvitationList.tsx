@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { INVITATION_STATUS_LABELS, type InvitationStatus } from "@/lib/invitations/invitations";
 import { InvitationPill, type InvitationPillState } from "./InvitationPill";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 export interface InvitationItem {
   id: string;
@@ -30,7 +31,7 @@ const PILL: Record<InvitationStatus, InvitationPillState> = {
   revoked: "withdrawn",
 };
 
-const date = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+const date = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: READLI_TIME_ZONE });
 
 /** The contributor's invitations with resend and withdraw. "Opened" means the preview page was visited, not an email pixel. */
 export function InvitationList({ items }: { items: InvitationItem[] }) {

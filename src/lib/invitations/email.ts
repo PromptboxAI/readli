@@ -1,4 +1,5 @@
 import { DEFAULT_CONTRIBUTOR_MESSAGE } from "./invitations";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 /**
  * Invitation email through Resend, Readli's transactional email provider. Server-only: it reads
@@ -124,7 +125,7 @@ export function emailCoverUrl(origin: string, slug: string | null | undefined): 
   return slug && EMAIL_COVERS.has(slug) ? `${origin.replace(/\/$/, "")}/email-covers/${slug}.jpg` : null;
 }
 
-const longDate = (d: Date) => d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+const longDate = (d: Date) => d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: READLI_TIME_ZONE });
 
 /**
  * A storyteller shares their voice with a family. Built around the approved preview: who, their

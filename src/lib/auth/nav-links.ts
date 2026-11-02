@@ -1,5 +1,6 @@
 import type { HouseholdEntitlement } from "@/lib/family/model";
 import { initials } from "@/lib/content/example-family";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 /** What the signed-in grown-up's households give them. Only a guardian of a household with a live plan gets Family. */
 export type FamilyAccess = { plan: "none"; hadFamily: boolean } | { plan: "trial" | "paid"; endsAt: string | null };
@@ -57,7 +58,7 @@ export function accountLinks(nav: Extract<NavState, { kind: "adult" }>): NavLink
 export function accountBadge(nav: Extract<NavState, { kind: "adult" }>): string | null {
   if (nav.family.plan !== "trial") return null;
   if (!nav.family.endsAt) return "Family trial";
-  const day = new Date(nav.family.endsAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  const day = new Date(nav.family.endsAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: READLI_TIME_ZONE });
   return `Family trial · ends ${day}`;
 }
 

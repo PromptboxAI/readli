@@ -1,4 +1,5 @@
 import { PRIZE_KINDS, type ComplimentaryKind } from "@/lib/admin/complimentary-kinds";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 /**
  * Words for complimentary memberships, shared by the admin preview, the winner's page and the
@@ -54,5 +55,5 @@ export function recipientLine(recipientName: string | null): string | null {
 
 export function claimByLabel(claimBy: string | null): string | null {
   if (!claimBy) return null;
-  return new Date(claimBy).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+  return new Date(claimBy).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: READLI_TIME_ZONE });
 }

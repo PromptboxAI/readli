@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
-const DAY_FMT = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+const DAY_FMT = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: READLI_TIME_ZONE });
 const option = "flex flex-col rounded-lg border border-ink/15 bg-surface px-3 py-2 text-left text-sm hover:bg-ivory";
 
 /**

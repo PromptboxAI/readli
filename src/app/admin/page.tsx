@@ -8,12 +8,13 @@ import { accountDb } from "@/lib/family/account-store";
 import { serverConfig } from "@/lib/server/config";
 import { fetchProviderModels } from "@/lib/voice/model-watch";
 import { endTesterPlanAction, grantTesterPlanAction, removeEmptyFamilyAction } from "./actions";
+import { adminDate } from "@/lib/admin/time";
 
 export const metadata: Metadata = { title: "Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 const n = (x: number) => x.toLocaleString("en-US");
-const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const day = (iso: string) => adminDate(iso);
 const SOURCE: Record<string, string> = { subscription: "Paid", gift: "Gift", donated: "Donated", trial: "Trial", tester: "Tester" };
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {

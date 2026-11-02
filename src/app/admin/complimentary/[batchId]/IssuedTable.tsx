@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import type { IssuedGift, IssuedStatus } from "@/lib/admin/complimentary";
 import { emailMembershipAction, revealCodeAction, revokeAndReplaceAction, type RowResult } from "../actions";
+import { adminDate } from "@/lib/admin/time";
 
 const STATUS: Record<IssuedStatus, { label: string; tone: string }> = {
   unclaimed: { label: "Unclaimed", tone: "bg-sunshine" },
@@ -12,7 +13,7 @@ const STATUS: Record<IssuedStatus, { label: string; tone: string }> = {
 };
 
 const chip = "inline-flex min-h-11 items-center rounded-xl bg-ivory px-3 font-bold ring-2 ring-ink/20 hover:ring-ink";
-const short = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+const short = (iso: string) => adminDate(iso, false);
 
 function Downloads({ id }: { id: string }) {
   const files = [
