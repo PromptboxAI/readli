@@ -186,7 +186,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "replace-or-delete-my-voice",
     category: "voices-and-sharing",
     question: "Can I replace or delete my voice?",
-    status: "draft",
+    status: "published",
     answer: [
       "Yes. In Readli Family, open My voice and choose Record again to replace your voice with a better take (a quiet room helps).",
       "To delete your voice, email admin@readli.ai from the address on your account. We delete it within 48 hours of confirming it's you, and email you to say what was deleted. (Deleting a voice yourself in the app is paused while we update how finished stories are kept.)",
@@ -332,7 +332,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "not-enough-credits",
     category: "books-and-listening",
     question: "What happens when a book requires more narration credits than I have?",
-    status: "draft",
+    status: "published",
     answer: [
       "Readli tells you how many credits the whole book needs before anything starts. If you don't have enough, you can prepare a single chapter (in books with chapters) or a shorter story instead, or wait for next month's credits.",
     ],
@@ -402,10 +402,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "additional-narrator-slots",
     category: "billing-credits-and-gifts",
     question: "How do additional narrator slots work?",
-    status: "draft",
+    status: "published",
     answer: [
       "Your plan includes two storyteller slots. Each shared voice you want your children to hear uses one slot. If your family would like more storytellers, you can add extra slots for $5.99 a month each.",
-      "Extra slots don't add narration credits, and the relative sharing their voice never pays anything. You can remove an extra slot at any time from your subscription settings.",
+      "Extra slots don't add narration credits, and the relative sharing their voice never pays anything. You can add or remove extra slots at any time from Settings, then Plan & credits.",
     ],
     keywords: ["slots", "more storytellers", "third voice"],
     related: ["family-plan-included", "voice-not-available-to-child"],
@@ -414,7 +414,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "monthly-narration-credits",
     category: "billing-credits-and-gifts",
     question: "How do monthly narration credits work?",
-    status: "draft",
+    status: "published",
     answer: [
       "Your plan comes with 40 narration credits each month, shared by your whole household. One credit prepares 1,000 characters of new narration in your family's voices. Readli shows exactly how many credits a book or chapter will use before you confirm.",
       "Monthly credits refresh each billing cycle and don't roll over. On the annual plan you still get 40 credits each month. Listening to stories you've already prepared never uses credits.",
@@ -426,9 +426,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "buy-more-credits",
     category: "billing-credits-and-gifts",
     question: "How can I purchase more credits?",
-    status: "draft",
+    status: "published",
     answer: [
-      "From Narration Credits in Readli Family, choose Get More Narration Credits and pick a pack: 20 credits for $6.99, 50 for $14.99 or 100 for $24.99. If you were preparing a book, you'll go straight back to it afterwards.",
+      "In Readli Family, open Settings, then Plan & credits, and under Get more narration credits pick a pack: 20 credits for $6.99, 50 for $14.99 or 100 for $24.99. If you were preparing a book, you'll go straight back to it afterwards.",
       "Credit packs are one-time purchases for Readli Family households. Your monthly credits are used first.",
     ],
     keywords: ["buy", "top up", "credit pack", "purchase"],
@@ -438,9 +438,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "manage-or-cancel-subscription",
     category: "billing-credits-and-gifts",
     question: "How do I manage or cancel my subscription?",
-    status: "draft",
+    status: "published",
     answer: [
-      "Go to Billing in Readli Family to update your payment details or cancel. If you cancel, your plan stays active until the end of the period you've paid for and won't renew.",
+      "In Readli Family, open Settings, then Plan & credits, and choose Change card, slots or cancel. If you cancel, your plan stays active until the end of the period you've paid for and won't renew.",
     ],
     keywords: ["cancel", "billing", "payment method", "stop subscription"],
     related: ["cancel-what-happens-to-voice", "family-plan-included"],
@@ -449,9 +449,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "gift-memberships",
     category: "billing-credits-and-gifts",
     question: "How do gift memberships work?",
-    status: "draft",
+    status: "published",
     answer: [
-      "With Invite & Gift you can pay for another family's Readli plan, either for a set time or as a monthly sponsorship. You pay; they manage their own account, children and storytellers. Gifting never gives you access to their family or voices.",
+      "With Invite & Gift on Family Home, you can pay for another family's Readli plan, either for a set time or as a monthly sponsorship. You pay; they manage their own account, children and storytellers. Gifting never gives you access to their family or voices.",
     ],
     keywords: ["gift", "sponsor", "present", "pay for someone"],
     related: ["redeem-a-gift", "manage-or-cancel-subscription"],
@@ -460,7 +460,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "redeem-a-gift",
     category: "billing-credits-and-gifts",
     question: "How do I redeem a gift or complimentary membership?",
-    status: "draft",
+    status: "published",
     answer: [
       "Open the gift link you received, or go to [Redeem a gift](/gift/open) and enter your code. Sign in or create your family account and the membership is added straight away.",
     ],
@@ -471,7 +471,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "referral-rewards",
     category: "billing-credits-and-gifts",
     question: "How do referral rewards work?",
-    status: "draft",
+    status: "published",
     answer: [
       "Readli Rewards celebrates getting started, like setting up your library and inviting a storyteller. When a family you refer starts a qualifying plan, you may earn a reward. Eligibility rules will be published before rewards launch.",
     ],
@@ -531,7 +531,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "cancel-what-happens-to-voice",
     category: "privacy-and-child-safety",
     question: "What happens to my voice and saved narrations if I cancel?",
-    status: "draft",
+    status: "published",
     answer: [
       "If your family plan ends, your children stop listening to family narrations, but your family's own voices still belong to the people who recorded them. Anyone can delete their voice at any time. How long other information is kept is explained in our [Privacy Policy](/privacy).",
     ],

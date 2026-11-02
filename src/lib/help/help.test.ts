@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { HELP_ARTICLES, HELP_CATEGORIES } from "./articles";
 import { getArticle, relatedArticles, searchHelp, showDrafts, visibleArticles } from "./search";
 
@@ -22,7 +22,7 @@ describe("help content", () => {
   it("covers every topic in Kevin's list (42 questions) plus the library articles, what happens after the demo, the sleep timer and the device guides", () => {
     expect(HELP_ARTICLES).toHaveLength(49);
     expect(visibleArticles(true)).toHaveLength(49);
-    expect(visibleArticles(false).length).toBeLessThan(49);
+    expect(visibleArticles(false)).toHaveLength(49);
   });
 
   it("states a timeframe for deleting a voice by email", () => {
@@ -48,9 +48,14 @@ describe("drafts", () => {
   });
 
   it("does not find, link or search drafts when they are hidden", () => {
+    // Every article is published today, so mark one as a draft for this test.
+    const gift = HELP_ARTICLES.find((a) => a.slug === "gift-memberships")!;
+    gift.status = "draft";
+    onTestFinished(() => void (gift.status = "published"));
     expect(getArticle("billing-credits-and-gifts", "gift-memberships", false)).toBeUndefined();
     expect(getArticle("billing-credits-and-gifts", "gift-memberships", true)).toBeDefined();
-    expect(searchHelp("gift", false).every((a) => a.status === "published")).toBe(true);
+    expect(searchHelp("gift", false).some((a) => a.slug === "gift-memberships")).toBe(false);
+    expect(searchHelp("gift", true).some((a) => a.slug === "gift-memberships")).toBe(true);
     const what = getArticle("getting-started", "what-is-readli", false)!;
     expect(relatedArticles(what, false).every((a) => a.status === "published")).toBe(true);
   });

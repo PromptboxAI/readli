@@ -15,9 +15,7 @@ describe("HelpLink", () => {
     expect(container.querySelector("a")!.textContent).toBe("Recording help");
   });
 
-  it("shows nothing for a draft hidden from this build, or an unknown article", () => {
-    const draft = HELP_ARTICLES.find((a) => a.status === "draft")!;
-    expect(render(<HelpLink slug={draft.slug} />).container.innerHTML).toBe("");
+  it("shows nothing for an article this build doesn't publish", () => {
     expect(render(<HelpLink slug="no-such-article" />).container.innerHTML).toBe("");
   });
 
