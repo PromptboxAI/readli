@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 /** The signed-in grown-up's own recording: hear it, or record it again for better quality. Deleting is paused for now. */
 export function AccountVoiceControls({ voice }: { voice: { status: string; version: number; updatedAt: string } | null }) {
@@ -29,7 +30,7 @@ export function AccountVoiceControls({ voice }: { voice: { status: string; versi
       {voice ? (
         <>
           <p>
-            Recorded {new Date(voice.updatedAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
+            Recorded {new Date(voice.updatedAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric", timeZone: READLI_TIME_ZONE })}
             {voice.version > 1 ? ` (take ${voice.version})` : ""}. Recording again in a quiet room replaces it, and families you share it
             with keep hearing you, with the new recording.
           </p>

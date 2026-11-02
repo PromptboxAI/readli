@@ -5,8 +5,9 @@ import { useState } from "react";
 import { parentPrimary, buttonQuiet, parentSecondary } from "@/components/brand/buttons";
 import { HelpLink } from "@/components/help/HelpLink";
 import type { DeviceView } from "@/lib/family/devices";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
-const when = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+const when = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: READLI_TIME_ZONE });
 const STATUS: Record<DeviceView["status"], string> = { active: "Active", revoked: "Ended", expired: "Ended after 90 days unused" };
 
 /** Readli Family → Kids devices and PIN: the two ways to use Readli Kids, the family PIN, registering this device and ending others. */

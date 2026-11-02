@@ -13,12 +13,13 @@ import { InviteStoryteller, type SavedInvite } from "./InviteStoryteller";
 import { FamilyCircle } from "./FamilyCircle";
 import { RelationshipPicker } from "./RelationshipPicker";
 import { StorytellerAvatar } from "./StorytellerAvatar";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 /** "live": invitations are saved; "preview": the sample family, nothing saved; "off": no invitations here. */
 export type InviteMode = "live" | "preview" | "off";
 
 const pill = "shrink-0 rounded-full px-3 py-1 text-sm font-bold";
-const day = (d: string | Date) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+const day = (d: string | Date) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: READLI_TIME_ZONE });
 
 const WAITING: Record<NonNullable<NarratorCard["status"]>, { badge: string; tone: string; note: (name: string) => string }> = {
   processing: { badge: "Making their voice", tone: "bg-sky/60", note: (n) => `${n} recorded and their voice is being made.` },

@@ -7,13 +7,14 @@ import { emailDefinition } from "@/lib/email/catalog";
 import { readliMailer } from "@/lib/email/send";
 import { accountDb } from "@/lib/family/account-store";
 import { retryEmailAction, setAllEmailSwitchesAction, setEmailSwitchAction } from "./actions";
+import { adminDateTime } from "@/lib/admin/time";
 
 export const metadata: Metadata = { title: "Email | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 const SHOWN: DashboardState[] = ["scheduled", "sent", "delivered", "bounced", "complained", "suppressed", "failed", "canceled"];
 const CLASS_LABELS: Record<string, string> = { transactional: "Transactional", relationship: "Relationship", commercial: "Commercial (opt-in)" };
-const when = (iso: string) => new Date(iso).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+const when = (iso: string) => adminDateTime(iso, true);
 
 function Stat({ label, value, href }: { label: string; value: number; href: string }) {
   return (

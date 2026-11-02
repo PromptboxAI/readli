@@ -1,4 +1,5 @@
 import { addMonths, cycleStart } from "@/lib/narration/credits";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 /**
  * Grandparent-sponsored Readli Family (Kevin, 2026-10-26). Pure rules: what a sponsor can buy, when they
@@ -242,7 +243,7 @@ export function ownPlanStart(giftEnds: Date | null, now = new Date()): { ok: tru
   return { ok: true, startsAt: giftEnds > now ? giftEnds : now };
 }
 
-const DATE_FMT = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+const DATE_FMT = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: READLI_TIME_ZONE });
 export const shortDate = (d: Date) => DATE_FMT.format(d);
 export const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 

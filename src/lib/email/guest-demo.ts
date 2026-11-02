@@ -4,6 +4,7 @@ import { emailHash } from "@/lib/invitations/server";
 import { ProviderRefCipher } from "@/lib/server/provider-ref";
 import { enabledEmails, queueEmails } from "./outbox";
 import { readliEmail } from "./templates";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 /**
  * "Email me my demo" (G1, Kevin 2026-10-24 point 7). Optional: the demo works the same without it.
@@ -61,7 +62,7 @@ export async function requestDemoEmail(
   }
   if (input.marketing) await saveGuestMarketingConsent(db, secret, email, now);
 
-  const until = new Date(guest.expiresAt).toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit", timeZone: "America/New_York", timeZoneName: "short" });
+  const until = new Date(guest.expiresAt).toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit", timeZone: READLI_TIME_ZONE, timeZoneName: "short" });
   const [outboxId] = await queueEmails(
     db,
     secret,

@@ -13,11 +13,12 @@ import { formatPrice } from "@/lib/family/plan";
 import { invitationContext } from "@/lib/invitations/context";
 import { DEFAULT_CONTRIBUTOR_MESSAGE } from "@/lib/invitations/invitations";
 import { landingFor } from "@/lib/invitations/server";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 export const metadata: Metadata = { title: "A story for your family | Readli", robots: { index: false, follow: false }, referrer: "no-referrer" };
 export const dynamic = "force-dynamic";
 
-const longDate = (d: Date) => d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+const longDate = (d: Date) => d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: READLI_TIME_ZONE });
 
 /**
  * Where an invitation email lands. The contributor's approved preview is the centerpiece and plays

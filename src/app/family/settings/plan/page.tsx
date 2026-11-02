@@ -17,13 +17,14 @@ import { familyStore } from "@/lib/family/session";
 import { creditBalance, displayCredits } from "@/lib/narration/credits";
 import { creditHistory } from "@/lib/narration/narration";
 import { householdGift, type HouseholdGift } from "@/lib/sponsorship/view";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Plan & credits | Readli", robots: { index: false } };
 
 const NOT_GUARDIAN = "Only a parent or guardian can see your family's plan and credits.";
-const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
-const shortDay = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: READLI_TIME_ZONE });
+const shortDay = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: READLI_TIME_ZONE });
 const card = "flex min-w-0 flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10";
 const label = "text-sm font-bold tracking-wider text-muted uppercase";
 /** Recent credit activity shown before "See all". */

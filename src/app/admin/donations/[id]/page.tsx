@@ -9,11 +9,12 @@ import { DONATION_USES, EVENT_TYPES, eventDateLabel, ORG_TYPES, STATUS_LABELS, U
 import { requestDetail } from "@/lib/donations/server";
 import { accountDb } from "@/lib/family/account-store";
 import { approveAction, askForInfoAction, rejectAction, resendAction } from "../actions";
+import { adminDateTime } from "@/lib/admin/time";
 
 export const metadata: Metadata = { title: "Donation request | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
-const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+const when = (iso: string) => adminDateTime(iso, true);
 const ACTIONS: Record<string, string> = {
   submitted: "Request submitted",
   flagged: "Automatic checks flagged it",

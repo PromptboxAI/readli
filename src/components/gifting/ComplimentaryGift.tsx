@@ -9,6 +9,7 @@ import { normalizeGiftCode } from "@/lib/gifting/codes";
 import { claimByLabel, complimentaryHeadline, presentedLine, recipientLine, termPhrase } from "@/lib/gifting/complimentary-copy";
 import type { ComplimentaryLanding } from "@/lib/gifting/server";
 import type { GiftViewer } from "@/lib/gifting/viewer";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 /** Where a scanned code waits while the winner signs in (a magic link may open in a new tab). */
 const STASH = "readli-claim-code";
@@ -40,7 +41,7 @@ function forget() {
   }
 }
 
-const longDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+const longDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: READLI_TIME_ZONE });
 
 const BENEFITS = ["The whole storybook library", "Invite 2 storytellers to read in their own voices", "40 narration credits every month", "Up to 6 kids' profiles you manage"];
 

@@ -8,6 +8,7 @@ import { GiftCard } from "@/components/gifting/GiftCard";
 import { TheirHome } from "@/components/gifting/TheirHome";
 import { GiftBoxArt } from "@/components/invites/illustrations";
 import type { GiftPlan } from "@/lib/gifting/plans";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 export interface LiveGift {
   code: string;
@@ -74,7 +75,7 @@ export function GiftOpen({ plan, to, from, message, live }: { plan: GiftPlan; to
               ? "Nothing has started. Your gift stays here for a year if you change your mind."
               : `We'd let ${from} know, kindly, and they'd get a full refund. This is a preview, so nothing was sent.`
             : live
-              ? `Readli Family is on for your family${paidThrough ? ` until ${new Date(paidThrough).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : ""}. No card needed, and nothing renews on its own.`
+              ? `Readli Family is on for your family${paidThrough ? ` until ${new Date(paidThrough).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: READLI_TIME_ZONE })}` : ""}. No card needed, and nothing renews on its own.`
               : "Family accounts are coming soon. When they arrive, this is where you'd create your account and the gift would start."}
         </p>
         {stage === "claimed" ? (

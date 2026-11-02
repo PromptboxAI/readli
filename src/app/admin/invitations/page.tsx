@@ -10,6 +10,7 @@ import { loadInvitationFunnel, openReports, type InvitationFunnel, type Invitati
 import { invitationSettings } from "@/lib/invitations/server";
 import { findCatalogBook } from "@/lib/library/catalog";
 import { reviewReportAction, saveInvitationSettingsAction } from "./actions";
+import { adminDateTime } from "@/lib/admin/time";
 
 export const metadata: Metadata = { title: "Family invitations | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -137,7 +138,7 @@ export default async function AdminInvitationsPage({ searchParams }: { searchPar
                   <span className="font-semibold">{REPORT_REASONS[r.reason as ReportReason] ?? r.reason}</span>
                   {r.details && <span className="text-sm">{r.details}</span>}
                   <span className="text-sm text-muted">
-                    {new Date(r.createdAt).toLocaleString("en-US")} · contributor {r.contributorId?.slice(0, 8) ?? "deleted"}
+                    {adminDateTime(r.createdAt, true)} · contributor {r.contributorId?.slice(0, 8) ?? "deleted"}
                   </span>
                 </div>
                 <form action={reviewReportAction}>

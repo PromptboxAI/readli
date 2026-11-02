@@ -7,6 +7,7 @@ import { queueEmails, type QueuedEmail } from "./outbox";
 import { preferencesUrl, unsubscribeHeaders } from "./preferences";
 import { storytellerHeadsUps } from "./reminders";
 import { readliEmail } from "./templates";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 /**
  * Finds who is due each launch email in the sequence matrix and queues it. Runs hourly before the
@@ -38,7 +39,7 @@ async function q<T = Row[]>(p: PromiseLike<{ data: unknown; error: { message: st
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 const ago = (now: Date, ms: number) => new Date(now.getTime() - ms).toISOString();
-const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" });
+const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: READLI_TIME_ZONE });
 
 async function firstNames(db: SupabaseClient, ids: string[]): Promise<Map<string, string>> {
   if (!ids.length) return new Map();

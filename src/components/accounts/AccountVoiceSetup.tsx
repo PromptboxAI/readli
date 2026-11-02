@@ -12,6 +12,7 @@ import { VOICE_CONSENTS, VOICE_CONSENT_SENTENCE } from "@/lib/content/voice-cons
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
 import { formatClock } from "@/lib/teleprompter/recorder-machine";
 import type { GuestTake } from "@/lib/voice/guest-handoff";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 /** A recording made earlier that was never kept, still waiting on the server for the owner's decision. */
 export interface WaitingRecording {
@@ -247,7 +248,7 @@ export function AccountVoiceSetup({
                   </span>
                   <span className="text-sm text-muted">
                     We&apos;ll make a new sample from it, so you hear how your Readli voice sounds. The recording is kept until{" "}
-                    {new Date(guestTake.expiresAt).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}, then deleted.
+                    {new Date(guestTake.expiresAt).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: READLI_TIME_ZONE, timeZoneName: "short" })}, then deleted.
                   </span>
                 </span>
               </label>
@@ -290,7 +291,7 @@ export function AccountVoiceSetup({
 
           {resumed && waiting && (
             <p className="rounded-2xl bg-sunshine/60 p-4" data-testid="waiting-recording">
-              You recorded your voice {new Date(waiting.createdAt).toLocaleString(undefined, { weekday: "long", hour: "numeric", minute: "2-digit" })} but
+              You recorded your voice {new Date(waiting.createdAt).toLocaleString(undefined, { weekday: "long", hour: "numeric", minute: "2-digit", timeZone: READLI_TIME_ZONE, timeZoneName: "short" })} but
               haven&apos;t kept it yet, so it isn&apos;t saved. Listen, then tap Keep This Voice to finish. Recordings that aren&apos;t kept are deleted after a day.
             </p>
           )}

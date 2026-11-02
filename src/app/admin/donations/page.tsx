@@ -7,6 +7,7 @@ import { effectivePlan } from "@/lib/billing/price-settings";
 import { EVENT_TYPES, money, ORG_TYPES, STATUS_LABELS, type EventType, type OrgType } from "@/lib/donations/program";
 import { listRequests, programStats, type AdminRequest, type RequestFilter } from "@/lib/donations/server";
 import { accountDb } from "@/lib/family/account-store";
+import { adminDate } from "@/lib/admin/time";
 
 export const metadata: Metadata = { title: "Readli Gives Back | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -133,7 +134,7 @@ export default async function DonationsAdminPage({ searchParams }: { searchParam
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">{shortDate(r.eventDate)}</td>
                         <td className="px-3 py-2">{r.contactEmail}</td>
-                        <td className="px-3 py-2 whitespace-nowrap">{shortDate(r.createdAt)}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">{adminDate(r.createdAt)}</td>
                         <td className="px-3 py-2">{r.flags.length ? <span className="rounded-full bg-sunshine/60 px-2 py-0.5 font-semibold">{r.flags.length} to check</span> : "Clear"}</td>
                         <td className="px-3 py-2">{STATUS_LABELS[r.status]}</td>
                         <td className="px-3 py-2">{REDEMPTION[r.redemption]}</td>

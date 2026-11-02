@@ -7,6 +7,7 @@ import { queueEmails, type QueuedEmail } from "./outbox";
 import { preferencesUrl, unsubscribeHeaders } from "./preferences";
 import type { SequenceContext } from "./sequences";
 import { readliEmail } from "./templates";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 /**
  * Trial, billing and abandoned-checkout email (sequence matrix, "Built but switched off"). Each stays
@@ -32,7 +33,7 @@ const ago = (now: Date, ms: number) => new Date(now.getTime() - ms).toISOString(
 const str = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
 const ref = (v: unknown): string | null => str(v) ?? str((v as Obj | null)?.id);
 const iso = (seconds: unknown): string | null => (typeof seconds === "number" ? new Date(seconds * 1000).toISOString() : null);
-const day = (at: string) => new Date(at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+const day = (at: string) => new Date(at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: READLI_TIME_ZONE });
 const money = (cents: number, currency: string) => new Intl.NumberFormat("en-US", { style: "currency", currency: currency.toUpperCase() }).format(cents / 100);
 
 interface StoredEvent {

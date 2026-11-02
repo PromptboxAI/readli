@@ -6,11 +6,12 @@ import { defaultClaimBy, earlierCodes, listBatches } from "@/lib/admin/complimen
 import { COMPLIMENTARY_KIND_LABELS } from "@/lib/admin/complimentary-kinds";
 import { accountDb } from "@/lib/family/account-store";
 import { IssueForm } from "./IssueForm";
+import { adminDate } from "@/lib/admin/time";
 
 export const metadata: Metadata = { title: "Complimentary memberships | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
-const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const shortDate = (iso: string) => adminDate(iso);
 
 /** Free Readli Family memberships for raffles, auctions, gift baskets, schools, charities and giveaways. */
 export default async function ComplimentaryPage() {
