@@ -1,5 +1,6 @@
 "use client";
 
+import { HelpLink } from "@/components/help/HelpLink";
 import { displayCredits } from "@/lib/narration/credits";
 import Image from "next/image";
 import Link from "next/link";
@@ -220,7 +221,7 @@ export function PrepareNarration({ initial, resume, prefer = null }: { initial: 
           </p>
           <p className="max-w-2xl">
             Prepare this book once in a family voice. You can then play it here, and every child you approve finds it on their Readli Kids bookshelf.
-            Listening again never uses credits.
+            Listening again never uses credits. <HelpLink slug="prepare-a-book">How preparing works</HelpLink>
           </p>
         </div>
       </header>

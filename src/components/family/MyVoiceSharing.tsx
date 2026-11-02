@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { HelpLink } from "@/components/help/HelpLink";
 import type { MyVoiceHousehold, MyVoiceView } from "@/lib/family/service";
 import { Toggle } from "./Toggle";
 
@@ -141,6 +142,9 @@ export function MyVoiceSharing({ initial, storyteller = false }: { initial: MyVo
           )
         ),
       )}
+      <p className="text-sm text-muted">
+        <HelpLink slug="who-controls-my-voice">Who controls my recorded voice?</HelpLink>
+      </p>
     </div>
   );
 }

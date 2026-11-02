@@ -6,6 +6,7 @@ import { ArticleList, CategoryIcon, SearchBox, StillNeedHelp } from "@/component
 import { HELP_CATEGORIES } from "@/lib/help/articles";
 import { getCategory, searchHelp } from "@/lib/help/search";
 import { publicPageMetadata } from "@/lib/seo/site";
+import { HANDOUTS } from "@/lib/help/handouts";
 
 export const metadata: Metadata = publicPageMetadata({
   title: "Help Center | Readli",
@@ -70,6 +71,22 @@ export default async function HelpPage({ searchParams }: { searchParams: Promise
                       <span className="font-display text-xl font-semibold">{c.title}</span>
                       <span className="text-muted">{c.blurb}</span>
                     </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section aria-labelledby="print-heading" className="flex flex-col gap-3" data-testid="printable-guides">
+            <h2 id="print-heading" className="font-display text-2xl font-semibold">
+              Printable guides
+            </h2>
+            <p className="text-muted">One-page steps in large type, for anyone who&apos;d rather follow along on paper.</p>
+            <ul className="flex flex-col gap-2">
+              {HANDOUTS.map((h) => (
+                <li key={h.slug}>
+                  <Link href={`/help/print/${h.slug}`} className="font-semibold underline underline-offset-4">
+                    {h.title}
                   </Link>
                 </li>
               ))}

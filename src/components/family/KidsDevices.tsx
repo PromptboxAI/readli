@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { parentPrimary, buttonQuiet, parentSecondary } from "@/components/brand/buttons";
+import { HelpLink } from "@/components/help/HelpLink";
 import type { DeviceView } from "@/lib/family/devices";
 
 const when = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -178,7 +180,11 @@ export function KidsDevices({
             </p>
             <p className="text-sm text-muted">
               On an iPad or phone, once the bookshelf opens, tap Share and then Add to Home Screen. The Readli Kids shortcut opens straight
-              to the bookshelf, and your kids pick who&apos;s listening.
+              to the bookshelf, and your kids pick who&apos;s listening.{" "}
+              <HelpLink slug="readli-kids-on-ipad">iPad steps</HelpLink> · <HelpLink slug="readli-kids-on-android">Android and Fire steps</HelpLink> ·{" "}
+              <Link href="/help/print/set-up-readli-kids" target="_blank" className="font-semibold underline underline-offset-4">
+                Printable setup guide
+              </Link>
             </p>
             <button type="button" className={`${parentSecondary} self-start`} disabled={busy || chosen.length === 0} onClick={setUp}>
               Start Readli Kids here
