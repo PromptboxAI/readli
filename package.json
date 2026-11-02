@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "scan:language": "node --no-warnings scripts/language-scan.mjs"
+    "scan:language": "node --no-warnings scripts/language-scan.mjs",
+    "samples:books": "node --experimental-transform-types --no-warnings --import ./scripts/ts-alias.mjs scripts/book-samples.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
