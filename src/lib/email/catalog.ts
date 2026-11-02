@@ -22,7 +22,7 @@ export const PREFERENCE_TOPICS: { topic: PreferenceTopic; label: string; hint: s
 export interface EmailDefinition {
   id: string;
   name: string;
-  sequence: "family_onboarding" | "contributor_onboarding" | "invitation_reminders" | "guest_demo" | "bedtime_thursdays" | "trial" | "billing" | "checkout" | "feedback" | "win_back" | "sponsorship" | "donations";
+  sequence: "family_onboarding" | "contributor_onboarding" | "invitation_reminders" | "guest_demo" | "bedtime_thursdays" | "trial" | "billing" | "checkout" | "feedback" | "win_back" | "sponsorship" | "donations" | "complimentary";
   category: EmailCategory;
   /** The preference that turns it off; transactional email has none. */
   topic: PreferenceTopic | null;
@@ -65,6 +65,7 @@ export const EMAILS: EmailDefinition[] = [
   { id: "D3", name: "Readli Gives Back: more information needed", sequence: "donations", category: "transactional", topic: null },
   { id: "D4", name: "Readli Gives Back: not approved", sequence: "donations", category: "transactional", topic: null },
   { id: "D6", name: "Readli Gives Back: winner welcome", sequence: "donations", category: "transactional", topic: null },
+  { id: "M1", name: "Complimentary membership (to the recipient)", sequence: "complimentary", category: "transactional", topic: null },
   { id: "D8", name: "Readli Gives Back: request to review (to admins)", sequence: "donations", category: "transactional", topic: null },
 ];
 
