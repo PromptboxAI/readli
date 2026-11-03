@@ -13,6 +13,7 @@ import {
   filterMemberships,
   issueComplimentary,
   listMemberships,
+  organizerEmail,
   withClaimers,
   issuedStatus,
   membershipArtwork,
@@ -279,6 +280,38 @@ describe("issued memberships", () => {
     expect(log).toMatchObject({ action: "complimentary_emailed", detail: { certificate: "REA-001", outcome: "sent" } });
     expect(JSON.stringify(tables.admin_actions)).not.toContain(code);
     expect(JSON.stringify(tables.admin_actions)).not.toContain("example.com");
+  });
+
+  it("tell the organizer it went out, without the claim link", async () => {
+    const { db, tables } = fakeDb();
+    await issueComplimentary(
+      db,
+      admin,
+      raffle({ count: 1, recipient: "named", recipientName: "Kristin Scher", recipientEmail: "kristin@example.com", occasion: "school" }),
+      cipher,
+      AT,
+    );
+    const gift = tables.gifts![0]!;
+    const sent: QueuedEmail[] = [];
+    const send = async (e: QueuedEmail) => (sent.push(e), "sent" as const);
+    const result = await emailMembership(db, admin, cipher, "https://readli.ai", gift.id as string, send, AT, organizerEmail(" PTA@School.org "));
+    expect(result).toMatchObject({ outcome: "sent", organizerOutcome: "sent" });
+    expect(sent.map((e) => [e.emailId, e.to])).toEqual([["M1", { email: "kristin@example.com" }], ["M2", { email: "pta@school.org" }]]);
+    const code = cipher.decrypt(gift.code_encrypted as string)!;
+    expect(sent[1]!.message.text).toContain("Kristin Scher (kristin@example.com)");
+    expect(sent[1]!.message.text).not.toContain(code);
+    expect(sent[1]!.message.text).not.toContain("/claim");
+    expect(() => organizerEmail("not an email")).toThrow(AdminActionError);
+    expect(organizerEmail("  ")).toBeNull();
+  });
+
+  it("skip the organizer note when the recipient's email didn't go", async () => {
+    const { db, tables } = fakeDb();
+    await issueComplimentary(db, admin, raffle({ count: 1, recipient: "named", recipientName: "K", recipientEmail: "k@example.com" }), cipher, AT);
+    const sent: QueuedEmail[] = [];
+    const result = await emailMembership(db, admin, cipher, "https://readli.ai", tables.gifts![0]!.id as string, async (e) => (sent.push(e), "failed"), AT, "pta@school.org");
+    expect(result.organizerOutcome).toBeNull();
+    expect(sent).toHaveLength(1);
   });
 
   it("refuse to email a membership with no address, or one already claimed", async () => {

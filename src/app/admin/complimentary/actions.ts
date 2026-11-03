@@ -10,6 +10,7 @@ import {
   EMAIL_OUTCOME_TEXT,
   emailMembership,
   issueComplimentary,
+  organizerEmail,
   revealCode,
   revokeAndReplace,
   type EmailOutcome,
@@ -67,7 +68,9 @@ export async function issueComplimentaryAction(_prev: IssueResult, form: FormDat
   if (!ctx) return { error: NOT_READY };
   let batchId: string;
   let emailed: EmailOutcome | null = null;
+  let organizerEmailed: EmailOutcome | null = null;
   try {
+    const organizer = field(form, "recipient") === "named" ? organizerEmail(field(form, "organizerEmail")) : null;
     let created: boolean;
     ({ batchId, created } = await issueComplimentary(ctx.db, ctx.admin, {
       requestKey: field(form, "requestKey"),
@@ -91,7 +94,16 @@ export async function issueComplimentaryAction(_prev: IssueResult, form: FormDat
       const giftId = (data?.[0] as { id?: string } | undefined)?.id;
       if (giftId) {
         try {
-          ({ outcome: emailed } = await emailMembership(ctx.db, ctx.admin, ctx.cipher, await requestOrigin(), giftId, sendNow(ctx.db)));
+          ({ outcome: emailed, organizerOutcome: organizerEmailed } = await emailMembership(
+            ctx.db,
+            ctx.admin,
+            ctx.cipher,
+            await requestOrigin(),
+            giftId,
+            sendNow(ctx.db),
+            new Date(),
+            organizer,
+          ));
         } catch (err) {
           console.error("complimentary email failed", err instanceof Error ? err.message : err);
           emailed = "failed";
@@ -102,7 +114,10 @@ export async function issueComplimentaryAction(_prev: IssueResult, form: FormDat
     if (err instanceof AdminActionError) return { error: err.message };
     throw err;
   }
-  redirect(`/admin/complimentary/${batchId}${emailed ? `?emailed=${emailed}` : ""}`);
+  const query = new URLSearchParams();
+  if (emailed) query.set("emailed", emailed);
+  if (organizerEmailed) query.set("organizer", organizerEmailed);
+  redirect(`/admin/complimentary/${batchId}${query.size ? `?${query}` : ""}`);
 }
 
 export async function revokeAndReplaceAction(batchId: string, giftId: string): Promise<RowResult> {

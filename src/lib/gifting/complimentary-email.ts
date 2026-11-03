@@ -39,3 +39,38 @@ export function complimentaryMembershipEmail(f: ComplimentaryEmailFacts): EmailM
     reason: `You're getting this because ${from} gave you a complimentary Readli Family membership.`,
   });
 }
+
+/**
+ * The note an event organizer gets when an admin emails a named adult their membership and adds the
+ * organizer's address (Kevin, 2026-11-03). It says who it went to and nothing more: the claim link works
+ * once, so it stays only in the recipient's email.
+ */
+export interface OrganizerNoticeFacts {
+  recipientName: string | null;
+  recipientEmail: string;
+  months: number;
+  sponsorName: string;
+  sponsorIsReadli: boolean;
+  eventName: string | null;
+  claimBy: string | null;
+  siteUrl: string;
+}
+
+export function complimentaryOrganizerEmail(f: OrganizerNoticeFacts): EmailMessage {
+  const who = f.recipientName?.trim() ? `${f.recipientName.trim()} (${f.recipientEmail})` : f.recipientEmail;
+  const claimBy = claimByLabel(f.claimBy);
+  const what = `${termPhrase(f.months)} of Readli Family`;
+  return readliEmail({
+    subject: `We sent ${f.recipientName?.trim() || f.recipientEmail} their Readli membership`,
+    name: "",
+    title: "Their membership is on its way",
+    paragraphs: [
+      `We just emailed ${who} a complimentary membership: ${what}.`,
+      presentedLine(f),
+      claimBy ? `They have until ${claimBy} to claim it.` : "They can claim it from that email whenever they're ready.",
+      "Their claim link works once, so it's only in their email. If they can't find it, ask them to check their spam or Promotions folder, or reply here and we'll help.",
+    ],
+    cta: { label: "About Readli", url: f.siteUrl },
+    reason: "You're getting this because you were listed as the organizer when this membership was sent.",
+  });
+}
