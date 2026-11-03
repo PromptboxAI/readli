@@ -34,8 +34,11 @@ export function GrownUpPlayer({
   initialVoice,
   resume = 0,
   preview = false,
+  backHref,
 }: {
   view: ListenView;
+  /** Where Back goes; the book's page unless setup opened the player. */
+  backHref?: string;
   initialVoice: string | null;
   /** This grown-up's own saved place, counted in the text `initialVoice` reads. */
   resume?: number;
@@ -390,9 +393,9 @@ export function GrownUpPlayer({
 
   const { listen, soft, faint, main, round, side } = playerTone(mode);
   const back = (
-    <Link href={`/family/books/${book.slug}`} className="grid size-12 shrink-0 place-items-center rounded-full bg-current/10">
+    <Link href={backHref ?? `/family/books/${book.slug}`} className="grid size-12 shrink-0 place-items-center rounded-full bg-current/10">
       <Icon name="left" />
-      <span className="sr-only">Back to {book.title}</span>
+      <span className="sr-only">{backHref ? "Back to setup" : `Back to ${book.title}`}</span>
     </Link>
   );
 

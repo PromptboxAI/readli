@@ -34,16 +34,17 @@ export function setupProgress({ voice, kids, story }: { voice: boolean; kids: bo
 
 /**
  * The guided setup, one screen at a time: your voice, your kids, the rest of your family (a co-parent and
- * other storytellers), then a first book. Inviting is optional, so it never counts towards "done".
+ * other storytellers), a first book, then listening to it together. Inviting is optional, so it never counts towards "done".
  */
-export const SETUP_STEPS = ["voice", "kids", "family", "book"] as const;
+export const SETUP_STEPS = ["voice", "kids", "family", "book", "listen"] as const;
 export type SetupStep = (typeof SETUP_STEPS)[number] | "done";
 
 export const SETUP_STEP_LABELS: Record<(typeof SETUP_STEPS)[number], string> = {
   voice: "Voice",
   kids: "Kids",
   family: "Family",
-  book: "First book",
+  book: "Book",
+  listen: "Listen",
 };
 
 /** The screen to show: the one asked for, or else the first essential step still to do. */

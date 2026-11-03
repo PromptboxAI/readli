@@ -80,7 +80,8 @@ function firstVoice(view: PrepareBookView, resume: Target | null, prefer: string
  * whole book or a chapter costs in Readli credits, and confirm before anything is generated.
  * `resume` reopens the confirmation after buying credits, so the parent doesn't choose again.
  */
-export function PrepareNarration({ initial, resume, prefer = null }: { initial: PrepareBookView; resume: Target | null; prefer?: string | null }) {
+/** `inSetup`: opened from the guided setup, so a ready book goes on to setup's Listen step instead of the player. */
+export function PrepareNarration({ initial, resume, prefer = null, inSetup = false }: { initial: PrepareBookView; resume: Target | null; prefer?: string | null; inSetup?: boolean }) {
   const [view, setView] = useState(initial);
   const [selected, setSelected] = useState<string | null>(() => firstVoice(initial, resume, prefer));
   const [pending, setPending] = useState<{ target: Target; quote: GenerationQuote } | null>(null);
@@ -403,6 +404,7 @@ export function PrepareNarration({ initial, resume, prefer = null }: { initial: 
             </div>
 
             <WholeBook
+              inSetup={inSetup}
               view={view}
               voice={v}
               busy={busy}
@@ -443,6 +445,7 @@ export function PrepareNarration({ initial, resume, prefer = null }: { initial: 
 
 /** The whole-book purchase area: cost, what you have, and one clear next step. */
 function WholeBook({
+  inSetup,
   view,
   voice: v,
   busy,
@@ -451,6 +454,7 @@ function WholeBook({
   getCredits,
   confirm,
 }: {
+  inSetup: boolean;
   view: PrepareBookView;
   voice: PrepareVoiceView;
   busy: boolean;
@@ -482,8 +486,11 @@ function WholeBook({
           <p className="text-sm">
             {v.approvedFor.length ? `It's on ${v.approvedFor.join(" and ")}'s bookshelf in Readli Kids.` : "Choose who can listen under Narrator to put it on a bookshelf."}
           </p>
-          <Link href={`/family/books/${view.book.slug}/listen?voice=${v.voiceId}`} className={btnPrimary}>
-            Play now
+          <Link
+            href={inSetup ? `/family/setup?step=listen&book=${view.book.slug}&voice=${v.voiceId}` : `/family/books/${view.book.slug}/listen?voice=${v.voiceId}`}
+            className={btnPrimary}
+          >
+            {inSetup ? "Next: listen to it" : "Play now"}
           </Link>
           {v.update && !confirm && <UpdateAvailable update={v.update} preparing={Boolean(v.jobId)} busy={busy} onEstimate={onEstimate} />}
         </div>

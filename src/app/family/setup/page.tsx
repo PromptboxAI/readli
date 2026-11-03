@@ -9,7 +9,7 @@ import { FamilyOff, FamilyShell, NeedsGrownUp } from "@/components/family/Family
 import { FamilyParents } from "@/components/family/FamilyParents";
 import { NameFamily } from "@/components/family/NameFamily";
 import { PlanStarting } from "@/components/family/PlanStarting";
-import { SetupMyVoice, SetupSeen, SetupStorytellerInvites } from "@/components/family/SetupSteps";
+import { SetupSeen, SetupStorytellerInvites, SetupUseMyVoice } from "@/components/family/SetupSteps";
 import { billingConfig } from "@/lib/billing/config";
 import { confirmCheckout } from "@/lib/billing/confirm";
 import { StripeApi } from "@/lib/billing/stripe-api";
@@ -46,6 +46,7 @@ const NEXT_LABEL: Record<SetupStep, string> = {
   kids: "Next: add your kids",
   family: "Next: invite your family",
   book: "Next: your first book",
+  listen: "Next: listen to it",
   done: "Finish",
 };
 
@@ -53,9 +54,14 @@ const NEXT_LABEL: Record<SetupStep, string> = {
 function Stepper({ step, done }: { step: SetupStep; done: Record<(typeof SETUP_STEPS)[number], boolean> }) {
   return (
     <nav aria-label="Setup steps">
-      <ol className="grid grid-cols-4 gap-2" data-testid="setup-stepper">
+      <ol className="grid grid-cols-5 gap-2" data-testid="setup-stepper">
         {SETUP_STEPS.map((s, i) => {
           const current = s === step;
+          // The bar fills in order: a step ahead of the one you're on stays grey even if it's already done (a family
+          // that added a child elsewhere), and turns green once you reach or pass it. The optional family step
+          // and the listen step count as done once you're past them. A step you skipped stays grey.
+          const at = step === "done" ? SETUP_STEPS.length : (SETUP_STEPS as readonly string[]).indexOf(step);
+          const ok = i <= at && (done[s] || ((s === "family" || s === "listen") && i < at));
           return (
             <li key={s} className="min-w-0">
               <Link
@@ -64,12 +70,11 @@ function Stepper({ step, done }: { step: SetupStep; done: Record<(typeof SETUP_S
                 className="flex flex-col gap-1.5 rounded-xl p-1 text-sm hover:bg-ink/5"
                 data-testid={`setup-step-${s}`}
               >
-                {/* Green means done, wherever you are; the step you're on is the bold one with the taller bar. */}
-                <span className={`rounded-full ${current ? "h-3" : "h-2"} ${done[s] ? "bg-mint" : current ? "bg-coral-deep" : "bg-ink/15"}`} aria-hidden="true" />
+                <span className={`rounded-full ${current ? "h-3" : "h-2"} ${ok ? "bg-mint" : current ? "bg-coral-deep" : "bg-ink/15"}`} aria-hidden="true" />
                 <span className={`truncate ${current ? "font-semibold" : "text-muted"}`}>
-                  <span aria-hidden="true">{done[s] ? "✓ " : <span className="hidden sm:inline">{i + 1}. </span>}</span>
+                  <span aria-hidden="true">{ok ? "✓ " : <span className="hidden sm:inline">{i + 1}. </span>}</span>
                   {SETUP_STEP_LABELS[s]}
-                  {done[s] && <span className="sr-only"> (done)</span>}
+                  {ok && <span className="sr-only"> (done)</span>}
                 </span>
               </Link>
             </li>
@@ -81,12 +86,12 @@ function Stepper({ step, done }: { step: SetupStep; done: Record<(typeof SETUP_S
 }
 
 /** The bottom of every step: back, skip or next. */
-function StepNav({ step, ready, skip = "Skip for now" }: { step: SetupStep; ready: boolean; skip?: string }) {
+function StepNav({ step, ready, skip = "Skip for now", nextHref }: { step: SetupStep; ready: boolean; skip?: string; nextHref?: string }) {
   const back = stepBefore(step);
   const next = stepAfter(step);
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-ink/10 pt-5">
-      <Link href={setupHref(next)} className={ready ? parentPrimary : parentSecondary} data-testid="setup-next">
+      <Link href={nextHref ?? setupHref(next)} className={ready ? parentPrimary : parentSecondary} data-testid="setup-next">
         {ready ? NEXT_LABEL[next] : skip}
       </Link>
       {back && (
@@ -117,7 +122,7 @@ function Done({ children }: { children: React.ReactNode }) {
  * co-parent and other storytellers, then prepare a first book. Family checkout and claimed gifts both
  * land here, and Family Home sends a new family here the first time it opens.
  */
-export default async function FamilySetupPage({ searchParams }: { searchParams: Promise<{ checkout?: string; session_id?: string; step?: string }> }) {
+export default async function FamilySetupPage({ searchParams }: { searchParams: Promise<{ checkout?: string; session_id?: string; step?: string; book?: string; voice?: string }> }) {
   const q = await searchParams;
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
@@ -155,7 +160,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   const askMyVoice = Boolean(mine && !mine.on && kids.length > 0);
   const kidNames = kids.map((k) => k.nickname);
   const invitesOn = Boolean(db && session.account);
-  const done = { voice, kids: kids.length > 0, family: false, book: progress.story };
+  const done = { voice, kids: kids.length > 0, family: false, book: progress.story, listen: false };
   const opensLater = <p className="rounded-2xl bg-sunshine/50 p-4">This step opens as soon as your plan starts. You can record your voice while you wait.</p>;
   const n = (SETUP_STEPS as readonly string[]).indexOf(step) + 1;
   const eyebrow = step === "done" ? "All set" : `Step ${n} of ${SETUP_STEPS.length}`;
@@ -197,7 +202,6 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
           <p className="max-w-2xl text-lg">Each child gets their own bookshelf and keeps their own place in every book. A first name or nickname is enough.</p>
         </header>
         {plan ? <ChildProfiles initial={await childProfiles(store, actor, home)} inSetup /> : opensLater}
-        {askMyVoice && <SetupMyVoice kidNames={kidNames} />}
         <StepNav step="kids" ready={kids.length > 0} />
       </>
     );
@@ -268,7 +272,6 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
           opensLater
         ) : (
           <>
-            {askMyVoice && <SetupMyVoice kidNames={kidNames} />}
             {recorded && !mine && (
               <p className="rounded-2xl bg-sunshine/50 p-4">
                 Your voice is still being made, usually a few minutes. Choose a book now and you can prepare it as soon as your voice is ready.
@@ -315,6 +318,54 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
         <StepNav step="book" ready={progress.story} skip="Skip, I'll choose later" />
       </>
     );
+  } else if (step === "listen") {
+    const lib = plan ? await familyLibrary(store, actor, home) : null;
+    const playable = (b: NonNullable<typeof lib>["all"][number]) => b.narrators.find((n) => n.availability === "ready" || n.availability === "partial");
+    // The book setup just prepared (named in the link from its page), or else the first one ready to play.
+    const asked = lib?.all.find((b) => b.slug === q.book && playable(b));
+    const book = asked ?? lib?.all.find((b) => playable(b)) ?? null;
+    const reader = book ? (book.narrators.find((n) => n.voiceId === q.voice && (n.availability === "ready" || n.availability === "partial")) ?? playable(book)!) : null;
+    const preparing = !book && Boolean(lib?.all.some((b) => b.narrators.some((n) => n.availability === "preparing")));
+    body = (
+      <>
+        <header className="flex flex-col gap-2">
+          <h1 className="font-display text-3xl font-semibold sm:text-4xl">{book ? "Listen to it together" : preparing ? "Your first book is almost ready" : "Prepare a book first"}</h1>
+          <p className="max-w-2xl text-lg">
+            {book
+              ? "Play it here to hear how it sounds. It's already on your kids' bookshelves in Readli Kids."
+              : preparing
+                ? "It's being prepared now, usually a minute or two. Refresh this page in a moment to play it."
+                : "Once a book is prepared, you can play it here."}
+          </p>
+        </header>
+        {book && reader ? (
+          <div className="flex flex-wrap items-center gap-5 rounded-3xl bg-surface p-5 ring-2 ring-ink/10" data-testid="setup-listen">
+            <span className="block w-28 shrink-0 overflow-hidden rounded-xl bg-bookcase shadow-[0_3px_0_rgba(40,53,72,0.12)]">
+              {book.coverUrl ? (
+                <Image src={book.coverUrl} alt="" width={160} height={213} className="aspect-[3/4] w-full object-cover" />
+              ) : (
+                <span className={`flex aspect-[3/4] w-full items-center justify-center p-2 text-center font-display text-sm font-semibold ${book.tint}`}>{book.title}</span>
+              )}
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
+              <p className="font-display text-2xl font-semibold">{book.title}</p>
+              <p className="text-muted">Read by {reader.name}</p>
+              <Link href={`/family/books/${book.slug}/listen?voice=${encodeURIComponent(reader.voiceId)}&from=setup`} className={parentPrimary}>
+                Play it now
+              </Link>
+            </div>
+          </div>
+        ) : (
+          !preparing && (
+            <Link href={setupHref("book")} className={`${parentSecondary} self-start`}>
+              Choose a first book
+            </Link>
+          )
+        )}
+        {/* With everything done, Finish ends setup and goes home; otherwise the summary shows what's left. */}
+        <StepNav step="listen" ready={Boolean(book)} skip="Finish without listening" nextHref={voice && kids.length > 0 && progress.story ? "/family" : undefined} />
+      </>
+    );
   } else {
     const left = [!voice && "record your voice", kids.length === 0 && "add your kids", !progress.story && "prepare a first book"].filter(Boolean) as string[];
     body = (
@@ -356,7 +407,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
           <Link href="/family" className={parentPrimary} data-testid="setup-finish">
             Go to Family Home
           </Link>
-          <Link href={setupHref("book")} className={parentSecondary}>
+          <Link href={setupHref("listen")} className={parentSecondary}>
             Back
           </Link>
         </div>
@@ -367,6 +418,8 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   return (
     <FamilyShell>
       <SetupSeen />
+      {/* Your voice reads to your kids as soon as both exist, without a separate button. */}
+      {askMyVoice && <SetupUseMyVoice />}
       {q.checkout === "success" && <CheckoutDone sessionId={q.session_id} />}
       {!plan && <PlanStarting waiting="Thank you! Your plan starts as soon as the payment goes through, usually within a minute. You can record your voice while you wait." />}
       <div className="flex flex-col gap-4">

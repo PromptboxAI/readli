@@ -11,9 +11,9 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Listen | Readli" };
 
 /** The grown-up player: a prepared book in any voice the family may use. */
-export default async function ListenPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ voice?: string }> }) {
+export default async function ListenPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ voice?: string; from?: string }> }) {
   const { slug } = await params;
-  const { voice } = await searchParams;
+  const { voice, from } = await searchParams;
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   if (page.session?.actor.kind !== "adult") return <NeedsGrownUp text="Only a parent or guardian can listen here." />;
@@ -28,7 +28,7 @@ export default async function ListenPage({ params, searchParams }: { params: Pro
     const initialVoice = usable(voice) ?? usable(saved?.voiceId) ?? view.voices[0]?.voiceId ?? null;
     const resume = await adultResume(store, page.session.actor, householdId, slug, initialVoice);
     // Full screen like the Readli Kids player, so the whole story fits on a phone or iPad.
-    return <GrownUpPlayer view={view} initialVoice={initialVoice} resume={resume.sentence} preview={!page.session.account} />;
+    return <GrownUpPlayer view={view} initialVoice={initialVoice} resume={resume.sentence} preview={!page.session.account} backHref={from === "setup" ? "/family/setup?step=listen" : undefined} />;
   } catch (err) {
     if (err instanceof PermissionError && err.status === 404) notFound();
     throw err;
