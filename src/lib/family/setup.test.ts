@@ -32,10 +32,11 @@ describe("getting-started progress", () => {
     expect(stepAfter("voice")).toBe("kids");
     expect(stepAfter("kids")).toBe("family");
     expect(stepAfter("family")).toBe("book");
-    expect(stepAfter("book")).toBe("done");
+    expect(stepAfter("book")).toBe("listen");
+    expect(stepAfter("listen")).toBe("done");
     expect(stepBefore("voice")).toBeNull();
     expect(stepBefore("family")).toBe("kids");
-    expect(stepBefore("done")).toBe("book");
+    expect(stepBefore("done")).toBe("listen");
   });
 
   it("opens on the screen asked for, or else the first essential step left", () => {
