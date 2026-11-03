@@ -23,6 +23,19 @@ const ICONS = {
     </>
   ),
   moon: <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="currentColor" stroke="none" />,
+  download: (
+    <>
+      <path d="M12 4v11" />
+      <path d="M7 10.5l5 5 5-5" />
+      <path d="M5 20h14" />
+    </>
+  ),
+  saved: (
+    <>
+      <path d="M5 20h14" />
+      <path d="M7 11l3.5 3.5L17 8" />
+    </>
+  ),
   restart: (
     <>
       <path d="M4 12a8 8 0 1 0 2.4-5.7" />

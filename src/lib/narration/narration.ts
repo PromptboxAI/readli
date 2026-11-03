@@ -1292,6 +1292,96 @@ export async function authorizeChapterTrack(
   return grant(track, text.revision, { lk: library.key, c: input.childId, v: input.voiceId }, trackPlan.audioKey, key, at.getTime());
 }
 
+// ---------------------------------------------------------------------------
+// Offline downloads
+// ---------------------------------------------------------------------------
+
+/**
+ * How long a downloaded story keeps playing on a device that hasn't been online to check it is still
+ * allowed (Kevin, 2026-11-03). Each check while online starts the week again; a check that finds the
+ * storyteller no longer shared, approved or in a slot removes the download.
+ */
+export const OFFLINE_DAYS = 7;
+
+/** The download URLs only need to last while the device fetches them. */
+const DOWNLOAD_URL_MS = 30 * 60_000;
+
+/** Everything a device needs to keep one story in one voice for listening offline. */
+export interface DownloadGrant {
+  bookSlug: string;
+  voiceId: string;
+  revision: string;
+  /** Until when the device may play it without checking in again. */
+  expiresAt: string;
+  chapters: TrackGrant[];
+}
+
+function offlineUntil(at: Date): string {
+  return new Date(at.getTime() + OFFLINE_DAYS * 24 * 60 * 60_000).toISOString();
+}
+
+/**
+ * Lets a child's device download a whole story in one voice: the same gates as playing it (owner share,
+ * a live plan, a narrator slot, this child's approval), and every chapter must be fully prepared, so a
+ * download never holds half a story. Assembling the chapter tracks only reads stored audio. No listening
+ * session is needed, since downloading isn't listening; plays are counted when the story is heard.
+ */
+export async function authorizeDownload(
+  store: FamilyStore,
+  actor: Actor | null,
+  input: { childId: string; voiceId: string; bookSlug: string },
+  key: string,
+  clock: Clock = now,
+): Promise<DownloadGrant> {
+  const state = await store.read();
+  requireChildAccess(state, actor, input.childId);
+  const child = activeChild(state, input.childId)!;
+  const at = clock();
+  if (!childVoiceAccess(state, input.childId, input.voiceId, store.plan).allowed) throw NOT_AVAILABLE;
+  const today = bookText(input.bookSlug);
+  if (!today) throw new PermissionError(400, "bad_chapter", "That story doesn't exist.");
+  const { text } = narrationShown(state, store.plan, input.voiceId, today, child.householdId);
+  const chapters: TrackGrant[] = [];
+  for (const c of text.chapters) {
+    const { library, trackPlan } = trackPlanFor(state, store.plan, input.voiceId, input.bookSlug, child.householdId, c.number, text.revision);
+    const track = await trackFor(store, trackPlan);
+    const g = grant(track, text.revision, { lk: library.key, c: input.childId, v: input.voiceId }, trackPlan.audioKey, key, at.getTime());
+    // Long enough to fetch, however long the chapter.
+    const exp = at.getTime() + DOWNLOAD_URL_MS;
+    chapters.push({ ...g, url: `/api/narration/audio/${signPlayback({ lk: library.key, sid: "", t: trackPlan.audioKey, c: input.childId, v: input.voiceId, exp }, key)}`, expiresAt: new Date(exp).toISOString() });
+  }
+  return { bookSlug: input.bookSlug, voiceId: input.voiceId, revision: text.revision, expiresAt: offlineUntil(at), chapters };
+}
+
+/**
+ * Which of a device's downloads this child may still hear, each with a fresh offline week. A download
+ * left out of `keep` is removed by the device: its storyteller stopped sharing, lost their slot or
+ * approval, the plan ended, or the reading was replaced.
+ */
+export async function checkDownloads(
+  store: FamilyStore,
+  actor: Actor | null,
+  input: { childId: string; items: { voiceId: string; bookSlug: string; revision: string }[] },
+  clock: Clock = now,
+): Promise<{ keep: { voiceId: string; bookSlug: string; revision: string; expiresAt: string }[] }> {
+  const state = await store.read();
+  requireChildAccess(state, actor, input.childId);
+  const child = activeChild(state, input.childId)!;
+  const until = offlineUntil(clock());
+  const keep = input.items.filter((item) => {
+    if (!childVoiceAccess(state, input.childId, item.voiceId, store.plan).allowed) return false;
+    const today = bookText(item.bookSlug);
+    if (!today) return false;
+    try {
+      // The reading downloaded is still stored (it may since have been updated; the download keeps playing it).
+      return narrationShown(state, store.plan, item.voiceId, today, child.householdId, item.revision).text.revision === item.revision;
+    } catch {
+      return false;
+    }
+  });
+  return { keep: keep.map((k) => ({ ...k, expiresAt: until })) };
+}
+
 /** The same for a grown-up listening in the Parent Portal: a live plan, the owner's share and a narrator slot. */
 export async function authorizeGuardianChapterTrack(
   store: FamilyStore,

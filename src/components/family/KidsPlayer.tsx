@@ -16,6 +16,9 @@ import { useMediaSession } from "./useMediaSession";
 import { usePlaceSaver } from "./usePlaceSaver";
 import { useSleepTimer } from "./useSleepTimer";
 import { useTrackAudio } from "./useTrackAudio";
+import { checkDownloads, offlineTrack, readDownloads } from "./offline";
+import { DownloadButton } from "./DownloadButton";
+import { findDownload } from "@/lib/offline/manifest";
 
 const REFRESH_MS = 10_000;
 const MODE_KEY = "readli-player-mode";
@@ -147,6 +150,13 @@ export function KidsPlayer({
 
   const readyAt = (id: string | null, at: number) =>
     Boolean(id && readiness.find((r) => r.voiceId === id)?.readySentenceIds.includes(sentenceIds[at] ?? ""));
+
+  /** Whether every sentence of the reading this narrator's audiobook gives is prepared, so it can be downloaded. */
+  const wholeReady = (id: string) => {
+    const t = texts[revisionOf(id)];
+    const ready = new Set(readiness.find((r) => r.voiceId === id)?.readySentenceIds ?? []);
+    return Boolean(t && t.sentenceIds.length && t.sentenceIds.every((sid) => ready.has(sid)));
+  };
 
   /** Whether a narrator has audio here, at the same place in the text they read. */
   const readyHere = (id: string) => {
@@ -285,9 +295,11 @@ export function KidsPlayer({
   };
 
   /** Counts against the family's concurrent stories; refreshed by each sentence request. */
-  const startSession = async () => {
+  const startSession = async (offline = false) => {
     if (listening.current) return true;
     const session = await fetch(`/api/kids/${childId}/listening`, { method: "POST" }).catch(() => null);
+    // No connection, but this story is downloaded: it plays from the device. The session starts once back online.
+    if (!session && offline) return true;
     if (!session?.ok) {
       const body = (await session?.json().catch(() => null)) as { error?: { message?: string } } | null;
       halt();
@@ -353,6 +365,21 @@ export function KidsPlayer({
     }
   };
 
+  /** Blob URL of the downloaded chapter playing now, if any, so it can be released. */
+  const offlineUrl = useRef<string | null>(null);
+  useEffect(() => () => void (offlineUrl.current && URL.revokeObjectURL(offlineUrl.current)), []);
+
+  /** This child's download of this book in `voice`, for the text on screen, while its offline week lasts. */
+  const downloadFor = (voice: string) => {
+    const d = findDownload(readDownloads(), childId, book.slug, voice);
+    return d && d.revision === shownRef.current ? d : null;
+  };
+
+  // Downloads are checked against what this child may hear now; a storyteller no longer shared is removed.
+  useEffect(() => {
+    void checkDownloads(childId);
+  }, [childId, narrators]);
+
   /** A signed URL for the chapter track holding sentence `at`; every permission gate is checked on the server. */
   const fetchTrack = (at: number, voice: string) =>
     fetch("/api/kids/narrations/track", {
@@ -367,12 +394,27 @@ export function KidsPlayer({
     audio.pause();
     audio.clear();
     try {
-      if (track.has(key, at) && listening.current) {
+      if (track.has(key, at) && (listening.current || offlineUrl.current)) {
         await track.seek(at);
       } else {
         setLoading(true);
-        if (!(await startSession())) return;
+        const saved = downloadFor(voice);
+        if (!(await startSession(Boolean(saved)))) return;
         let res = await fetchTrack(at, voice).catch(() => null);
+        if (!res && saved) {
+          // No connection: play the copy on this device.
+          const chapter = textsRef.current[shownRef.current]?.chapters[at];
+          const local = chapter === undefined ? null : await offlineTrack(saved, chapter);
+          if (voiceRef.current !== voice) return;
+          if (local) {
+            if (offlineUrl.current) URL.revokeObjectURL(offlineUrl.current);
+            offlineUrl.current = local.url;
+            await track.load(key, local, at);
+            setPlaying(true);
+            setLoading(false);
+            return;
+          }
+        }
         let code = res && !res.ok ? await errorCode(res) : undefined;
         if (code === "no_listening_session") {
           listening.current = false;
@@ -386,6 +428,8 @@ export function KidsPlayer({
           return play(at, voice);
         }
         if (!res.ok) return explain(code, voice);
+        if (offlineUrl.current) URL.revokeObjectURL(offlineUrl.current);
+        offlineUrl.current = null;
         await track.load(key, (await res.json()) as Track, at);
       }
       setPlaying(true);
@@ -559,10 +603,22 @@ export function KidsPlayer({
   const { listen, soft, faint, main, round, side } = playerTone(mode);
 
   const reading = current && (
-    <p className={`flex items-center gap-2 font-bold ${faint}`}>
-      <StorytellerAvatar name={current.name} avatarUrl={current.avatarUrl} tint={current.tint} size="xs" />
-      {current.name} is reading
-    </p>
+    <span className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${listen ? "justify-center" : ""}`}>
+      <span className={`flex items-center gap-2 font-bold ${faint}`}>
+        <StorytellerAvatar name={current.name} avatarUrl={current.avatarUrl} tint={current.tint} size="xs" />
+        {current.name} is reading
+      </span>
+      {wholeReady(current.voiceId) && (
+        <DownloadButton
+          key={`${current.voiceId}:${revisionOf(current.voiceId)}`}
+          childId={childId}
+          book={book}
+          voiceId={current.voiceId}
+          narrator={current.name}
+          className={`inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 font-display text-sm font-semibold ${soft}`}
+        />
+      )}
+    </span>
   );
 
   return (

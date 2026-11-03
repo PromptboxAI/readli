@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { FavoriteButton } from "@/components/family/FavoriteButton";
+import { KidsOffline, SavedBadge } from "@/components/family/KidsOffline";
 import { FamilyOff, FamilyShell, GrownUpSignIn, NeedsGrownUp } from "@/components/family/FamilyShell";
 import { KidsDeviceFooter, ListenerPicker, TemporaryKidsExit } from "@/components/family/KidsDeviceControls";
 import { cookies } from "next/headers";
@@ -51,6 +52,7 @@ export default async function KidsHome() {
         <StorytellerAvatar name={child.nickname} avatarUrl={null} tint={child.tint} size="md" />
         <h1 className="font-display text-3xl font-semibold sm:text-4xl">Hi {child.nickname}! Pick a story.</h1>
       </div>
+      <KidsOffline childId={child.id} banner />
 
       {resume && last && (
         <Link
@@ -94,7 +96,10 @@ export default async function KidsHome() {
             {ready.map(({ book: b, voices, favorite }) => (
               <li key={b.slug} className="relative">
                 <Link href={`/kids/listen/${b.slug}`} className="group flex flex-col gap-2">
-                  <Cover url={b.coverUrl} tint={b.tint} title={b.title} />
+                  <span className="relative block">
+                    <Cover url={b.coverUrl} tint={b.tint} title={b.title} />
+                    <SavedBadge childId={child.id} bookSlug={b.slug} />
+                  </span>
                   <span className="font-display text-lg leading-tight font-semibold">{b.title}</span>
                   <span className="text-sm text-muted">
                     <span className="sr-only">Ready to listen, </span>with {voices.join(" or ")}

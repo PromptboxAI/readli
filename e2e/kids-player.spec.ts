@@ -319,3 +319,37 @@ test("every read-along page fits its card without scrolling", async ({ page }, i
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/player-read-fit-${info.project.name}.png` });
 });
+
+test.describe("with the service worker", () => {
+  test.use({ serviceWorkers: "allow" });
+
+  test("a downloaded story opens and plays with no connection, and stays while its storyteller is still allowed", async ({ page, context }, info) => {
+    await signIn(page, "adult:sara");
+    await signIn(page, "child:maya");
+    await page.goto("/kids/listen/the-lion-and-the-mouse");
+    await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+    await page.getByTestId("download-button").click();
+    await expect(page.getByTestId("download-saved")).toBeVisible({ timeout: 15_000 });
+    await noOverflow(page);
+    await page.screenshot({ path: `e2e/screenshots/player-downloaded-${info.project.name}.png` });
+
+    // Opened once while online, the bookshelf and the story are kept on the device.
+    await page.goto("/kids");
+    await expect(page.getByTestId("saved-badge")).toHaveCount(1);
+    await page.goto("/kids/listen/the-lion-and-the-mouse");
+    await expect(page.getByTestId("download-saved")).toBeVisible();
+
+    await context.setOffline(true);
+    await page.goto("/kids");
+    await expect(page.getByTestId("kids-offline")).toContainText("Stories marked Saved still play");
+    await page.goto("/kids/listen/the-lion-and-the-mouse");
+    await page.getByRole("button", { name: "Play" }).click();
+    await expect(page.getByRole("button", { name: "Pause" })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "Pause" }).click();
+    await context.setOffline(false);
+
+    // Back online, a check finds Mom's voice is still allowed: the download stays.
+    await page.goto("/kids");
+    await expect(page.getByTestId("saved-badge")).toHaveCount(1);
+  });
+});
