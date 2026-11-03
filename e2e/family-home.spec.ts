@@ -364,3 +364,20 @@ test("the grown-up player has a sleep timer and a reading speed that this device
   // Still one screen with nothing to scroll.
   expect(await player.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(0);
 });
+
+test("Family activity shows notices with their buttons and what the kids have listened to", async ({ page }, info) => {
+  // Maya is a few pages into a story in Mom's voice (saved as Readli Kids saves it).
+  await signIn(page, "adult:sara");
+  const res = await page.request.put("/api/kids/maya/progress", { data: { bookSlug: "the-lion-and-the-mouse", sentence: 3, voiceId: "voice-sara" } });
+  expect(await res.json()).toMatchObject({ saved: true });
+  await page.goto("/family");
+  await page.getByTestId("activity-link").click();
+  await expect(page).toHaveURL(/\/family\/activity$/);
+  await expect(page.getByRole("heading", { name: "Family activity" })).toBeVisible();
+  const timeline = page.getByTestId("timeline");
+  await expect(timeline.getByTestId("timeline-entry").first()).toContainText(/Maya is \d+% through The Lion and the Mouse with Mom\./);
+  await expect(page.getByTestId("notices")).toBeVisible();
+  await expect(page.getByTestId("help-link-family-activity")).toBeVisible();
+  await noOverflow(page);
+  await page.screenshot({ path: `e2e/screenshots/family-activity-${info.project.name}.png`, fullPage: true });
+});

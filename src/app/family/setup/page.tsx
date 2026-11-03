@@ -15,7 +15,6 @@ import { activeEntitlement, activeShare } from "@/lib/family/permissions";
 import { homeHousehold, PROVISIONAL_FAMILY_NAME } from "@/lib/family/service";
 import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
-import { firstStoryChosen, setupProgress } from "@/lib/family/setup";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Set up your family | Readli", robots: { index: false } };
@@ -73,8 +72,6 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   const ownRecording = deps ? await deps.store.findVoice(adultId).catch(() => null) : null;
   const sharedVoice = state.voices.some((v) => v.status === "ready" && v.deletedAt === null && activeShare(state, v.id, home) !== null);
   const voice = Boolean(ownRecording) || sharedVoice;
-  const progress = setupProgress({ voice, kids: kids > 0, story: firstStoryChosen(state, home) });
-  const allDone = plan && progress.next === null;
   const opensLater = <p className="text-sm text-muted">Opens as soon as your plan starts.</p>;
 
   return (
@@ -82,13 +79,9 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
       {q.checkout === "success" && <CheckoutDone sessionId={q.session_id} />}
       <header className="flex flex-col gap-2">
         <h1 className="font-display text-3xl font-semibold sm:text-4xl">
-          {!plan ? "Almost there" : allDone ? "You're all set" : q.checkout === "success" ? "Thank you! Readli Family is on." : "Welcome to Readli Family"}
+          {!plan ? "Almost there" : q.checkout === "success" ? "Thank you! Readli Family is on." : "Welcome to Readli Family"}
         </h1>
-        <p data-testid="setup-progress">
-          {allDone
-            ? "All three steps are done. Your kids can find their stories in Readli Kids."
-            : `Three steps and your kids can start listening. ${progress.done} of 3 done.`}
-        </p>
+        <p>Three steps and your kids can start listening.</p>
       </header>
       {!plan && <PlanStarting waiting="Thank you! Your plan starts as soon as the payment goes through, usually within a minute. You can record your voice while you wait." />}
       <ol className="flex flex-col gap-3">
@@ -121,11 +114,11 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
             opensLater
           )}
         </Step>
-        <Step n={3} done={progress.story} title={progress.story ? "First story chosen" : "Pick their first story"}>
+        <Step n={3} done={false} title="Pick their first story">
           <p>Choose a book and whose voice reads it. Your monthly narration credits cover it.</p>
           {plan ? (
-            <Link href="/family/books" className={`${voice && kids > 0 && !progress.story ? parentPrimary : parentSecondary} self-start`}>
-              {progress.story ? "Choose another story" : "Choose a story"}
+            <Link href="/family/books" className={`${voice && kids > 0 ? parentPrimary : parentSecondary} self-start`}>
+              Choose a story
             </Link>
           ) : (
             opensLater
@@ -138,7 +131,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
         </h2>
         <NameFamily current={named ? familyName : ""} />
       </section>
-      <Link href="/family" className={allDone ? `${parentPrimary} self-start` : "self-start font-semibold underline underline-offset-4"}>
+      <Link href="/family" className="self-start font-semibold underline underline-offset-4">
         Go to my family
       </Link>
     </FamilyShell>
