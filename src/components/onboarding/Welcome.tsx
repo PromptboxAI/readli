@@ -113,7 +113,7 @@ export function Welcome({
         <Link href={startHref} className={buttonPrimary} data-testid="welcome-start">
           Let&apos;s get started!
         </Link>
-        <p className="text-center text-sm text-muted sm:text-left">It takes about ten minutes, and you can stop and come back any time.</p>
+        <p className="text-center text-sm text-muted sm:text-left">It takes about five minutes, and you can stop and come back any time.</p>
       </div>
     </div>
   );
