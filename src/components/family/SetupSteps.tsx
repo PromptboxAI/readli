@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { parentSecondary } from "@/components/brand/buttons";
-import { SETUP_SEEN_COOKIE } from "@/lib/family/setup-cookie";
 import { InviteStoryteller, type SavedInvite } from "./InviteStoryteller";
 
 /**
@@ -59,12 +58,4 @@ export function SetupStorytellerInvites({ live, initial }: { live: boolean; init
       )}
     </div>
   );
-}
-
-/** Remembers that this browser has seen setup, so Family Home stops sending it here and shows a reminder instead. */
-export function SetupSeen({ cookie = SETUP_SEEN_COOKIE }: { cookie?: string }) {
-  useEffect(() => {
-    document.cookie = `${cookie}=1; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
-  }, [cookie]);
-  return null;
 }

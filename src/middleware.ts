@@ -19,6 +19,9 @@ export async function middleware(request: NextRequest) {
     }
     if (verdict === "to_kids") return NextResponse.redirect(new URL("/kids", request.url));
   }
+  // A sign-in that can't finish (say Back replayed Google's sign-in page) lands on the homepage with an error.
+  // Family takes it from there: back into setup for an unfinished account, or to sign in again.
+  if (path === "/" && request.nextUrl.searchParams.has("error_code")) return NextResponse.redirect(new URL("/family", request.url));
   if (!SIGN_IN_PATHS.some((p) => path === p || path.startsWith(`${p}/`))) return NextResponse.next();
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

@@ -2,14 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { HearMyVoice } from "@/components/accounts/HearMyVoice";
-import { SetupSeen } from "@/components/family/SetupSteps";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { AdultPage } from "@/components/invites/AdultPage";
 import { Welcome } from "@/components/onboarding/Welcome";
 import { chosenName } from "@/lib/account/names";
 import { currentAdult } from "@/lib/auth/adult";
 import { familyPage } from "@/lib/family/page-data";
-import { VOICE_SETUP_SEEN_COOKIE } from "@/lib/family/setup-cookie";
 import { myVoices } from "@/lib/family/service";
 import { familyAccountsEnabled, familyStore } from "@/lib/family/session";
 import { isParent } from "@/lib/family/storyteller";
@@ -80,7 +78,7 @@ function StepNav({ step, ready, skip = "Skip for now", nextHref }: { step: Story
           Back
         </Link>
       )}
-      <Link href="/voice" className="ml-auto text-sm text-muted underline underline-offset-4 hover:text-ink">
+      <Link href="/voice/setup/later" className="ml-auto text-sm text-muted underline underline-offset-4 hover:text-ink">
         Finish later
       </Link>
     </div>
@@ -147,7 +145,6 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
   if (step === "welcome") {
     return (
       <AdultPage>
-        <SetupSeen cookie={VOICE_SETUP_SEEN_COOKIE} />
         {invitedBy && (
           <p className="rounded-2xl bg-sunshine/50 px-4 py-3 font-semibold" data-testid="welcome-invited">
             {invitedBy} invited you to read their kids bedtime stories. Here&apos;s how it works.
@@ -262,7 +259,7 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
             Record my voice
           </Link>
         )}
-        <StepNav step="listen" ready={ready} skip="Finish without listening" nextHref={voice && done.share ? "/voice" : undefined} />
+        <StepNav step="listen" ready={ready} skip="Finish without listening" nextHref={voice && done.share ? "/voice/setup/later" : undefined} />
       </>
     );
   } else {
@@ -278,7 +275,7 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
           </p>
         </header>
         <div className="flex flex-wrap items-center gap-4 border-t border-ink/10 pt-5">
-          <Link href="/voice" className={buttonPrimary} data-testid="storyteller-finish">
+          <Link href="/voice/setup/later" className={buttonPrimary} data-testid="storyteller-finish">
             Go to My Voice
           </Link>
           <Link href={storytellerHref("listen")} className={buttonSecondary}>
@@ -291,7 +288,6 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
 
   return (
     <AdultPage>
-      <SetupSeen cookie={VOICE_SETUP_SEEN_COOKIE} />
       <div className="flex flex-col gap-4">
         <p className="text-sm font-bold tracking-wider text-muted uppercase" data-testid="storyteller-progress">
           Getting started · {step === "done" ? "All set" : `Step ${n} of ${STORYTELLER_STEPS.length}`}

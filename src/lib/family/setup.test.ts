@@ -9,6 +9,9 @@ describe("getting-started progress", () => {
     expect(setupProgress({ voice: true, kids: false, story: true })).toMatchObject({ done: 2, next: "kids" });
     expect(setupProgress({ voice: true, kids: true, story: false })).toMatchObject({ done: 2, next: "story" });
     expect(setupProgress({ voice: true, kids: true, story: true })).toMatchObject({ done: 3, next: null });
+    // Inviting family and listening count towards the five, but never hold setup open.
+    expect(setupProgress({ voice: true, kids: false, story: false, family: true })).toMatchObject({ done: 2, next: "kids" });
+    expect(setupProgress({ voice: true, kids: true, story: true, family: true, listen: true })).toMatchObject({ done: 5, next: null });
   });
 
   it("counts a first story only once one is being prepared or ready, not a failed or canceled one", () => {
