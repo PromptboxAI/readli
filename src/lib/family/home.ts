@@ -155,7 +155,7 @@ function person(adult: Adult | undefined): HomePerson {
 }
 
 /** A child's saved place on its last sentence (or the one before a closing "The End.") means they reached the end. */
-function finished(sentences: readonly { text: string }[], sentence: number): boolean {
+export function finished(sentences: readonly { text: string }[], sentence: number): boolean {
   const last = sentences.at(-1)?.text === THE_END ? sentences.length - 2 : sentences.length - 1;
   return sentence >= last;
 }

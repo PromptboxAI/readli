@@ -258,6 +258,18 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ["whats-in-the-library", "switch-narrators-during-story"],
   }),
   A({
+    slug: "family-activity",
+    category: "books-and-listening",
+    question: "Where can I see what my kids have been listening to?",
+    status: "published",
+    answer: [
+      "Open [Family activity](/family/activity) from Family Home. Reading together lists the books each child has finished, and the ones they're part way through, with whose voice read them and when they last listened.",
+      "Above that, Notices keeps a month of updates, such as a story that's ready or a storyteller whose voice is ready, each with a button to act on it. A child's place only moves when they listen in Readli Kids, so books you play yourself in Readli Family don't show up here.",
+    ],
+    keywords: ["history", "timeline", "activity", "notices", "notifications", "finished", "what did they listen to"],
+    related: ["sleep-timer-and-speed", "whats-in-the-library"],
+  }),
+  A({
     slug: "readli-kids-on-ipad",
     category: "getting-started",
     question: "How do I set up Readli Kids on an iPad or iPhone?",

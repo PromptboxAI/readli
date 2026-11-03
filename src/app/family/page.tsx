@@ -39,6 +39,7 @@ import { creditBalance, displayCredits, type CreditBalance } from "@/lib/narrati
 import { newThisWeekFor } from "@/lib/email/bedtime";
 import { accountDb } from "@/lib/family/account-store";
 import { settingsLink } from "@/lib/family/settings-nav";
+import { unreadCount } from "@/lib/family/activity";
 import { firstStoryChosen, hasReadingVoice, setupProgress } from "@/lib/family/setup";
 import { SETUP_SEEN_COOKIE } from "@/lib/family/setup-cookie";
 import { cookies } from "next/headers";
@@ -190,6 +191,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   const balance = isGuardian && home ? creditBalance(state, plan, home) : null;
   const creditLine = balance ? creditSummary(balance, entitlement?.source === "trial") : null;
   const notice = isGuardian && home ? homeNotice(state, home, adult.id) : null;
+  const unread = isGuardian && home ? unreadCount(state, home, adult.id) : 0;
   // Until the three getting-started steps are done, Home keeps a way back to them.
   const setup = account && isGuardian && hasPlan && home ? await setupFor(state, adult.id, home) : null;
   // A new family is walked through setup the first time Home opens; after that, Home keeps a reminder.
@@ -406,6 +408,23 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
               </Link>
             </section>
             {view && <StorytellersCard storytellers={view.storytellers} slotLine={slotLine} recordFirst={Boolean(setup && !setup.recorded)} />}
+            <Link
+              href="/family/activity"
+              className="flex items-center justify-between gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10 hover:ring-ink/30"
+              data-testid="activity-link"
+            >
+              <span>
+                <span className="block font-display text-xl font-semibold">Family activity</span>
+                <span className="text-sm text-muted">Notices, and the books your kids have finished</span>
+              </span>
+              {unread > 0 ? (
+                <span className="shrink-0 rounded-full bg-sunshine px-3 py-1 text-sm font-semibold" data-testid="activity-unread">
+                  {unread} new
+                </span>
+              ) : (
+                <span aria-hidden="true">→</span>
+              )}
+            </Link>
           </aside>
         </div>
       )}
