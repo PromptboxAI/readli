@@ -8,6 +8,7 @@ import { adminDate } from "@/lib/admin/time";
 const STATUS: Record<IssuedStatus, { label: string; tone: string }> = {
   unclaimed: { label: "Unclaimed", tone: "bg-sunshine" },
   claimed: { label: "Claimed", tone: "bg-mint" },
+  cancelled: { label: "Cancelled", tone: "bg-ink/10" },
   revoked: { label: "Revoked", tone: "bg-ink/10" },
   expired: { label: "Expired", tone: "bg-ink/10" },
 };

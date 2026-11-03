@@ -3,6 +3,7 @@ import { generateGiftCode, hashGiftCode } from "@/lib/gifting/codes.server";
 import type { GiftCodeCipher } from "@/lib/gifting/code-cipher";
 import { complimentaryMembershipEmail } from "@/lib/gifting/complimentary-email";
 import type { QueuedEmail } from "@/lib/email/outbox";
+import type { StripeApi } from "@/lib/billing/stripe-api";
 import type { AdminUser } from "./access";
 import {
   COMPLIMENTARY_KINDS,
@@ -185,7 +186,7 @@ async function logAction(db: SupabaseClient, admin: AdminUser, action: string, d
 // Reading batches
 // ---------------------------------------------------------------------------
 
-export type IssuedStatus = "unclaimed" | "claimed" | "revoked" | "expired";
+export type IssuedStatus = "unclaimed" | "claimed" | "cancelled" | "revoked" | "expired";
 
 export interface Batch {
   id: string;
@@ -229,6 +230,7 @@ type Row = Record<string, unknown>;
 
 export function issuedStatus(row: Row, now = new Date()): IssuedStatus {
   if (row.status === "cancelled") return "revoked";
+  if (row.status === "ended" && row.revoked_at) return "cancelled";
   if (row.redeemed_at || row.status === "active" || row.status === "ended") return "claimed";
   const claimBy = row.claim_by ? new Date(row.claim_by as string) : row.sent_at ? new Date(new Date(row.sent_at as string).getTime() + 365 * 86_400_000) : null;
   if (claimBy && claimBy.getTime() < now.getTime()) return "expired";
@@ -261,7 +263,7 @@ export async function listBatches(db: SupabaseClient, now = new Date()): Promise
   const { data: gifts, error: gErr } = await db.from("gifts").select("batch_id, status, redeemed_at, claim_by, sent_at").in("batch_id", batches.map((b) => b.id));
   if (gErr) throw new Error(`read batch gifts: ${gErr.message}`);
   return batches.map((b) => {
-    const counts: Record<IssuedStatus, number> = { unclaimed: 0, claimed: 0, revoked: 0, expired: 0 };
+    const counts: Record<IssuedStatus, number> = { unclaimed: 0, claimed: 0, cancelled: 0, revoked: 0, expired: 0 };
     for (const g of (gifts ?? []) as Row[]) if (g.batch_id === b.id) counts[issuedStatus(g, now)] += 1;
     return { ...b, counts };
   });
@@ -271,7 +273,7 @@ export async function listBatches(db: SupabaseClient, now = new Date()): Promise
 export async function earlierCodes(db: SupabaseClient, now = new Date()): Promise<Record<IssuedStatus, number>> {
   const { data, error } = await db.from("gifts").select("status, redeemed_at, claim_by, sent_at").not("complimentary_for", "is", null).is("batch_id", null);
   if (error) throw new Error(`read earlier codes: ${error.message}`);
-  const counts: Record<IssuedStatus, number> = { unclaimed: 0, claimed: 0, revoked: 0, expired: 0 };
+  const counts: Record<IssuedStatus, number> = { unclaimed: 0, claimed: 0, cancelled: 0, revoked: 0, expired: 0 };
   for (const g of (data ?? []) as Row[]) counts[issuedStatus(g, now)] += 1;
   return counts;
 }
@@ -322,6 +324,8 @@ function auditText(a: Row): string {
       return `${who} revoked ${d.certificate} and issued ${d.replacement} as its replacement`;
     case "complimentary_code_revealed":
       return `${who} revealed the code for ${d.certificate}`;
+    case "complimentary_cancelled":
+      return `${who} cancelled ${d.certificate}`;
     case "complimentary_emailed":
       return `${who} emailed ${d.certificate} to the recipient${d.outcome === "sent" ? "" : ` (${d.outcome === "queued" ? "waiting to send" : "not sent"})`}`;
     case "complimentary_artwork_downloaded":
@@ -541,7 +545,7 @@ const MONTHS_BY_PLAN: Record<string, number> = { prepaid_1m: 1, prepaid_3m: 3, p
 export async function listMemberships(db: SupabaseClient, now = new Date(), limit = 2000): Promise<MembershipRow[]> {
   const { data, error } = await db
     .from("gifts")
-    .select("id, batch_id, certificate_no, code_last4, status, redeemed_at, claim_by, sent_at, created_at, recipient_name, recipient_email, giver_display_name, event_name, complimentary_for, plan_id, paid_through, recipient_user_id")
+    .select("id, batch_id, certificate_no, code_last4, status, redeemed_at, revoked_at, claim_by, sent_at, created_at, recipient_name, recipient_email, giver_display_name, event_name, complimentary_for, plan_id, paid_through, recipient_user_id")
     .not("complimentary_for", "is", null)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -605,4 +609,74 @@ export function filterMemberships(rows: MembershipRow[], q: string, status: Issu
     const hay = [r.certificate, r.last4, r.recipientName, r.recipientEmail, r.claimedBy, r.sponsorName, r.eventName, r.label, r.occasion].filter(Boolean).join(" ").toLowerCase();
     return words.every((w) => hay.includes(w));
   });
+}
+
+// ---------------------------------------------------------------------------
+// Cancelling a claimed membership
+// ---------------------------------------------------------------------------
+
+export interface CancelResult {
+  certificate: string;
+  /** The family's Readli Family end after the cut, when the membership was ordinary free time. */
+  familyEndsAt: string | null;
+  /** True when Stripe billing was moved back because the family also pays. */
+  billingResumed: boolean;
+  /** Something the admin still has to do by hand. */
+  followUp: string | null;
+}
+
+/**
+ * Cancels a claimed complimentary membership (Kevin, 2026-11-03). The time it hadn't used yet is taken
+ * off the family's plan, and memberships stacked after it move earlier by the same amount. When the
+ * family also pays, Stripe's paused billing is brought forward by the same amount instead.
+ */
+export async function cancelMembership(
+  db: SupabaseClient,
+  admin: AdminUser,
+  giftId: string,
+  stripe: StripeApi | null,
+  now = new Date(),
+): Promise<CancelResult> {
+  if (!/^[0-9a-f-]{36}$/i.test(giftId)) throw new AdminActionError("That membership wasn't found.");
+  const { data: g, error } = await db.from("gifts").select("id, batch_id, certificate_no, complimentary_for, status, redeemed_at").eq("id", giftId).maybeSingle();
+  if (error) throw new Error(`read membership: ${error.message}`);
+  if (!g || !g.complimentary_for) throw new AdminActionError("That membership wasn't found.");
+  if (g.status !== "active" || !g.redeemed_at) throw new AdminActionError("Only an active membership can be cancelled. To stop one nobody has claimed, revoke it instead.");
+  let prefix = "";
+  if (g.batch_id) {
+    const { data: b } = await db.from("complimentary_batches").select("prefix").eq("id", g.batch_id as string).maybeSingle();
+    prefix = ((b as Row | null)?.prefix as string | undefined) ?? "";
+  }
+  const certificate = certificateLabel(prefix, g.batch_id ? (g.certificate_no as number | null) : null);
+
+  const { data, error: rpcErr } = await db.rpc("cancel_complimentary_gift", { p_gift: giftId });
+  if (rpcErr) {
+    if (/not active|not found/.test(rpcErr.message)) throw new AdminActionError("Only an active membership can be cancelled.");
+    throw new Error(`cancel membership: ${rpcErr.message}`);
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as { cut_seconds: number | null; billing_deferral: string | null; subscription_ref: string | null; family_ends_at: string | null } | undefined;
+  const cut = Number(row?.cut_seconds ?? 0);
+  let billingResumed = false;
+  let followUp: string | null = null;
+
+  if (row?.billing_deferral === "applied" && cut > 0) {
+    if (!stripe || !row.subscription_ref) {
+      followUp = "This family also pays, and Stripe isn't connected here, so move their free time back in Stripe by hand.";
+    } else {
+      try {
+        const sub = await stripe.getSubscription(row.subscription_ref);
+        const trialEnd = sub.trial_end ?? null;
+        if (trialEnd) {
+          const next = trialEnd - cut;
+          await stripe.endFreeTimeAt(row.subscription_ref, next <= Math.floor(now.getTime() / 1000) + 120 ? "now" : next, `readli-gift-cancel-${giftId}`);
+          billingResumed = true;
+        }
+      } catch (err) {
+        console.error("complimentary cancel: stripe update failed", err instanceof Error ? err.message : err);
+        followUp = "The membership is cancelled, but Stripe didn't accept the billing change. Move this family's free time back in Stripe by hand.";
+      }
+    }
+  }
+  await logAction(db, admin, "complimentary_cancelled", { batch_id: g.batch_id ?? null, certificate, billing_resumed: billingResumed });
+  return { certificate, familyEndsAt: row?.family_ends_at ?? null, billingResumed, followUp };
 }

@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 const n = (x: number) => x.toLocaleString("en-US");
 const day = (iso: string) => adminDate(iso);
-const SOURCE: Record<string, string> = { subscription: "Paid", gift: "Gift", donated: "Donated", trial: "Trial", tester: "Tester" };
+const SOURCE: Record<string, string> = { subscription: "Paid", gift: "Gift", donated: "Complimentary", trial: "Trial", tester: "Tester" };
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
@@ -40,7 +40,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const t = overview?.totals;
   const found = overview ? filterFamilies(overview.families, q) : [];
   // Free storytellers sent through family setup by mistake aren't testers, so they're listed apart.
-  const families = found.filter((f) => !f.storytellerFor);
+  // Tester plans only: families on a paid plan, a complimentary membership, a gift or a trial live on
+  // Accounts and Complimentary memberships instead (Kevin, 2026-11-03). Families with no plan stay so they can get one.
+  const families = found.filter((f) => !f.storytellerFor && (!f.plan || f.plan.source === "tester"));
+  const otherPlans = found.filter((f) => !f.storytellerFor && f.plan && f.plan.source !== "tester").length;
   const storytellers = found.filter((f) => f.storytellerFor);
   const ok = param(params, "ok");
   const err = param(params, "err");
@@ -99,7 +102,14 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             <h2 id="testers-h" className="font-display text-2xl font-semibold">Tester plans</h2>
             <p>
               Give a family a free Readli Family plan so they can try kids profiles before payments are on. The tester signs in and names
-              their family first, then shows up here. Families that already have a plan keep it.
+              their family first, then shows up here. Only tester plans and families with no plan are listed.{" "}
+              {otherPlans > 0 && (
+                <>
+                  {otherPlans} {otherPlans === 1 ? "family has" : "families have"} a paid, complimentary, gift or trial plan instead; see them on{" "}
+                  <Link href="/admin/users" className="underline underline-offset-4">Accounts</Link>, and cancel complimentary ones on{" "}
+                  <Link href="/admin/complimentary" className="underline underline-offset-4">Complimentary memberships</Link>.
+                </>
+              )}
             </p>
             <form className="flex flex-wrap gap-2" role="search">
               <label htmlFor="q" className="sr-only">Find a family</label>
@@ -113,7 +123,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               <button className={buttonSecondary}>Find</button>
             </form>
             {families.length === 0 ? (
-              <p className="text-muted">{q ? "No family matches that." : "No families yet."}</p>
+              <p className="text-muted">{q ? "No tester family matches that." : "No tester plans yet."}</p>
             ) : (
               <ul className="flex flex-col gap-3" data-testid="admin-families">
                 {families.map((f) => (

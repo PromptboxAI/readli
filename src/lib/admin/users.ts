@@ -6,6 +6,7 @@ import type { ProviderRefCipher } from "@/lib/server/provider-ref";
 import type { AdminUser } from "./access";
 import { isAdmin } from "./emails";
 import { AdminActionError } from "./tester-plans";
+import { livePlan, type AdminPlan } from "./overview";
 
 export interface AdminAccount {
   id: string;
@@ -17,6 +18,8 @@ export interface AdminAccount {
   isAdmin: boolean;
   paused: boolean;
   families: string[];
+  /** Each family with the plan it has right now (paid, complimentary, tester or trial), if any. */
+  homes: { name: string; plan: AdminPlan | null }[];
 }
 
 const PAGE = 1000;
@@ -44,6 +47,7 @@ export async function listAccounts(db: SupabaseClient, env: NodeJS.ProcessEnv = 
   const users = await allUsers(db);
   const ids = users.map((u) => u.id);
   const families = new Map<string, string[]>();
+  const homes = new Map<string, { name: string; plan: AdminPlan | null }[]>();
   if (ids.length) {
     const { data: members, error } = await db.from("household_members").select("user_id, household_id").is("removed_at", null);
     if (error) throw new Error(`read members: ${error.message}`);
@@ -54,9 +58,18 @@ export async function listAccounts(db: SupabaseClient, env: NodeJS.ProcessEnv = 
       if (homesError) throw new Error(`read families: ${homesError.message}`);
       for (const h of homes ?? []) names.set(h.id as string, h.name as string);
     }
+    const { data: plans, error: plansError } = homeIds.length
+      ? await db.from("household_entitlements").select("id, household_id, source, status, starts_at, ends_at").eq("status", "active").in("household_id", homeIds)
+      : { data: [], error: null };
+    if (plansError) throw new Error(`read plans: ${plansError.message}`);
+    const now = new Date();
     for (const m of members ?? []) {
-      const name = names.get(m.household_id as string);
-      if (name) families.set(m.user_id as string, [...(families.get(m.user_id as string) ?? []), name]);
+      const id = m.household_id as string;
+      const name = names.get(id);
+      if (!name) continue;
+      const user = m.user_id as string;
+      families.set(user, [...(families.get(user) ?? []), name]);
+      homes.set(user, [...(homes.get(user) ?? []), { name, plan: livePlan((plans ?? []) as Record<string, unknown>[], id, now) }]);
     }
   }
   return users
@@ -70,6 +83,7 @@ export async function listAccounts(db: SupabaseClient, env: NodeJS.ProcessEnv = 
       isAdmin: isAdmin(u, env),
       paused: isPaused(u),
       families: families.get(u.id) ?? [],
+      homes: homes.get(u.id) ?? [],
     }))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
