@@ -8,6 +8,7 @@ import {
   claimLink,
   claimPath,
   EMAIL_OUTCOME_TEXT,
+  emailBatch,
   emailMembership,
   issueComplimentary,
   organizerEmail,
@@ -69,8 +70,10 @@ export async function issueComplimentaryAction(_prev: IssueResult, form: FormDat
   let batchId: string;
   let emailed: EmailOutcome | null = null;
   let organizerEmailed: EmailOutcome | null = null;
+  let batchEmailed: EmailOutcome | null = null;
   try {
-    const organizer = field(form, "recipient") === "named" ? organizerEmail(field(form, "organizerEmail")) : null;
+    const named = field(form, "recipient") === "named";
+    const organizer = organizerEmail(field(form, "organizerEmail"));
     let created: boolean;
     ({ batchId, created } = await issueComplimentary(ctx.db, ctx.admin, {
       requestKey: field(form, "requestKey"),
@@ -89,7 +92,16 @@ export async function issueComplimentaryAction(_prev: IssueResult, form: FormDat
     }, ctx.cipher));
     // A named adult with an email gets the claim link straight away. Issuing has already succeeded, so a
     // failed send is reported on the batch page rather than undoing the membership.
-    if (created && field(form, "recipient") === "named" && field(form, "recipientEmail").trim()) {
+    // Unknown winners: the codes and links go to whoever is handing them out.
+    if (created && !named && organizer) {
+      try {
+        ({ outcome: batchEmailed } = await emailBatch(ctx.db, ctx.admin, ctx.cipher, await requestOrigin(), batchId, organizer, sendNow(ctx.db)));
+      } catch (err) {
+        console.error("complimentary batch email failed", err instanceof Error ? err.message : err);
+        batchEmailed = "failed";
+      }
+    }
+    if (created && named && field(form, "recipientEmail").trim()) {
       const { data } = await ctx.db.from("gifts").select("id").eq("batch_id", batchId).limit(1);
       const giftId = (data?.[0] as { id?: string } | undefined)?.id;
       if (giftId) {
@@ -117,6 +129,7 @@ export async function issueComplimentaryAction(_prev: IssueResult, form: FormDat
   const query = new URLSearchParams();
   if (emailed) query.set("emailed", emailed);
   if (organizerEmailed) query.set("organizer", organizerEmailed);
+  if (batchEmailed) query.set("handout", batchEmailed);
   redirect(`/admin/complimentary/${batchId}${query.size ? `?${query}` : ""}`);
 }
 
@@ -186,3 +199,27 @@ export async function cancelMembershipAction(giftId: string): Promise<RowResult>
     return { error: "Something went wrong cancelling it. Nothing was changed if the row still says Active; try again." };
   }
 }
+
+/** "Email these to": sends every unclaimed code and link in a batch to whoever hands them out. */
+export async function emailBatchAction(batchId: string, _prev: RowResult, form: FormData): Promise<RowResult> {
+  const ctx = await context(`/admin/complimentary/${batchId}`);
+  if (!ctx) return { error: NOT_READY };
+  try {
+    const to = field(form, "to");
+    const { count, outcome } = await emailBatch(ctx.db, ctx.admin, ctx.cipher, await requestOrigin(), batchId, to, sendNow(ctx.db));
+    revalidatePath(`/admin/complimentary/${batchId}`);
+    const what = `${count} unclaimed ${count === 1 ? "membership" : "memberships"}`;
+    if (outcome === "sent" || outcome === "queued") return { message: `${outcome === "sent" ? "Emailed" : "Queued"} ${what} to ${to.trim()}.` };
+    return { error: HANDOUT_FAILED[outcome] };
+  } catch (err) {
+    if (err instanceof AdminActionError) return { error: err.message };
+    console.error("complimentary batch email failed", err instanceof Error ? err.message : err);
+    return { error: "That didn't send. Please try again." };
+  }
+}
+
+const HANDOUT_FAILED: Record<"switched_off" | "not_set_up" | "failed", string> = {
+  switched_off: "Not emailed: the give-away email (M3) is switched off in Admin, Email.",
+  not_set_up: "Not emailed: email isn't set up on this server.",
+  failed: "Not emailed: something went wrong sending it. Please try again.",
+};

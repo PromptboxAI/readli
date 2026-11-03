@@ -9,6 +9,7 @@ import {
   cancelMembership,
   certificateLabel,
   claimLink,
+  emailBatch,
   emailMembership,
   filterMemberships,
   issueComplimentary,
@@ -303,6 +304,25 @@ describe("issued memberships", () => {
     expect(sent[1]!.message.text).not.toContain("/claim");
     expect(() => organizerEmail("not an email")).toThrow(AdminActionError);
     expect(organizerEmail("  ")).toBeNull();
+  });
+
+  it("email every unclaimed code and link in an unknown-winner batch to the organizer", async () => {
+    const { db, tables } = fakeDb();
+    await issueComplimentary(db, admin, raffle({ count: 3 }), cipher, AT);
+    Object.assign(tables.gifts![2]!, { status: "active", redeemed_at: "2026-10-23" });
+    const sent: QueuedEmail[] = [];
+    const out = await emailBatch(db, admin, cipher, "https://readli.ai", tables.gifts![0]!.batch_id as string, " PTA@School.org ", async (e) => (sent.push(e), "sent"), AT);
+    expect(out).toEqual({ count: 2, outcome: "sent" });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ emailId: "M3", to: { email: "pta@school.org" } });
+    const codes = tables.gifts!.map((g) => cipher.decrypt(g.code_encrypted as string)!);
+    expect(sent[0]!.message.text).toContain(`https://readli.ai/claim#${codes[0]}`);
+    expect(sent[0]!.message.text).toContain(codes[1]);
+    expect(sent[0]!.message.text).not.toContain(codes[2]);
+    expect(sent[0]!.message.subject).toBe("Your 2 Readli memberships to give away");
+    expect(tables.admin_actions!.at(-1)).toMatchObject({ action: "complimentary_emailed", detail: { to: "organizer", count: 2 } });
+    expect(JSON.stringify(tables.admin_actions)).not.toContain(codes[0]);
+    await expect(emailBatch(db, admin, cipher, "https://readli.ai", tables.gifts![0]!.batch_id as string, "", async () => "sent", AT)).rejects.toThrow(AdminActionError);
   });
 
   it("skip the organizer note when the recipient's email didn't go", async () => {
