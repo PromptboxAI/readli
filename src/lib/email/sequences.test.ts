@@ -150,6 +150,10 @@ describe("signup intent", () => {
   it("tells signups apart by where sign-in was headed", () => {
     expect(signupIntent("/voice/join?invite=abc")).toBe("voice_invited");
     expect(signupIntent("/voice/record?from=try")).toBe("voice");
+    expect(signupIntent("/claim")).toBe("family");
+    expect(signupIntent("/redeem")).toBe("family");
+    expect(signupIntent("/gift/open?code=ABCD")).toBe("family");
+    expect(signupIntent("/gift/family")).toBeNull();
     expect(signupIntent("/family?start=1")).toBe("family");
     expect(signupIntent("/books")).toBeNull();
   });

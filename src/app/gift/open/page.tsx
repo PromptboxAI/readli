@@ -26,7 +26,7 @@ export default async function GiftOpenPage({ searchParams }: { searchParams: Pro
     if (complimentary) {
       const viewer = await giftViewer(db, (await currentAdult())?.id ?? null, complimentary.months);
       return (
-        <AdultPage wide>
+        <AdultPage wide gift>
           <ComplimentaryGift code={code} gift={complimentary} viewer={viewer} />
         </AdultPage>
       );
@@ -35,7 +35,7 @@ export default async function GiftOpenPage({ searchParams }: { searchParams: Pro
     if (gift) {
       const [signedIn, voice] = await Promise.all([currentAdult().then(Boolean), giftPreview(db, code).catch(() => null)]);
       return (
-        <AdultPage>
+        <AdultPage gift>
           {voice && <GiftVoicePreview code={code} giverName={voice.giverName} book={voice.book} />}
           <GiftOpen plan={gift.plan} to={gift.to} from={gift.from} message={gift.message} live={{ code, signedIn, status: gift.status }} />
         </AdultPage>

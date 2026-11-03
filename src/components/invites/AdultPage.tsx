@@ -2,10 +2,15 @@ import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 
 /** Page frame for the adult-only family pages (invites, gifts, rewards). Never used in Readli Kids. */
-export function AdultPage({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
+/**
+ * `gift` is for pages where someone claims a Readli gift: the header leaves out its My Voice button,
+ * which a grown-up with no family plan yet would otherwise see, so claiming a Family gift never looks
+ * like signing up for Readli Voice (Kevin, 2026-11-03).
+ */
+export function AdultPage({ children, wide = false, gift = false }: { children: React.ReactNode; wide?: boolean; gift?: boolean }) {
   return (
     <>
-      <SiteHeader />
+      <SiteHeader hidePrimary={gift} />
       <main className={`mx-auto flex w-full flex-col gap-10 px-4 py-10 sm:px-6 sm:py-14 ${wide ? "max-w-6xl" : "max-w-4xl"}`}>
         {children}
       </main>
