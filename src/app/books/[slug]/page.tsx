@@ -9,6 +9,8 @@ import { authConfigured } from "@/lib/auth/supabase";
 import { bookCredits, monthsOfCredits } from "@/lib/content/credits-explained";
 import { planConfig } from "@/lib/family/plan";
 import { bookOpening } from "@/lib/library/opening";
+import { BOOK_SAMPLE_NARRATOR, bookSampleSrc } from "@/lib/library/samples";
+import { SamplePlayer } from "@/components/home/SamplePlayer";
 import { bookPath, publicSlug, slugFromPublic } from "@/lib/library/paths";
 import { type PublicBook, publicBook, publicLibrary } from "@/lib/library/public";
 import { absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
@@ -61,6 +63,7 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
   if (slug !== publicSlug(book.slug)) permanentRedirect(bookPath(book.slug));
   const prepare = `/family/books/${book.slug}`;
   const opening = bookOpening(book.slug);
+  const sample = opening.length > 0 ? bookSampleSrc(book.slug) : null;
   const bookLd = {
     "@context": "https://schema.org",
     "@type": "Book",
@@ -125,6 +128,7 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
                   <h2 id="opening-h" className="font-display text-2xl font-semibold">
                     How it starts
                   </h2>
+                  {sample && <SamplePlayer src={sample} title="Listen to how it starts" narrator={BOOK_SAMPLE_NARRATOR} length={null} />}
                   {opening.map((p, i) => (
                     <p key={i} className="text-lg leading-relaxed whitespace-pre-line">
                       {p}
