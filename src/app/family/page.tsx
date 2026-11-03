@@ -40,6 +40,8 @@ import { newThisWeekFor } from "@/lib/email/bedtime";
 import { accountDb } from "@/lib/family/account-store";
 import { settingsLink } from "@/lib/family/settings-nav";
 import { firstStoryChosen, hasReadingVoice, setupProgress } from "@/lib/family/setup";
+import { SETUP_SEEN_COOKIE } from "@/lib/family/setup-cookie";
+import { cookies } from "next/headers";
 
 function SignOutButton() {
   return (
@@ -190,6 +192,8 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   const notice = isGuardian && home ? homeNotice(state, home, adult.id) : null;
   // Until the three getting-started steps are done, Home keeps a way back to them.
   const setup = account && isGuardian && hasPlan && home ? await setupFor(state, adult.id, home) : null;
+  // A new family is walked through setup the first time Home opens; after that, Home keeps a reminder.
+  if (setup?.next && !(await cookies()).get(SETUP_SEEN_COOKIE)) redirect("/family/setup");
   const newBooks = isGuardian && home ? await newThisWeekFor(session, accountDb()) : null;
   const slots = home ? narratorSlotCount(state, home, plan) : 0;
   const kidsMax = home ? childProfileLimit(state, home, plan) : plan.maxChildProfiles;
@@ -216,12 +220,15 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
       </div>
       {notice && <HomeNotice lines={noticeLines(notice)} through={notice.through} />}
       {setup && setup.next && (
-        <section className="flex flex-wrap items-center gap-3 rounded-2xl bg-sunshine/40 p-4" aria-label="Getting started" data-testid="setup-reminder">
-          <p className="min-w-0 flex-1">
-            <strong>Finish setting up: {setup.done} of 3 done.</strong> Next: {SETUP_NEXT[setup.next]}.
-          </p>
+        <section className="flex flex-wrap items-center gap-4 rounded-3xl bg-sunshine/50 p-5" aria-labelledby="setup-reminder-h" data-testid="setup-reminder">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <h2 id="setup-reminder-h" className="font-display text-xl font-semibold">
+              Finish setting up: {setup.done} of 3 done
+            </h2>
+            <p>Next: {SETUP_NEXT[setup.next]}.</p>
+          </div>
           <Link href="/family/setup" className={parentPrimary}>
-            Continue
+            Continue setup
           </Link>
         </section>
       )}
@@ -398,7 +405,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
                 Browse Books
               </Link>
             </section>
-            {view && <StorytellersCard storytellers={view.storytellers} slotLine={slotLine} />}
+            {view && <StorytellersCard storytellers={view.storytellers} slotLine={slotLine} recordFirst={Boolean(setup && !setup.recorded)} />}
           </aside>
         </div>
       )}
@@ -440,15 +447,19 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   );
 }
 
-const SETUP_NEXT = { voice: "record a voice to read with", kids: "add your kids", story: "pick their first story" } as const;
+const SETUP_NEXT = { voice: "record your voice", kids: "add your kids", story: "prepare their first book" } as const;
 
-/** Getting-started progress for Family Home; a recording still being made counts as a voice. */
+/**
+ * Getting-started progress for Family Home; a recording still being made counts as a voice. `recorded`
+ * is this grown-up's own recording, so Home asks for it before asking them to invite anyone else.
+ */
 async function setupFor(state: FamilyState, adultId: string, home: string) {
   const kids = guardianChildren(state, adultId).length > 0;
   const story = firstStoryChosen(state, home);
-  let voice = hasReadingVoice(state, adultId, home);
-  const deps = voice ? null : accountVoiceDeps(serverConfig());
-  if (deps) voice = Boolean(await deps.store.findVoice(adultId).catch(() => null));
-  return setupProgress({ voice, kids, story });
+  let recorded = state.voices.some((v) => v.ownerId === adultId && v.deletedAt === null);
+  const deps = recorded ? null : accountVoiceDeps(serverConfig());
+  if (deps) recorded = Boolean(await deps.store.findVoice(adultId).catch(() => null));
+  const voice = recorded || hasReadingVoice(state, adultId, home);
+  return { ...setupProgress({ voice, kids, story }), recorded };
 }
 

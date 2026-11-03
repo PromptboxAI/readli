@@ -24,7 +24,7 @@ const card = "flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10"
  * to invite a co-parent. A co-parent signs in as themselves and gets every parent's controls except
  * billing. The owner can remove a co-parent, and a co-parent can leave.
  */
-export function FamilyParents({ view, initialInvites, live }: { view: FamilyParentsView; initialInvites: SavedInvite[]; live: boolean }) {
+export function FamilyParents({ view, initialInvites, live, inSetup = false }: { view: FamilyParentsView; initialInvites: SavedInvite[]; live: boolean; inSetup?: boolean }) {
   const router = useRouter();
   const id = useId();
   const [invites, setInvites] = useState(initialInvites);
@@ -94,7 +94,8 @@ export function FamilyParents({ view, initialInvites, live }: { view: FamilyPare
 
   return (
     <div className="flex flex-col gap-6" data-testid="family-parents">
-      <section className="flex flex-col gap-3" aria-labelledby={`${id}-list`}>
+      {/* Setup asks only for the invitation; the list of parents and what they can do live in Settings. */}
+      <section className={inSetup ? "hidden" : "flex flex-col gap-3"} aria-labelledby={`${id}-list`}>
         <h2 id={`${id}-list`} className="font-display text-2xl font-semibold">
           Parents in {view.familyName}
         </h2>
@@ -141,7 +142,7 @@ export function FamilyParents({ view, initialInvites, live }: { view: FamilyPare
         </ul>
       </section>
 
-      <section className={card} aria-labelledby={`${id}-what`}>
+      <section className={inSetup ? "hidden" : card} aria-labelledby={`${id}-what`}>
         <h2 id={`${id}-what`} className="font-display text-xl font-semibold">
           What a co-parent can do
         </h2>
@@ -156,7 +157,7 @@ export function FamilyParents({ view, initialInvites, live }: { view: FamilyPare
 
       {view.youOwn ? (
         <section className="flex flex-col gap-3" aria-labelledby={`${id}-invite`}>
-          <h2 id={`${id}-invite`} className="font-display text-2xl font-semibold">
+          <h2 id={`${id}-invite`} className={inSetup ? "sr-only" : "font-display text-2xl font-semibold"}>
             Invite a co-parent
           </h2>
           {invites.length > 0 && (

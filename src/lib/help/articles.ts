@@ -78,7 +78,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     question: "How do I create a family account?",
     status: "published",
     answer: [
-      "Go to the [sign-up page](/signup) and choose Readli Family. Enter your email and type the code we send you (or continue with Google), then choose your plan. Readli then walks you through three steps: record a voice to read with (or invite a grandparent to), add your kids, and pick their first story. Until all three are done, Family Home shows how far you've got and takes you back to them.",
+      "Go to the [sign-up page](/signup) and choose Readli Family. Enter your email and type the code we send you (or continue with Google), then choose your plan. Readli then walks you through setup one screen at a time: record your own voice, add your kids, invite your partner or co-parent and any grandparents or other storytellers (optional), and prepare their first book. Claiming a gift takes you to the same walkthrough. You can skip any step, and until the essentials are done, Family Home shows how far you've got and takes you back.",
     ],
     keywords: ["sign up", "register", "join", "start"],
     related: ["add-a-child", "invite-relatives-elsewhere", "family-plan-included"],
