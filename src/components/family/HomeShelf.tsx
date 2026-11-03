@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { parentPrimary } from "@/components/brand/buttons";
 import { SessionButton } from "@/components/family/SessionButton";
 import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
 import type { HomeKid, HomeStoryteller, ShelfBook, ShelfKid, UnassignedBook } from "@/lib/family/home";
@@ -29,7 +30,8 @@ export function KidCards({ kids }: { kids: HomeKid[] }) {
   return (
     <ul className={`grid gap-3 ${grid}`} data-testid="home-kids" data-layout={layout}>
       {kids.map((k) => (
-        <li key={k.id} className="min-w-0">
+        // Sized by the card's own width, not the screen's: beside the sidebar the kids column is narrow even on a wide screen.
+        <li key={k.id} className="@container min-w-0">
           {layout === "compact" ? <CompactKid kid={k} /> : <DetailedKid kid={k} wide={layout === "wide"} />}
         </li>
       ))}
@@ -73,7 +75,7 @@ function DetailedKid({ kid, wide }: { kid: HomeKid; wide: boolean }) {
   );
   return (
     <div
-      className={`flex h-full flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10 ${wide ? "md:grid md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_minmax(0,14rem)] md:items-center md:gap-5" : ""}`}
+      className={`flex h-full flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10 ${wide ? "@2xl:grid @2xl:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] @2xl:items-center @2xl:gap-5" : ""}`}
     >
       <div className="flex min-w-0 items-center gap-3">
         <StorytellerAvatar name={kid.name} avatarUrl={null} tint={kid.tint} />
@@ -180,7 +182,8 @@ const STATUS: Record<HomeStoryteller["tone"], { label: string; className: string
 };
 
 /** The family's storytellers, each with who may hear them, and the narrator slots in use. */
-export function StorytellersCard({ storytellers, slotLine }: { storytellers: HomeStoryteller[]; slotLine: string | null }) {
+/** `recordFirst`: the parent hasn't recorded their own voice yet, so that comes before inviting anyone else. */
+export function StorytellersCard({ storytellers, slotLine, recordFirst = false }: { storytellers: HomeStoryteller[]; slotLine: string | null; recordFirst?: boolean }) {
   return (
     <section className="flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10" aria-labelledby="storytellers-h">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -210,7 +213,16 @@ export function StorytellersCard({ storytellers, slotLine }: { storytellers: Hom
           ))}
         </ul>
       ) : (
-        <p className="text-muted">No storytellers yet. Invite a grandparent, aunt or uncle to record their voice.</p>
+        !recordFirst && <p className="text-muted">No storytellers yet. Invite a grandparent, aunt or uncle to record their voice.</p>
+      )}
+      {recordFirst && (
+        <div className="flex flex-col items-start gap-2 rounded-2xl bg-sky/40 p-4" data-testid="record-first">
+          <p className="font-semibold">Start with your own voice</p>
+          <p className="text-sm">Record yours first, so your kids hear you. Then invite grandparents and others to add theirs.</p>
+          <Link href="/voice/record?next=/family" className={parentPrimary}>
+            Record my voice
+          </Link>
+        </div>
       )}
       {slotLine && <p className="text-sm text-muted">{slotLine}</p>}
       <Link

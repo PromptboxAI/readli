@@ -37,9 +37,15 @@ export default async function VoiceRecordPage({ searchParams }: { searchParams: 
   return (
     <AdultPage wide>
       <header className="flex flex-col gap-2">
-        <Link href={parent ? "/family/my-voice" : "/voice"} className="w-fit font-display font-semibold underline-offset-4 hover:underline">
-          ← My voice
-        </Link>
+        {next.startsWith("/family/setup") ? (
+          <Link href={next.replace("step=kids", "step=voice")} className="w-fit font-display font-semibold underline-offset-4 hover:underline">
+            ← Back to setup
+          </Link>
+        ) : (
+          <Link href={parent ? "/family/my-voice" : "/voice"} className="w-fit font-display font-semibold underline-offset-4 hover:underline">
+            ← My voice
+          </Link>
+        )}
         <Eyebrow>Readli Voice</Eyebrow>
         <h1 className="font-display text-4xl font-semibold sm:text-5xl">{existing ? "Replace your Readli voice" : "Create your Readli voice"}</h1>
       </header>

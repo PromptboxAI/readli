@@ -342,7 +342,10 @@ export function NarratorSlots({
   }
 
   const pendingInvites = invites.filter((i) => i.status === "invited" || i.status === "expired" || i.status === "declined");
-  const onTheWay = view.shared.length + view.waiting.length + view.joined.length + pendingInvites.length;
+  // A parent who hasn't recorded yet is asked for their own voice first, at the top, not under "on the way".
+  const recordFirst = view.joined.some((p) => p.yours);
+  const joined = view.joined.filter((p) => !p.yours);
+  const onTheWay = view.shared.length + view.waiting.length + joined.length + pendingInvites.length;
   // Inviting never holds or uses a slot: a slot is used only when a parent adds a storyteller whose voice is ready.
   const open = Math.max(free, 0);
   const remove = (p: { adultId: string; name: string }) => {
@@ -374,6 +377,18 @@ export function NarratorSlots({
           {view.active.length} of {view.total} slots used
         </p>
       </div>
+
+      {recordFirst && (
+        <section className="flex flex-col items-start gap-3 rounded-3xl bg-sky/40 p-5" aria-labelledby="record-first-h" data-testid="record-first">
+          <h2 id="record-first-h" className="font-display text-2xl font-semibold">
+            Start with your own voice
+          </h2>
+          <p className="max-w-2xl">Record yours first, so your kids hear you. It takes about five minutes. Then invite grandparents and others to add theirs.</p>
+          <Link href="/voice/record?next=/family/narrators" className={parentPrimary}>
+            Record my voice
+          </Link>
+        </section>
+      )}
 
       <p role="status" aria-live="polite" className={message ? "rounded-2xl bg-ivory p-3 font-semibold ring-2 ring-ink/10" : "sr-only"}>
         {message}
@@ -599,7 +614,7 @@ export function NarratorSlots({
                   </li>
                 );
               })}
-              {view.joined.map((p: JoinedCard) => (
+              {joined.map((p: JoinedCard) => (
                 <li key={p.adultId} data-testid={`joined-${p.adultId}`} className="flex flex-wrap items-center gap-4 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
                   {person(p, !p.yours)}
                   {p.yours ? (

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { parentPrimary, buttonQuiet } from "@/components/brand/buttons";
 import { HelpLink } from "@/components/help/HelpLink";
@@ -8,8 +9,12 @@ import type { ChildProfilesView } from "@/lib/family/service";
 import { SessionButton } from "./SessionButton";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 
-/** Readli Family → Kids profiles. Up to the plan's maximum, never charged per child. */
-export function ChildProfiles({ initial }: { initial: ChildProfilesView }) {
+/**
+ * Readli Family → Kids profiles. Up to the plan's maximum, never charged per child. In setup (`inSetup`)
+ * it's just the kids and the form to add one: storytellers and Readli Kids come later in the walkthrough.
+ */
+export function ChildProfiles({ initial, inSetup = false }: { initial: ChildProfilesView; inSetup?: boolean }) {
+  const router = useRouter();
   const [view, setView] = useState(initial);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,10 +30,13 @@ export function ChildProfiles({ initial }: { initial: ChildProfilesView }) {
     if (!res.ok) return setMessage(json?.error?.message ?? "We couldn't save that. Please try again.");
     setView(json as ChildProfilesView);
     setMessage(done);
+    // Setup's next step and its "use my voice" card depend on the kids, so they're asked for again.
+    if (inSetup) router.refresh();
   };
 
   return (
     <div className="flex flex-col gap-8" data-testid="child-profiles">
+      {!inSetup && (
       <div className="flex flex-col gap-3">
         <h1 className="font-display text-4xl font-semibold">Kids profiles</h1>
         <p className="max-w-2xl text-lg text-muted">
@@ -43,6 +51,7 @@ export function ChildProfiles({ initial }: { initial: ChildProfilesView }) {
           {view.children.length} of {view.max} profiles
         </p>
       </div>
+      )}
 
       <p role="status" aria-live="polite" className={message ? "rounded-2xl bg-ivory p-3 font-semibold ring-2 ring-ink/10" : "sr-only"}>
         {message}
@@ -50,20 +59,24 @@ export function ChildProfiles({ initial }: { initial: ChildProfilesView }) {
 
       <ul className="grid gap-3 sm:grid-cols-2">
         {view.children.map((c) => (
-          <li key={c.id} className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
+          <li key={c.id} className={`flex gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10 ${inSetup ? "items-center justify-between" : "flex-col"}`}>
             <div className="flex min-w-0 items-center gap-3">
               <StorytellerAvatar name={c.nickname} avatarUrl={null} tint={c.tint} />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-display text-xl font-semibold">{c.nickname}</p>
+                {!inSetup && (
                 <Link href={`/family/kids/${c.id}/storytellers`} className="text-sm font-semibold underline underline-offset-4">
                   Manage storytellers
                 </Link>
+                )}
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <SessionButton as={`child:${c.id}`} next="/kids" className={parentPrimary}>
-                Open Readli Kids<span className="sr-only"> for {c.nickname}</span>
-              </SessionButton>
+              {!inSetup && (
+                <SessionButton as={`child:${c.id}`} next="/kids" className={parentPrimary}>
+                  Open Readli Kids<span className="sr-only"> for {c.nickname}</span>
+                </SessionButton>
+              )}
               <button
                 type="button"
                 className={buttonQuiet}
@@ -93,12 +106,12 @@ export function ChildProfiles({ initial }: { initial: ChildProfilesView }) {
             void send(
               "/api/family/children",
               { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ nickname }) },
-              `${nickname}'s profile is ready. Choose their storytellers next; no extra charge.`,
+              inSetup ? `${nickname} is added. Add another child, or go on to the next step.` : `${nickname}'s profile is ready. Choose their storytellers next; no extra charge.`,
             ).then(() => setName(""));
           }}
         >
           <label htmlFor="child-name" className="font-display text-2xl font-semibold">
-            Add a child
+            {inSetup && view.children.length > 0 ? "Add another child" : "Add a child"}
           </label>
           <p className="text-sm text-muted">A first name or nickname is enough. Kids never need an email or a login.</p>
           <div className="flex flex-wrap gap-2">
