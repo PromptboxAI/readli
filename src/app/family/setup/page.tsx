@@ -14,6 +14,8 @@ import { SetupStorytellerInvites, SetupUseMyVoice } from "@/components/family/Se
 import { billingConfig } from "@/lib/billing/config";
 import { confirmCheckout } from "@/lib/billing/confirm";
 import { StripeApi } from "@/lib/billing/stripe-api";
+import { chosenName } from "@/lib/account/names";
+import { currentAdult } from "@/lib/auth/adult";
 import { accountDb } from "@/lib/family/account-store";
 import { familyPage, guardianChildren } from "@/lib/family/page-data";
 import { activeEntitlement, activeShare } from "@/lib/family/permissions";
@@ -173,12 +175,15 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   const n = (SETUP_STEPS as readonly string[]).indexOf(step) + 1;
   const eyebrow = step === "done" ? "All set" : `Step ${n} of ${SETUP_STEPS.length}`;
 
+  // Sign-in fills the name from Google, which can be a business name; the welcome page asks them to keep or change it.
+  const signedIn = session.account ? await currentAdult() : null;
+  const myName = chosenName(adult.displayName, signedIn?.email, signedIn?.named);
   if (welcome) {
     return (
       <FamilyShell>
         {q.checkout === "success" && <CheckoutDone sessionId={q.session_id} />}
         {!plan && <PlanStarting waiting="Thank you! Your plan starts as soon as the payment goes through, usually within a minute. Have a look around while you wait." />}
-        <Welcome kind="family" startHref={setupHref("voice")} name={adult.displayName.split(" ")[0]} />
+        <Welcome kind="family" startHref={setupHref("voice")} name={myName?.split(" ")[0]} askName={session.account ? (myName ?? "") : undefined} />
       </FamilyShell>
     );
   }

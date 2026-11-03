@@ -150,7 +150,7 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
             {invitedBy} invited you to read their kids bedtime stories. Here&apos;s how it works.
           </p>
         )}
-        <Welcome kind="storyteller" startHref={storytellerHref("voice")} name={name ? name.split(" ")[0] : null} />
+        <Welcome kind="storyteller" startHref={storytellerHref("voice")} name={name ? name.split(" ")[0] : null} askName={user ? (name ?? "") : undefined} />
       </AdultPage>
     );
   }

@@ -12,10 +12,18 @@ export function AskName({
   label = "What should we call you?",
   hint = "This is how you'll appear to your kids and storytellers.",
   placeholder = "Mom, Dad, Grandpa Kevin…",
-}: { label?: string; hint?: string; placeholder?: string } = {}) {
+  initial = "",
+}: {
+  label?: string;
+  hint?: string;
+  placeholder?: string;
+  /** The name they have now (say, from their Google profile), to keep or change. */
+  initial?: string;
+} = {}) {
   const id = useId();
   const router = useRouter();
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initial);
+  const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submit = async (e: React.FormEvent) => {
@@ -30,6 +38,7 @@ export function AskName({
       setError(body?.error?.message ?? "We couldn't save your name. Please try again.");
       return;
     }
+    setSaved(true);
     router.refresh();
   };
   return (
@@ -42,7 +51,10 @@ export function AskName({
         <input
           id={`${id}-name`}
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            setSaved(false);
+          }}
           placeholder={placeholder}
           autoComplete="name"
           maxLength={60}
@@ -53,6 +65,9 @@ export function AskName({
           {busy ? "Saving…" : "Save"}
         </button>
       </div>
+      <p role="status" aria-live="polite" className={saved ? "text-sm font-semibold" : "sr-only"}>
+        {saved ? "Saved. You can change it any time in Settings." : ""}
+      </p>
       {error && (
         <p role="alert" className="font-semibold text-coral-deep">
           {error}
