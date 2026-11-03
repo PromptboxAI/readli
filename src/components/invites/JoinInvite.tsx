@@ -11,7 +11,7 @@ import type { InviteLanding } from "@/lib/invites/server";
 const steps = (family: string) =>
   [
     ["Sign in or create a free Readli Voice account", "Just you, with your own email."],
-    ["Record and approve your voice", "About five minutes reading a short story aloud. Already have a Readli voice? You skip this."],
+    ["Record and approve your voice", "About two minutes reading a short story aloud. Already have a Readli voice? You skip this."],
     [`Agree to share it with ${family}`, "Their parents then choose which children hear you."],
     ["Finish on your Readli Voice home", "Where you see every family using your voice."],
   ] as const;
