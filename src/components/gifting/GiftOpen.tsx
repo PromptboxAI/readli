@@ -79,8 +79,8 @@ export function GiftOpen({ plan, to, from, message, live }: { plan: GiftPlan; to
               : "Family accounts are coming soon. When they arrive, this is where you'd create your account and the gift would start."}
         </p>
         {stage === "claimed" ? (
-          <Link href={live ? "/family" : "/welcome"} className={buttonPrimary}>
-            {live ? "Go to my family" : "See your welcome"}
+          <Link href={live ? "/family/setup" : "/welcome"} className={buttonPrimary}>
+            {live ? "Set up my family" : "See your welcome"}
           </Link>
         ) : (
           <button type="button" className={buttonSecondary} onClick={() => setStage("open")}>

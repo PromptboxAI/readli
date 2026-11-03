@@ -22,6 +22,7 @@ import { familyHome, homeNotice, noticeLines } from "@/lib/family/home";
 import { homeHousehold } from "@/lib/family/service";
 import { planConfig } from "@/lib/family/plan";
 import { familyCheckoutOpen } from "@/lib/accounts/checkout";
+import type { FamilyState } from "@/lib/family/model";
 import { familyPage, guardianChildren } from "@/lib/family/page-data";
 import { activeEntitlement, childProfileLimit, countedSlots, narratorSlotCount } from "@/lib/family/permissions";
 import { deviceRegistry, familyPreviewEnabled, TEMPORARY_KIDS_HOURS } from "@/lib/family/session";
@@ -39,6 +40,9 @@ import { newThisWeekFor } from "@/lib/email/bedtime";
 import { accountDb } from "@/lib/family/account-store";
 import { settingsLink } from "@/lib/family/settings-nav";
 import { unreadCount } from "@/lib/family/activity";
+import { firstStoryChosen, hasReadingVoice, setupProgress } from "@/lib/family/setup";
+import { SETUP_SEEN_COOKIE } from "@/lib/family/setup-cookie";
+import { cookies } from "next/headers";
 
 function SignOutButton() {
   return (
@@ -188,6 +192,10 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   const creditLine = balance ? creditSummary(balance, entitlement?.source === "trial") : null;
   const notice = isGuardian && home ? homeNotice(state, home, adult.id) : null;
   const unread = isGuardian && home ? unreadCount(state, home, adult.id) : 0;
+  // Until the three getting-started steps are done, Home keeps a way back to them.
+  const setup = account && isGuardian && hasPlan && home ? await setupFor(state, adult.id, home) : null;
+  // A new family is walked through setup the first time Home opens; after that, Home keeps a reminder.
+  if (setup?.next && !(await cookies()).get(SETUP_SEEN_COOKIE)) redirect("/family/setup");
   const newBooks = isGuardian && home ? await newThisWeekFor(session, accountDb()) : null;
   const slots = home ? narratorSlotCount(state, home, plan) : 0;
   const kidsMax = home ? childProfileLimit(state, home, plan) : plan.maxChildProfiles;
@@ -213,6 +221,19 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
         </div>
       </div>
       {notice && <HomeNotice lines={noticeLines(notice)} through={notice.through} />}
+      {setup && setup.next && (
+        <section className="flex flex-wrap items-center gap-4 rounded-3xl bg-sunshine/50 p-5" aria-labelledby="setup-reminder-h" data-testid="setup-reminder">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <h2 id="setup-reminder-h" className="font-display text-xl font-semibold">
+              Finish setting up: {setup.done} of 3 done
+            </h2>
+            <p>Next: {SETUP_NEXT[setup.next]}.</p>
+          </div>
+          <Link href="/family/setup" className={parentPrimary}>
+            Continue setup
+          </Link>
+        </section>
+      )}
       {lapsed && (
         <section className="flex flex-col items-start gap-3 rounded-2xl bg-surface p-5 ring-1 ring-ink/15" data-testid="plan-ended">
           <h2 className="text-lg font-semibold">
@@ -386,7 +407,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
                 Browse Books
               </Link>
             </section>
-            {view && <StorytellersCard storytellers={view.storytellers} slotLine={slotLine} />}
+            {view && <StorytellersCard storytellers={view.storytellers} slotLine={slotLine} recordFirst={Boolean(setup && !setup.recorded)} />}
             <Link
               href="/family/activity"
               className="flex items-center justify-between gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10 hover:ring-ink/30"
@@ -444,3 +465,20 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
     </FamilyShell>
   );
 }
+
+const SETUP_NEXT = { voice: "record your voice", kids: "add your kids", story: "prepare their first book" } as const;
+
+/**
+ * Getting-started progress for Family Home; a recording still being made counts as a voice. `recorded`
+ * is this grown-up's own recording, so Home asks for it before asking them to invite anyone else.
+ */
+async function setupFor(state: FamilyState, adultId: string, home: string) {
+  const kids = guardianChildren(state, adultId).length > 0;
+  const story = firstStoryChosen(state, home);
+  let recorded = state.voices.some((v) => v.ownerId === adultId && v.deletedAt === null);
+  const deps = recorded ? null : accountVoiceDeps(serverConfig());
+  if (deps) recorded = Boolean(await deps.store.findVoice(adultId).catch(() => null));
+  const voice = recorded || hasReadingVoice(state, adultId, home);
+  return { ...setupProgress({ voice, kids, story }), recorded };
+}
+
