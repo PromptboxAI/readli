@@ -302,10 +302,23 @@ export const HELP_ARTICLES: HelpArticle[] = [
     status: "published",
     answer: [
       "Yes. Connect your phone or tablet to the car or speaker by Bluetooth, or AirPlay from an iPhone or iPad, then press Play in Readli. The car screen and your lock screen show the book's cover and who's reading, like \"Read by Grandma\", and the car, headphone and lock-screen buttons pause, play and skip.",
-      "Readli plays over the internet, so you'll need a phone signal or Wi-Fi on the way. Prepared stories start quickly and keep playing with the screen locked.",
+      "No signal on the way? [Download the story](/help/listen-offline) at home first, and it plays without internet.",
     ],
     keywords: ["car", "carplay", "android auto", "bluetooth", "speaker", "airplay", "road trip", "lock screen", "headphones"],
-    related: ["sleep-timer-and-speed", "audiobook-not-playing", "readli-kids-on-ipad"],
+    related: ["listen-offline", "sleep-timer-and-speed", "audiobook-not-playing", "readli-kids-on-ipad"],
+  }),
+  A({
+    slug: "listen-offline",
+    category: "books-and-listening",
+    question: "Can my kids listen without internet, like on a plane?",
+    status: "published",
+    answer: [
+      "Yes. While you're online, open the story in Readli Kids on the device your child will use and tap Download at the top of the player. Once it says Saved, the story plays with no connection, in that storyteller's voice. Saved stories show a Saved tag on the bookshelf. A story can be downloaded once it's fully prepared in that voice.",
+      "Downloads are for your family only, so they need to check in. Each time the device goes online, Readli checks that the storyteller is still sharing their voice with your family, and a download keeps working for 7 days after the last check. If a storyteller stops sharing, or that voice is no longer approved for your child, their downloaded stories are removed from the device the next time it's online.",
+      "To remove a download, tap Saved in the player. Before a long trip, open Readli Kids once while you're online so the 7 days start fresh.",
+    ],
+    keywords: ["offline", "download", "plane", "flight", "no internet", "no wifi", "airplane mode", "car", "road trip", "save"],
+    related: ["listen-in-the-car", "readli-kids-on-ipad", "revoke-sharing"],
   }),
   A({
     slug: "prepare-a-book",
@@ -533,7 +546,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     question: "What happens if I revoke sharing permission?",
     status: "published",
     answer: [
-      "Your voice is removed from that family straight away. Their children can no longer choose you as a storyteller, no new stories are prepared in your voice, and stories already prepared in your voice stop playing for them.",
+      "Your voice is removed from that family straight away. Their children can no longer choose you as a storyteller, no new stories are prepared in your voice, and stories already prepared in your voice stop playing for them. A story they downloaded for listening without internet is removed the next time their device is online, and can't play for more than 7 days after the device last checked in.",
       "If you share again later, every child starts switched off until a parent approves you again.",
     ],
     keywords: ["revoke", "stop sharing", "withdraw", "remove access"],

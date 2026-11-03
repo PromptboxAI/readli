@@ -6,7 +6,7 @@ import { DEFAULT_PLAN } from "@/lib/family/plan";
 import { MemoryFamilyStore, PermissionError, releaseNarrator, startListening } from "@/lib/family/service";
 import type { SynthesizedAudio, VoiceProvider } from "@/lib/voice/provider";
 import { toneWav } from "@/lib/voice/stub";
-import { authorizeChapterTrack, authorizeGuardianChapterTrack, deleteVoiceNarrations, libraryFor, readPlayback, requestGeneration, runJob } from "./narration";
+import { authorizeChapterTrack, authorizeDownload, authorizeGuardianChapterTrack, checkDownloads, OFFLINE_DAYS, deleteVoiceNarrations, libraryFor, readPlayback, requestGeneration, runJob } from "./narration";
 import { MemoryNarrationStorage } from "./storage";
 import { bookText } from "./text";
 import { tracksFolder } from "./tracks";
@@ -200,5 +200,36 @@ describe("chapter tracks", () => {
     await deleteVoiceNarrations(store, "voice-june", clock);
     expect(await store.audio.list(tracksFolder(library.key))).toHaveLength(0);
     await rejects(readPlayback(store, maya, tokenOf(track.url), KEY, tick), 403);
+  });
+});
+
+describe("offline downloads", () => {
+  it("hands over every chapter of a fully prepared story, for a week offline, without a listening session", async () => {
+    const { state, store } = family();
+    await rejects(authorizeDownload(store, maya, { childId: "maya", voiceId: "voice-june", bookSlug: BOOK }, KEY, clock), 409, "not_prepared");
+    const provider = await prepareJune(store);
+    const calls = provider.calls;
+    const credits = ledgerSize(state);
+    const d = await authorizeDownload(store, maya, { childId: "maya", voiceId: "voice-june", bookSlug: BOOK }, KEY, clock);
+    expect(d.chapters.map((c) => c.chapter)).toEqual(text.chapters.map((c) => c.number));
+    expect(Date.parse(d.expiresAt) - tick).toBeGreaterThan((OFFLINE_DAYS * 24 - 1) * 60 * 60_000);
+    // Each chapter's audio can be fetched with its link; nothing is generated and no credits are used.
+    for (const c of d.chapters) expect(await readPlayback(store, maya, tokenOf(c.url), KEY, tick)).not.toBeNull();
+    expect(provider.calls).toBe(calls);
+    expect(ledgerSize(state)).toBe(credits);
+    // Another child, or a voice this child isn't approved for, can't download it.
+    await rejects(authorizeDownload(store, maya, { childId: "leo", voiceId: "voice-june", bookSlug: BOOK }, KEY, clock), 403);
+  });
+
+  it("keeps a download while the child may still hear it, with a fresh week, and drops it once they can't", async () => {
+    const { store } = family();
+    await prepareJune(store);
+    const d = await authorizeDownload(store, maya, { childId: "maya", voiceId: "voice-june", bookSlug: BOOK }, KEY, clock);
+    const item = { voiceId: d.voiceId, bookSlug: d.bookSlug, revision: d.revision };
+    const first = await checkDownloads(store, maya, { childId: "maya", items: [item, { ...item, revision: "gone" }] }, clock);
+    expect(first.keep.map((k) => k.revision)).toEqual([d.revision]);
+    expect(Date.parse(first.keep[0]!.expiresAt)).toBeGreaterThan(Date.parse(d.expiresAt));
+    await releaseNarrator(store, mom, H, "voice-june", clock);
+    expect((await checkDownloads(store, maya, { childId: "maya", items: [item] }, clock)).keep).toEqual([]);
   });
 });
