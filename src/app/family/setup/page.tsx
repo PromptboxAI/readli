@@ -9,6 +9,7 @@ import { FamilyOff, FamilyShell, NeedsGrownUp } from "@/components/family/Family
 import { FamilyParents } from "@/components/family/FamilyParents";
 import { NameFamily } from "@/components/family/NameFamily";
 import { PlanStarting } from "@/components/family/PlanStarting";
+import { Welcome } from "@/components/onboarding/Welcome";
 import { SetupSeen, SetupStorytellerInvites, SetupUseMyVoice } from "@/components/family/SetupSteps";
 import { billingConfig } from "@/lib/billing/config";
 import { confirmCheckout } from "@/lib/billing/confirm";
@@ -87,15 +88,17 @@ function Stepper({ step, done }: { step: SetupStep; done: Record<(typeof SETUP_S
 
 /** The bottom of every step: back, skip or next. */
 function StepNav({ step, ready, skip = "Skip for now", nextHref }: { step: SetupStep; ready: boolean; skip?: string; nextHref?: string }) {
-  const back = stepBefore(step);
+  const before = stepBefore(step);
+  // The first step goes back to the welcome page.
+  const backHref = before ? setupHref(before) : step === "voice" ? "/family/setup?step=welcome" : null;
   const next = stepAfter(step);
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-ink/10 pt-5">
       <Link href={nextHref ?? setupHref(next)} className={ready ? parentPrimary : parentSecondary} data-testid="setup-next">
         {ready ? NEXT_LABEL[next] : skip}
       </Link>
-      {back && (
-        <Link href={setupHref(back)} className="font-semibold underline underline-offset-4">
+      {backHref && (
+        <Link href={backHref} className="font-semibold underline underline-offset-4">
           Back
         </Link>
       )}
@@ -155,6 +158,8 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   const sharedVoice = state.voices.some((v) => v.status === "ready" && v.deletedAt === null && activeShare(state, v.id, home) !== null);
   const voice = recorded || sharedVoice;
   const progress = setupProgress({ voice, kids: kids.length > 0, story: firstStoryChosen(state, home) });
+  // A family that hasn't started yet sees the welcome page first: what Readli is, then "Let's get started!".
+  const welcome = q.step === "welcome" || (!q.step && !voice && kids.length === 0 && !progress.story);
   const step = setupStep(q.step, progress);
   const mine = plan ? myVoiceForKids(state, adultId, home, store.plan) : null;
   const askMyVoice = Boolean(mine && !mine.on && kids.length > 0);
@@ -164,6 +169,17 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   const opensLater = <p className="rounded-2xl bg-sunshine/50 p-4">This step opens as soon as your plan starts. You can record your voice while you wait.</p>;
   const n = (SETUP_STEPS as readonly string[]).indexOf(step) + 1;
   const eyebrow = step === "done" ? "All set" : `Step ${n} of ${SETUP_STEPS.length}`;
+
+  if (welcome) {
+    return (
+      <FamilyShell>
+        <SetupSeen />
+        {q.checkout === "success" && <CheckoutDone sessionId={q.session_id} />}
+        {!plan && <PlanStarting waiting="Thank you! Your plan starts as soon as the payment goes through, usually within a minute. Have a look around while you wait." />}
+        <Welcome kind="family" startHref={setupHref("voice")} name={adult.displayName.split(" ")[0]} />
+      </FamilyShell>
+    );
+  }
 
   let body: React.ReactNode;
   if (step === "voice") {

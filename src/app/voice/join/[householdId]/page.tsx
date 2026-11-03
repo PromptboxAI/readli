@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow } from "@/components/invites/AdultPage";
 import { JoinSteps } from "@/components/invites/JoinSteps";
 import { currentAdult } from "@/lib/auth/adult";
 import { familyPage } from "@/lib/family/page-data";
+import { VOICE_SETUP_SEEN_COOKIE } from "@/lib/family/setup-cookie";
 import { isActiveMember } from "@/lib/family/permissions";
 import { myVoices } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
@@ -21,8 +23,9 @@ export const dynamic = "force-dynamic";
  * that family. Only the voice owner sees this; the family's parents still add them to a slot and
  * approve each child themselves.
  */
-export default async function JoinStepsPage({ params }: { params: Promise<{ householdId: string }> }) {
+export default async function JoinStepsPage({ params, searchParams }: { params: Promise<{ householdId: string }>; searchParams: Promise<{ from?: string }> }) {
   const { householdId } = await params;
+  const fromSetup = (await searchParams).from === "setup";
   const here = `/voice/join/${householdId}`;
   const user = await currentAdult();
   if (!user) redirect(`/login?next=${encodeURIComponent(here)}`);
@@ -50,9 +53,16 @@ export default async function JoinStepsPage({ params }: { params: Promise<{ hous
   // Recorded but never kept: the voice isn't saved yet, and the family still sees no voice.
   const deps = voice ? null : accountVoiceDeps(serverConfig());
   const waiting = deps ? Boolean(await deps.store.findCandidate(user.id).catch(() => null)) : false;
+  // Someone new to Readli, who hasn't recorded yet, gets the welcome page and the storyteller steps first.
+  if (!voice && !waiting && !fromSetup && !(await cookies()).get(VOICE_SETUP_SEEN_COOKIE)) redirect("/voice/setup");
   return (
     <AdultPage>
       <header className="flex flex-col gap-2">
+        {fromSetup && (
+          <Link href="/voice/setup?step=share" className="w-fit font-display font-semibold underline-offset-4 hover:underline">
+            ← Back to setup
+          </Link>
+        )}
         <Eyebrow>Joining {family.name}</Eyebrow>
         <h1 className="font-display text-4xl font-semibold sm:text-5xl">Your storyteller steps</h1>
       </header>
@@ -63,8 +73,13 @@ export default async function JoinStepsPage({ params }: { params: Promise<{ hous
         shared={shared}
         waitingRecording={waiting}
         nickname={state.members.find((m) => m.householdId === householdId && m.adultId === user.id && m.removedAt === null)?.nickname ?? ""}
-        recordHref={`/voice/record?next=${encodeURIComponent(here)}`}
+        recordHref={`/voice/record?next=${encodeURIComponent(fromSetup ? "/voice/setup?step=share" : here)}`}
       />
+      {fromSetup && shared && (
+        <Link href="/voice/setup?step=listen" className={`${buttonPrimary} self-start`} data-testid="join-setup-next">
+          Next: hear it read a story
+        </Link>
+      )}
     </AdultPage>
   );
 }

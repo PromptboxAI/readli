@@ -37,8 +37,8 @@ export default async function VoiceRecordPage({ searchParams }: { searchParams: 
   return (
     <AdultPage wide>
       <header className="flex flex-col gap-2">
-        {next.startsWith("/family/setup") ? (
-          <Link href={next.replace("step=kids", "step=voice")} className="w-fit font-display font-semibold underline-offset-4 hover:underline">
+        {next.startsWith("/family/setup") || next.startsWith("/voice/setup") ? (
+          <Link href={next.replace("step=kids", "step=voice").replace("step=share", "step=voice")} className="w-fit font-display font-semibold underline-offset-4 hover:underline">
             ← Back to setup
           </Link>
         ) : (
