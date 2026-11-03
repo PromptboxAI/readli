@@ -9,7 +9,7 @@ import { FamilyOff, FamilyShell, NeedsGrownUp } from "@/components/family/Family
 import { FamilyParents } from "@/components/family/FamilyParents";
 import { NameFamily } from "@/components/family/NameFamily";
 import { PlanStarting } from "@/components/family/PlanStarting";
-import { SetupMyVoice, SetupSeen, SetupStorytellerInvites } from "@/components/family/SetupSteps";
+import { SetupSeen, SetupStorytellerInvites, SetupUseMyVoice } from "@/components/family/SetupSteps";
 import { billingConfig } from "@/lib/billing/config";
 import { confirmCheckout } from "@/lib/billing/confirm";
 import { StripeApi } from "@/lib/billing/stripe-api";
@@ -271,7 +271,6 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
           opensLater
         ) : (
           <>
-            {askMyVoice && <SetupMyVoice kidNames={kidNames} />}
             {recorded && !mine && (
               <p className="rounded-2xl bg-sunshine/50 p-4">
                 Your voice is still being made, usually a few minutes. Choose a book now and you can prepare it as soon as your voice is ready.
@@ -370,6 +369,8 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   return (
     <FamilyShell>
       <SetupSeen />
+      {/* Your voice reads to your kids as soon as both exist, without a separate button. */}
+      {askMyVoice && <SetupUseMyVoice />}
       {q.checkout === "success" && <CheckoutDone sessionId={q.session_id} />}
       {!plan && <PlanStarting waiting="Thank you! Your plan starts as soon as the payment goes through, usually within a minute. You can record your voice while you wait." />}
       <div className="flex flex-col gap-4">

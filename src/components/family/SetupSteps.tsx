@@ -1,40 +1,29 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
+import { useEffect, useRef, useState } from "react";
+import { parentSecondary } from "@/components/brand/buttons";
 import { SETUP_SEEN_COOKIE } from "@/lib/family/setup-cookie";
 import { InviteStoryteller, type SavedInvite } from "./InviteStoryteller";
 
-/** One tap in setup: your own voice shared with your family, in a narrator slot, and approved for every child. */
-export function SetupMyVoice({ kidNames }: { kidNames: string[] }) {
+/**
+ * Setup turns your own voice on for your kids by itself, with no extra button: once your voice is ready and
+ * you have a child, it's shared with your family, put in a narrator slot and approved for every child. If
+ * that can't happen (say a slot is full), the book page still shows each step to do by hand.
+ */
+export function SetupUseMyVoice() {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const who = kidNames.length === 0 ? "your kids" : kidNames.length === 1 ? kidNames[0]! : `${kidNames.slice(0, -1).join(", ")} and ${kidNames.at(-1)}`;
-  async function turnOn() {
-    setBusy(true);
-    setError("");
-    const res = await fetch("/api/family/setup/my-voice", { method: "POST" }).catch(() => null);
-    const body = await res?.json().catch(() => null);
-    setBusy(false);
-    if (!res?.ok) return setError(body?.error?.message ?? "That didn't work. Please try again.");
-    router.refresh();
-  }
-  return (
-    <section className="flex flex-col items-start gap-3 rounded-2xl bg-sky/40 p-5" data-testid="setup-my-voice">
-      <p className="font-semibold">Your voice is ready. Let {who} hear it?</p>
-      <p className="text-sm">This shares your voice with your family and turns it on for {kidNames.length === 1 ? "them" : "each of them"}. You can change it any time in Family.</p>
-      <button type="button" className={parentPrimary} disabled={busy} onClick={turnOn}>
-        {busy ? "Turning it on…" : `Yes, read to ${who} in my voice`}
-      </button>
-      {error && (
-        <p role="alert" className="font-semibold text-coral-deep">
-          {error}
-        </p>
-      )}
-    </section>
-  );
+  const tried = useRef(false);
+  useEffect(() => {
+    if (tried.current) return;
+    tried.current = true;
+    void fetch("/api/family/setup/my-voice", { method: "POST" })
+      .then((res) => {
+        if (res.ok) router.refresh();
+      })
+      .catch(() => {});
+  }, [router]);
+  return null;
 }
 
 /** Setup's storyteller invitations: who's been invited so far, and the form for one more. */
