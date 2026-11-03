@@ -144,6 +144,11 @@ export class StripeApi {
     return this.call("POST", `subscriptions/${encodeURIComponent(id)}`, { trial_end: trialEnd, proration_behavior: "none" }, idempotencyKey);
   }
 
+  /** Moves a subscriber's free time to end at `trialEnd` (seconds), or "now" to bill again straight away. */
+  async endFreeTimeAt(id: string, trialEnd: number | "now", idempotencyKey: string): Promise<StripeSubscription> {
+    return this.call("POST", `subscriptions/${encodeURIComponent(id)}`, { trial_end: trialEnd, proration_behavior: "none" }, idempotencyKey);
+  }
+
   async getPaymentIntent(id: string): Promise<{ id: string; payment_method?: string | { id: string } | null; customer?: string | { id: string } | null }> {
     return this.call("GET", `payment_intents/${encodeURIComponent(id)}`);
   }

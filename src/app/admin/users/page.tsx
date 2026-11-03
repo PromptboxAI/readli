@@ -11,6 +11,15 @@ import { deleteAccountAction, pauseAccountAction, unpauseAccountAction } from ".
 export const metadata: Metadata = { title: "Accounts | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
+/** What each kind of family plan is called across admin. */
+const PLAN_LABEL: Record<string, string> = {
+  subscription: "Paid plan",
+  gift: "Gift membership",
+  donated: "Complimentary membership",
+  trial: "Free trial",
+  tester: "Tester plan",
+};
+
 type Params = Record<string, string | string[] | undefined>;
 const param = (p: Params, key: string) => (typeof p[key] === "string" ? (p[key] as string) : "");
 
@@ -35,7 +44,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
         </Eyebrow>
         <h1 className="font-display text-4xl font-semibold">Accounts</h1>
         <p className="text-lg">
-          Every grown-up who has signed up. Pausing stops an account signing in and keeps everything, so you can unpause it later. Deleting does what
+          Every grown-up who has signed up, with each family&apos;s plan: paid, complimentary, gift, tester or trial. Pausing stops an account signing in and keeps everything, so you can unpause it later. Deleting does what
           &ldquo;Delete my account&rdquo; does: it removes their voice and its audio, families only they belong to, their photos and recordings, and the sign-in,
           so the email can sign up again. It can&apos;t be undone.
         </p>
@@ -83,7 +92,11 @@ function AccountRow({ account: a, q }: { account: AdminAccount; q: string }) {
           <p className="text-sm text-muted">
             Joined {adminDate(a.createdAt)} · {a.lastSignInAt ? `last signed in ${adminDate(a.lastSignInAt)}` : "never signed in"}
           </p>
-          <p className="text-sm">{a.families.length ? `Family: ${a.families.join(", ")}` : "No family"}</p>
+          <p className="text-sm">
+            {a.homes.length
+              ? a.homes.map((h) => `${h.name}: ${h.plan ? `${PLAN_LABEL[h.plan.source] ?? h.plan.source}${h.plan.endsAt ? ` until ${adminDate(h.plan.endsAt)}` : ""}` : "no plan"}`).join(" · ")
+              : "No family"}
+          </p>
         </div>
         {!a.isAdmin && (
           <form action={a.paused ? unpauseAccountAction : pauseAccountAction}>

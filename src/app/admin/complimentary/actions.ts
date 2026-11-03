@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/access";
 import {
+  cancelMembership,
   claimLink,
   claimPath,
   EMAIL_OUTCOME_TEXT,
@@ -21,6 +22,9 @@ import { requestOrigin } from "@/lib/invitations/context";
 import { queueEmails } from "@/lib/email/outbox";
 import { deliverEmails, emailSecret } from "@/lib/email/send";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { billingConfig } from "@/lib/billing/config";
+import { StripeApi } from "@/lib/billing/stripe-api";
+import { adminDate } from "@/lib/admin/time";
 
 export type IssueResult = { error: string } | null;
 export type RowResult = { error: string } | { message: string; code?: string; link?: string } | null;
@@ -141,5 +145,29 @@ export async function emailMembershipAction(batchId: string, giftId: string): Pr
     // Show the problem on the row instead of crashing the page.
     console.error("email complimentary membership failed", err instanceof Error ? err.message : err);
     return { error: `${EMAIL_OUTCOME_TEXT.failed}.` };
+  }
+}
+
+/** Cancels a claimed membership: its unused time comes off the family's plan, or off paused Stripe billing. */
+export async function cancelMembershipAction(giftId: string): Promise<RowResult> {
+  const ctx = await context("/admin/complimentary");
+  if (!ctx) return { error: NOT_READY };
+  try {
+    const config = billingConfig();
+    const r = await cancelMembership(ctx.db, ctx.admin, giftId, config.mode === "off" ? null : new StripeApi(config));
+    revalidatePath("/admin/complimentary");
+    revalidatePath("/admin/complimentary/memberships");
+    revalidatePath("/admin");
+    const what = r.billingResumed
+      ? "Their paid billing now resumes sooner."
+      : r.familyEndsAt
+        ? `Their Readli Family now ends ${adminDate(r.familyEndsAt)}.`
+        : "";
+    if (r.followUp) return { error: `Cancelled ${r.certificate}. ${r.followUp}` };
+    return { message: `Cancelled ${r.certificate}. ${what}`.trim() };
+  } catch (err) {
+    if (err instanceof AdminActionError) return { error: err.message };
+    console.error("cancel complimentary membership failed", err instanceof Error ? err.message : err);
+    return { error: "Something went wrong cancelling it. Nothing was changed if the row still says Active; try again." };
   }
 }

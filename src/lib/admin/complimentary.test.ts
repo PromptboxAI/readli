@@ -6,6 +6,7 @@ import { GiftCodeCipher } from "@/lib/gifting/code-cipher";
 import { complimentaryHeadline, certificateHeadline, presentedLine, recipientLine } from "@/lib/gifting/complimentary-copy";
 import {
   batchPrefix,
+  cancelMembership,
   certificateLabel,
   claimLink,
   emailMembership,
@@ -64,6 +65,11 @@ function fakeDb(tables: Record<string, Row[]> = {}) {
   };
   const rpc = async (name: string, args: Row) => {
     rpcCalls.push({ name, args });
+    if (name === "cancel_complimentary_gift") {
+      const g = t("gifts").find((r) => r.id === args.p_gift)!;
+      Object.assign(g, { status: "ended", revoked_at: "2026-11-03T00:00:00Z" });
+      return { data: [t("cancel_result")[0] ?? {}], error: null };
+    }
     const batch = args.p_batch as Row;
     const existing = t("complimentary_batches").find((b) => b.request_key === batch.request_key);
     if (existing) return { data: [{ batch_id: existing.id, created: false }], error: null };
@@ -333,5 +339,48 @@ describe("issued memberships", () => {
     const rows = await withClaimers(db, await listMemberships(db, AT));
     expect(rows.map((r) => r.claimedBy).sort()).toEqual(["family@example.com", null]);
     expect(filterMemberships(rows, "family@example", null)).toHaveLength(1);
+  });
+});
+
+describe("cancelling a claimed membership", () => {
+  const claimed = async (result: Row) => {
+    const { db, tables, rpcCalls } = fakeDb();
+    await issueComplimentary(db, admin, raffle({ count: 1 }), cipher, AT);
+    Object.assign(tables.gifts![0]!, { status: "active", redeemed_at: "2026-10-23" });
+    tables.cancel_result = [result];
+    return { db, tables, rpcCalls, id: tables.gifts![0]!.id as string };
+  };
+
+  it("ends a free family's access and logs it", async () => {
+    const { db, tables, rpcCalls, id } = await claimed({ cut_seconds: 1000, billing_deferral: null, subscription_ref: null, family_ends_at: "2026-11-03T00:00:00Z" });
+    const out = await cancelMembership(db, admin, id, null, AT);
+    expect(out).toEqual({ certificate: "MEB-001", familyEndsAt: "2026-11-03T00:00:00Z", billingResumed: false, followUp: null });
+    expect(rpcCalls.at(-1)).toEqual({ name: "cancel_complimentary_gift", args: { p_gift: id } });
+    expect(tables.admin_actions!.at(-1)).toMatchObject({ action: "complimentary_cancelled", detail: { certificate: "MEB-001", billing_resumed: false } });
+    await expect(cancelMembership(db, admin, id, null, AT)).rejects.toBeInstanceOf(AdminActionError);
+  });
+
+  it("brings a paying family's paused billing forward by the time it cut", async () => {
+    const { db, id } = await claimed({ cut_seconds: 86_400 * 30, billing_deferral: "applied", subscription_ref: "sub_1", family_ends_at: null });
+    const calls: unknown[] = [];
+    const trialEnd = Math.floor(AT.getTime() / 1000) + 86_400 * 400;
+    const stripe = {
+      getSubscription: async () => ({ trial_end: trialEnd }),
+      endFreeTimeAt: async (...args: unknown[]) => (calls.push(args), {}),
+    } as unknown as Parameters<typeof cancelMembership>[3];
+    const out = await cancelMembership(db, admin, id, stripe, AT);
+    expect(out.billingResumed).toBe(true);
+    expect(calls).toEqual([["sub_1", trialEnd - 86_400 * 30, `readli-gift-cancel-${id}`]]);
+  });
+
+  it("asks for a Stripe fix by hand when Stripe isn't connected", async () => {
+    const { db, id } = await claimed({ cut_seconds: 60, billing_deferral: "applied", subscription_ref: "sub_1", family_ends_at: null });
+    expect((await cancelMembership(db, admin, id, null, AT)).followUp).toMatch(/Stripe/);
+  });
+
+  it("won't cancel one nobody has claimed", async () => {
+    const { db, tables } = fakeDb();
+    await issueComplimentary(db, admin, raffle({ count: 1 }), cipher, AT);
+    await expect(cancelMembership(db, admin, tables.gifts![0]!.id as string, null, AT)).rejects.toThrow(/revoke it instead/);
   });
 });

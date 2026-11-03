@@ -18,9 +18,10 @@ function fakeDb() {
   const tables: Record<string, Record<string, unknown>[]> = {
     household_members: [{ user_id: "t1", household_id: "h1", removed_at: null }],
     households: [{ id: "h1", name: "The Godfrey Family" }],
+    household_entitlements: [{ id: "e1", household_id: "h1", source: "donated", status: "active", starts_at: "2026-01-01T00:00:00Z", ends_at: "2999-01-01T00:00:00Z" }],
   };
   const from = (table: string) => {
-    const b = { select: () => b, is: () => b, in: () => b, then: (r: (v: unknown) => unknown) => r({ data: tables[table] ?? [], error: null }) };
+    const b = { select: () => b, is: () => b, in: () => b, eq: () => b, then: (r: (v: unknown) => unknown) => r({ data: tables[table] ?? [], error: null }) };
     return b;
   };
   const db = {
@@ -44,13 +45,14 @@ describe("admin accounts", () => {
     const list = await listAccounts(fakeDb().db, env);
     expect(list.map((a) => a.id)).toEqual(["t1", "t2", "boss"]);
     expect(list[0]).toMatchObject({ name: "Test Person", families: ["The Godfrey Family"], paused: false, isAdmin: false });
+    expect(list[0]?.homes).toEqual([{ name: "The Godfrey Family", plan: expect.objectContaining({ source: "donated" }) }]);
     expect(list[1]).toMatchObject({ paused: true, confirmed: false });
     expect(list[2]?.isAdmin).toBe(true);
   });
 
   it("finds accounts by email, name or family", () => {
     const a = (over: Partial<AdminAccount>): AdminAccount => ({
-      id: "x", email: null, name: null, createdAt: confirmed, lastSignInAt: null, confirmed: true, isAdmin: false, paused: false, families: [], ...over,
+      id: "x", email: null, name: null, createdAt: confirmed, lastSignInAt: null, confirmed: true, isAdmin: false, paused: false, families: [], homes: [], ...over,
     });
     const list = [a({ id: "1", email: "liadjusters@gmail.com" }), a({ id: "2", name: "Andrea" }), a({ id: "3", families: ["The Godfreys"] })];
     expect(filterAccounts(list, " LIADJ").map((x) => x.id)).toEqual(["1"]);

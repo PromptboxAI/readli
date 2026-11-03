@@ -2,10 +2,12 @@ import Link from "next/link";
 import type { IssuedStatus, MembershipRow } from "@/lib/admin/complimentary";
 import { COMPLIMENTARY_KIND_LABELS, type ComplimentaryKind } from "@/lib/admin/complimentary-kinds";
 import { adminDate } from "@/lib/admin/time";
+import { CancelMembership } from "./CancelMembership";
 
 export const MEMBERSHIP_STATUSES: { value: IssuedStatus; label: string; tone: string }[] = [
   { value: "unclaimed", label: "Not claimed yet", tone: "bg-sunshine" },
   { value: "claimed", label: "Active", tone: "bg-mint" },
+  { value: "cancelled", label: "Cancelled", tone: "bg-ink/10" },
   { value: "revoked", label: "Revoked", tone: "bg-ink/10" },
   { value: "expired", label: "Expired unclaimed", tone: "bg-ink/10" },
 ];
@@ -30,6 +32,7 @@ export function MembershipsTable({ rows }: { rows: MembershipRow[] }) {
             <th className="px-3 py-3">Issued</th>
             <th className="px-3 py-3">Claim by</th>
             <th className="px-3 py-3">Certificate</th>
+            <th className="px-3 py-3"><span className="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody>
@@ -66,6 +69,7 @@ export function MembershipsTable({ rows }: { rows: MembershipRow[] }) {
                 )}
                 {r.last4 && <span className="block font-mono text-xs text-muted">…{r.last4}</span>}
               </td>
+              <td className="px-3 py-3">{r.status === "claimed" && <CancelMembership giftId={r.id} certificate={r.certificate} who={r.claimedBy ?? r.recipientName ?? "this family"} />}</td>
             </tr>
           ))}
         </tbody>
