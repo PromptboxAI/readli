@@ -9,7 +9,9 @@ import {
   certificateLabel,
   claimLink,
   emailMembership,
+  filterMemberships,
   issueComplimentary,
+  listMemberships,
   issuedStatus,
   membershipArtwork,
   revealCode,
@@ -282,5 +284,38 @@ describe("issued memberships", () => {
     tables.gifts![0]!.status = "active";
     tables.gifts![0]!.redeemed_at = "2026-10-23";
     await expect(emailMembership(db, admin, cipher, "https://readli.ai", id, send, AT)).rejects.toBeInstanceOf(AdminActionError);
+  });
+
+  it("list every membership, including earlier codes, and search and filter them", async () => {
+    const { db, tables } = fakeDb();
+    await issueComplimentary(db, admin, raffle({ count: 2 }), cipher, AT);
+    tables.gifts!.forEach((g) => (g.complimentary_for = "raffle"));
+    tables.gifts![1]!.status = "active";
+    tables.gifts![1]!.redeemed_at = "2026-10-23";
+    tables.gifts!.push({
+      id: "33333333-3333-4333-8333-333333333333",
+      status: "sent",
+      sent_at: "2026-10-12T00:00:00Z",
+      plan_id: "prepaid_12m",
+      complimentary_for: "school",
+      recipient_name: "Kristin Scher",
+      recipient_email: "kristin@example.com",
+      giver_display_name: "Oak Street PTA",
+      claim_by: "2027-10-12T00:00:00Z",
+    });
+    const rows = await listMemberships(db, AT);
+    expect(rows).toHaveLength(3);
+    expect(rows.find((r) => r.recipientName === "Kristin Scher")).toMatchObject({
+      certificate: "Earlier code",
+      recipientEmail: "kristin@example.com",
+      sponsorName: "Oak Street PTA",
+      occasion: "school",
+      months: 12,
+      status: "unclaimed",
+    });
+    expect(filterMemberships(rows, "kristin", null)).toHaveLength(1);
+    expect(filterMemberships(rows, "mount elementary", null).map((r) => r.certificate).sort()).toEqual(["MEB-001", "MEB-002"]);
+    expect(filterMemberships(rows, "", "claimed").map((r) => r.certificate)).toEqual(["MEB-002"]);
+    expect(filterMemberships(rows, `meb ${rows.find((r) => r.certificate === "MEB-001")!.last4!.toLowerCase()}`, null)).toHaveLength(1);
   });
 });
