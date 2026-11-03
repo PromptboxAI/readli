@@ -56,6 +56,11 @@ function Stepper({ step, done }: { step: SetupStep; done: Record<(typeof SETUP_S
       <ol className="grid grid-cols-4 gap-2" data-testid="setup-stepper">
         {SETUP_STEPS.map((s, i) => {
           const current = s === step;
+          // The bar fills in order: a step ahead of the one you're on stays grey even if it's already done (a family
+          // that added a child elsewhere), and turns green once you reach or pass it. The optional family step
+          // counts as done once you're past it. A step you skipped stays grey.
+          const at = step === "done" ? SETUP_STEPS.length : (SETUP_STEPS as readonly string[]).indexOf(step);
+          const ok = i <= at && (done[s] || (s === "family" && i < at));
           return (
             <li key={s} className="min-w-0">
               <Link
@@ -64,12 +69,11 @@ function Stepper({ step, done }: { step: SetupStep; done: Record<(typeof SETUP_S
                 className="flex flex-col gap-1.5 rounded-xl p-1 text-sm hover:bg-ink/5"
                 data-testid={`setup-step-${s}`}
               >
-                {/* Green means done, wherever you are; the step you're on is the bold one with the taller bar. */}
-                <span className={`rounded-full ${current ? "h-3" : "h-2"} ${done[s] ? "bg-mint" : current ? "bg-coral-deep" : "bg-ink/15"}`} aria-hidden="true" />
+                <span className={`rounded-full ${current ? "h-3" : "h-2"} ${ok ? "bg-mint" : current ? "bg-coral-deep" : "bg-ink/15"}`} aria-hidden="true" />
                 <span className={`truncate ${current ? "font-semibold" : "text-muted"}`}>
-                  <span aria-hidden="true">{done[s] ? "✓ " : <span className="hidden sm:inline">{i + 1}. </span>}</span>
+                  <span aria-hidden="true">{ok ? "✓ " : <span className="hidden sm:inline">{i + 1}. </span>}</span>
                   {SETUP_STEP_LABELS[s]}
-                  {done[s] && <span className="sr-only"> (done)</span>}
+                  {ok && <span className="sr-only"> (done)</span>}
                 </span>
               </Link>
             </li>
