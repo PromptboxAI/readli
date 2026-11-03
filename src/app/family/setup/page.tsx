@@ -201,7 +201,6 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
           <p className="max-w-2xl text-lg">Each child gets their own bookshelf and keeps their own place in every book. A first name or nickname is enough.</p>
         </header>
         {plan ? <ChildProfiles initial={await childProfiles(store, actor, home)} inSetup /> : opensLater}
-        {askMyVoice && <SetupMyVoice kidNames={kidNames} />}
         <StepNav step="kids" ready={kids.length > 0} />
       </>
     );
