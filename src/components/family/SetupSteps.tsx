@@ -62,9 +62,9 @@ export function SetupStorytellerInvites({ live, initial }: { live: boolean; init
 }
 
 /** Remembers that this browser has seen setup, so Family Home stops sending it here and shows a reminder instead. */
-export function SetupSeen() {
+export function SetupSeen({ cookie = SETUP_SEEN_COOKIE }: { cookie?: string }) {
   useEffect(() => {
-    document.cookie = `${SETUP_SEEN_COOKIE}=1; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
-  }, []);
+    document.cookie = `${cookie}=1; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+  }, [cookie]);
   return null;
 }

@@ -16,8 +16,10 @@ export interface VoiceSignupFrom {
 /** Where signing in continues to: making the voice, from the demo take when it's still there. */
 export function voiceRecordPath({ fromTry, cleanUp, takeKept }: VoiceSignupFrom): string {
   if (fromTry && takeKept) return `/voice/record?from=try${cleanUp ? "&cleanup=1" : ""}`;
-  // The demo take is gone (or there never was one): the record page says so and records afresh.
-  return fromTry ? "/voice/record?from=try&expired=1" : "/voice/record";
+  // The demo take is gone: the record page says so and records afresh.
+  if (fromTry) return "/voice/record?from=try&expired=1";
+  // Someone who hasn't tried the demo may never have seen the website: the welcome page and steps come first.
+  return "/voice/setup";
 }
 
 /** The way back from signup: to the demo stories in the voice already made, or to choosing an account. */

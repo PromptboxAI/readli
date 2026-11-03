@@ -14,8 +14,8 @@ describe("Save My Voice Free routes", () => {
     expect(voiceRecordPath({ ...demo, takeKept: false })).toBe("/voice/record?from=try&expired=1");
   });
 
-  it("records with the teleprompter when there was no demo", () => {
-    expect(voiceRecordPath({ fromTry: false, cleanUp: false, takeKept: false })).toBe("/voice/record");
+  it("starts with the welcome page and steps when there was no demo", () => {
+    expect(voiceRecordPath({ fromTry: false, cleanUp: false, takeKept: false })).toBe("/voice/setup");
   });
 
   it("sends signed-in grown-ups on without the form", () => {
@@ -25,7 +25,7 @@ describe("Save My Voice Free routes", () => {
     expect(signedInVoiceSignup(demo, true)).toBe("/voice/record?from=try");
     // Not from the demo, someone with a voice goes to My Voice (a parent's /voice opens Family's My voice).
     expect(signedInVoiceSignup({ fromTry: false, cleanUp: false, takeKept: false }, true)).toBe("/voice");
-    expect(signedInVoiceSignup({ fromTry: false, cleanUp: false, takeKept: false }, false)).toBe("/voice/record");
+    expect(signedInVoiceSignup({ fromTry: false, cleanUp: false, takeKept: false }, false)).toBe("/voice/setup");
   });
 
   it("never leads a free Voice signup to checkout, Family signup or a family dashboard", () => {
