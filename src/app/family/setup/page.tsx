@@ -6,6 +6,8 @@ import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
 import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
 import { CheckoutDone } from "@/components/family/BillingActions";
 import { SetKidsPin } from "@/components/family/SetKidsPin";
+import { SessionButton } from "@/components/family/SessionButton";
+import { CATALOG } from "@/lib/library/catalog";
 import { SetupMiniPlayer } from "@/components/family/SetupMiniPlayer";
 import { SetupPrepareBook } from "@/components/family/SetupPrepareBook";
 import { ChildProfiles } from "@/components/family/ChildProfiles";
@@ -188,6 +190,8 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   const mine = plan ? myVoiceForKids(state, adultId, home, store.plan) : null;
   const askMyVoice = Boolean(mine && !mine.on && kids.length > 0);
   const kidNames = kids.map((k) => k.nickname);
+  // A few books to try next on the last page, after the one setup prepared.
+  const moreBooks = CATALOG.filter((b) => b.coverUrl && b.slug !== INTRO_BOOK).slice(0, 6);
   const invitesOn = Boolean(db && session.account);
   const done = { voice, kids: kids.length > 0, family: invited, book: progress.story, listen: false };
   // Just back from Stripe, the payment may still be confirming; otherwise there's simply no plan on this family.
@@ -411,8 +415,8 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
             </Link>
           )
         )}
-        {/* With everything done, Finish ends setup and goes home; otherwise the summary shows what's left. */}
-        <StepNav step="listen" ready={Boolean(book)} skip="Finish without listening" nextHref={voice && kids.length > 0 && progress.story ? "/family/setup/later" : undefined} />
+        {/* Finish leads to the last page: what's left, and what to do next. */}
+        <StepNav step="listen" ready={Boolean(book)} skip="Finish without listening" />
       </>
     );
   } else {
@@ -423,7 +427,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
           <h1 className="font-display text-3xl font-semibold sm:text-4xl">{left.length === 0 ? "You're all set" : "Nearly there"}</h1>
           <p className="max-w-2xl text-lg">
             {left.length === 0
-              ? "Your voice is in, your kids are set up and their first book is on its way. Open Readli Kids from Family Home when it's story time."
+              ? "Your voice is in, your kids are set up and their first book is on their bookshelves. Here's what you can do next."
               : `You can still ${left.join(", ")}. Family Home keeps a reminder until it's done.`}
           </p>
         </header>
@@ -444,6 +448,53 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
             </li>
           ))}
         </ul>
+        <div className="flex flex-col gap-6" data-testid="setup-whats-next">
+          {kids.length > 0 && (
+            <section aria-labelledby="next-kids-h" className="flex flex-col gap-3 rounded-3xl bg-sky/40 p-5 sm:p-6">
+              <h2 id="next-kids-h" className="font-display text-2xl font-semibold">
+                It&apos;s story time
+              </h2>
+              <p>Open Readli Kids on this device, or on your child&apos;s tablet, and their books are waiting on their bookshelf.</p>
+              <div className="flex flex-wrap gap-3">
+                {kids.map((k) => (
+                  <SessionButton key={k.id} as={`child:${k.id}`} next="/kids" className={parentPrimary}>
+                    Open {k.nickname}&apos;s Readli Kids
+                  </SessionButton>
+                ))}
+              </div>
+            </section>
+          )}
+          <section aria-labelledby="next-books-h" className="flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10 sm:p-6">
+            <h2 id="next-books-h" className="font-display text-2xl font-semibold">
+              Add more books
+            </h2>
+            <p>Pick a story, choose whose voice reads it, and it appears on your kids&apos; bookshelves once it&apos;s prepared. A few to start with:</p>
+            <ul className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+              {moreBooks.map((b) => (
+                <li key={b.slug} className="min-w-0">
+                  <Link href={`/family/books/${b.slug}`} className="flex flex-col gap-1 hover:opacity-90">
+                    <span className="block overflow-hidden rounded-xl bg-bookcase shadow-[0_3px_0_rgba(40,53,72,0.12)]">
+                      <Image src={b.coverUrl!} alt="" width={160} height={213} className="aspect-[3/4] w-full object-cover" />
+                    </span>
+                    <span className="line-clamp-2 text-sm leading-snug font-semibold">{b.title}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <Link href="/family/books" className={`${parentSecondary} self-start`} data-testid="setup-browse-books">
+              Browse all books
+            </Link>
+          </section>
+          <section aria-labelledby="next-voices-h" className="flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10 sm:p-6">
+            <h2 id="next-voices-h" className="font-display text-2xl font-semibold">
+              Add more voices
+            </h2>
+            <p>Invite grandparents, a co-parent or anyone else who reads to your kids. They record their voice once, for free, and every book can be read in it.</p>
+            <Link href="/family/narrators#invite" className={`${parentSecondary} self-start`} data-testid="setup-invite-voices">
+              Invite a storyteller
+            </Link>
+          </section>
+        </div>
         {!named && plan && (
           <section aria-labelledby="optional" className="flex flex-col gap-3 rounded-2xl p-5 ring-1 ring-ink/10 sm:p-6">
             <h2 id="optional" className="text-lg font-semibold">
