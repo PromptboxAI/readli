@@ -99,16 +99,23 @@ function Stepper({ step, done }: { step: SetupStep; done: Record<(typeof SETUP_S
 }
 
 /** The bottom of every step: back, skip or next. */
-function StepNav({ step, ready, skip = "Skip for now", nextHref }: { step: SetupStep; ready: boolean; skip?: string; nextHref?: string }) {
+function StepNav({ step, ready, skip = "Skip for now", nextHref, required }: { step: SetupStep; ready: boolean; skip?: string; nextHref?: string; required?: string }) {
   const before = stepBefore(step);
   // The first step goes back to the welcome page.
   const backHref = before ? setupHref(before) : step === "voice" ? "/family/setup?step=welcome" : null;
   const next = stepAfter(step);
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-ink/10 pt-5">
-      <Link href={nextHref ?? setupHref(next)} className={ready ? parentPrimary : parentSecondary} data-testid="setup-next">
-        {ready ? NEXT_LABEL[next] : skip}
-      </Link>
+      {!ready && required ? (
+        // A step that can't be skipped: Next waits until it's done.
+        <button type="button" className={`${parentPrimary} cursor-not-allowed opacity-50`} disabled data-testid="setup-next">
+          {required}
+        </button>
+      ) : (
+        <Link href={nextHref ?? setupHref(next)} className={ready ? parentPrimary : parentSecondary} data-testid="setup-next">
+          {ready ? NEXT_LABEL[next] : skip}
+        </Link>
+      )}
       {backHref && (
         <Link href={backHref} className="font-semibold underline underline-offset-4">
           Back
@@ -187,13 +194,17 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   // A family that hasn't started yet sees the welcome page first: what Readli is, then "Let's get started!".
   const welcome = q.step === "welcome" || (!q.step && !voice && kids.length === 0 && !progress.story);
   const step = setupStep(q.step, progress);
+  // The first story can't be skipped: Listen and the last page wait until one is prepared (or being prepared).
+  const storyLib = plan && (step === "listen" || step === "done") ? await familyLibrary(store, actor, home) : null;
+  const hasStory = progress.story || Boolean(storyLib?.all.some((b) => b.narrators.some((n) => n.availability === "ready" || n.availability === "partial")));
+  if ((step === "listen" || step === "done") && !hasStory) redirect(setupHref("book"));
   const mine = plan ? myVoiceForKids(state, adultId, home, store.plan) : null;
   const askMyVoice = Boolean(mine && !mine.on && kids.length > 0);
   const kidNames = kids.map((k) => k.nickname);
   // A few books to try next on the last page, after the one setup prepared.
   const moreBooks = CATALOG.filter((b) => b.coverUrl && b.slug !== INTRO_BOOK).slice(0, 6);
   const invitesOn = Boolean(db && session.account);
-  const done = { voice, kids: kids.length > 0, family: invited, book: progress.story, listen: false };
+  const done = { voice, kids: kids.length > 0, family: invited, book: hasStory, listen: false };
   // Just back from Stripe, the payment may still be confirming; otherwise there's simply no plan on this family.
   const paying = !plan && q.checkout === "success";
   const opensLater = paying ? (
@@ -355,7 +366,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
             )}
           </p>
         )}
-        <StepNav step="book" ready={progress.story || introReady} skip="Skip, I'll choose later" />
+        <StepNav step="book" ready={progress.story || introReady} required="Prepare the book to continue" />
       </>
     );
   } else if (step === "listen") {
@@ -420,11 +431,11 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
       </>
     );
   } else {
-    const left = [!voice && "record your voice", kids.length === 0 && "add your kids", !progress.story && "prepare a first book"].filter(Boolean) as string[];
+    const left = [!voice && "record your voice", kids.length === 0 && "add your kids", !hasStory && "prepare a first book"].filter(Boolean) as string[];
     body = (
       <>
         <header className="flex flex-col gap-2">
-          <h1 className="font-display text-3xl font-semibold sm:text-4xl">{left.length === 0 ? "You're all set" : "Nearly there"}</h1>
+          <h1 className="font-display text-3xl font-semibold sm:text-4xl">You&apos;re all set!</h1>
           <p className="max-w-2xl text-lg">
             {left.length === 0
               ? "Your voice is in, your kids are set up and their first book is on their bookshelves. Here's what you can do next."
@@ -435,7 +446,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
           {[
             [voice, "Your voice", "voice"],
             [kids.length > 0, kids.length > 0 ? `Kids: ${kidNames.join(", ")}` : "Your kids", "kids"],
-            [progress.story, "First book", "book"],
+            [hasStory, "First book", "book"],
           ].map(([ok, label, s]) => (
             <li key={s as string}>
               <Link href={setupHref(s as SetupStep)} className="flex items-center gap-3 rounded-2xl bg-surface p-3 ring-2 ring-ink/10 hover:ring-ink/30">

@@ -65,6 +65,7 @@ test("finishing setup ends on a page that says what to do next", async ({ page }
   await page.goto("/family/setup?step=listen");
   await page.getByTestId("setup-next").click();
   await expect(page).toHaveURL(/step=done/);
+  await expect(page.getByRole("heading", { level: 1, name: "You're all set!" })).toBeVisible();
   const next = page.getByTestId("setup-whats-next");
   await expect(next.getByRole("button", { name: /Open Maya's Readli Kids/ })).toBeVisible();
   await expect(next.getByRole("heading", { name: "Add more books" })).toBeVisible();
