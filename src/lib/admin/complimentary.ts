@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateGiftCode, hashGiftCode } from "@/lib/gifting/codes.server";
 import type { GiftCodeCipher } from "@/lib/gifting/code-cipher";
-import { complimentaryMembershipEmail } from "@/lib/gifting/complimentary-email";
+import { complimentaryMembershipEmail, complimentaryOrganizerEmail } from "@/lib/gifting/complimentary-email";
 import type { QueuedEmail } from "@/lib/email/outbox";
 import type { StripeApi } from "@/lib/billing/stripe-api";
 import type { AdminUser } from "./access";
@@ -474,7 +474,17 @@ export function isEmailOutcome(v: unknown): v is EmailOutcome {
   return typeof v === "string" && Object.hasOwn(EMAIL_OUTCOME_TEXT, v);
 }
 
-/** Emails an unclaimed membership's claim link to the adult it was issued to, and records it. */
+/** Checks an optional organizer address typed on the issue form. Blank means none. */
+export function organizerEmail(raw: string | null | undefined): string | null {
+  const email = raw?.trim().toLowerCase().slice(0, 254) || null;
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new AdminActionError("The organizer's email address doesn't look right.");
+  return email;
+}
+
+/**
+ * Emails an unclaimed membership's claim link to the adult it was issued to, and records it. With an
+ * organizer address, the organizer also gets a note that it went out, without the claim link.
+ */
 export async function emailMembership(
   db: SupabaseClient,
   admin: AdminUser,
@@ -483,7 +493,8 @@ export async function emailMembership(
   giftId: string,
   send: SendOne,
   at = new Date(),
-): Promise<{ certificate: string; outcome: EmailOutcome }> {
+  organizer: string | null = null,
+): Promise<{ certificate: string; outcome: EmailOutcome; organizerOutcome: EmailOutcome | null }> {
   const art = await membershipArtwork(db, cipher, giftId);
   if (!art) throw new AdminActionError("This code was issued before codes could be shown again, so it can't be emailed.");
   if (!art.recipientEmail) throw new AdminActionError("This membership has no email address. Copy the link and send it yourself.");
@@ -505,11 +516,32 @@ export async function emailMembership(
       claimUrl: claimLink(origin, art.code, claimPath(batch.program)),
     }),
   });
+  let organizerOutcome: EmailOutcome | null = null;
+  if (organizer && (outcome === "sent" || outcome === "queued")) {
+    organizerOutcome = await send({
+      emailId: "M2",
+      dedupeKey: `M2:${giftId}:${at.getTime()}`,
+      to: { email: organizer },
+      message: complimentaryOrganizerEmail({
+        recipientName: art.recipientName,
+        recipientEmail: art.recipientEmail,
+        months: batch.months,
+        sponsorName: batch.sponsorName,
+        sponsorIsReadli: batch.sponsorIsReadli,
+        eventName: batch.eventName,
+        claimBy: batch.claimBy,
+        siteUrl: origin,
+      }),
+    }).catch((err) => {
+      console.error("complimentary organizer email failed", err instanceof Error ? err.message : err);
+      return "failed" as const;
+    });
+  }
   // The email has already gone, so a failed audit write is reported in the logs rather than shown as a failed send.
-  await logAction(db, admin, "complimentary_emailed", { batch_id: batch.id, certificate: art.certificate, outcome }).catch((err) =>
+  await logAction(db, admin, "complimentary_emailed", { batch_id: batch.id, certificate: art.certificate, outcome, organizer_outcome: organizerOutcome }).catch((err) =>
     console.error("log complimentary email failed", err instanceof Error ? err.message : err),
   );
-  return { certificate: art.certificate, outcome };
+  return { certificate: art.certificate, outcome, organizerOutcome };
 }
 
 // ---------------------------------------------------------------------------

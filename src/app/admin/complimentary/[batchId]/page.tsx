@@ -25,7 +25,9 @@ export default async function BatchPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { batchId } = await params;
-  const emailed = (await searchParams).emailed;
+  const sp = await searchParams;
+  const emailed = sp.emailed;
+  const organizer = sp.organizer;
   const gate = await requireAdmin(`/admin/complimentary/${batchId}`);
   const db = gate.preview ? null : accountDb();
   const detail = db ? await batchDetail(db, batchId) : null;
@@ -63,6 +65,12 @@ export default async function BatchPage({
         <p role={emailed === "sent" || emailed === "queued" ? "status" : "alert"} className={`rounded-2xl px-4 py-3 ${emailed === "sent" || emailed === "queued" ? "bg-mint/40" : "bg-coral/30"}`}>
           {EMAIL_OUTCOME_TEXT[emailed]}
           {emailed === "sent" || emailed === "queued" ? ` to ${gifts.find((g) => g.recipientEmail)?.recipientEmail ?? "the recipient"}.` : "."}
+          {isEmailOutcome(organizer) &&
+            (organizer === "sent" || organizer === "queued"
+              ? " The organizer was told it went out."
+              : organizer === "switched_off"
+                ? " The organizer note is switched off in Email settings."
+                : " The organizer note didn't send, so let them know yourself.")}
         </p>
       )}
 

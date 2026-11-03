@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Redeem your Readli gift | Readli", r
  */
 export default function RedeemPage() {
   return (
-    <AdultPage wide>
+    <AdultPage wide gift>
       <ClaimFromLink
         path="/redeem"
         intro={{

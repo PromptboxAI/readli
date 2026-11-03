@@ -1,20 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
-import { buttonSecondary } from "@/components/brand/buttons";
 import { requireAdmin } from "@/lib/admin/access";
-import { defaultClaimBy, earlierCodes, listBatches, listMemberships, withClaimers } from "@/lib/admin/complimentary";
+import { defaultClaimBy, earlierCodes, listBatches } from "@/lib/admin/complimentary";
 import { COMPLIMENTARY_KIND_LABELS } from "@/lib/admin/complimentary-kinds";
 import { accountDb } from "@/lib/family/account-store";
 import { IssueForm } from "./IssueForm";
-import { MembershipsTable } from "./MembershipsTable";
+import { ComplimentaryTabs } from "./ComplimentaryTabs";
 import { adminDate } from "@/lib/admin/time";
 
 export const metadata: Metadata = { title: "Complimentary memberships | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 const shortDate = (iso: string) => adminDate(iso);
-const RECENT = 10;
 
 /** Free Readli Family memberships for raffles, auctions, gift baskets, schools, charities and giveaways. */
 export default async function ComplimentaryPage() {
@@ -23,8 +21,6 @@ export default async function ComplimentaryPage() {
   const batches = db ? await listBatches(db) : [];
   const earlier = db ? await earlierCodes(db) : null;
   const earlierTotal = earlier ? Object.values(earlier).reduce((a, b) => a + b, 0) : 0;
-  const memberships = db ? await listMemberships(db, new Date(), RECENT + 1) : [];
-  const recent = db ? await withClaimers(db, memberships.slice(0, RECENT)) : [];
   return (
     <AdultPage wide>
       <header className="flex flex-col gap-2">
@@ -39,28 +35,8 @@ export default async function ComplimentaryPage() {
           claim it with no card, and nothing renews.
         </p>
       </header>
+      <ComplimentaryTabs current="give" />
       {gate.preview && <PreviewNote>Issuing memberships needs sign-in and Supabase connected. This shows the form only.</PreviewNote>}
-      {db && (
-        <section aria-labelledby="who-h" className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <h2 id="who-h" className="font-display text-2xl font-semibold">
-              Who has a complimentary membership
-            </h2>
-            <Link href="/admin/complimentary/memberships" className={buttonSecondary}>
-              Search all memberships
-            </Link>
-          </div>
-          {recent.length ? (
-            <>
-              <MembershipsTable rows={recent} />
-              {memberships.length > RECENT && <p className="text-sm text-muted">Showing the {RECENT} most recent. Search all memberships to see the rest.</p>}
-            </>
-          ) : (
-            <p className="text-muted">None issued yet.</p>
-          )}
-        </section>
-      )}
-
       <section aria-labelledby="issue-h" className="flex flex-col gap-3">
         <h2 id="issue-h" className="font-display text-2xl font-semibold">
           Give a membership
@@ -97,7 +73,7 @@ export default async function ComplimentaryPage() {
       {earlier && earlierTotal > 0 && (
         <p className="rounded-2xl bg-ink/5 p-4 text-sm">
           {earlierTotal} older {earlierTotal === 1 ? "membership was" : "memberships were"} issued before certificates existed ({earlier.claimed} claimed, {earlier.unclaimed} not yet
-          {earlier.expired ? `, ${earlier.expired} expired` : ""}). They&apos;re in the table above as &quot;Earlier code&quot;. Readli can&apos;t show those codes again, but they still
+          {earlier.expired ? `, ${earlier.expired} expired` : ""}). They&apos;re listed under Who has a membership as &quot;Earlier code&quot;. Readli can&apos;t show those codes again, but they still
           work for whoever has them.
         </p>
       )}

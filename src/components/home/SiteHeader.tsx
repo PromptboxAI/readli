@@ -20,9 +20,9 @@ const compactPrimary = `${buttonPrimary} min-h-11 px-4 text-base`;
  * The public site header. It knows who is visiting before the page is sent, so a signed-in grown-up
  * never sees the visitor buttons first. A kids device gets no account menu or sign-out.
  */
-export async function SiteHeader() {
+export async function SiteHeader({ hidePrimary = false }: { hidePrimary?: boolean } = {}) {
   const nav = await navState();
-  const primary = primaryAction(nav);
+  const primary = hidePrimary ? null : primaryAction(nav);
   const account =
     nav.kind === "adult" ? { name: nav.name, email: nav.email, initials: accountInitials(nav.name, nav.email), avatarUrl: nav.avatarUrl ?? null, badge: accountBadge(nav), links: accountLinks(nav) } : null;
   return (

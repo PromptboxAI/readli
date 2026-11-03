@@ -66,6 +66,7 @@ export const EMAILS: EmailDefinition[] = [
   { id: "D4", name: "Readli Gives Back: not approved", sequence: "donations", category: "transactional", topic: null },
   { id: "D6", name: "Readli Gives Back: winner welcome", sequence: "donations", category: "transactional", topic: null },
   { id: "M1", name: "Complimentary membership (to the recipient)", sequence: "complimentary", category: "transactional", topic: null },
+  { id: "M2", name: "Complimentary membership sent (to the event organizer)", sequence: "complimentary", category: "transactional", topic: null },
   { id: "D8", name: "Readli Gives Back: request to review (to admins)", sequence: "donations", category: "transactional", topic: null },
 ];
 
