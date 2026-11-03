@@ -395,6 +395,8 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
                   voiceId={hv.voiceId}
                   revision={hv.revision}
                   sentences={text.sentences}
+                  sentenceIds={text.sentenceIds}
+                  chapters={text.chapters}
                   ready={text.sentenceIds.map((id) => hv.readySentenceIds.includes(id))}
                 />
               ) : (

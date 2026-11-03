@@ -50,4 +50,12 @@ test("setup's book and listen steps stay in setup, with a small player", async (
   await expect(player.getByRole("button", { name: "Play" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Play it now" })).toHaveCount(0);
   await noOverflow(page);
+  // A prepared story plays as one continuous track, not a clip per sentence with a pause between them.
+  const clips: string[] = [];
+  page.on("request", (r) => {
+    if (/\/listen(\/track)?$/.test(new URL(r.url()).pathname)) clips.push(new URL(r.url()).pathname);
+  });
+  await player.getByRole("button", { name: "Play" }).click();
+  await expect(player.getByRole("button", { name: "Pause" })).toBeVisible();
+  expect(clips).toEqual(["/api/family/books/the-lion-and-the-mouse/listen/track"]);
 });
