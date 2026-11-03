@@ -14,7 +14,7 @@ const COPY = {
     title: "Bedtime stories, read in the voices your kids love",
     lead: "Readli reads classic children's books aloud in your own voice, and in the voices of grandparents and anyone else you invite. Your kids listen in Readli Kids, a calm, ad-free space made just for them.",
     how: [
-      ["Record your voice", "Read a short passage out loud, about five minutes. You do it once."],
+      ["Record your voice", "Read a short passage out loud, about two minutes. You do it once."],
       ["Add your kids and family", "Each child gets their own bookshelf. Invite a co-parent, grandparents and anyone else who reads to them."],
       ["Pick a story, they listen", "Choose a book and whose voice reads it. It appears on your kids' bookshelves, ready for bedtime."],
     ],
@@ -24,7 +24,7 @@ const COPY = {
     title: "Read bedtime stories to the kids you love, from anywhere",
     lead: "Readli turns a few minutes of your voice into classic children's books read by you. The families you share with hear you at bedtime, even when you're miles away. It's free for storytellers, always.",
     how: [
-      ["Record your voice", "Read a short passage out loud, about five minutes. You do it once."],
+      ["Record your voice", "Read a short passage out loud, about two minutes. You do it once."],
       ["Share it with a family", "Say yes to the family who invited you, or invite one yourself. Parents choose which kids hear you."],
       ["They hear you at bedtime", "Your voice reads the stories, and you stay in control: stop sharing any time."],
     ],
