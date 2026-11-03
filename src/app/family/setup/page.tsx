@@ -147,7 +147,7 @@ function Done({ children }: { children: React.ReactNode }) {
  * co-parent and other storytellers, then prepare a first book. Family checkout and claimed gifts both
  * land here, and Family Home sends a new family here the first time it opens.
  */
-export default async function FamilySetupPage({ searchParams }: { searchParams: Promise<{ checkout?: string; session_id?: string; step?: string; book?: string; voice?: string }> }) {
+export default async function FamilySetupPage({ searchParams }: { searchParams: Promise<{ checkout?: string; session_id?: string; step?: string; book?: string; voice?: string; named?: string }> }) {
   const q = await searchParams;
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
@@ -209,7 +209,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
         {q.checkout === "success" && <CheckoutDone sessionId={q.session_id} />}
         {paying && <PlanStarting waiting="Thank you! Your plan starts as soon as the payment goes through, usually within a minute. Have a look around while you wait." />}
         {!plan && !paying && <NoPlan />}
-        <Welcome kind="family" startHref={setupHref("voice")} name={myName?.split(" ")[0]} askName={session.account ? (myName ?? "") : undefined} />
+        <Welcome kind="family" startHref={setupHref("voice")} name={myName?.split(" ")[0]} askName={session.account && !(q.named === "1" && myName) ? (myName ?? "") : undefined} />
       </FamilyShell>
     );
   }

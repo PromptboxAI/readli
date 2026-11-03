@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { updateDisplayName } from "@/lib/account/privacy";
 import { billingConfig } from "@/lib/billing/config";
 import { StripeApi } from "@/lib/billing/stripe-api";
 import { afterGiftRedeemed } from "@/lib/donations/server";
@@ -12,16 +13,21 @@ import { fail } from "@/lib/server/http";
 export const dynamic = "force-dynamic";
 
 /**
- * { code, familyName?, pauseBilling? }. Starts Readli Family for the signed-in grown-up's own family.
+ * { code, familyName?, yourName?, pauseBilling? }. Starts Readli Family for the signed-in grown-up's own family.
  * No card needed. A paying subscriber must confirm pauseBilling: their Stripe billing then pauses for
  * the gift's months instead of running a second plan alongside it.
  */
 export async function POST(req: Request) {
-  const { code, familyName, pauseBilling } = await jsonBody(req);
+  const { code, familyName, yourName, pauseBilling } = await jsonBody(req);
   if (typeof code !== "string") return fail(400, "bad_code", "Enter your gift code.");
   return withAccount(async ({ db, user }) => {
-    const { error } = await db.from("adult_profiles").upsert({ user_id: user.id, display_name: user.name }, { onConflict: "user_id", ignoreDuplicates: true });
-    if (error) throw new Error(`save adult profile: ${error.message}`);
+    // The name they typed on the gift page is what setup greets them with (Kevin, 2026-11-03).
+    if (typeof yourName === "string" && yourName.trim()) {
+      await updateDisplayName(db, user.id, yourName);
+    } else {
+      const { error } = await db.from("adult_profiles").upsert({ user_id: user.id, display_name: user.name }, { onConflict: "user_id", ignoreDuplicates: true });
+      if (error) throw new Error(`save adult profile: ${error.message}`);
+    }
     const config = billingConfig();
     try {
       const result = await redeemGiftCode(db, code, user, {
