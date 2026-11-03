@@ -4,7 +4,7 @@ import { NarratorSlots } from "@/components/family/NarratorSlots";
 import { accountDb } from "@/lib/family/account-store";
 import { familyPage, guardianChildren } from "@/lib/family/page-data";
 import type { FamilyState } from "@/lib/family/model";
-import { guardianHousehold, narratorSlots } from "@/lib/family/service";
+import { familyParents, guardianHousehold, narratorSlots } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
 import { BackLink } from "@/components/family/BackLink";
 import { invitationMailer } from "@/lib/invitations/email";
@@ -28,6 +28,7 @@ export default async function NarratorSlotsPage({ searchParams }: { searchParams
   const inviteMode = page.session.account ? (db ? "live" : "off") : "preview";
   const email = db ? await inviteEmailOn(db, invitationMailer()) : null;
   const invites = db ? await listInvites(db, householdId, { maxResends: email?.on ? email.maxResends : null }) : [];
+  const parents = await familyParents(store, page.session.actor, householdId);
   return (
     <FamilyShell>
       <PreviewNote />
@@ -41,6 +42,7 @@ export default async function NarratorSlotsPage({ searchParams }: { searchParams
         kids={guardianChildren(page.state!, page.session.actor.adultId).filter((c) => c.householdId === householdId).map((c) => ({ id: c.id, name: c.nickname }))}
         focus={typeof add === "string" ? add : typeof params.choose === "string" ? params.choose : null}
         openOn={typeof params.choose === "string" ? params.choose : null}
+        coParent={{ href: "/family/settings/parents", canInvite: parents.youOwn, ownerName: parents.ownerName }}
       />
     </FamilyShell>
   );

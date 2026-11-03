@@ -23,7 +23,27 @@ const field = "min-h-12 w-full rounded-2xl border-[3px] border-ink/20 bg-surface
  * (email sending isn't switched on yet, so the parent sends it). Preview: nothing is saved or sent.
  * Inviting never holds or uses a narrator slot and shares nothing.
  */
-export function InviteStoryteller({ live, initialName = "", onSent, onClose }: { live: boolean; initialName?: string; onSent: (invite: SavedInvite) => void; onClose: () => void }) {
+/** Where to invite a partner instead, and whether this parent may (only the plan's owner invites co-parents). */
+export interface CoParentOption {
+  href: string;
+  canInvite: boolean;
+  ownerName: string;
+}
+
+export function InviteStoryteller({
+  live,
+  initialName = "",
+  coParent = null,
+  onSent,
+  onClose,
+}: {
+  live: boolean;
+  initialName?: string;
+  /** Shows "Who are you inviting?" so a parent doesn't invite their partner as a voice-only storyteller. */
+  coParent?: CoParentOption | null;
+  onSent: (invite: SavedInvite) => void;
+  onClose: () => void;
+}) {
   const id = useId();
   const [email, setEmail] = useState("");
   const [name, setName] = useState(initialName);
@@ -118,6 +138,7 @@ export function InviteStoryteller({ live, initialName = "", onSent, onClose }: {
         <h3 className="font-display text-2xl font-semibold">Invite a storyteller</h3>
         <p className="text-muted">They make a free Readli Voice account, record their own voice and choose to share it with your family. They never pay.</p>
       </div>
+      {coParent && <WhoToInvite coParent={coParent} />}
       <div className="flex flex-col gap-2">
         <label htmlFor={`${id}-email`} className="font-display text-lg font-semibold">
           Their email
@@ -158,5 +179,46 @@ export function InviteStoryteller({ live, initialName = "", onSent, onClose }: {
         <HelpLink slug="invite-relatives-elsewhere">Inviting relatives who live elsewhere</HelpLink>
       </p>
     </form>
+  );
+}
+
+/**
+ * The two kinds of invitation side by side. A storyteller only lends their voice; a partner or co-parent
+ * runs the family account with you. Inviting a partner here would leave them without parent controls.
+ */
+function WhoToInvite({ coParent }: { coParent: CoParentOption }) {
+  return (
+    <section className="flex flex-col gap-3" aria-label="Who are you inviting?" data-testid="who-to-invite">
+      <h4 className="font-display text-lg font-semibold">Who are you inviting?</h4>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-2 rounded-2xl bg-mint/40 p-4 ring-2 ring-ink/20" data-testid="invite-kind-storyteller">
+          <p className="font-display text-lg font-semibold">
+            A storyteller <span className="font-sans text-sm font-bold text-muted">· this form</span>
+          </p>
+          <p className="text-sm">For grandparents, aunts, uncles and friends. Voice only.</p>
+          <ul className="flex list-disc flex-col gap-1 pl-5 text-sm">
+            <li>Records their voice for free from their own phone.</li>
+            <li>You add them to a narrator slot and choose which kids hear them.</li>
+            <li>Can&apos;t see your family account, your kids&apos; profiles or your books.</li>
+          </ul>
+        </div>
+        <div className="flex flex-col gap-2 rounded-2xl bg-sky/30 p-4" data-testid="invite-kind-co-parent">
+          <p className="font-display text-lg font-semibold">Your partner or co-parent</p>
+          <p className="text-sm">For mom, dad or another parent at home. Full parent access.</p>
+          <ul className="flex list-disc flex-col gap-1 pl-5 text-sm">
+            <li>Signs in as a second parent and sees the whole family account.</li>
+            <li>Prepares books, chooses storytellers and runs Readli Kids on their own devices.</li>
+            <li>Can record their own voice too. Everything except billing.</li>
+          </ul>
+          {coParent.canInvite ? (
+            <Link href={coParent.href} className="mt-1 font-display font-semibold underline underline-offset-4" data-testid="invite-co-parent-link">
+              Invite a co-parent instead
+            </Link>
+          ) : (
+            <p className="mt-1 text-sm font-semibold">Only {coParent.ownerName} can invite another parent.</p>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }

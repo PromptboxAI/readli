@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
@@ -153,6 +154,13 @@ export function FamilyParents({ view, initialInvites, live, inSetup = false }: {
           <li>Record their own voice for the kids, if they want to. It&apos;s optional.</li>
         </ul>
         <p className="text-sm text-muted">{view.youOwn ? "You" : view.ownerName} keep{view.youOwn ? "" : "s"} the plan and billing. A co-parent can see the plan and credits but can&apos;t buy, change or cancel anything.</p>
+        <p className="text-sm">
+          Want a grandparent, aunt or friend to read to the kids without parent access?{" "}
+          <Link href="/family/narrators#invite" className="font-semibold underline underline-offset-4" data-testid="invite-storyteller-instead">
+            Invite them as a storyteller
+          </Link>
+          . They only record their voice.
+        </p>
       </section>
 
       {view.youOwn ? (

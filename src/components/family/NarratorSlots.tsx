@@ -9,7 +9,7 @@ import { INVITE_TTL_DAYS } from "@/lib/invites/family-invites";
 import { formatPrice } from "@/lib/family/plan";
 import type { JoinedCard, NarratorCard, NarratorSlotsView } from "@/lib/family/service";
 import { InvitationPill } from "@/components/invitations/InvitationPill";
-import { InviteStoryteller, type SavedInvite } from "./InviteStoryteller";
+import { InviteStoryteller, type CoParentOption, type SavedInvite } from "./InviteStoryteller";
 import { FamilyCircle } from "./FamilyCircle";
 import { RelationshipPicker } from "./RelationshipPicker";
 import { StorytellerAvatar } from "./StorytellerAvatar";
@@ -109,6 +109,7 @@ export function NarratorSlots({
   kids = [],
   focus = null,
   openOn = null,
+  coParent = null,
 }: {
   initial: NarratorSlotsView;
   canBuy?: boolean;
@@ -121,6 +122,8 @@ export function NarratorSlots({
   focus?: string | null;
   /** A narrator to open on "Which children can hear them?", from Home's "Not approved for a child yet". */
   openOn?: string | null;
+  /** Where a partner is invited instead, so the invite form can tell the two apart. */
+  coParent?: CoParentOption | null;
 }) {
   const router = useRouter();
   const [view, setView] = useState(initial);
@@ -220,12 +223,21 @@ export function NarratorSlots({
     router.refresh();
   };
 
-  // Home's "Invite a storyteller" links here with #invite.
+  // Home's "Invite a storyteller" links here with #invite. The page still opens at the top, with the form
+  // just under the heading, and the hash is dropped so a reload or Back doesn't reopen it.
+  const fromLink = useRef(false);
   useEffect(() => {
-    if (canInvite && window.location.hash === "#invite") setInviting({ name: "" });
+    if (window.location.hash !== "#invite") return;
+    window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    if (!canInvite) return;
+    fromLink.current = true;
+    setInviting({ name: "" });
   }, [canInvite]);
   useEffect(() => {
-    if (inviting) inviteRef.current?.scrollIntoView({ block: "start" });
+    if (!inviting) return;
+    if (fromLink.current) fromLink.current = false;
+    else inviteRef.current?.scrollIntoView({ block: "start" });
   }, [inviting]);
 
   const call = async (url: string, body: unknown, done: string) => {
@@ -378,6 +390,21 @@ export function NarratorSlots({
         </p>
       </div>
 
+      {canInvite && (
+        <div ref={inviteRef} className={inviting ? "scroll-mt-24" : "hidden"} data-testid="invite-panel">
+          {inviting && (
+            <InviteStoryteller
+              key={inviting.name}
+              live={inviteMode === "live"}
+              initialName={inviting.name}
+              coParent={inviting.name ? null : coParent}
+              onSent={(inv) => setInvites((list) => [inv, ...list.filter((i) => !(i.status === "expired" && i.name === inv.name))])}
+              onClose={() => setInviting(null)}
+            />
+          )}
+        </div>
+      )}
+
       {recordFirst && (
         <section className="flex flex-col items-start gap-3 rounded-3xl bg-sky/40 p-5" aria-labelledby="record-first-h" data-testid="record-first">
           <h2 id="record-first-h" className="font-display text-2xl font-semibold">
@@ -508,7 +535,7 @@ export function NarratorSlots({
                 <p>
                   {view.shared.length > 0
                     ? `${view.shared[0]!.name} is ready to add below. Or invite someone new: they record for free and share their voice with your family.`
-                    : "Invite a partner, grandparent or friend. They record for free and share their voice with your family, then you add them here."}
+                    : "Invite a grandparent, aunt or friend. They record for free and share their voice with your family, then you add them here."}
                 </p>
                 {canInvite && i === 0 && (
                   <button type="button" className={`${parentPrimary} self-start`} onClick={() => openInvite()}>
@@ -524,20 +551,6 @@ export function NarratorSlots({
             </p>
           )}
         </section>
-
-        {canInvite && (
-          <div id="invite" ref={inviteRef} className="scroll-mt-24">
-            {inviting && (
-              <InviteStoryteller
-                key={inviting.name}
-                live={inviteMode === "live"}
-                initialName={inviting.name}
-                onSent={(inv) => setInvites((list) => [inv, ...list.filter((i) => !(i.status === "expired" && i.name === inv.name))])}
-                onClose={() => setInviting(null)}
-              />
-            )}
-          </div>
-        )}
 
         <section className="flex flex-col gap-3" aria-label="Storytellers on the way">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
