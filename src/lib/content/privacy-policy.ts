@@ -10,7 +10,7 @@
 export type PolicyParagraph = { lead?: string; text: string };
 export type PolicySection = { id: string; title: string; paragraphs: PolicyParagraph[] };
 
-export const PRIVACY_EFFECTIVE_DATE = "October 25, 2026";
+export const PRIVACY_EFFECTIVE_DATE = "November 3, 2026";
 
 export const PRIVACY_INTRO: string[] = [
   'Readli ("Readli," "we," "our," or "us"), operated by Readli.ai LLC at 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790, provides family storytelling, children’s reading, and optional AI-generated narration in voices that participating adults choose to record and share. This Privacy Policy describes how we collect, use, disclose, retain, and protect information when you visit readli.ai, try our voice demo, or use Readli Family, Readli Kids, Readli Voice, and related features (together, the "Services").',
@@ -114,7 +114,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
         text: "An invitation shows the invited person the inviting adult’s name and household. Connected family members may see each other’s names or nicknames, relationship labels, profile photos, and whether a voice is available, depending on settings.",
       },
       {
-        text: "All family voices are private by default. Two independent approvals are needed before a voice appears for a child: the voice owner shares the voice with the household, and a parent or guardian approves that storyteller for that child. Each newly shared voice starts off for every child. Either approval can be withdrawn at any time. When either is withdrawn, or the household’s plan ends, stories already prepared in that voice stop playing there; they stay stored and play again if the approvals and plan are restored, unless they are deleted as section 9 describes.",
+        text: "All family voices are private by default. Two independent approvals are needed before a voice appears for a child: the voice owner shares the voice with the household, and a parent or guardian approves that storyteller for that child. Each newly shared voice starts off for every child. Either approval can be withdrawn at any time. When either is withdrawn, or the household’s plan ends, stories already prepared in that voice stop playing there; they stay stored and play again if the approvals and plan are restored, unless they are deleted as section 9 describes. A story downloaded to a device for listening without internet is stored only on that device and can keep playing there for up to 7 days after the device last connected; the next time it connects, Readli removes any download that may no longer be heard.",
       },
     ],
   },

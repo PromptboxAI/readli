@@ -10,7 +10,7 @@
 
 import type { PolicySection } from "@/lib/content/privacy-policy";
 
-export const TERMS_EFFECTIVE_DATE = "October 24, 2026";
+export const TERMS_EFFECTIVE_DATE = "November 3, 2026";
 
 export const TERMS_INTRO: string[] = [
   'These Terms of Service ("Terms") govern access to readli.ai and the Readli Family, Readli Kids, Readli Voice, voice demo, and related services (together, "Readli" or the "Services"), provided by Readli.ai LLC ("Readli," "we," "us," or "our"). By creating an adult account or using the Services, you agree to these Terms and to our Privacy Policy (https://readli.ai/privacy). Parent or guardian consent is required for child-managed experiences as provided below.',
@@ -76,7 +76,7 @@ export const TERMS_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Stories already prepared",
-        text: "Readli checks these permissions each time a story plays. If the voice owner stops sharing with a household, a parent or guardian removes a storyteller from a child, or the household’s plan ends, stories already prepared in that voice stop playing there. They stay stored, and play again if the permissions and plan are restored, unless they have been deleted as section 13 describes. Neither the voice owner nor the parent can override the other’s choice. Children cannot manage these approvals.",
+        text: "Readli checks these permissions each time a story plays. If the voice owner stops sharing with a household, a parent or guardian removes a storyteller from a child, or the household’s plan ends, stories already prepared in that voice stop playing there. They stay stored, and play again if the permissions and plan are restored, unless they have been deleted as section 13 describes. A story downloaded to a device for listening without internet can keep playing on that device for up to 7 days after it last connected; the next time the device connects, Readli checks these permissions again and removes any download that may no longer be heard. Neither the voice owner nor the parent can override the other’s choice. Children cannot manage these approvals.",
       },
     ],
   },
