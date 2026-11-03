@@ -1,5 +1,17 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
+/** Opens a child's Readli Kids from Family Home, setting the family PIN first when the family hasn't one yet. */
+async function openKids(page: Page, name: string) {
+  await page.getByRole("button", { name: `Open ${name}'s Readli Kids` }).click();
+  const pin = page.getByTestId("pin-before-kids");
+  const heading = page.getByRole("heading", { name: new RegExp(`Hi ${name}`) });
+  await expect(pin.or(heading)).toBeVisible();
+  if (await pin.isVisible()) {
+    await pin.getByLabel("New PIN").fill("2468");
+    await pin.getByRole("button", { name: "Save PIN" }).click();
+  }
+}
+
 /** Amendment 002: two-key family voice permissions, end to end against the preview family. */
 
 async function noOverflow(page: Page) {
@@ -95,7 +107,7 @@ test("a ready storyteller is added and approved for children from one page", asy
 test("kids see only approved narrators and can switch without losing their place", async ({ page }) => {
   await signIn(page, "adult:sara");
   await page.goto("/family");
-  await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await openKids(page, "Maya");
   await expect(page.getByRole("heading", { name: /Hi Maya/ })).toBeVisible();
   await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
 
@@ -132,7 +144,7 @@ test("reading sentence by sentence, the kids player buffers the next few sentenc
   await sentenceBySentence(page);
   await signIn(page, "adult:sara");
   await page.goto("/family");
-  await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await openKids(page, "Maya");
   await expect(page.getByRole("heading", { name: /Hi Maya/ })).toBeVisible();
   await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
   await expect(page.getByTestId("current-narrator")).toHaveText("Mom");
@@ -163,7 +175,7 @@ test("reading sentence by sentence, the kids player skips a sentence whose audio
   await sentenceBySentence(page);
   await signIn(page, "adult:sara");
   await page.goto("/family");
-  await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await openKids(page, "Maya");
   await expect(page.getByRole("heading", { name: /Hi Maya/ })).toBeVisible();
   await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
   await expect(page.getByTestId("current-narrator")).toHaveText("Mom");
@@ -185,7 +197,7 @@ test("reading sentence by sentence, the kids player skips a sentence whose audio
 test("a chapter track that won't play is asked for once more, then the story carries on sentence by sentence", async ({ page }) => {
   await signIn(page, "adult:sara");
   await page.goto("/family");
-  await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await openKids(page, "Maya");
   await expect(page.getByRole("heading", { name: /Hi Maya/ })).toBeVisible();
   await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
   let tracks = 0;
@@ -212,7 +224,7 @@ test("reading sentence by sentence, the kids player keeps reading when its liste
   await sentenceBySentence(page);
   await signIn(page, "adult:sara");
   await page.goto("/family");
-  await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
+  await openKids(page, "Maya");
   await expect(page.getByRole("heading", { name: /Hi Maya/ })).toBeVisible();
   await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
   await expect(page.getByTestId("current-narrator")).toHaveText("Mom");

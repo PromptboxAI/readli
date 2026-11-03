@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
 import { HearMyVoice } from "@/components/accounts/HearMyVoice";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { AdultPage } from "@/components/invites/AdultPage";
@@ -17,6 +18,7 @@ import { pendingJoinPath } from "@/lib/invites/pending";
 import { shareKeptVoice } from "@/lib/invites/share-on-keep";
 import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
+import { recorderProps } from "@/lib/voice/recorder";
 import {
   STORYTELLER_STEP_LABELS,
   STORYTELLER_STEPS,
@@ -159,6 +161,8 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
   const n = (STORYTELLER_STEPS as readonly string[]).indexOf(step) + 1;
   const record = `/voice/record?next=${encodeURIComponent(storytellerHref("share"))}`;
 
+  const recorder = step === "voice" && !voice && user ? await recorderProps(adultId) : null;
+
   let body: React.ReactNode;
   if (step === "voice") {
     body = (
@@ -173,6 +177,9 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
         </header>
         {voice ? (
           <Done>{ready ? "Your voice is ready." : "Your voice is being made. It usually takes a minute, so carry on."}</Done>
+        ) : recorder ? (
+          // Recording, making and keeping the voice all happen right here, so setup never leaves for another page.
+          <AccountVoiceSetup hasVoice={recorder.hasVoice} guestTake={recorder.guestTake} waiting={recorder.waiting} next={storytellerHref("share")} nextLabel="Next: share it with a family" />
         ) : (
           <div className="flex flex-col items-start gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10 sm:p-6">
             <ul className="flex list-disc flex-col gap-1 pl-5">

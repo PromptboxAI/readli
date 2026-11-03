@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { SetKidsPin } from "./SetKidsPin";
 
 /** Signs in as a preview family member, opens a kids profile, or signs out, then goes to `next`. */
 export function SessionButton({
@@ -17,8 +18,18 @@ export function SessionButton({
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const go = async () => {
+  const [askPin, setAskPin] = useState(false);
+  const go = async (pinChecked = false) => {
     setError(null);
+    // A child's space is left with the family PIN, so one is set before the first visit; otherwise the parent is stuck there.
+    if (as?.startsWith("child:") && !pinChecked) {
+      const pin = await fetch("/api/family/kids-pin", { cache: "no-store" }).catch(() => null);
+      const body = pin?.ok ? ((await pin.json().catch(() => null)) as { set?: boolean } | null) : null;
+      if (body && body.set === false) {
+        setAskPin(true);
+        return;
+      }
+    }
     const res = await fetch("/api/family/session", {
       method: as ? "POST" : "DELETE",
       headers: { "content-type": "application/json" },
@@ -39,9 +50,14 @@ export function SessionButton({
   };
   return (
     <>
-      <button type="button" className={className} onClick={go}>
+      <button type="button" className={className} onClick={() => void go()}>
         {children}
       </button>
+      {askPin && (
+        <div className="w-full basis-full" data-testid="pin-before-kids">
+          <SetKidsPin intro="Before you open a child's space, set a 4-digit family PIN. You'll enter it to get back to Readli Family." onSaved={() => void go(true)} />
+        </div>
+      )}
       {error && (
         <span role="alert" className="text-sm font-semibold text-coral-deep">
           {error}
