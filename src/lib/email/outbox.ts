@@ -199,15 +199,18 @@ export async function sendDueEmails(deps: OutboxDeps): Promise<SendReport> {
       continue;
     }
     const set = (values: Row, what: string) => q(db.from("email_outbox").update(values).eq("id", id), what);
+    // Once an email can't be sent again, its body goes: bodies carry live links (gift codes, invitations,
+    // demos, email settings) that shouldn't sit in the database after they've been delivered.
+    const done = (values: Row, what: string) => set({ ...values, html: "", body: "" }, what);
     try {
       const outcome = await decide(db, secret, cipher, switches, row, now);
       if (outcome.kind === "cancel") {
-        await set({ status: "canceled", last_error: outcome.reason }, "cancel email");
+        await done({ status: "canceled", last_error: outcome.reason }, "cancel email");
         report.canceled += 1;
         continue;
       }
       if (outcome.kind === "suppress") {
-        await set({ status: "suppressed", last_error: outcome.reason }, "suppress email");
+        await done({ status: "suppressed", last_error: outcome.reason }, "suppress email");
         report.suppressed += 1;
         continue;
       }
@@ -225,7 +228,7 @@ export async function sendDueEmails(deps: OutboxDeps): Promise<SendReport> {
         headers: (row.headers as Record<string, string>) ?? {},
         idempotencyKey: `outbox-${id}`,
       });
-      await set({ status: "sent", sent_at: new Date().toISOString(), provider_ref: sent.id || null, last_error: null }, "mark sent");
+      await done({ status: "sent", sent_at: new Date().toISOString(), provider_ref: sent.id || null, last_error: null }, "mark sent");
       report.sent += 1;
     } catch (err) {
       // Rate limits, outages and network errors are retried; a rejected address or payload is not.

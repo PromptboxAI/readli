@@ -51,6 +51,26 @@ export interface DeviceRegistry {
   update(id: string, patch: Partial<Omit<KidsDevice, "id" | "scope" | "householdId" | "registeredBy" | "tokenHash">>): Promise<void>;
   pinHash(householdId: string): Promise<string | null>;
   setPinHash(householdId: string, hash: string, by: string): Promise<void>;
+  /** Wrong PIN tries from temporary Kids Mode, kept on the server so clearing a cookie doesn't reset them. */
+  pinLock(householdId: string): Promise<PinLock>;
+  setPinLock(householdId: string, lock: PinLock): Promise<void>;
+}
+
+export interface PinLock {
+  failures: number;
+  lockedUntil: string | null;
+}
+
+export const NO_PIN_LOCK: PinLock = { failures: 0, lockedUntil: null };
+
+/** One more wrong try against the family's PIN lock; locks it for PIN_LOCK_MINUTES after PIN_TRIES. */
+export function failedPinLock(lock: PinLock, now: Date): PinLock {
+  const failures = lock.failures + 1;
+  return failures >= PIN_TRIES ? { failures: 0, lockedUntil: new Date(now.getTime() + PIN_LOCK_MINUTES * 60_000).toISOString() } : { failures, lockedUntil: null };
+}
+
+export function pinLockedNow(lock: PinLock, now: Date): boolean {
+  return Boolean(lock.lockedUntil && Date.parse(lock.lockedUntil) > now.getTime());
 }
 
 export type DeviceStatus = "active" | "revoked" | "expired";
@@ -295,6 +315,14 @@ export class MemoryDeviceRegistry implements DeviceRegistry {
   }
   async setPinHash(householdId: string, hash: string) {
     this.pins.set(householdId, hash);
+    this.locks.delete(householdId);
+  }
+  readonly locks = new Map<string, PinLock>();
+  async pinLock(householdId: string) {
+    return this.locks.get(householdId) ?? NO_PIN_LOCK;
+  }
+  async setPinLock(householdId: string, lock: PinLock) {
+    this.locks.set(householdId, lock);
   }
 }
 
@@ -386,5 +414,22 @@ export class SupabaseDeviceRegistry implements DeviceRegistry {
       this.db.from("household_kids_pins").upsert({ household_id: householdId, pin_hash: hash, updated_by: by, updated_at: new Date().toISOString() }, { onConflict: "household_id" }),
       "save PIN",
     );
+    await this.setPinLock(householdId, NO_PIN_LOCK);
+  }
+
+  /** Best effort until the lock columns exist (migration 20261103000300): no lock is read or kept before then. */
+  async pinLock(householdId: string): Promise<PinLock> {
+    const { data, error } = await this.db.from("household_kids_pins").select("failed_attempts, locked_until").eq("household_id", householdId).limit(1);
+    if (error) {
+      console.warn(`read PIN lock: ${error.message}`);
+      return NO_PIN_LOCK;
+    }
+    const row = (data ?? [])[0] as Row | undefined;
+    return row ? { failures: Number(row.failed_attempts ?? 0), lockedUntil: (row.locked_until as string | null) ?? null } : NO_PIN_LOCK;
+  }
+
+  async setPinLock(householdId: string, lock: PinLock) {
+    const { error } = await this.db.from("household_kids_pins").update({ failed_attempts: lock.failures, locked_until: lock.lockedUntil }).eq("household_id", householdId);
+    if (error) console.warn(`save PIN lock: ${error.message}`);
   }
 }

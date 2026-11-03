@@ -6,10 +6,13 @@ import {
   deviceForCookie,
   deviceStatus,
   exitWithPin,
+  failedPinLock,
   hashPin,
   listDevices,
   MemoryDeviceRegistry,
+  NO_PIN_LOCK,
   parseDeviceCookie,
+  pinLockedNow,
   pinMatches,
   registerDevice,
   revokeDevice,
@@ -126,5 +129,26 @@ describe("kids devices", () => {
     await setFamilyPin(registry, state, SARA, DEMO_HOUSEHOLD_ID, "4821");
     await refused(exitWithPin(registry, device, { pin: "4821" }, T0), "wrong_pin");
     await refused(exitWithPin(registry, device, "48210", T0), "wrong_pin");
+  });
+});
+
+describe("the family PIN lock for temporary Kids Mode", () => {
+  it("locks after five wrong tries, for fifteen minutes", () => {
+    let lock = NO_PIN_LOCK;
+    for (let i = 0; i < 4; i++) lock = failedPinLock(lock, T0);
+    expect(lock).toEqual({ failures: 4, lockedUntil: null });
+    expect(pinLockedNow(lock, T0)).toBe(false);
+    lock = failedPinLock(lock, T0);
+    expect(pinLockedNow(lock, T0)).toBe(true);
+    expect(pinLockedNow(lock, new Date(T0.getTime() + 15 * 60_000 + 1))).toBe(false);
+  });
+
+  it("is kept on the server per family, and a new PIN clears it", async () => {
+    const registry = new MemoryDeviceRegistry();
+    await registry.setPinLock(DEMO_HOUSEHOLD_ID, { failures: 3, lockedUntil: null });
+    expect(await registry.pinLock(DEMO_HOUSEHOLD_ID)).toEqual({ failures: 3, lockedUntil: null });
+    expect(await registry.pinLock("another-family")).toEqual(NO_PIN_LOCK);
+    await setFamilyPin(registry, demoFamilyState(), SARA, DEMO_HOUSEHOLD_ID, "4821");
+    expect(await registry.pinLock(DEMO_HOUSEHOLD_ID)).toEqual(NO_PIN_LOCK);
   });
 });

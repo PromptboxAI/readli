@@ -171,7 +171,7 @@ export async function adminDeleteAccount(
   if (!result.deleted) {
     throw new AdminActionError(`${user.email} wasn't deleted because ${result.blockers.map(describeBlocker).join(", and ")}.`);
   }
-  console.info(`[admin] ${admin.email} deleted account ${user.id} (${user.email})`);
+  console.info(`[admin] ${admin.id} deleted account ${user.id}`);
   return user.email ?? "the account";
 }
 
@@ -194,6 +194,6 @@ export async function setAccountPaused(db: SupabaseClient, admin: AdminUser, use
   const user = await target(db, admin, userId, env);
   const { error } = await db.auth.admin.updateUserById(user.id, { ban_duration: paused ? PAUSE_DURATION : "none" });
   if (error) throw new Error(`${paused ? "pause" : "unpause"} account: ${error.message}`);
-  console.info(`[admin] ${admin.email} ${paused ? "paused" : "unpaused"} account ${user.id} (${user.email})`);
+  console.info(`[admin] ${admin.id} ${paused ? "paused" : "unpaused"} account ${user.id}`);
   return user.email ?? "the account";
 }
