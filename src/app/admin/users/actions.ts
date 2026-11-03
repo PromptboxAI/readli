@@ -14,6 +14,18 @@ const field = (form: FormData, name: string) => {
   return typeof v === "string" ? v : "";
 };
 
+/**
+ * What the admin sees when a delete stops partway. Every step is safe to repeat, so an unexpected
+ * failure is shown and logged instead of crashing the page, and the admin can try again.
+ */
+function deleteFailure(err: unknown): string {
+  if (err instanceof AdminActionError) return err.message;
+  if (err instanceof AccountError) return err.userMessage;
+  console.error("[admin] account delete failed", err);
+  const detail = err instanceof Error ? err.message : String(err);
+  return `The delete stopped partway: ${detail}. Anything already removed stays removed, and it's safe to try again.`;
+}
+
 /** Deletes a grown-up's account with the full cleanup, after the admin types its email. */
 export async function deleteAccountAction(form: FormData) {
   const gate = await requireAdmin("/admin/users");
@@ -26,8 +38,7 @@ export async function deleteAccountAction(form: FormData) {
       const email = await adminDeleteAccount({ db, provider: voiceProvider(), refs: providerRefCipher() }, gate.admin, field(form, "userId"), field(form, "confirmEmail"));
       outcome = `ok=${encodeURIComponent(`Deleted ${email}. That email can sign up again now.`)}`;
     } catch (err) {
-      if (err instanceof AdminActionError || err instanceof AccountError) outcome = `err=${encodeURIComponent(err instanceof AccountError ? err.userMessage : err.message)}`;
-      else throw err;
+      outcome = `err=${encodeURIComponent(deleteFailure(err))}`;
     }
   }
   redirect(`/admin/users?${outcome}${q ? `&q=${encodeURIComponent(q)}` : ""}`);
@@ -44,8 +55,8 @@ async function pause(form: FormData, paused: boolean) {
       const email = await setAccountPaused(db, gate.admin, field(form, "userId"), paused);
       outcome = `ok=${encodeURIComponent(paused ? `Paused ${email}. They can't sign in until you unpause them.` : `Unpaused ${email}. They can sign in again.`)}`;
     } catch (err) {
-      if (!(err instanceof AdminActionError)) throw err;
-      outcome = `err=${encodeURIComponent(err.message)}`;
+      if (!(err instanceof AdminActionError)) console.error("[admin] account pause failed", err);
+      outcome = `err=${encodeURIComponent(err instanceof Error ? err.message : String(err))}`;
     }
   }
   redirect(`/admin/users?${outcome}${q ? `&q=${encodeURIComponent(q)}` : ""}`);
