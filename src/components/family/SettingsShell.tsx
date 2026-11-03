@@ -44,6 +44,9 @@ const TITLES: Record<SettingsSection, string> = { account: "Account", parents: "
  * place. Desktop keeps the sections in a rail beside the page; phones get a list of sections and a way
  * back to it. Only a family's parents see Parents, Plan & credits and Kids Mode.
  *
+ * A section opened from somewhere else (such as Books' "Credits and history") gets `back`, so its way
+ * back on every screen size returns to that page rather than the Settings list (Kevin, 2026-11-03).
+ *
  * `list` is the Settings home on phones: the sections with a short summary each, under a way back to
  * the page that opened Settings. The section itself then shows from tablet width up.
  */
@@ -115,17 +118,14 @@ export function SettingsShell({
         )}
 
         <div className={`min-w-0 flex-col gap-5 ${phoneList ? "hidden md:flex" : "flex"}`}>
-          {rail ? (
-            <div className="md:hidden">
-              <BackLink href={SETTINGS_HOME} label="Settings" />
-            </div>
+          {back ? (
+            <BackLink href={back.href} label={back.label} />
           ) : (
-            back && <BackLink href={back.href} label={back.label} />
-          )}
-          {rail && back && (
-            <div className="hidden md:block">
-              <BackLink href={back.href} label={back.label} />
-            </div>
+            rail && (
+              <div className="md:hidden">
+                <BackLink href={SETTINGS_HOME} label="Settings" />
+              </div>
+            )
           )}
           <h1 className="font-display text-4xl font-semibold">{rail ? TITLES[current] : "Settings"}</h1>
           {children}

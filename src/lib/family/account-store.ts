@@ -126,7 +126,8 @@ export class AccountFamilyStore implements FamilyStore {
         this.q(this.db.from("voice_household_shares").select("*").in("household_id", homeIds), "read sharing"),
         this.q(this.db.from("narrator_slot_assignments").select("*").in("household_id", homeIds), "read narrator slots"),
         this.q(this.db.from("listening_sessions").select("*").in("household_id", homeIds).is("ended_at", null), "read listening"),
-        this.q(this.db.from("family_notifications").select("*").in("household_id", homeIds), "read notices"),
+        // Home only shows the last week of notices, so older ones are never read back (Kevin, 2026-11-03).
+        this.q(this.db.from("family_notifications").select("*").in("household_id", homeIds).gte("at", since), "read notices"),
         // Only recent slot releases are read back; they set the monthly narrator change limit.
         this.q(
           this.db.from("permission_audit_log").select("*").in("household_id", homeIds).eq("action", "narrator_released").gte("at", since),

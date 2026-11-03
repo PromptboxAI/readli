@@ -4,6 +4,7 @@ import { CheckoutDone, ManagePlan, StartPlan } from "@/components/family/Billing
 import { CreditsPanel } from "@/components/family/CreditsPanel";
 import { FamilyOff, NeedsGrownUp } from "@/components/family/FamilyShell";
 import { SettingsShell } from "@/components/family/SettingsShell";
+import { settingsBack, settingsLink } from "@/lib/family/settings-nav";
 import { billingConfig } from "@/lib/billing/config";
 import { confirmCheckout } from "@/lib/billing/confirm";
 import { StripeApi } from "@/lib/billing/stripe-api";
@@ -88,7 +89,7 @@ function GiftCard({ gift, ends }: { gift: HouseholdGift; ends: string | null }) 
   );
 }
 
-type Query = { checkout?: string; session_id?: string; gift?: string; need?: string; return?: string; history?: string };
+type Query = { checkout?: string; session_id?: string; gift?: string; need?: string; return?: string; history?: string; from?: string };
 
 /** A parent's plan and the family's narration credits, together, with where to change either. Children never reach it. */
 export default async function PlanAndCreditsPage({ searchParams }: { searchParams: Promise<Query> }) {
@@ -126,12 +127,7 @@ export default async function PlanAndCreditsPage({ searchParams }: { searchParam
   const monthlyLeft = b.allowance > 0 ? Math.min(1, (b.bySource.subscription + b.bySource.trial) / b.allowance) : 0;
 
   return (
-    <SettingsShell current="plan" guardian>
-      {returnTo && (
-        <Link href={returnTo} className="self-start font-semibold underline underline-offset-4">
-          ← Back to your book
-        </Link>
-      )}
+    <SettingsShell current="plan" guardian back={returnTo ? { href: returnTo, label: "Back to your book" } : q.from ? settingsBack(q.from) : undefined}>
       {q.checkout === "success" && <CheckoutDone sessionId={q.session_id && /^cs_[A-Za-z0-9_]+$/.test(q.session_id) ? q.session_id : undefined} />}
       {q.checkout === "success" && (
         <p role="status" className="rounded-2xl bg-mint/40 px-4 py-3">
@@ -264,7 +260,7 @@ export default async function PlanAndCreditsPage({ searchParams }: { searchParam
           </ul>
         )}
         {history.length > shown.length && (
-          <Link href="/family/settings/plan?history=all#history-h" className="self-start font-semibold underline underline-offset-4">
+          <Link href={`${settingsLink("/family/settings/plan?history=all", q.from ?? null)}#history-h`} className="self-start font-semibold underline underline-offset-4">
             See all {history.length}
           </Link>
         )}

@@ -39,7 +39,7 @@ test("the family home leads with the kids, stories and storytellers", async ({ p
   const next = info.project.name === "desktop" ? page.getByTestId("next-story") : page.getByTestId("next-story-strip");
   await expect(next.getByRole("link", { name: "Browse Books" })).toBeVisible();
   await expect(next).toContainText(/of [\d.,]+ (monthly|trial) credits remaining/);
-  await expect(next.getByRole("link", { name: /How credits work/ })).toHaveAttribute("href", "/family/settings/plan");
+  await expect(next.getByRole("link", { name: /How credits work/ })).toHaveAttribute("href", "/family/settings/plan?from=%2Ffamily");
 
   // Home shows a few books, two across on wider screens, and the rest on request.
   const shelf = page.getByTestId("shelf-ready");

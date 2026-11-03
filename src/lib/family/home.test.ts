@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { bookText } from "@/lib/narration/text";
 import { demoFamilyState, DEMO_HOUSEHOLD_ID } from "./demo-family";
-import { familyHome, homeNotice, noticeText } from "./home";
+import { familyHome, homeNotice, noticeLines, noticeText } from "./home";
 import type { FamilyState } from "./model";
 
 const SLUG = "the-lion-and-the-mouse";
@@ -164,5 +164,32 @@ describe("family home", () => {
     state.notifications.push(note("Dad's reading of The Lion and the Mouse is ready.", SLUG, "2026-10-21T09:00:00Z"));
     expect(noticeText(homeNotice(state, DEMO_HOUSEHOLD_ID, "sara", now)!)).toBe("New reading ready: The Lion and the Mouse, read by Dad.");
     expect(homeNotice(state, DEMO_HOUSEHOLD_ID, "sara", new Date("2026-10-29T12:00:00Z"))).toBeNull();
+  });
+
+  it("keeps a busy week's notice short: a few titles, then each other update on its own line, newest first", () => {
+    const lines = noticeLines({
+      titles: ["A", "B", "C", "D", "E"],
+      narrators: ["Mom"],
+      other: ["Older update.", "Newer update."],
+      through: "2026-10-21T00:00:00Z",
+    });
+    expect(lines).toEqual(["5 new readings ready: A, B and 3 more, read by Mom.", "Newer update.", "Older update."]);
+  });
+
+  it("puts a book being prepared at the front of the bookshelf, newest first, until it is done", () => {
+    const state = demoFamilyState();
+    const text = bookText(SLUG)!;
+    const key = `lib-${SLUG}-voice-sara`;
+    state.libraries.push({ key, voiceId: "voice-sara", voiceVersion: 1, bookSlug: SLUG, edition: text.edition, textRevision: text.revision, modelId: "m", configHash: "c", scope: "shared", createdAt: "2026-10-01T00:00:00Z" });
+    const ids = text.sentences.map((x) => x.id);
+    state.segments.push({ libraryKey: key, sentenceId: ids[0]!, ordinal: 0, status: "ready", jobId: "job-1", storageKey: "a", characters: 10, durationMs: 1000, providerCredits: 1, attempts: 1, error: null, readyAt: "2026-10-01T00:00:00Z" });
+    const job = { id: "job-1", libraryKey: key, householdId: DEMO_HOUSEHOLD_ID, requestedBy: "sara", scope: "book" as const, sentenceIds: ids, reservations: {}, status: "running" as const, createdAt: "2026-10-01T00:00:00Z", finishedAt: null };
+    state.jobs.push(job);
+    const view = familyHome(state, DEMO_HOUSEHOLD_ID);
+    expect(view.preparing).toHaveLength(1);
+    expect(view.preparing[0]).toMatchObject({ slug: SLUG, href: `/family/books/${SLUG}`, narrators: [{ name: "Mom" }] });
+    expect(view.preparing[0]!.percent).toBe(Math.round(100 / ids.length));
+    (state.jobs[0] as { status: string }).status = "done";
+    expect(familyHome(state, DEMO_HOUSEHOLD_ID).preparing).toHaveLength(0);
   });
 });

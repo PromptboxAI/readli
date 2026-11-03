@@ -14,10 +14,11 @@ import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
 import { FamilyBookshelf, HOME_SHELF_BOOKS, KidCards, StorytellersCard, UnassignedBooks } from "@/components/family/HomeShelf";
 import { HomeNotice } from "@/components/family/HomeNotice";
 import { NewThisWeek } from "@/components/family/NewThisWeek";
+import { PreparingShelf } from "@/components/family/PreparingShelf";
 import { StoryRequests } from "@/components/family/StoryRequests";
 import { DEMO_HOUSEHOLD_ID, demoFamilyState } from "@/lib/family/demo-family";
 import { calledIn } from "@/lib/family/names";
-import { familyHome, homeNotice, noticeText } from "@/lib/family/home";
+import { familyHome, homeNotice, noticeLines } from "@/lib/family/home";
 import { homeHousehold } from "@/lib/family/service";
 import { planConfig } from "@/lib/family/plan";
 import { familyCheckoutOpen } from "@/lib/accounts/checkout";
@@ -36,6 +37,7 @@ import { serverConfig } from "@/lib/server/config";
 import { creditBalance, displayCredits, type CreditBalance } from "@/lib/narration/credits";
 import { newThisWeekFor } from "@/lib/email/bedtime";
 import { accountDb } from "@/lib/family/account-store";
+import { settingsLink } from "@/lib/family/settings-nav";
 
 function SignOutButton() {
   return (
@@ -208,7 +210,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
           )}
         </div>
       </div>
-      {notice && <HomeNotice text={noticeText(notice)} through={notice.through} />}
+      {notice && <HomeNotice lines={noticeLines(notice)} through={notice.through} />}
       {lapsed && (
         <section className="flex flex-col items-start gap-3 rounded-2xl bg-surface p-5 ring-1 ring-ink/15" data-testid="plan-ended">
           <h2 className="text-lg font-semibold">
@@ -216,7 +218,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
             {endedAt ? ` (${new Date(endedAt).toLocaleDateString("en-US", { month: "long", day: "numeric" })})` : ""}
           </h2>
           <p>Your kids&apos; profiles, storytellers and prepared books are saved. Restart any time to pick up where you left off.</p>
-          <Link href="/family/settings/plan" className={parentPrimary}>
+          <Link href={settingsLink("/family/settings/plan", "/family")} className={parentPrimary}>
             Restart Readli Family
           </Link>
         </section>
@@ -241,7 +243,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
           <div className="min-w-0">
             <p className="font-display text-lg font-semibold leading-tight">Find your next story</p>
             {creditLine && (
-              <Link href="/family/settings/plan" className="block text-sm text-white/80 underline-offset-4 hover:underline">
+              <Link href={settingsLink("/family/settings/plan", "/family")} className="block text-sm text-white/80 underline-offset-4 hover:underline">
                 <strong className="text-white">{creditLine.amount}</strong> {creditLine.rest}
                 <span className="sr-only">. How credits work</span>
               </Link>
@@ -278,7 +280,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
                 <p className="rounded-2xl bg-sunshine/50 p-3 text-sm">
                   Kids profiles come with Readli Family.{" "}
                   {familyCheckoutOpen() ? (
-                    <Link href="/family/settings/plan" className="font-semibold underline underline-offset-4">
+                    <Link href={settingsLink("/family/settings/plan", "/family")} className="font-semibold underline underline-offset-4">
                       Choose a plan
                     </Link>
                   ) : (
@@ -332,6 +334,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
                     </span>
                   )}
                 </div>
+                {view.preparing.length > 0 && <PreparingShelf books={view.preparing} />}
                 {view.shelf.length > 0 ? (
                   <>
                     <FamilyBookshelf books={shelfShown} />
@@ -348,12 +351,14 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
                     <p className="text-sm text-muted">Listen plays here for you, from the start. Each child keeps their own place, which only moves when they listen in Readli Kids.</p>
                   </>
                 ) : (
-                  <div className="flex flex-col items-start gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10" data-testid="shelf-ready-empty">
-                    <p>Pick a story and choose who reads it. Prepared audiobooks show up here, with each child&apos;s place.</p>
-                    <Link href="/family/books" className={parentPrimary}>
-                      Choose a story
-                    </Link>
-                  </div>
+                  view.preparing.length === 0 && (
+                    <div className="flex flex-col items-start gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10" data-testid="shelf-ready-empty">
+                      <p>Pick a story and choose who reads it. Prepared audiobooks show up here, with each child&apos;s place.</p>
+                      <Link href="/family/books" className={parentPrimary}>
+                        Choose a story
+                      </Link>
+                    </div>
+                  )
                 )}
               </section>
             )}
@@ -370,7 +375,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
               {creditLine && (
                 <p>
                   <strong>{creditLine.amount}</strong> {creditLine.rest}{" "}
-                  <Link href="/family/settings/plan" className="text-sm whitespace-nowrap text-white/85 underline underline-offset-4 hover:text-white">
+                  <Link href={settingsLink("/family/settings/plan", "/family")} className="text-sm whitespace-nowrap text-white/85 underline underline-offset-4 hover:text-white">
                     How credits work
                   </Link>
                 </p>

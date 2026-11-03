@@ -66,6 +66,21 @@ export interface ShelfBook {
   touchedAt: string | null;
 }
 
+/** A book being prepared right now in a family voice, so a grown-up can find it again after closing its page. */
+export interface PreparingBook {
+  slug: string;
+  title: string;
+  coverUrl: string | null;
+  tint: string;
+  narrators: HomePerson[];
+  /** 0 to 100: how much of what was asked for is ready. */
+  percent: number;
+  /** When the newest preparation started, for ordering newest first. */
+  startedAt: string;
+  /** The book's page, which shows the preparation as it goes. */
+  href: string;
+}
+
 /** A book prepared in a family voice that no child here can hear yet, with what's missing. */
 export interface UnassignedBook {
   slug: string;
@@ -124,6 +139,8 @@ export interface FamilyHomeView {
   continueListening: HomeBook[];
   ready: HomeBook[];
   fresh: HomeBook[];
+  /** Books being prepared now, newest first; they lead the Family bookshelf until they're done. */
+  preparing: PreparingBook[];
   /** Every prepared audiobook a child of this family may hear, one entry per book. */
   shelf: ShelfBook[];
   /** Prepared audiobooks no child here can hear yet, so they don't go missing. */
@@ -306,8 +323,47 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     });
   }
 
+  // Being prepared: every queued or running preparation in this family, one entry per book, newest
+  // first, whoever asked for it and whether or not a child may hear that voice yet (Kevin, 2026-11-03).
+  const preparingBySlug = new Map<string, PreparingBook & { asked: number; done: number }>();
+  const preparingVoices = new Map<string, Set<string>>();
+  const jobs = state.jobs.filter((j) => j.householdId === householdId && (j.status === "queued" || j.status === "running")).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  for (const job of jobs) {
+    const lib = state.libraries.find((l) => l.key === job.libraryKey);
+    const book = lib ? findCatalogBook(lib.bookSlug) : null;
+    if (!lib || !book) continue;
+    const entry =
+      preparingBySlug.get(book.slug) ??
+      preparingBySlug
+        .set(book.slug, { slug: book.slug, title: book.title, coverUrl: book.coverUrl, tint: book.tint, narrators: [], percent: 0, startedAt: job.createdAt, href: `/family/books/${book.slug}`, asked: 0, done: 0 })
+        .get(book.slug)!;
+    const wanted = new Set(job.sentenceIds);
+    entry.asked += wanted.size;
+    entry.done += state.segments.filter((x) => x.libraryKey === job.libraryKey && wanted.has(x.sentenceId) && x.status === "ready").length;
+    const voice = state.voices.find((v) => v.id === lib.voiceId);
+    const owner = voice ? adultById.get(voice.ownerId) : undefined;
+    const seen = preparingVoices.get(book.slug) ?? preparingVoices.set(book.slug, new Set()).get(book.slug)!;
+    if (voice && !seen.has(voice.id)) {
+      seen.add(voice.id);
+      entry.narrators.push(person(owner));
+    }
+  }
+  const preparing: PreparingBook[] = [...preparingBySlug.values()].map(({ asked, done, ...b }) => ({
+    ...b,
+    percent: asked ? Math.min(99, Math.round((done / asked) * 100)) : 0,
+  }));
+
+  // Within each state, the newest activity comes first: a child's latest listening, or else when the
+  // book last finished preparing in this family, so a book just prepared sits at the top.
+  const preparedAt = new Map<string, string>();
+  for (const job of state.jobs) {
+    if (job.householdId !== householdId || job.status !== "done" || !job.finishedAt) continue;
+    const slug = state.libraries.find((l) => l.key === job.libraryKey)?.bookSlug;
+    if (slug && (preparedAt.get(slug) ?? "") < job.finishedAt) preparedAt.set(slug, job.finishedAt);
+  }
+  const latest = (b: ShelfBook) => [b.touchedAt ?? "", preparedAt.get(b.slug) ?? ""].reduce((x, y) => (y > x ? y : x));
   const order: ShelfState[] = ["progress", "ready", "done"];
-  shelf.sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state) || (b.touchedAt ?? "").localeCompare(a.touchedAt ?? "") || a.minutes - b.minutes);
+  shelf.sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state) || latest(b).localeCompare(latest(a)) || a.minutes - b.minutes);
 
   // A request drops off Home once the book is on that child's shelf, as well as when a grown-up clears it.
   const requests: HomeRequest[] = (state.requests ?? [])
@@ -381,6 +437,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     continueListening,
     ready,
     fresh,
+    preparing,
     shelf,
     unassigned,
     requests,
@@ -428,12 +485,25 @@ export function homeNotice(state: FamilyState, householdId: string, adultId: str
   return { titles, narrators, other, through: notes.reduce((a, n) => (n.at > a ? n.at : a), notes[0]!.at) };
 }
 
-/** "2 new readings ready: A and B, read by Daddy." */
-export function noticeText(n: HomeNotice): string {
-  const parts: string[] = [];
+/** How many titles the readings line names before it says "and N more". */
+const NOTICE_TITLES = 3;
+
+/**
+ * Home's notice as separate lines: one for the readings that finished, then each other update in its
+ * own words, newest first. The card shows the first lines and folds the rest away, so a busy week never
+ * turns into a wall of text (Kevin, 2026-11-03).
+ */
+export function noticeLines(n: HomeNotice): string[] {
+  const lines: string[] = [];
   if (n.titles.length) {
     const lead = n.titles.length === 1 ? "New reading ready" : `${n.titles.length} new readings ready`;
-    parts.push(`${lead}: ${names(n.titles)}, read by ${names(n.narrators)}.`);
+    const shown = n.titles.length > NOTICE_TITLES ? [...n.titles.slice(0, NOTICE_TITLES - 1), `${n.titles.length - (NOTICE_TITLES - 1)} more`] : n.titles;
+    lines.push(`${lead}: ${names(shown)}, read by ${names(n.narrators)}.`);
   }
-  return [...parts, ...n.other].join(" ");
+  return [...lines, ...[...n.other].reverse()];
+}
+
+/** "2 new readings ready: A and B, read by Daddy." */
+export function noticeText(n: HomeNotice): string {
+  return noticeLines(n).join(" ");
 }
