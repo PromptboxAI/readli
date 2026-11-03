@@ -48,11 +48,16 @@ export function displayName(user: AuthUser): string {
   return givenName(user) ?? (user.email?.split("@")[0]?.slice(0, 60) || "Grown-up");
 }
 
+/** An admin paused this account: it can't use Readli until it's unpaused. */
+export function isPaused(user: { banned_until?: string | null }, at = new Date()): boolean {
+  return Boolean(user.banned_until && Date.parse(user.banned_until) > at.getTime());
+}
+
 /** The signed-in grown-up, verified with Supabase Auth, or null. */
 export async function currentUser(): Promise<SignedInUser | null> {
   if (!authConfigured()) return null;
   const { data, error } = await (await supabaseServer()).auth.getUser();
-  if (error || !data.user) return null;
+  if (error || !data.user || isPaused(data.user)) return null;
   return { id: data.user.id, email: data.user.email ?? null, name: displayName(data.user), named: givenName(data.user) !== null };
 }
 
