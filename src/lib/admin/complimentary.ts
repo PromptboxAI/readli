@@ -530,6 +530,9 @@ export interface MembershipRow {
   redeemedAt: string | null;
   /** When a claimed membership's Readli Family ends. */
   paidThrough: string | null;
+  /** The account that claimed it; its email is filled in by withClaimers. */
+  claimedByUserId: string | null;
+  claimedBy: string | null;
 }
 
 const MONTHS_BY_PLAN: Record<string, number> = { prepaid_1m: 1, prepaid_3m: 3, prepaid_12m: 12 };
@@ -538,7 +541,7 @@ const MONTHS_BY_PLAN: Record<string, number> = { prepaid_1m: 1, prepaid_3m: 3, p
 export async function listMemberships(db: SupabaseClient, now = new Date(), limit = 2000): Promise<MembershipRow[]> {
   const { data, error } = await db
     .from("gifts")
-    .select("id, batch_id, certificate_no, code_last4, status, redeemed_at, claim_by, sent_at, created_at, recipient_name, recipient_email, giver_display_name, event_name, complimentary_for, plan_id, paid_through")
+    .select("id, batch_id, certificate_no, code_last4, status, redeemed_at, claim_by, sent_at, created_at, recipient_name, recipient_email, giver_display_name, event_name, complimentary_for, plan_id, paid_through, recipient_user_id")
     .not("complimentary_for", "is", null)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -570,8 +573,27 @@ export async function listMemberships(db: SupabaseClient, now = new Date(), limi
       claimBy: (g.claim_by as string | null) ?? batch?.claimBy ?? null,
       redeemedAt: (g.redeemed_at as string | null) ?? null,
       paidThrough: (g.paid_through as string | null) ?? null,
+      claimedByUserId: (g.recipient_user_id as string | null) ?? null,
+      claimedBy: null,
     };
   });
+}
+
+/** Fills in the email of the account that claimed each membership (at most `max` lookups). */
+export async function withClaimers(db: SupabaseClient, rows: MembershipRow[], max = 300): Promise<MembershipRow[]> {
+  const ids = [...new Set(rows.map((r) => r.claimedByUserId).filter((id): id is string => Boolean(id)))].slice(0, max);
+  const emails = new Map<string, string>();
+  await Promise.all(
+    ids.map(async (id) => {
+      try {
+        const { data } = await db.auth.admin.getUserById(id);
+        if (data?.user?.email) emails.set(id, data.user.email);
+      } catch {
+        /* A deleted or unreadable account just shows no email. */
+      }
+    }),
+  );
+  return rows.map((r) => (r.claimedByUserId ? { ...r, claimedBy: emails.get(r.claimedByUserId) ?? null } : r));
 }
 
 /** Matches every word of the search against a membership's names, email, certificate, code ending, sponsor, event and label. */
@@ -580,7 +602,7 @@ export function filterMemberships(rows: MembershipRow[], q: string, status: Issu
   return rows.filter((r) => {
     if (status && r.status !== status) return false;
     if (!words.length) return true;
-    const hay = [r.certificate, r.last4, r.recipientName, r.recipientEmail, r.sponsorName, r.eventName, r.label, r.occasion].filter(Boolean).join(" ").toLowerCase();
+    const hay = [r.certificate, r.last4, r.recipientName, r.recipientEmail, r.claimedBy, r.sponsorName, r.eventName, r.label, r.occasion].filter(Boolean).join(" ").toLowerCase();
     return words.every((w) => hay.includes(w));
   });
 }

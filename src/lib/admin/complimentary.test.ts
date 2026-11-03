@@ -12,6 +12,7 @@ import {
   filterMemberships,
   issueComplimentary,
   listMemberships,
+  withClaimers,
   issuedStatus,
   membershipArtwork,
   revealCode,
@@ -317,5 +318,20 @@ describe("issued memberships", () => {
     expect(filterMemberships(rows, "mount elementary", null).map((r) => r.certificate).sort()).toEqual(["MEB-001", "MEB-002"]);
     expect(filterMemberships(rows, "", "claimed").map((r) => r.certificate)).toEqual(["MEB-002"]);
     expect(filterMemberships(rows, `meb ${rows.find((r) => r.certificate === "MEB-001")!.last4!.toLowerCase()}`, null)).toHaveLength(1);
+  });
+
+  it("show which account claimed a membership, and skip accounts that can't be read", async () => {
+    const { db, tables } = fakeDb();
+    await issueComplimentary(db, admin, raffle({ count: 2 }), cipher, AT);
+    tables.gifts!.forEach((g) => (g.complimentary_for = "raffle"));
+    Object.assign(tables.gifts![0]!, { status: "active", redeemed_at: "2026-10-23", recipient_user_id: "u1" });
+    Object.assign(tables.gifts![1]!, { status: "active", redeemed_at: "2026-10-24", recipient_user_id: "gone" });
+    const users: Record<string, string> = { u1: "family@example.com" };
+    (db as unknown as { auth: unknown }).auth = {
+      admin: { getUserById: async (id: string) => (users[id] ? { data: { user: { email: users[id] } } } : { data: { user: null } }) },
+    };
+    const rows = await withClaimers(db, await listMemberships(db, AT));
+    expect(rows.map((r) => r.claimedBy).sort()).toEqual(["family@example.com", null]);
+    expect(filterMemberships(rows, "family@example", null)).toHaveLength(1);
   });
 });
