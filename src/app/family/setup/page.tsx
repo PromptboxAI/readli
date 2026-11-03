@@ -38,7 +38,7 @@ import { accountVoiceDeps } from "@/lib/voice/account-voices";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Set up your family | Readli", robots: { index: false } };
 
-const STARTER_BOOKS = 4;
+const STARTER_BOOKS = 3;
 
 /** Where each step's "Next" goes, in words. */
 const NEXT_LABEL: Record<SetupStep, string> = {
@@ -64,7 +64,8 @@ function Stepper({ step, done }: { step: SetupStep; done: Record<(typeof SETUP_S
                 className="flex flex-col gap-1.5 rounded-xl p-1 text-sm hover:bg-ink/5"
                 data-testid={`setup-step-${s}`}
               >
-                <span className={`h-2 rounded-full ${current ? "bg-coral-deep" : done[s] ? "bg-mint" : "bg-ink/15"}`} aria-hidden="true" />
+                {/* Green means done, wherever you are; the step you're on is the bold one with the taller bar. */}
+                <span className={`rounded-full ${current ? "h-3" : "h-2"} ${done[s] ? "bg-mint" : current ? "bg-coral-deep" : "bg-ink/15"}`} aria-hidden="true" />
                 <span className={`truncate ${current ? "font-semibold" : "text-muted"}`}>
                   <span aria-hidden="true">{done[s] ? "✓ " : <span className="hidden sm:inline">{i + 1}. </span>}</span>
                   {SETUP_STEP_LABELS[s]}
@@ -246,7 +247,13 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
     );
   } else if (step === "book") {
     const lib = plan ? await familyLibrary(store, actor, home) : null;
-    const starters = lib ? (lib.recommended.length ? lib.recommended : [...lib.all].sort((a, b) => a.minutes - b.minutes)).slice(0, STARTER_BOOKS) : [];
+    // The quickest (and cheapest) story leads, so a family hears it work within minutes; recommended picks fill the rest.
+    const quickest = lib ? [...lib.all].sort((a, b) => a.minutes - b.minutes)[0] : undefined;
+    const starters = lib
+      ? [quickest, ...lib.recommended, ...[...lib.all].sort((a, b) => a.minutes - b.minutes)]
+          .filter((b, i, list): b is NonNullable<typeof b> => Boolean(b) && list.findIndex((x) => x?.slug === b!.slug) === i)
+          .slice(0, STARTER_BOOKS)
+      : [];
     body = (
       <>
         <header className="flex flex-col gap-2">
@@ -281,7 +288,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
                 <h2 id="starters-h" className="font-display text-2xl font-semibold">
                   {progress.story ? "Another good one to start with" : "Good first stories"}
                 </h2>
-                <ul className="grid grid-cols-2 gap-4 sm:grid-cols-4" data-testid="setup-books">
+                <ul className="grid grid-cols-3 gap-3 sm:gap-4" data-testid="setup-books">
                   {starters.map((b) => (
                     <li key={b.slug} className="min-w-0">
                       <Link href={`/family/books/${b.slug}?from=setup`} className="flex flex-col gap-2 rounded-2xl p-1 hover:bg-ink/5">
@@ -293,14 +300,14 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
                           )}
                         </span>
                         <span className="line-clamp-2 font-semibold leading-snug">{b.title}</span>
-                        <span className="text-sm text-muted">{b.minutes} min</span>
+                        <span className="text-sm text-muted">
+                          {b.minutes} min{b.slug === quickest?.slug ? " · quickest to try" : ""}
+                        </span>
                       </Link>
                     </li>
                   ))}
                 </ul>
-                <Link href="/family/books" className="self-start font-semibold underline underline-offset-4">
-                  Browse all books
-                </Link>
+                <p className="text-sm text-muted">The whole library is in Books whenever you want more.</p>
               </section>
             )}
           </>
