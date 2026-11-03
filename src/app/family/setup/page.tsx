@@ -112,6 +112,18 @@ function StepNav({ step, ready, skip = "Skip for now", nextHref }: { step: Setup
   );
 }
 
+/** No plan on this family and no payment on its way: say so plainly, with the way to start or restore one. */
+function NoPlan() {
+  return (
+    <p className="rounded-2xl bg-sunshine/50 p-4" data-testid="setup-no-plan">
+      Readli Family isn&apos;t active for your family right now, so adding kids and preparing books are paused. You can still record your voice.{" "}
+      <Link href="/family/settings/plan" className="font-semibold underline underline-offset-4">
+        See plans
+      </Link>
+    </p>
+  );
+}
+
 function Done({ children }: { children: React.ReactNode }) {
   return (
     <p className="flex items-center gap-3 rounded-2xl bg-mint/50 p-4 font-semibold">
@@ -171,7 +183,13 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   const kidNames = kids.map((k) => k.nickname);
   const invitesOn = Boolean(db && session.account);
   const done = { voice, kids: kids.length > 0, family: invited, book: progress.story, listen: false };
-  const opensLater = <p className="rounded-2xl bg-sunshine/50 p-4">This step opens as soon as your plan starts. You can record your voice while you wait.</p>;
+  // Just back from Stripe, the payment may still be confirming; otherwise there's simply no plan on this family.
+  const paying = !plan && q.checkout === "success";
+  const opensLater = paying ? (
+    <p className="rounded-2xl bg-sunshine/50 p-4">This step opens as soon as your plan starts. You can record your voice while you wait.</p>
+  ) : (
+    <NoPlan />
+  );
   const n = (SETUP_STEPS as readonly string[]).indexOf(step) + 1;
   const eyebrow = step === "done" ? "All set" : `Step ${n} of ${SETUP_STEPS.length}`;
 
@@ -182,7 +200,8 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
     return (
       <FamilyShell>
         {q.checkout === "success" && <CheckoutDone sessionId={q.session_id} />}
-        {!plan && <PlanStarting waiting="Thank you! Your plan starts as soon as the payment goes through, usually within a minute. Have a look around while you wait." />}
+        {paying && <PlanStarting waiting="Thank you! Your plan starts as soon as the payment goes through, usually within a minute. Have a look around while you wait." />}
+        {!plan && !paying && <NoPlan />}
         <Welcome kind="family" startHref={setupHref("voice")} name={myName?.split(" ")[0]} askName={session.account ? (myName ?? "") : undefined} />
       </FamilyShell>
     );
@@ -443,7 +462,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
       {/* Your voice reads to your kids as soon as both exist, without a separate button. */}
       {askMyVoice && <SetupUseMyVoice />}
       {q.checkout === "success" && <CheckoutDone sessionId={q.session_id} />}
-      {!plan && <PlanStarting waiting="Thank you! Your plan starts as soon as the payment goes through, usually within a minute. You can record your voice while you wait." />}
+      {paying && <PlanStarting waiting="Thank you! Your plan starts as soon as the payment goes through, usually within a minute. You can record your voice while you wait." />}
       <div className="flex flex-col gap-4">
         <p className="text-sm font-bold tracking-wider text-muted uppercase" data-testid="setup-progress">
           Setting up {named ? familyName : "your family"} · {eyebrow}
