@@ -15,12 +15,38 @@ import { READLI_TIME_ZONE } from "@/lib/time";
 const STASH = "readli-claim-code";
 const STASH_MS = 7 * 86_400_000;
 
-function stash(code: string) {
+/** What the winner already chose before signing in, so the claim finishes on its own when they're back. */
+interface ClaimIntent {
+  familyName: string;
+}
+
+function stash(code: string, intent?: ClaimIntent) {
   try {
-    localStorage.setItem(STASH, JSON.stringify({ code, at: Date.now() }));
+    // Re-stashing the same code keeps an intent saved before sign-in.
+    const kept = intent ?? (stashedIntent(code) ?? undefined);
+    localStorage.setItem(STASH, JSON.stringify({ code, at: Date.now(), ...(kept ? { intent: kept } : {}) }));
   } catch {
     /* Storage blocked: they can type the code from the certificate. */
   }
+}
+
+/** Used once: a failed or paused claim waits for the winner's own press. */
+function dropIntent(code: string) {
+  try {
+    localStorage.setItem(STASH, JSON.stringify({ code, at: Date.now() }));
+  } catch {
+    /* Nothing to clear. */
+  }
+}
+
+function stashedIntent(code: string): ClaimIntent | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(STASH) ?? "null") as { code?: string; at?: number; intent?: ClaimIntent } | null;
+    if (v?.code && normalizeGiftCode(v.code) === code && v.at && Date.now() - v.at < STASH_MS && v.intent) return { familyName: String(v.intent.familyName ?? "") };
+  } catch {
+    /* Nothing usable stored. */
+  }
+  return null;
 }
 
 function stashed(): string | null {
@@ -180,9 +206,10 @@ export function ComplimentaryGift({ code, gift, viewer, path = "/claim" }: { cod
   const claimBy = claimByLabel(gift.claimBy);
   const subscriber = viewer.plan === "subscription";
 
-  async function claim() {
+  async function claim(name = familyName) {
     if (!viewer.signedIn) {
-      stash(code);
+      // One press: the family name rides along, and the claim finishes by itself after sign-in (Kevin, 2026-11-03).
+      stash(code, { familyName: name });
       window.location.assign(`/login?next=${path}`);
       return;
     }
@@ -191,7 +218,7 @@ export function ComplimentaryGift({ code, gift, viewer, path = "/claim" }: { cod
     const res = await fetch("/api/gifts/redeem", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ code, familyName: viewer.hasFamily ? undefined : familyName, pauseBilling: subscriber ? agreePause : undefined }),
+      body: JSON.stringify({ code, familyName: viewer.hasFamily ? undefined : name, pauseBilling: subscriber ? agreePause : undefined }),
     });
     const body = await res.json().catch(() => null);
     setBusy(false);
@@ -200,6 +227,20 @@ export function ComplimentaryGift({ code, gift, viewer, path = "/claim" }: { cod
     setResult(body);
     setStage("claimed");
   }
+
+  // Back from sign-in after pressing Claim My Gift: finish the claim without a second press. Someone who
+  // already pays still sees the page, because pausing their billing needs their own tick.
+  const [resumed, setResumed] = useState(false);
+  useEffect(() => {
+    if (resumed || !viewer.signedIn || stage !== "open" || gift.status === "unavailable") return;
+    const intent = stashedIntent(code);
+    if (!intent) return;
+    setResumed(true);
+    dropIntent(code);
+    setFamilyName(intent.familyName);
+    if (!subscriber) void claim(intent.familyName);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewer.signedIn, stage, code]);
 
   if (gift.status === "unavailable") {
     return (
@@ -275,7 +316,7 @@ export function ComplimentaryGift({ code, gift, viewer, path = "/claim" }: { cod
             <p>Nothing is charged when it ends. You&apos;d only pay if you later choose a plan at a separate checkout.</p>
           </section>
 
-          {viewer.signedIn && !viewer.hasFamily && (
+          {!viewer.hasFamily && (
             <label className="flex flex-col gap-1">
               <span className="font-display font-semibold">Your family&apos;s name (optional)</span>
               <input
@@ -315,11 +356,11 @@ export function ComplimentaryGift({ code, gift, viewer, path = "/claim" }: { cod
               {error}
             </p>
           )}
-          <button type="button" className={`${buttonPrimary} min-h-14 w-full text-xl`} onClick={claim} disabled={!canClaim}>
+          <button type="button" className={`${buttonPrimary} min-h-14 w-full text-xl`} onClick={() => void claim()} disabled={!canClaim}>
             {busy ? "Claiming…" : "Claim My Gift"}
           </button>
           <p className="text-center text-sm text-muted">
-            {viewer.signedIn ? "It goes on your own family's account." : "Next, sign in or create a free account and tell us your family's name."}
+            {viewer.signedIn ? "It goes on your own family's account." : "Next, sign in or create a free account, and your gift is claimed straight away."}
             {claimBy ? ` Claim by ${claimBy}.` : ""}
           </p>
 
