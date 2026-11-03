@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { AskName } from "@/components/account/AskName";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { CATALOG } from "@/lib/library/catalog";
@@ -35,7 +36,18 @@ const COPY = {
  * how it works and a glimpse of the library, then "Let's get started!". A short video will replace the
  * top of this page later.
  */
-export function Welcome({ kind, startHref, name }: { kind: "family" | "storyteller"; startHref: string; name?: string | null }) {
+export function Welcome({
+  kind,
+  startHref,
+  name,
+  askName,
+}: {
+  kind: "family" | "storyteller";
+  startHref: string;
+  name?: string | null;
+  /** The signed-in name to keep or change before starting. Sign-in fills it from Google, which may be a business or a nickname. */
+  askName?: string | null;
+}) {
   const copy = COPY[kind];
   const books = CATALOG.filter((b) => b.coverUrl).slice(0, SAMPLE);
   return (
@@ -82,6 +94,19 @@ export function Welcome({ kind, startHref, name }: { kind: "family" | "storytell
             ))}
           </ul>
         </section>
+      )}
+
+      {askName !== undefined && (
+        <AskName
+          initial={askName ?? ""}
+          label={kind === "family" ? "First, what should your family call you?" : "First, what should the kids call you?"}
+          hint={
+            kind === "family"
+              ? "This is how you'll appear to your kids and the storytellers you invite. We filled it in from your sign-in, so change it if it isn't right."
+              : "Families see this name on invitations and in Readli Kids. We filled it in from your sign-in, so change it if it isn't right."
+          }
+          placeholder={kind === "family" ? "Mom, Dad, Kevin…" : "Grandpa Joe, Nana, Aunt Sue…"}
+        />
       )}
 
       <div className="flex flex-col items-center gap-2 border-t border-ink/10 pt-6 sm:items-start">

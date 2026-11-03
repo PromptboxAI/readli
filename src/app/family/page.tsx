@@ -38,10 +38,11 @@ import { serverConfig } from "@/lib/server/config";
 import { creditBalance, displayCredits, type CreditBalance } from "@/lib/narration/credits";
 import { newThisWeekFor } from "@/lib/email/bedtime";
 import { accountDb } from "@/lib/family/account-store";
+import { listInvites } from "@/lib/invites/server";
 import { settingsLink } from "@/lib/family/settings-nav";
 import { unreadCount } from "@/lib/family/activity";
-import { firstStoryChosen, hasReadingVoice, setupProgress } from "@/lib/family/setup";
-import { SETUP_SEEN_COOKIE } from "@/lib/family/setup-cookie";
+import { familyInvited, firstStoryChosen, firstStoryReady, hasReadingVoice, SETUP_TOTAL, setupProgress } from "@/lib/family/setup";
+import { SETUP_LATER_COOKIE } from "@/lib/family/setup-cookie";
 import { cookies } from "next/headers";
 
 function SignOutButton() {
@@ -195,7 +196,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   // Until the three getting-started steps are done, Home keeps a way back to them.
   const setup = account && isGuardian && hasPlan && home ? await setupFor(state, adult.id, home) : null;
   // A new family is walked through setup the first time Home opens; after that, Home keeps a reminder.
-  if (setup?.next && !(await cookies()).get(SETUP_SEEN_COOKIE)) redirect("/family/setup");
+  if (setup?.next && !(await cookies()).get(SETUP_LATER_COOKIE)) redirect("/family/setup");
   const newBooks = isGuardian && home ? await newThisWeekFor(session, accountDb()) : null;
   const slots = home ? narratorSlotCount(state, home, plan) : 0;
   const kidsMax = home ? childProfileLimit(state, home, plan) : plan.maxChildProfiles;
@@ -225,7 +226,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
         <section className="flex flex-wrap items-center gap-4 rounded-3xl bg-sunshine/50 p-5" aria-labelledby="setup-reminder-h" data-testid="setup-reminder">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <h2 id="setup-reminder-h" className="font-display text-xl font-semibold">
-              Finish setting up: {setup.done} of 3 done
+              Finish setting up: {setup.done} of {SETUP_TOTAL} done
             </h2>
             <p>Next: {SETUP_NEXT[setup.next]}.</p>
           </div>
@@ -479,6 +480,9 @@ async function setupFor(state: FamilyState, adultId: string, home: string) {
   const deps = recorded ? null : accountVoiceDeps(serverConfig());
   if (deps) recorded = Boolean(await deps.store.findVoice(adultId).catch(() => null));
   const voice = recorded || hasReadingVoice(state, adultId, home);
-  return { ...setupProgress({ voice, kids, story }), recorded };
+  const db = accountDb();
+  const invites = db ? (await listInvites(db, home).catch(() => [])).filter((i) => i.status === "invited").length : 0;
+  const family = familyInvited(state, adultId, home, invites);
+  return { ...setupProgress({ voice, kids, story, family, listen: firstStoryReady(state, home) }), recorded };
 }
 

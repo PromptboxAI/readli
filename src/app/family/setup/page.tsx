@@ -10,16 +10,19 @@ import { FamilyParents } from "@/components/family/FamilyParents";
 import { NameFamily } from "@/components/family/NameFamily";
 import { PlanStarting } from "@/components/family/PlanStarting";
 import { Welcome } from "@/components/onboarding/Welcome";
-import { SetupSeen, SetupStorytellerInvites, SetupUseMyVoice } from "@/components/family/SetupSteps";
+import { SetupStorytellerInvites, SetupUseMyVoice } from "@/components/family/SetupSteps";
 import { billingConfig } from "@/lib/billing/config";
 import { confirmCheckout } from "@/lib/billing/confirm";
 import { StripeApi } from "@/lib/billing/stripe-api";
+import { chosenName } from "@/lib/account/names";
+import { currentAdult } from "@/lib/auth/adult";
 import { accountDb } from "@/lib/family/account-store";
 import { familyPage, guardianChildren } from "@/lib/family/page-data";
 import { activeEntitlement, activeShare } from "@/lib/family/permissions";
 import { childProfiles, familyParents, homeHousehold, PROVISIONAL_FAMILY_NAME } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
 import {
+  familyInvited,
   firstStoryChosen,
   myVoiceForKids,
   SETUP_STEP_LABELS,
@@ -102,7 +105,7 @@ function StepNav({ step, ready, skip = "Skip for now", nextHref }: { step: Setup
           Back
         </Link>
       )}
-      <Link href="/family" className="ml-auto text-sm text-muted underline underline-offset-4 hover:text-ink">
+      <Link href="/family/setup/later" className="ml-auto text-sm text-muted underline underline-offset-4 hover:text-ink">
         Finish setting up later
       </Link>
     </div>
@@ -157,7 +160,9 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   const recorded = Boolean(ownRecording || ownInState);
   const sharedVoice = state.voices.some((v) => v.status === "ready" && v.deletedAt === null && activeShare(state, v.id, home) !== null);
   const voice = recorded || sharedVoice;
-  const progress = setupProgress({ voice, kids: kids.length > 0, story: firstStoryChosen(state, home) });
+  const pendingInvites = db ? (await listInvites(db, home).catch(() => [])).filter((i) => i.status === "invited").length : 0;
+  const invited = familyInvited(state, adultId, home, pendingInvites);
+  const progress = setupProgress({ voice, kids: kids.length > 0, story: firstStoryChosen(state, home), family: invited });
   // A family that hasn't started yet sees the welcome page first: what Readli is, then "Let's get started!".
   const welcome = q.step === "welcome" || (!q.step && !voice && kids.length === 0 && !progress.story);
   const step = setupStep(q.step, progress);
@@ -165,18 +170,20 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   const askMyVoice = Boolean(mine && !mine.on && kids.length > 0);
   const kidNames = kids.map((k) => k.nickname);
   const invitesOn = Boolean(db && session.account);
-  const done = { voice, kids: kids.length > 0, family: false, book: progress.story, listen: false };
+  const done = { voice, kids: kids.length > 0, family: invited, book: progress.story, listen: false };
   const opensLater = <p className="rounded-2xl bg-sunshine/50 p-4">This step opens as soon as your plan starts. You can record your voice while you wait.</p>;
   const n = (SETUP_STEPS as readonly string[]).indexOf(step) + 1;
   const eyebrow = step === "done" ? "All set" : `Step ${n} of ${SETUP_STEPS.length}`;
 
+  // Sign-in fills the name from Google, which can be a business name; the welcome page asks them to keep or change it.
+  const signedIn = session.account ? await currentAdult() : null;
+  const myName = chosenName(adult.displayName, signedIn?.email, signedIn?.named);
   if (welcome) {
     return (
       <FamilyShell>
-        <SetupSeen />
         {q.checkout === "success" && <CheckoutDone sessionId={q.session_id} />}
         {!plan && <PlanStarting waiting="Thank you! Your plan starts as soon as the payment goes through, usually within a minute. Have a look around while you wait." />}
-        <Welcome kind="family" startHref={setupHref("voice")} name={adult.displayName.split(" ")[0]} />
+        <Welcome kind="family" startHref={setupHref("voice")} name={myName?.split(" ")[0]} askName={session.account ? (myName ?? "") : undefined} />
       </FamilyShell>
     );
   }
@@ -379,7 +386,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
           )
         )}
         {/* With everything done, Finish ends setup and goes home; otherwise the summary shows what's left. */}
-        <StepNav step="listen" ready={Boolean(book)} skip="Finish without listening" nextHref={voice && kids.length > 0 && progress.story ? "/family" : undefined} />
+        <StepNav step="listen" ready={Boolean(book)} skip="Finish without listening" nextHref={voice && kids.length > 0 && progress.story ? "/family/setup/later" : undefined} />
       </>
     );
   } else {
@@ -420,7 +427,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
           </section>
         )}
         <div className="flex flex-wrap items-center gap-4 border-t border-ink/10 pt-5">
-          <Link href="/family" className={parentPrimary} data-testid="setup-finish">
+          <Link href="/family/setup/later" className={parentPrimary} data-testid="setup-finish">
             Go to Family Home
           </Link>
           <Link href={setupHref("listen")} className={parentSecondary}>
@@ -433,7 +440,6 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
 
   return (
     <FamilyShell>
-      <SetupSeen />
       {/* Your voice reads to your kids as soon as both exist, without a separate button. */}
       {askMyVoice && <SetupUseMyVoice />}
       {q.checkout === "success" && <CheckoutDone sessionId={q.session_id} />}

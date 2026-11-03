@@ -3,15 +3,17 @@ import type { PlanConfig } from "./plan";
 import { activeApproval, activeShare, activeSlot } from "./permissions";
 
 /**
- * The three getting-started steps on /family/setup: a voice to read with, the kids added, and a first
- * story chosen. Family Home shows how many are done, with a way back, until all three are.
+ * Getting-started progress on /family/setup's five steps. Three are needed (a voice to read with, the kids
+ * added, a first story chosen); inviting family is optional and listening follows the story. Family Home
+ * counts all five, and shows the count with a way back until the three needed ones are done.
  */
 export interface SetupProgress {
   voice: boolean;
   kids: boolean;
   story: boolean;
+  /** Steps done, out of SETUP_TOTAL. */
   done: number;
-  /** The first step still to do, or null once all three are done. */
+  /** The first needed step still to do, or null once all three are done. */
   next: "voice" | "kids" | "story" | null;
 }
 
@@ -22,14 +24,26 @@ export function hasReadingVoice(state: FamilyState, adultId: string, home: strin
   );
 }
 
+/** Whether anyone else is in the family or has been invited: a co-parent or a storyteller. */
+export function familyInvited(state: FamilyState, adultId: string, home: string, pendingInvites: number): boolean {
+  return pendingInvites > 0 || state.members.some((m) => m.householdId === home && m.adultId !== adultId && m.removedAt === null);
+}
+
+/** Whether a first story has finished preparing, so it's ready to listen to. */
+export function firstStoryReady(state: FamilyState, home: string): boolean {
+  return state.jobs.some((j) => j.householdId === home && j.status === "done");
+}
+
 /** Whether the family has asked for any narration yet (being prepared or prepared). */
 export function firstStoryChosen(state: FamilyState, home: string): boolean {
   return state.jobs.some((j) => j.householdId === home && j.status !== "failed" && j.status !== "canceled");
 }
 
-export function setupProgress({ voice, kids, story }: { voice: boolean; kids: boolean; story: boolean }): SetupProgress {
+export const SETUP_TOTAL = 5;
+
+export function setupProgress({ voice, kids, story, family = false, listen = false }: { voice: boolean; kids: boolean; story: boolean; family?: boolean; listen?: boolean }): SetupProgress {
   const next = !voice ? "voice" : !kids ? "kids" : !story ? "story" : null;
-  return { voice, kids, story, done: [voice, kids, story].filter(Boolean).length, next };
+  return { voice, kids, story, done: [voice, kids, family, story, listen].filter(Boolean).length, next };
 }
 
 /**
