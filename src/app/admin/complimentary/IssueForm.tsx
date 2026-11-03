@@ -110,21 +110,14 @@ export function IssueForm({ defaultClaimBy }: { defaultClaimBy: string }) {
         </div>
         <label className="flex flex-col gap-1 pt-2">
           <span className="font-bold">
-            Organizer&apos;s email <span className="font-normal text-muted">(optional)</span>
+            {recipient === "named" ? "Organizer's email" : "Email them to"} <span className="font-normal text-muted">(optional)</span>
           </span>
-          <input
-            name="organizerEmail"
-            aria-label="Organizer email"
-            type="email"
-            disabled={recipient !== "named"}
-            maxLength={254}
-            placeholder="organizer@example.org"
-            className={input}
-          />
+          <input name="organizerEmail" aria-label={recipient === "named" ? "Organizer email" : "Email them to"} type="email" maxLength={254} placeholder="organizer@example.org" className={input} />
         </label>
         <p className={hint}>
-          Named memberships are one at a time. We never guess a family name. When the membership is emailed, the organizer gets a note that it
-          went out, with who it went to but not the claim link, since that link works only once.
+          {recipient === "named"
+            ? "Named memberships are one at a time. We never guess a family name. When the membership is emailed, the organizer gets a note that it went out, with who it went to but not the claim link, since that link works only once."
+            : "Usually the event organizer. They get every membership's code and one-time link to hand to the winners. You can also send them later from the batch page."}
         </p>
       </fieldset>
 

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateGiftCode, hashGiftCode } from "@/lib/gifting/codes.server";
 import type { GiftCodeCipher } from "@/lib/gifting/code-cipher";
-import { complimentaryMembershipEmail, complimentaryOrganizerEmail } from "@/lib/gifting/complimentary-email";
+import { complimentaryBatchEmail, complimentaryMembershipEmail, complimentaryOrganizerEmail } from "@/lib/gifting/complimentary-email";
 import type { QueuedEmail } from "@/lib/email/outbox";
 import type { StripeApi } from "@/lib/billing/stripe-api";
 import type { AdminUser } from "./access";
@@ -327,6 +327,8 @@ function auditText(a: Row): string {
     case "complimentary_cancelled":
       return `${who} cancelled ${d.certificate}`;
     case "complimentary_emailed":
+      if (d.to === "organizer")
+        return `${who} emailed ${d.count} unclaimed ${d.count === 1 ? "membership" : "memberships"} to give away${d.outcome === "sent" ? "" : ` (${d.outcome === "queued" ? "waiting to send" : "not sent"})`}`;
       return `${who} emailed ${d.certificate} to the recipient${d.outcome === "sent" ? "" : ` (${d.outcome === "queued" ? "waiting to send" : "not sent"})`}`;
     case "complimentary_artwork_downloaded":
       return `${who} downloaded ${d.what}${d.certificate ? ` for ${d.certificate}` : ""}`;
@@ -542,6 +544,57 @@ export async function emailMembership(
     console.error("log complimentary email failed", err instanceof Error ? err.message : err),
   );
   return { certificate: art.certificate, outcome, organizerOutcome };
+}
+
+/**
+ * Emails every unclaimed membership in a batch, with its code and link, to whoever is handing them out
+ * (usually the event organizer). For unknown winners, where there's no recipient to email.
+ */
+export async function emailBatch(
+  db: SupabaseClient,
+  admin: AdminUser,
+  cipher: GiftCodeCipher,
+  origin: string,
+  batchId: string,
+  to: string | null | undefined,
+  send: SendOne,
+  at = new Date(),
+): Promise<{ count: number; outcome: EmailOutcome }> {
+  const email = organizerEmail(to);
+  if (!email) throw new AdminActionError("Add the email address to send them to.");
+  if (!/^[0-9a-f-]{36}$/i.test(batchId)) throw new AdminActionError("That batch wasn't found.");
+  const { data: b, error } = await db.from("complimentary_batches").select("*").eq("id", batchId).maybeSingle();
+  if (error) throw new Error(`read batch: ${error.message}`);
+  if (!b) throw new AdminActionError("That batch wasn't found.");
+  const batch = toBatch(b as Row);
+  const { data: rows, error: gErr } = await db.from("gifts").select(GIFT_COLUMNS).eq("batch_id", batchId).order("certificate_no", { ascending: true });
+  if (gErr) throw new Error(`read batch gifts: ${gErr.message}`);
+  const memberships: { certificate: string; code: string; url: string }[] = [];
+  for (const g of (rows ?? []) as Row[]) {
+    if (issuedStatus(g, at) !== "unclaimed" || !g.code_encrypted || g.recipient_email) continue;
+    const art = await membershipArtwork(db, cipher, g.id as string);
+    if (art) memberships.push({ certificate: art.certificate, code: art.code, url: claimLink(origin, art.code, claimPath(batch.program)) });
+  }
+  if (!memberships.length) throw new AdminActionError("There are no unclaimed memberships here to send.");
+  const outcome = await send({
+    emailId: "M3",
+    dedupeKey: `M3:${batchId}:${at.getTime()}`,
+    to: { email },
+    message: complimentaryBatchEmail({
+      months: batch.months,
+      occasion: batch.occasion,
+      sponsorName: batch.sponsorName,
+      sponsorIsReadli: batch.sponsorIsReadli,
+      eventName: batch.eventName,
+      claimBy: batch.claimBy,
+      claimPage: `${origin.replace(/\/$/, "")}${claimPath(batch.program)}`,
+      memberships,
+    }),
+  });
+  await logAction(db, admin, "complimentary_emailed", { batch_id: batch.id, to: "organizer", count: memberships.length, outcome }).catch((err) =>
+    console.error("log complimentary email failed", err instanceof Error ? err.message : err),
+  );
+  return { count: memberships.length, outcome };
 }
 
 // ---------------------------------------------------------------------------
