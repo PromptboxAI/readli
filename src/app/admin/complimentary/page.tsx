@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
+import { buttonSecondary } from "@/components/brand/buttons";
 import { requireAdmin } from "@/lib/admin/access";
 import { defaultClaimBy, earlierCodes, listBatches } from "@/lib/admin/complimentary";
 import { COMPLIMENTARY_KIND_LABELS } from "@/lib/admin/complimentary-kinds";
@@ -35,6 +36,9 @@ export default async function ComplimentaryPage() {
         </p>
       </header>
       {gate.preview && <PreviewNote>Issuing memberships needs sign-in and Supabase connected. This shows the form only.</PreviewNote>}
+      <Link href="/admin/complimentary/memberships" className={`${buttonSecondary} w-fit`}>
+        Search all memberships
+      </Link>
       <IssueForm defaultClaimBy={defaultClaimBy()} />
 
       {batches.length > 0 && (

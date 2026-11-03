@@ -507,3 +507,80 @@ export async function emailMembership(
   );
   return { certificate: art.certificate, outcome };
 }
+
+// ---------------------------------------------------------------------------
+// Every complimentary membership in one searchable table
+// ---------------------------------------------------------------------------
+
+export interface MembershipRow {
+  id: string;
+  batchId: string | null;
+  certificate: string;
+  last4: string | null;
+  status: IssuedStatus;
+  recipientName: string | null;
+  recipientEmail: string | null;
+  sponsorName: string | null;
+  eventName: string | null;
+  occasion: string | null;
+  label: string | null;
+  months: number | null;
+  issuedAt: string;
+  claimBy: string | null;
+  redeemedAt: string | null;
+  /** When a claimed membership's Readli Family ends. */
+  paidThrough: string | null;
+}
+
+const MONTHS_BY_PLAN: Record<string, number> = { prepaid_1m: 1, prepaid_3m: 3, prepaid_12m: 12 };
+
+/** Every complimentary membership, newest first, with its batch's facts. */
+export async function listMemberships(db: SupabaseClient, now = new Date(), limit = 2000): Promise<MembershipRow[]> {
+  const { data, error } = await db
+    .from("gifts")
+    .select("id, batch_id, certificate_no, code_last4, status, redeemed_at, claim_by, sent_at, created_at, recipient_name, recipient_email, giver_display_name, event_name, complimentary_for, plan_id, paid_through")
+    .not("complimentary_for", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`read memberships: ${error.message}`);
+  const gifts = (data ?? []) as Row[];
+  const batchIds = [...new Set(gifts.map((g) => g.batch_id as string | null).filter((id): id is string => Boolean(id)))];
+  const batches = new Map<string, Batch>();
+  if (batchIds.length) {
+    const { data: b, error: bErr } = await db.from("complimentary_batches").select("*").in("id", batchIds);
+    if (bErr) throw new Error(`read batches: ${bErr.message}`);
+    for (const row of (b ?? []) as Row[]) batches.set(row.id as string, toBatch(row));
+  }
+  return gifts.map((g) => {
+    const batch = g.batch_id ? batches.get(g.batch_id as string) : undefined;
+    return {
+      id: g.id as string,
+      batchId: (g.batch_id as string | null) ?? null,
+      certificate: certificateLabel(batch?.prefix ?? "", batch ? (g.certificate_no as number | null) : null),
+      last4: (g.code_last4 as string | null) ?? null,
+      status: issuedStatus(g, now),
+      recipientName: (g.recipient_name as string | null) || null,
+      recipientEmail: (g.recipient_email as string | null) ?? null,
+      sponsorName: batch?.sponsorName ?? ((g.giver_display_name as string | null) || null),
+      eventName: batch?.eventName ?? ((g.event_name as string | null) || null),
+      occasion: batch?.occasion ?? ((g.complimentary_for as string | null) || null),
+      label: batch?.label ?? null,
+      months: batch?.months ?? MONTHS_BY_PLAN[g.plan_id as string] ?? null,
+      issuedAt: (g.sent_at as string | null) ?? (g.created_at as string),
+      claimBy: (g.claim_by as string | null) ?? batch?.claimBy ?? null,
+      redeemedAt: (g.redeemed_at as string | null) ?? null,
+      paidThrough: (g.paid_through as string | null) ?? null,
+    };
+  });
+}
+
+/** Matches every word of the search against a membership's names, email, certificate, code ending, sponsor, event and label. */
+export function filterMemberships(rows: MembershipRow[], q: string, status: IssuedStatus | null): MembershipRow[] {
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  return rows.filter((r) => {
+    if (status && r.status !== status) return false;
+    if (!words.length) return true;
+    const hay = [r.certificate, r.last4, r.recipientName, r.recipientEmail, r.sponsorName, r.eventName, r.label, r.occasion].filter(Boolean).join(" ").toLowerCase();
+    return words.every((w) => hay.includes(w));
+  });
+}
