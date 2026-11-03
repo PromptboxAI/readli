@@ -38,3 +38,16 @@ test("storytellers get a welcome page, then record, share and listen steps", asy
   await expect(page.getByRole("button", { name: "Play my story" })).toBeVisible();
   await noOverflow(page);
 });
+
+test("setup's book and listen steps stay in setup, with a small player", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/setup?step=book");
+  const prep = page.getByTestId("setup-prepare");
+  await expect(prep).toContainText("The Lion and the Mouse");
+  await prep.getByTestId("setup-book-next").click();
+  await expect(page).toHaveURL(/step=listen/);
+  const player = page.getByTestId("setup-mini-player");
+  await expect(player.getByRole("button", { name: "Play" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Play it now" })).toHaveCount(0);
+  await noOverflow(page);
+});

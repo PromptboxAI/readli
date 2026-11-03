@@ -49,6 +49,7 @@ export function AccountVoiceSetup({
   fromTry = false,
   askName = false,
   waiting = null,
+  nextLabel,
 }: {
   hasVoice: boolean;
   next?: string;
@@ -63,6 +64,8 @@ export function AccountVoiceSetup({
   askName?: boolean;
   /** A recording made earlier but never kept: opens on its sample, so they can keep it without reading again. */
   waiting?: WaitingRecording | null;
+  /** Inside a setup walkthrough: names the next step, in place of "Continue". */
+  nextLabel?: string;
 }) {
   const [step, setStep] = useState(waiting ? 2 : 0);
   const [agreed, setAgreed] = useState(false);
@@ -353,7 +356,7 @@ export function AccountVoiceSetup({
         <section aria-live="polite" className="flex max-w-2xl flex-col items-center gap-4 rounded-[var(--radius-panel)] bg-mint/50 p-6 text-center sm:p-8" data-testid="voice-ready">
           <ReadiMascot size={120} decorative />
           <h2 className="font-display text-3xl font-semibold">Your Readli voice is ready!</h2>
-          <p className="max-w-md">{next ? "Let's get back to where you were." : "Next, choose a story for your family to hear first. You'll approve it before anyone gets an invitation."}</p>
+          <p className="max-w-md">{nextLabel ? "It's saved, and it's yours. Families you choose will hear stories read in it." : next ? "Let's get back to where you were." : "Next, choose a story for your family to hear first. You'll approve it before anyone gets an invitation."}</p>
           {askName && (
             <div className="w-full text-left">
               <AskName label="What should families call you?" hint="Invitations use this name, like “Grandpa Joe has a bedtime story for your family.”" placeholder="Grandpa Joe, Nana, Aunt Sue…" />
@@ -361,7 +364,7 @@ export function AccountVoiceSetup({
           )}
           <div className="flex w-full flex-col items-center gap-2 sm:w-auto">
             <Link href={next ?? "/voice/invite"} className={`${buttonPrimary} w-full sm:w-auto`}>
-              {next ? "Continue" : "Choose a Story to Share"}
+              {nextLabel ?? (next ? "Continue" : "Choose a Story to Share")}
             </Link>
             {!next && (
               <Link href={myVoice} className={buttonQuiet}>
