@@ -12,6 +12,7 @@ import { guardianHousehold } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
 import { UPCOMING_BOOKS } from "@/lib/library/catalog";
 import { familyLibrary } from "@/lib/library/discovery";
+import { settingsLink } from "@/lib/family/settings-nav";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Books | Readli" };
@@ -41,7 +42,7 @@ export default async function FamilyBooksPage({ searchParams }: { searchParams: 
       <PreviewNote />
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h1 className="font-display text-4xl font-semibold">Books</h1>
-        <Link href="/family/settings/plan" className="font-semibold" data-testid="library-balance">
+        <Link href={settingsLink("/family/settings/plan", "/family/books")} className="font-semibold" data-testid="library-balance">
           <span className="font-display text-xl">{displayCredits(lib.credits.available, lib.credits.unitsPerCredit).toLocaleString("en-US")} credits available</span>{" "}
           <span className="text-sm underline underline-offset-4">Credits and history</span>
         </Link>

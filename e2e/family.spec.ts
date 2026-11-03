@@ -385,7 +385,8 @@ test("a parent prepares narration ahead of time and is told when it's ready", as
 
   await page.getByTestId("narrator-voice-june").click();
   const june = page.getByTestId("prepare-voice-june");
-  await expect(page.getByTestId("book-status")).toHaveText("Partly ready");
+  // The book itself reads as ready for whoever has it ready, whichever narrator is chosen.
+  await expect(page.getByTestId("book-status")).toHaveText(/^Ready for /);
   await june.getByRole("button", { name: /Prepare the rest/ }).click();
   const confirm = june.getByTestId("confirm-generation");
   await expect(confirm).toContainText("already prepared are free");

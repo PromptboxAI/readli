@@ -3,7 +3,7 @@
 import { HelpLink } from "@/components/help/HelpLink";
 import { displayCredits } from "@/lib/narration/credits";
 import Image from "next/image";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Availability, BookUpdate, GenerationQuote, PrepareBookView, PrepareVoiceView } from "@/lib/narration/narration";
@@ -34,13 +34,37 @@ const STATUS: Record<Availability, { label: string; tone: string }> = {
 
 const CHAPTER_STATUS = { ready: "Ready", preparing: "In progress", partial: "Partly ready", not_prepared: "Not prepared" } as const;
 
-function StatusBadge({ availability, testId }: { availability: Availability; testId?: string }) {
+function StatusBadge({ availability, label, testId }: { availability: Availability; label?: string; testId?: string }) {
   const s = STATUS[availability];
   return (
-    <span className={`inline-flex rounded px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${s.tone}`} data-testid={testId}>
-      {s.label}
+    <span className={`inline-flex w-fit rounded px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${s.tone}`} data-testid={testId}>
+      {label ?? s.label}
     </span>
   );
+}
+
+/** A small spinner beside "Family library" while the library loads, so a tap on a phone shows it was heard. */
+function BackPending() {
+  const { pending } = useLinkStatus();
+  return pending ? <span aria-hidden="true" className="ml-2 size-4 animate-spin rounded-full border-2 border-ink/25 border-t-ink" /> : null;
+}
+
+const joinNames = (list: string[]) => (list.length <= 1 ? list.join("") : `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`);
+
+/**
+ * The book's status at the top of the page, across every narrator: "Ready for Mommy" when any voice has
+ * it ready, then partly ready, then in progress. Only when no voice has any of it does it fall back to
+ * the chosen narrator's status, such as Not prepared (Kevin, 2026-11-03).
+ */
+export function bookStatus(
+  voices: Pick<PrepareVoiceView, "name" | "availability">[],
+  chosen: Pick<PrepareVoiceView, "availability"> | null,
+): { availability: Availability; label: string } | null {
+  for (const a of ["ready", "partial", "preparing"] as const) {
+    const names = voices.filter((x) => x.availability === a).map((x) => x.name);
+    if (names.length) return { availability: a, label: `${STATUS[a].label} for ${joinNames(names)}` };
+  }
+  return chosen ? { availability: chosen.availability, label: STATUS[chosen.availability].label } : null;
 }
 
 type Target = { voiceId: string; scope: "book" | "chapter"; chapter?: number };
@@ -63,6 +87,8 @@ export function PrepareNarration({ initial, resume, prefer = null }: { initial: 
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  // The chosen narrator's details fold away under its row; tapping the row again opens or closes them.
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const url = `/api/family/books/${view.book.slug}/narration`;
   // An update being prepared counts too: the old audiobook still reads as Ready while it runs.
   const preparing = view.voices.some((v) => v.status.readiness === "preparing" || v.jobId !== null);
@@ -70,6 +96,9 @@ export function PrepareNarration({ initial, resume, prefer = null }: { initial: 
   const v = view.voices.find((x) => x.voiceId === selected) ?? null;
   // A narration with a newer version of the story to update to; the selected narrator's first.
   const updatable = [v, ...view.voices].find((x) => x?.update && !x.jobId) ?? null;
+  const status = bookStatus(view.voices, v);
+  // Setup still to finish keeps the details open, so the next step is never hidden.
+  const needsSetup = Boolean(v && (editing || !v.shared || !v.inSlot || v.approvedFor.length === 0));
 
   const reload = useCallback(async () => {
     const res = await fetch(url, { cache: "no-store" });
@@ -155,7 +184,13 @@ export function PrepareNarration({ initial, resume, prefer = null }: { initial: 
   };
 
   const choose = (id: string) => {
+    if (id === selected) {
+      setDetailsOpen((o) => !o);
+      setEditing(false);
+      return;
+    }
     setSelected(id);
+    setDetailsOpen(true);
     setPending(null);
     setEditing(false);
   };
@@ -171,12 +206,17 @@ export function PrepareNarration({ initial, resume, prefer = null }: { initial: 
 
   return (
     <div className="flex flex-col gap-7" data-testid="prepare-narration">
-      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-muted">
-        <Link href="/family/books" className="flex min-h-11 items-center font-semibold text-ink underline-offset-4 hover:underline" data-testid="back-link">
-          <span aria-hidden="true" className="mr-1 sm:hidden">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-muted sm:text-sm">
+        <Link
+          href="/family/books"
+          className="-ml-2 flex min-h-11 items-center rounded-lg px-2 font-display text-lg font-semibold text-ink underline-offset-4 transition-colors hover:underline active:bg-ink/10 sm:font-sans sm:text-sm"
+          data-testid="back-link"
+        >
+          <span aria-hidden="true" className="mr-1.5 sm:hidden">
             ←
           </span>
           Family library
+          <BackPending />
         </Link>
         <span aria-hidden="true" className="hidden sm:inline">
           /
@@ -208,12 +248,12 @@ export function PrepareNarration({ initial, resume, prefer = null }: { initial: 
 
       <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-8">
         {view.book.coverUrl ? (
-          <Image src={view.book.coverUrl} alt="" width={190} height={253} className="aspect-[3/4] w-28 shrink-0 rounded-lg object-cover shadow-md sm:w-44" priority />
+          <Image src={view.book.coverUrl} alt="" width={190} height={253} className="aspect-[3/4] w-40 shrink-0 self-center rounded-lg object-cover shadow-md sm:w-44 sm:self-auto" priority />
         ) : (
-          <span className={`flex aspect-[3/4] w-28 shrink-0 items-center justify-center rounded-lg p-3 text-center font-display text-lg font-semibold sm:w-44 ${view.book.tint}`}>{view.book.title}</span>
+          <span className={`flex aspect-[3/4] w-40 shrink-0 items-center justify-center self-center rounded-lg p-3 text-center font-display text-lg font-semibold sm:w-44 sm:self-auto ${view.book.tint}`}>{view.book.title}</span>
         )}
         <div className="flex min-w-0 flex-col gap-3 sm:pt-2">
-          {v && <StatusBadge availability={v.availability} testId="book-status" />}
+          {status && <StatusBadge availability={status.availability} label={status.label} testId="book-status" />}
           <h1 className="font-display text-3xl font-semibold leading-tight sm:text-4xl">{view.book.title}</h1>
           <p className="text-muted">
             {view.book.author} · {view.book.minutes < 1 ? "under a minute" : `about ${view.book.minutes} minutes`}
@@ -261,50 +301,57 @@ export function PrepareNarration({ initial, resume, prefer = null }: { initial: 
                 <h2 id="narrator-h" className="border-b border-ink/10 px-5 py-4 text-lg font-bold">
                   Narrator
                 </h2>
-                {view.voices.length > 1 && (
-                  <ul aria-label="Choose a narrator" className="divide-y divide-ink/10 border-b border-ink/10">
-                    {view.voices.map((x) => (
+                <ul aria-label="Choose a narrator" className="divide-y divide-ink/10">
+                  {view.voices.map((x) => {
+                    const chosen = x.voiceId === v.voiceId;
+                    const expanded = chosen && (detailsOpen || needsSetup);
+                    return (
                       <li key={x.voiceId}>
                         <button
                           type="button"
-                          aria-pressed={x.voiceId === v.voiceId}
+                          aria-pressed={chosen}
+                          aria-expanded={expanded}
                           onClick={() => choose(x.voiceId)}
-                          className={`flex w-full items-center gap-3 px-5 py-3 text-left ${x.voiceId === v.voiceId ? "bg-ivory" : "hover:bg-ivory/60"}`}
+                          className={`flex w-full items-center gap-3 px-5 py-3 text-left transition-colors active:bg-ink/10 ${chosen ? "bg-ivory" : "hover:bg-ivory/60"}`}
                           data-testid={`narrator-${x.voiceId}`}
                         >
-                          <span
-                            aria-hidden="true"
-                            className={`size-4 shrink-0 rounded-full border-2 ${x.voiceId === v.voiceId ? "border-[5px] border-ink" : "border-ink/30"}`}
-                          />
+                          <span aria-hidden="true" className={`size-4 shrink-0 rounded-full border-2 ${chosen ? "border-[5px] border-ink" : "border-ink/30"}`} />
                           <StorytellerAvatar name={x.name} avatarUrl={x.avatarUrl} tint={x.tint} size="xs" />
                           <span className="min-w-0 flex-1 font-semibold">
                             {x.name}
                             {x.yours && <span className="font-normal text-muted"> (your voice)</span>}
                           </span>
                           <StatusBadge availability={x.availability} testId="availability" />
+                          <svg aria-hidden="true" viewBox="0 0 24 24" className={`size-5 shrink-0 text-muted transition-transform ${expanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M6 9l6 6 6-6" />
+                          </svg>
                         </button>
+                        {expanded && (
+                          <div className="border-t border-ink/10" data-testid="narrator-details">
+                            <NarratorDetails
+                              view={view}
+                              voice={v}
+                              busy={busy}
+                              showSetup={needsSetup}
+                              onEdit={() => setEditing(true)}
+                              onDone={editing && v.shared && v.inSlot && v.approvedFor.length > 0 ? () => setEditing(false) : null}
+                              onShare={() => setUp(`/api/family/voices/${v.voiceId}/share`, "PUT", { householdId: view.householdId, shared: true }, "Your voice is shared with this family.")}
+                              onSlot={() => setUp("/api/family/narrators", "POST", { voiceId: v.voiceId, action: "activate" }, `${v.name} is in a narrator slot.`)}
+                              onApprove={(kid, approved) =>
+                                setUp(
+                                  `/api/family/kids/${kid.id}/storytellers`,
+                                  "PUT",
+                                  { changes: [{ voiceId: v.voiceId, approved }] },
+                                  approved ? `${kid.name} can listen to ${v.name}.` : `${kid.name} can no longer listen to ${v.name}.`,
+                                )
+                              }
+                            />
+                          </div>
+                        )}
                       </li>
-                    ))}
-                  </ul>
-                )}
-                <NarratorDetails
-                  view={view}
-                  voice={v}
-                  busy={busy}
-                  showSetup={editing || !v.shared || !v.inSlot || v.approvedFor.length === 0}
-                  onEdit={() => setEditing(true)}
-                  onDone={editing && v.shared && v.inSlot && v.approvedFor.length > 0 ? () => setEditing(false) : null}
-                  onShare={() => setUp(`/api/family/voices/${v.voiceId}/share`, "PUT", { householdId: view.householdId, shared: true }, "Your voice is shared with this family.")}
-                  onSlot={() => setUp("/api/family/narrators", "POST", { voiceId: v.voiceId, action: "activate" }, `${v.name} is in a narrator slot.`)}
-                  onApprove={(kid, approved) =>
-                    setUp(
-                      `/api/family/kids/${kid.id}/storytellers`,
-                      "PUT",
-                      { changes: [{ voiceId: v.voiceId, approved }] },
-                      approved ? `${kid.name} can listen to ${v.name}.` : `${kid.name} can no longer listen to ${v.name}.`,
-                    )
-                  }
-                />
+                    );
+                  })}
+                </ul>
               </section>
 
               {view.chapterGenerationEnabled && v.availability !== "unavailable" && (
