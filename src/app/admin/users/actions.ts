@@ -14,6 +14,17 @@ const field = (form: FormData, name: string) => {
   return typeof v === "string" ? v : "";
 };
 
+/** Back to the same search, filter, sort and page, with the outcome on top. Only known keys survive. */
+function back(form: FormData, outcome: string): never {
+  const from = new URLSearchParams(field(form, "back"));
+  const qs = new URLSearchParams(outcome);
+  for (const key of ["q", "show", "sort", "page"]) {
+    const v = from.get(key);
+    if (v) qs.set(key, v);
+  }
+  redirect(`/admin/users?${qs}`);
+}
+
 /**
  * What the admin sees when a delete stops partway. Every step is safe to repeat, so an unexpected
  * failure is shown and logged instead of crashing the page, and the admin can try again.
@@ -30,7 +41,6 @@ function deleteFailure(err: unknown): string {
 export async function deleteAccountAction(form: FormData) {
   const gate = await requireAdmin("/admin/users");
   const db = accountDb();
-  const q = field(form, "q");
   let outcome: string;
   if (gate.preview || !db) outcome = `err=${encodeURIComponent("Deleting accounts needs sign-in and Supabase connected.")}`;
   else {
@@ -41,13 +51,12 @@ export async function deleteAccountAction(form: FormData) {
       outcome = `err=${encodeURIComponent(deleteFailure(err))}`;
     }
   }
-  redirect(`/admin/users?${outcome}${q ? `&q=${encodeURIComponent(q)}` : ""}`);
+  back(form, outcome);
 }
 
 async function pause(form: FormData, paused: boolean) {
   const gate = await requireAdmin("/admin/users");
   const db = accountDb();
-  const q = field(form, "q");
   let outcome: string;
   if (gate.preview || !db) outcome = `err=${encodeURIComponent("Pausing accounts needs sign-in and Supabase connected.")}`;
   else {
@@ -59,7 +68,7 @@ async function pause(form: FormData, paused: boolean) {
       outcome = `err=${encodeURIComponent(err instanceof Error ? err.message : String(err))}`;
     }
   }
-  redirect(`/admin/users?${outcome}${q ? `&q=${encodeURIComponent(q)}` : ""}`);
+  back(form, outcome);
 }
 
 export async function pauseAccountAction(form: FormData) {

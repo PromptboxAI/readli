@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import { isPaused } from "@/lib/auth/supabase";
 import { AdminActionError } from "./tester-plans";
-import { adminDeleteAccount, filterAccounts, listAccounts, PAUSE_DURATION, setAccountPaused, type AdminAccount } from "./users";
+import { adminDeleteAccount, filterAccounts, listAccounts, matchesFilter, PAUSE_DURATION, setAccountPaused, sortAccounts, type AdminAccount } from "./users";
 
 const env = { NODE_ENV: "production", ADMIN_EMAILS: "boss@readli.ai" } as NodeJS.ProcessEnv;
 const admin = { id: "boss", email: "boss@readli.ai", name: "Boss" };
@@ -87,5 +87,36 @@ describe("admin accounts", () => {
     const { db } = fakeDb();
     await expect(adminDeleteAccount({ db, provider: null, refs: null }, admin, "t1", "someone@else.com", env)).rejects.toThrow("Type the account's email");
     await expect(adminDeleteAccount({ db, provider: null, refs: null }, admin, "t1", "", env)).rejects.toThrow(AdminActionError);
+  });
+});
+
+describe("account table filters and sorting", () => {
+  const a = (over: Partial<AdminAccount>): AdminAccount => ({
+    id: "x", email: null, name: null, createdAt: confirmed, lastSignInAt: null, confirmed: true, isAdmin: false, paused: false, families: [], homes: [], ...over,
+  });
+  const plan = (source: string) => ({ id: "e", source, startsAt: confirmed, endsAt: null }) as unknown as NonNullable<AdminAccount["homes"][number]["plan"]>;
+  const list = [
+    a({ id: "paid", email: "b@x.com", createdAt: "2026-10-01T00:00:00Z", lastSignInAt: "2026-11-01T00:00:00Z", families: ["Zed"], homes: [{ name: "Zed", plan: plan("subscription") }] }),
+    a({ id: "comp", email: "a@x.com", createdAt: "2026-11-02T00:00:00Z", families: ["Amber"], homes: [{ name: "Amber", plan: plan("donated") }] }),
+    a({ id: "none", email: "c@x.com", createdAt: "2026-10-15T00:00:00Z", lastSignInAt: "2026-11-03T00:00:00Z", paused: true, confirmed: false }),
+    a({ id: "empty", email: "d@x.com", createdAt: "2026-09-01T00:00:00Z", families: ["Moss"], homes: [{ name: "Moss", plan: null }] }),
+  ];
+  const ids = (xs: AdminAccount[]) => xs.map((x) => x.id);
+
+  it("filters by plan, family, pause and confirmation", () => {
+    expect(ids(list.filter((x) => matchesFilter(x, "paid")))).toEqual(["paid"]);
+    expect(ids(list.filter((x) => matchesFilter(x, "complimentary")))).toEqual(["comp"]);
+    expect(ids(list.filter((x) => matchesFilter(x, "no_plan")))).toEqual(["empty"]);
+    expect(ids(list.filter((x) => matchesFilter(x, "no_family")))).toEqual(["none"]);
+    expect(ids(list.filter((x) => matchesFilter(x, "paused")))).toEqual(["none"]);
+    expect(ids(list.filter((x) => matchesFilter(x, "unconfirmed")))).toEqual(["none"]);
+    expect(list.filter((x) => matchesFilter(x, null))).toHaveLength(4);
+  });
+
+  it("sorts by joined, last sign-in, email and family", () => {
+    expect(ids(sortAccounts(list, "joined"))).toEqual(["comp", "none", "paid", "empty"]);
+    expect(ids(sortAccounts(list, "last_sign_in"))).toEqual(["none", "paid", "comp", "empty"]);
+    expect(ids(sortAccounts(list, "email"))).toEqual(["comp", "paid", "none", "empty"]);
+    expect(ids(sortAccounts(list, "family"))).toEqual(["comp", "empty", "paid", "none"]);
   });
 });

@@ -97,6 +97,56 @@ export function filterAccounts(accounts: AdminAccount[], query: string): AdminAc
   );
 }
 
+/** The account-list filter: everyone, or one slice of them. */
+export const ACCOUNT_FILTERS = [
+  { value: "paid", label: "Paid plan" },
+  { value: "complimentary", label: "Complimentary or gift" },
+  { value: "tester", label: "Tester or trial" },
+  { value: "no_plan", label: "Family, no plan" },
+  { value: "no_family", label: "No family" },
+  { value: "paused", label: "Paused" },
+  { value: "unconfirmed", label: "Email not confirmed" },
+] as const;
+export type AccountFilter = (typeof ACCOUNT_FILTERS)[number]["value"];
+
+const sources = (a: AdminAccount) => a.homes.map((h) => h.plan?.source ?? null);
+
+export function matchesFilter(a: AdminAccount, filter: AccountFilter | null): boolean {
+  switch (filter) {
+    case null:
+      return true;
+    case "paid":
+      return sources(a).includes("subscription");
+    case "complimentary":
+      return sources(a).some((s) => s === "donated" || s === "gift");
+    case "tester":
+      return sources(a).some((s) => s === "tester" || s === "trial");
+    case "no_plan":
+      return a.homes.length > 0 && sources(a).every((s) => s === null);
+    case "no_family":
+      return a.homes.length === 0;
+    case "paused":
+      return a.paused;
+    case "unconfirmed":
+      return !a.confirmed;
+  }
+}
+
+/** Columns the account table sorts by. Dates sort newest first, text A to Z. */
+export const ACCOUNT_SORTS = ["joined", "last_sign_in", "email", "family"] as const;
+export type AccountSort = (typeof ACCOUNT_SORTS)[number];
+
+export function sortAccounts(accounts: AdminAccount[], sort: AccountSort): AdminAccount[] {
+  const text = (v: string | null | undefined) => (v ?? "").toLowerCase();
+  const by: Record<AccountSort, (a: AdminAccount, b: AdminAccount) => number> = {
+    joined: (a, b) => b.createdAt.localeCompare(a.createdAt),
+    last_sign_in: (a, b) => (b.lastSignInAt ?? "").localeCompare(a.lastSignInAt ?? ""),
+    email: (a, b) => text(a.email).localeCompare(text(b.email)),
+    family: (a, b) => (a.families.length ? 0 : 1) - (b.families.length ? 0 : 1) || text(a.families[0]).localeCompare(text(b.families[0])),
+  };
+  return [...accounts].sort((a, b) => by[sort](a, b) || b.createdAt.localeCompare(a.createdAt));
+}
+
 export function describeBlocker(b: DeletionBlocker): string {
   if (b.kind === "only_guardian") return `they're the only grown-up in charge of kids in ${b.householdName}`;
   return `they're paying for a gift subscription for ${b.recipientName} that still renews`;
