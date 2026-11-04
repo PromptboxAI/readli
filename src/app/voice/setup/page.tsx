@@ -172,7 +172,7 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
           <p className="max-w-2xl text-lg">
             {voice
               ? "Families you share it with can have any story read in it. You can record again any time from My Voice."
-              : "You'll agree to how your voice is used, then read a short passage aloud in your bedtime-story voice. It takes about five minutes, and you only do it once."}
+              : "You'll agree to how your voice is used, then read a short passage aloud in your bedtime-story voice. Reading it takes about one minute, and you only do it once."}
           </p>
         </header>
         {voice ? (

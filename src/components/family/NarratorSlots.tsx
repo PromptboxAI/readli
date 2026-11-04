@@ -410,7 +410,7 @@ export function NarratorSlots({
           <h2 id="record-first-h" className="font-display text-2xl font-semibold">
             Start with your own voice
           </h2>
-          <p className="max-w-2xl">Record yours first, so your kids hear you. It takes about five minutes. Then invite grandparents and others to add theirs.</p>
+          <p className="max-w-2xl">Record yours first, so your kids hear you. It takes about one minute. Then invite grandparents and others to add theirs.</p>
           <Link href="/voice/record?next=/family/narrators" className={parentPrimary}>
             Record my voice
           </Link>
