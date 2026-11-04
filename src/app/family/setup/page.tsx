@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
 import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
@@ -8,6 +9,7 @@ import { CheckoutDone } from "@/components/family/BillingActions";
 import { SetKidsPin } from "@/components/family/SetKidsPin";
 import { SessionButton } from "@/components/family/SessionButton";
 import { CATALOG } from "@/lib/library/catalog";
+import { NAMED_COOKIE } from "@/lib/family/setup-cookie";
 import { SetupMiniPlayer } from "@/components/family/SetupMiniPlayer";
 import { SetupPrepareBook } from "@/components/family/SetupPrepareBook";
 import { ChildProfiles } from "@/components/family/ChildProfiles";
@@ -217,6 +219,8 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
 
   // Sign-in fills the name from Google, which can be a business name; the welcome page asks them to keep or change it.
   const signedIn = session.account ? await currentAdult() : null;
+  // Named on the gift page just now: setup greets them instead of asking again.
+  const namedOnGift = (await cookies()).get(NAMED_COOKIE)?.value === "1";
   const myName = chosenName(adult.displayName, signedIn?.email, signedIn?.named);
   if (welcome) {
     return (
@@ -224,7 +228,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
         {q.checkout === "success" && <CheckoutDone sessionId={q.session_id} />}
         {paying && <PlanStarting waiting="Thank you! Your plan starts as soon as the payment goes through, usually within a minute. Have a look around while you wait." />}
         {!plan && !paying && <NoPlan />}
-        <Welcome kind="family" startHref={setupHref("voice")} name={myName?.split(" ")[0]} askName={session.account && !(q.named === "1" && myName) ? (myName ?? "") : undefined} />
+        <Welcome kind="family" startHref={setupHref("voice")} name={myName?.split(" ")[0]} askName={session.account && !((q.named === "1" || namedOnGift) && myName) ? (myName ?? "") : undefined} />
       </FamilyShell>
     );
   }

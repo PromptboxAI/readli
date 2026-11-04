@@ -5,6 +5,7 @@ import { StripeApi } from "@/lib/billing/stripe-api";
 import { afterGiftRedeemed } from "@/lib/donations/server";
 import { emailSecret } from "@/lib/email/send";
 import { jsonBody } from "@/lib/family/http";
+import { NAMED_COOKIE } from "@/lib/family/setup-cookie";
 import { GiftError, redeemGiftCode } from "@/lib/gifting/server";
 import { requestOrigin } from "@/lib/invitations/context";
 import { withAccount } from "@/lib/invites/http";
@@ -42,7 +43,10 @@ export async function POST(req: Request) {
           console.error("gift follow-up failed", err instanceof Error ? err.message : err),
         );
       }
-      return NextResponse.json({ householdId: result.householdId, paidThrough: result.paidThrough, ...(result.billingPaused ? { billingPaused: true } : {}) }, { headers: { "cache-control": "no-store" } });
+      const res = NextResponse.json({ householdId: result.householdId, paidThrough: result.paidThrough, ...(result.billingPaused ? { billingPaused: true } : {}) }, { headers: { "cache-control": "no-store" } });
+      // They named themselves on the gift page, so setup's welcome doesn't ask again (Kevin, 2026-11-04).
+      if (typeof yourName === "string" && yourName.trim()) res.cookies.set(NAMED_COOKIE, "1", { path: "/", maxAge: 86_400, sameSite: "lax", httpOnly: true });
+      return res;
     } catch (err) {
       if (err instanceof GiftError) return fail(err.status, err.code, err.message);
       throw err;

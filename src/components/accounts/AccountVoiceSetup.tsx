@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { buttonPrimary, buttonQuiet, buttonSecondary } from "@/components/brand/buttons";
 import { ImproveLink, RecordingTipsDialog } from "@/components/teleprompter/RecordingTips";
 import { TeleprompterRecorder } from "@/components/teleprompter/TeleprompterRecorder";
 import type { TakeDetails } from "@/components/teleprompter/VoicePreview";
 import { AskName } from "@/components/account/AskName";
-import { VOICE_CONSENTS, VOICE_CONSENT_SENTENCE } from "@/lib/content/voice-consents";
+import { VOICE_CONSENTS } from "@/lib/content/voice-consents";
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
 import { formatClock } from "@/lib/teleprompter/recorder-machine";
 import type { GuestTake } from "@/lib/voice/guest-handoff";
@@ -68,7 +69,6 @@ export function AccountVoiceSetup({
   nextLabel?: string;
 }) {
   const [step, setStep] = useState(waiting ? 2 : 0);
-  const [agreed, setAgreed] = useState(false);
   /** On the first step: make the voice from the /try take (preferred) or record a new one. */
   const [useDemo, setUseDemo] = useState(guestTake !== null);
   const [take, setTake] = useState<TakeDetails | null>(null);
@@ -211,6 +211,18 @@ export function AccountVoiceSetup({
     setStep(1);
   };
 
+  // The recorder takes the whole screen, like /try: nothing above it to scroll past, and the page
+  // underneath can't scroll, so a swipe only ever moves the story (Kevin, 2026-11-04).
+  useEffect(() => {
+    if (step !== 1) return;
+    window.scrollTo({ top: 0 });
+    const before = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = before;
+    };
+  }, [step]);
+
   const busy = phase === "making" || phase === "sampling" || phase === "keeping";
 
   const myVoice = parent ? "/family/my-voice" : "/voice";
@@ -264,27 +276,37 @@ export function AccountVoiceSetup({
               </label>
             </fieldset>
           )}
-          <label className="flex items-start gap-3 rounded-2xl bg-lavender/40 p-4">
-            <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-1 size-5 shrink-0 accent-coral-deep" />
-            <span>{VOICE_CONSENT_SENTENCE}</span>
-          </label>
-          <button type="button" className={`${buttonPrimary} w-full sm:w-fit`} disabled={!agreed} onClick={() => (demoOffered && useDemo ? chooseGuestTake() : setStep(1))}>
+          {/* No box to tick: pressing the button is the agreement, with the same words as before. */}
+          <div className="flex flex-col gap-2 rounded-2xl bg-lavender/40 p-4 text-sm" data-testid="voice-consent">
+            <p className="font-semibold">By continuing, you confirm:</p>
+            <ul className="flex list-disc flex-col gap-1 pl-5">
+              {VOICE_CONSENTS.map((c) => (
+                <li key={c}>{c}</li>
+              ))}
+            </ul>
+          </div>
+          <button type="button" className={`${buttonPrimary} w-full sm:w-fit`} onClick={() => (demoOffered && useDemo ? chooseGuestTake() : setStep(1))}>
             {demoOffered && useDemo ? "Create & Hear My Voice" : "Continue to recording"}
           </button>
         </section>
       )}
 
-      {step === 1 && error && (
-        <p role="alert" className="rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold">
-          {error}
-        </p>
-      )}
-
       {step === 1 && (
-        <section className="flex flex-col gap-4">
-          <h2 className="font-display text-2xl font-semibold">Read the story out loud</h2>
-          <p>Read the whole story, about one to two minutes. Find a quiet spot and read it in your natural, warm storytime voice. Your Readli voice copies how you read.</p>
-          <TeleprompterRecorder script={DEMO_SCRIPT} onTake={takeChosen} takeActionLabel="Create & Hear My Voice" />
+        <section className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-ivory" aria-label="Read the story out loud" data-testid="voice-recorder-screen">
+          <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-2 sm:px-6">
+            <Wordmark />
+            <button type="button" className="min-h-11 rounded-full px-3 py-2 font-display font-medium underline-offset-4 hover:underline" onClick={() => setStep(0)}>
+              Back
+            </button>
+          </header>
+          <div className="mx-auto w-full max-w-6xl flex-1 px-4 pb-6 sm:px-6">
+            {error && (
+              <p role="alert" className="mb-3 rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold">
+                {error}
+              </p>
+            )}
+            <TeleprompterRecorder script={DEMO_SCRIPT} onTake={takeChosen} takeActionLabel="Create & Hear My Voice" />
+          </div>
         </section>
       )}
 

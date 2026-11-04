@@ -36,17 +36,17 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const agree = () => fireEvent.click(screen.getByRole("checkbox"));
 
 describe("AccountVoiceSetup from Save My Voice Free", () => {
   it("offers the demo recording first, with one consent, then leads to choosing a story", async () => {
     render(<AccountVoiceSetup hasVoice={false} guestTake={take} fromTry askName />);
-    expect(screen.getAllByRole("checkbox")).toHaveLength(1);
+    // No box to tick: the consent points are listed and the button is the agreement.
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(screen.getByTestId("voice-consent").textContent).toContain("This is my own voice");
     expect(screen.getByRole("radio", { name: /Use this recording/ })).toHaveProperty("checked", true);
     expect(screen.getByTestId("guest-take-offer").textContent).toContain("1:12");
     const create = screen.getByRole("button", { name: "Create & Hear My Voice" });
-    expect(create).toHaveProperty("disabled", true);
-    agree();
+    expect(create).toHaveProperty("disabled", false);
     fireEvent.click(create);
     expect(screen.queryByTestId("recorder")).toBeNull();
     fireEvent.click(await screen.findByRole("button", { name: "Keep This Voice" }));
@@ -61,7 +61,6 @@ describe("AccountVoiceSetup from Save My Voice Free", () => {
 
   it("never autoplays the sample", async () => {
     const { container } = render(<AccountVoiceSetup hasVoice={false} guestTake={take} fromTry />);
-    agree();
     fireEvent.click(screen.getByRole("button", { name: "Create & Hear My Voice" }));
     await screen.findByRole("button", { name: "Keep This Voice" });
     const audio = container.querySelector("audio")!;
@@ -71,7 +70,6 @@ describe("AccountVoiceSetup from Save My Voice Free", () => {
   it("can record a new one instead of the demo take", () => {
     render(<AccountVoiceSetup hasVoice={false} guestTake={take} fromTry />);
     fireEvent.click(screen.getByRole("radio", { name: /Record a new one/ }));
-    agree();
     fireEvent.click(screen.getByRole("button", { name: "Continue to recording" }));
     expect(screen.getByTestId("recorder")).toBeTruthy();
   });
@@ -80,7 +78,6 @@ describe("AccountVoiceSetup from Save My Voice Free", () => {
     render(<AccountVoiceSetup hasVoice={false} guestTake={null} fromTry />);
     expect(screen.getByTestId("demo-take-expired").textContent).toContain("expired");
     expect(screen.queryByRole("radio")).toBeNull();
-    agree();
     fireEvent.click(screen.getByRole("button", { name: "Continue to recording" }));
     expect(screen.getByTestId("recorder")).toBeTruthy();
   });
@@ -88,7 +85,6 @@ describe("AccountVoiceSetup from Save My Voice Free", () => {
   it("falls back to recording when the take is deleted partway through", async () => {
     fromGuestStatus = 410;
     render(<AccountVoiceSetup hasVoice={false} guestTake={take} fromTry />);
-    agree();
     fireEvent.click(screen.getByRole("button", { name: "Create & Hear My Voice" }));
     expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Your earlier recording isn't here anymore. Please record your voice again.");
     expect(screen.getByTestId("recorder")).toBeTruthy();
@@ -97,7 +93,6 @@ describe("AccountVoiceSetup from Save My Voice Free", () => {
   it("keeps an existing voice working until the new one is kept, without first-time copy", async () => {
     render(<AccountVoiceSetup hasVoice guestTake={take} fromTry />);
     expect(screen.getByTestId("replacing-voice").textContent).toContain("keeps working");
-    agree();
     fireEvent.click(screen.getByRole("button", { name: "Create & Hear My Voice" }));
     await screen.findByRole("button", { name: "Keep This Voice" });
     expect(screen.getByText("Your current voice stays in use until you keep this one.")).toBeTruthy();
@@ -106,7 +101,6 @@ describe("AccountVoiceSetup from Save My Voice Free", () => {
 
   it("goes back to an invitation's page when one sent them here", async () => {
     render(<AccountVoiceSetup hasVoice={false} guestTake={take} next="/voice/join/h1" />);
-    agree();
     fireEvent.click(screen.getByRole("button", { name: "Create & Hear My Voice" }));
     fireEvent.click(await screen.findByRole("button", { name: "Keep This Voice" }));
     expect((await screen.findByRole("link", { name: "Continue" })).getAttribute("href")).toBe("/voice/join/h1");
