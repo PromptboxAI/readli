@@ -1,3 +1,4 @@
+import { READLI_INTRO } from "@/lib/email/templates";
 import { DEFAULT_CONTRIBUTOR_MESSAGE } from "./invitations";
 import { READLI_TIME_ZONE } from "@/lib/time";
 
@@ -154,6 +155,8 @@ export function invitationEmail(input: InvitationEmailInput): Omit<OutgoingEmail
     ...(hear ? [hear, ""] : []),
     `${cta}: ${input.previewUrl}`,
     "",
+    READLI_INTRO,
+    "",
     support,
     "",
     `This invitation expires on ${expires}.`,
@@ -179,6 +182,7 @@ ${input.reminder ? `<tr><td align="center" style="padding:0 0 8px;font-size:14px
 ${cover}${book ? `<tr><td align="center" style="padding:0 0 4px;font-size:21px;font-weight:700">${esc(book)}</td></tr>
 <tr><td align="center" style="padding:0 0 20px;font-size:16px">${esc(hear!)}</td></tr>
 ` : ""}<tr><td align="center" style="padding:0 0 18px"><a href="${esc(input.previewUrl)}" style="display:inline-block;background:#c9402f;color:#ffffff;text-decoration:none;font-weight:700;font-size:18px;line-height:1.2;padding:16px 28px;border-radius:999px">&#9654;&nbsp; ${esc(cta)}</a></td></tr>
+<tr><td align="center" style="padding:0 0 12px;font-size:16px;line-height:1.5">${esc(READLI_INTRO)}</td></tr>
 <tr><td align="center" style="font-size:14px;line-height:1.5;color:#5b6676">${esc(support)}</td></tr>
 </table></td></tr>
 <tr><td align="center" style="padding:16px 8px 0;font-size:12px;line-height:1.6;color:#5b6676">This invitation expires on ${esc(expires)}.<br>Not for you? <a href="${esc(input.declineUrl)}" style="color:#5b6676">Decline</a> · <a href="${esc(input.unsubscribeUrl)}" style="color:#5b6676">Stop all Readli invitations</a> · <a href="${esc(input.reportUrl)}" style="color:#5b6676">Report this email</a><br>You're getting this because ${esc(who)} entered your email address on Readli. We don't add you to any mailing list.</td></tr>
@@ -247,7 +251,7 @@ export function familyInviteEmail(input: FamilyInviteEmailInput): Omit<OutgoingE
       : `${who} invited you to read stories to ${family} on Readli`;
   const intro = input.coParent
     ? `${who} would love you to join ${family} on Readli as a parent. You'll share the family's account: choose which storytellers each child hears, prepare books, and open Readli Kids on your own phone or tablet.`
-    : `${who} would love you to read stories to the kids in ${family}. On Readli, you record your voice once, and the children your family's parents choose can hear you read classic books.`;
+    : `${who} would love you to read stories to the kids in ${family}. Record about a minute of your voice, and Readli reads classic children's books to them in it.`;
   const terms = input.coParent
     ? `It's free for you: ${who} looks after the family's plan and billing. Recording your own voice for the kids is optional. The link works once, for ${input.linkDays} days.`
     : `It's free for you and takes about three minutes. This link is just for you and works for ${input.linkDays} days.`;

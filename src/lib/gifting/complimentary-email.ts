@@ -1,5 +1,5 @@
 import type { EmailMessage } from "@/lib/email/outbox";
-import { readliEmail } from "@/lib/email/templates";
+import { READLI_INTRO, readliEmail } from "@/lib/email/templates";
 import { claimByLabel, complimentaryHeadline, presentedLine, termPhrase } from "./complimentary-copy";
 
 /**
@@ -31,7 +31,7 @@ export function complimentaryMembershipEmail(f: ComplimentaryEmailFacts): EmailM
     paragraphs: [
       presentedLine(f),
       ...(f.message ? [`"${f.message}"`] : []),
-      "Readli reads classic children's books aloud at bedtime, and your family can add the voices of the people who love them.",
+      READLI_INTRO,
       "Claim it with the button below. You won't need a card, and nothing renews when it ends.",
       ...(claimBy ? [`Please claim it by ${claimBy}. The link works once, so keep this email to yourself.`] : ["The link works once, so keep this email to yourself."]),
     ],
@@ -67,6 +67,7 @@ export function complimentaryOrganizerEmail(f: OrganizerNoticeFacts): EmailMessa
     paragraphs: [
       `We just emailed ${who} a complimentary membership: ${what}.`,
       presentedLine(f),
+      READLI_INTRO,
       claimBy ? `They have until ${claimBy} to claim it.` : "They can claim it from that email whenever they're ready.",
       "Their claim link works once, so it's only in their email. If they can't find it, ask them to check their spam or Promotions folder, or reply here and we'll help.",
     ],
@@ -101,6 +102,7 @@ export function complimentaryBatchEmail(f: BatchEmailFacts): EmailMessage {
     title: n === 1 ? "Here's the membership to give away" : `Here are ${n} memberships to give away`,
     paragraphs: [
       `${presentedLine(f)} Each one is ${what}, with no card needed and nothing that renews.`,
+      READLI_INTRO,
       n === 1
         ? "Give the winner the link or the code below. The link works once, so only share it with them."
         : "Give each winner one link or one code below. Each one works once, so give every winner a different one.",

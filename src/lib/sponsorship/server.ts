@@ -4,7 +4,7 @@ import { lookupKey, type CatalogItem } from "@/lib/billing/catalog";
 import type { StripeApi } from "@/lib/billing/stripe-api";
 import { queueEmails, type QueuedEmail } from "@/lib/email/outbox";
 import { preferencesUrl } from "@/lib/email/preferences";
-import { readliEmail } from "@/lib/email/templates";
+import { READLI_INTRO, readliEmail } from "@/lib/email/templates";
 import { emailHash, hashInvitationToken, track } from "@/lib/invitations/server";
 import { ProviderRefCipher } from "@/lib/server/provider-ref";
 import type { SponsorshipChange } from "./events";
@@ -425,9 +425,8 @@ async function sendInvitation(ctx: SponsorshipContext, sp: Row, seat: Row): Prom
       title: `A gift from ${from}!`,
       paragraphs: [
         ...(sp.message ? [`${from} wrote: "${sp.message as string}"`] : []),
-        seat.share_voice
-          ? `${from} gave your family Readli: bedtime stories read aloud from a library of classic children's books, including stories in ${from}'s own voice.`
-          : `${from} gave your family Readli: bedtime stories read aloud from a library of classic children's books.`,
+        READLI_INTRO,
+        ...(seat.share_voice ? [`Your kids can also hear stories in ${from}'s own voice.`] : []),
         "Open your gift, add your kids, and pick tonight's story.",
         `Your gift is waiting for you until ${shortDate(new Date(now.getTime() + SPONSORED.invitationDays * 86_400_000))}.`,
       ],
