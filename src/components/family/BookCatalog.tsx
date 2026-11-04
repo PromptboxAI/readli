@@ -14,6 +14,9 @@ const filtersIds: Filter[] = ["all", "ready", "quick", "bedtime", "longer", "fit
 const PAGE = 12;
 const SORTS: Sort[] = ["shortest", "longest", "title"];
 /** The catalog's choices this visit, so coming back from a book finds the same view and place. */
+/** Being prepared in any family voice, whichever narrator the catalog shows costs for. */
+const preparingNow = (b: LibraryCard) => b.narrators.some((n) => n.availability === "preparing");
+
 const STATE_KEY = "readli:catalog";
 const SCROLL_KEY = "readli:catalog-scroll";
 
@@ -114,7 +117,12 @@ export function BookCatalog({
   const keep = filters.find((f) => f.id === filter)!.keep;
   const list = books
     .filter((b) => keep(b) && (!q || b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q)))
-    .sort((a, b) => (sort === "title" ? a.title.localeCompare(b.title) : sort === "longest" ? b.minutes - a.minutes : a.minutes - b.minutes));
+    .sort(
+      (a, b) =>
+        // A book being prepared comes first whatever the sort, so it is easy to find again (Kevin, 2026-11-03).
+        Number(preparingNow(b)) - Number(preparingNow(a)) ||
+        (sort === "title" ? a.title.localeCompare(b.title) : sort === "longest" ? b.minutes - a.minutes : a.minutes - b.minutes),
+    );
   const voiceName = narrators.find((n) => n.voiceId === voiceId)?.name;
 
   const cost = (b: LibraryCard) => {
@@ -214,11 +222,19 @@ export function BookCatalog({
           {list.slice(0, shown).map((b) => (
             <li key={b.slug} className="min-w-0">
               <Link href={`/family/books/${b.slug}${voiceId ? `?voice=${encodeURIComponent(voiceId)}` : ""}`} onClick={rememberPlace} className="group flex h-full flex-col gap-1.5 rounded-2xl outline-offset-4" data-testid={`book-${b.slug}`}>
-                {b.coverUrl ? (
-                  <Image src={b.coverUrl} alt="" width={180} height={240} className="aspect-[3/4] w-full rounded-2xl object-cover shadow-md group-hover:ring-4 group-hover:ring-ink" />
-                ) : (
-                  <span className={`flex aspect-[3/4] w-full items-center justify-center rounded-2xl p-3 text-center font-display text-lg font-semibold ${b.tint}`}>{b.title}</span>
-                )}
+                <span className="relative block">
+                  {b.coverUrl ? (
+                    <Image src={b.coverUrl} alt="" width={180} height={240} className="aspect-[3/4] w-full rounded-2xl object-cover shadow-md group-hover:ring-4 group-hover:ring-ink" />
+                  ) : (
+                    <span className={`flex aspect-[3/4] w-full items-center justify-center rounded-2xl p-3 text-center font-display text-lg font-semibold ${b.tint}`}>{b.title}</span>
+                  )}
+                  {preparingNow(b) && (
+                    <span className="absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-xs font-bold tracking-wide text-ink uppercase shadow-md" data-testid="preparing-badge">
+                      <span aria-hidden="true" className="size-3 animate-spin rounded-full border-2 border-ink/25 border-t-ink" />
+                      Preparing
+                    </span>
+                  )}
+                </span>
                 <span className="line-clamp-2 font-display text-lg leading-tight font-semibold group-hover:underline">{b.title}</span>
                 <span className="text-sm text-muted">
                   {b.minutes < 1 ? "Under a minute" : `About ${Math.round(b.minutes)} min`}
