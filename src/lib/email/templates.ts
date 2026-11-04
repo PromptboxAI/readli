@@ -8,6 +8,13 @@ import type { EmailMessage } from "./outbox";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+/**
+ * What Readli is, in one line, for anyone who has never heard of it (Kevin, 2026-11-04). It leads with
+ * the site headline and names real people so "voices" is clear.
+ */
+export const READLI_INTRO =
+  "Their favorite stories, read by their favorite people. Readli reads classic children's books aloud in the voice of Mom, Dad, Grandma or anyone your kids love.";
+
 export interface ReadliEmailInput {
   subject: string;
   /** First name, or empty for a plain "Hi,". */

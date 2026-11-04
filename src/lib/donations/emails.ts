@@ -1,6 +1,6 @@
 import { COMPANY } from "@/lib/content/company";
 import type { EmailMessage } from "@/lib/email/outbox";
-import { readliEmail } from "@/lib/email/templates";
+import { READLI_INTRO, readliEmail } from "@/lib/email/templates";
 import { eventDateLabel } from "./program";
 
 /**
@@ -44,6 +44,7 @@ export function approvedEmail(r: RequestFacts, statusUrl: string, claimByLabel: 
     title: "Congratulations, your donation is approved!",
     paragraphs: [
       `Readli is proud to donate a 12-month Readli Family membership (retail value ${retailValue}) to ${r.eventName}.`,
+      READLI_INTRO,
       "Your printable 8.5 × 11 in certificate is ready. It has a unique, single-use redemption code and a QR code. Print it for your raffle basket or auction table.",
       `The winning family activates it at readli.ai/redeem by ${claimByLabel}. They don't need a credit card, and it won't renew as a paid plan.`,
       "Please keep the certificate somewhere safe until the event: anyone with the code can redeem it.",

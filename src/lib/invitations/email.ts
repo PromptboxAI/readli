@@ -1,3 +1,4 @@
+import { READLI_INTRO } from "@/lib/email/templates";
 import { DEFAULT_CONTRIBUTOR_MESSAGE } from "./invitations";
 import { READLI_TIME_ZONE } from "@/lib/time";
 
@@ -140,7 +141,7 @@ export function invitationEmail(input: InvitationEmailInput): Omit<OutgoingEmail
   const subject = input.reminder ? `Still waiting: ${who} has a bedtime story for your family` : `${who} has a bedtime story for your family`;
   const cta = `Hear ${who} read a story`;
   const hear = book ? `Hear ${who}'s voice reading ${book}.` : null;
-  const support = `Already have Readli Family? Connect ${who} in a few taps. New to Readli? You can start Readli Family from the same page.`;
+  const support = `${READLI_INTRO} Already have Readli Family? Connect ${who} in a few taps. New to Readli? You can start Readli Family from the same page.`;
   const expires = longDate(new Date((input.now ?? new Date()).getTime() + input.linkDays * 86_400_000));
   const origin = new URL(input.previewUrl).origin;
   const lines = [
@@ -247,7 +248,7 @@ export function familyInviteEmail(input: FamilyInviteEmailInput): Omit<OutgoingE
       : `${who} invited you to read stories to ${family} on Readli`;
   const intro = input.coParent
     ? `${who} would love you to join ${family} on Readli as a parent. You'll share the family's account: choose which storytellers each child hears, prepare books, and open Readli Kids on your own phone or tablet.`
-    : `${who} would love you to read stories to the kids in ${family}. On Readli, you record your voice once, and the children your family's parents choose can hear you read classic books.`;
+    : `${who} would love you to read stories to the kids in ${family}. Their favorite stories, read by their favorite people: you record about a minute of your voice, and Readli reads classic children's books to them in it.`;
   const terms = input.coParent
     ? `It's free for you: ${who} looks after the family's plan and billing. Recording your own voice for the kids is optional. The link works once, for ${input.linkDays} days.`
     : `It's free for you and takes about three minutes. This link is just for you and works for ${input.linkDays} days.`;
