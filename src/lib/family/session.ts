@@ -9,7 +9,7 @@ import { activeChild } from "./permissions";
 import { StubVoiceProvider } from "@/lib/voice/stub";
 import { demoFamilyState } from "./demo-family";
 import { KIDS_COOKIE } from "./kids-mode";
-import { ACCOUNT_SCOPE, deviceCookieValue, deviceForCookie, isDeviceCookie, MemoryDeviceRegistry, parseDeviceCookie, pinMatches, SupabaseDeviceRegistry, type DeviceRegistry, type KidsDevice } from "./devices";
+import { ACCOUNT_SCOPE, deviceCookieValue, deviceForCookie, failedPinLock, isDeviceCookie, MemoryDeviceRegistry, NO_PIN_LOCK, parseDeviceCookie, pinLockedNow, pinMatches, SupabaseDeviceRegistry, type DeviceRegistry, type KidsDevice } from "./devices";
 import type { Actor } from "./model";
 import { MemoryFamilyStore, PermissionError, type FamilyStore } from "./service";
 import { planConfig } from "./plan";
@@ -47,8 +47,20 @@ export function familyEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return familyPreviewEnabled(env) || familyAccountsEnabled(env);
 }
 
+/**
+ * The key that signs every family, kids and playback cookie. Local dev and stub mode may use a fixed
+ * stand-in; a production server without GUEST_COOKIE_SECRET refuses to sign or trust anything, since
+ * anyone could forge a kids pass for any family with a key that is published in this repo.
+ */
+export function cookieSecret(env: NodeJS.ProcessEnv = process.env): string {
+  const key = env.GUEST_COOKIE_SECRET;
+  if (key) return key;
+  if (env.NODE_ENV !== "production" || env.VOICE_PROVIDER === "stub") return "readli-dev-only-secret";
+  throw new Error("GUEST_COOKIE_SECRET is not set: family sessions can't be signed safely.");
+}
+
 function secret(): string {
-  return process.env.GUEST_COOKIE_SECRET ?? "readli-dev-only-secret";
+  return cookieSecret();
 }
 
 export interface FamilySession {
@@ -249,14 +261,22 @@ export async function resumeGrownUp(session: FamilySession, pin: unknown, now = 
   if (lockedNow(stash, now)) throw new PermissionError(429, "pin_locked", "Too many tries. Try again in a few minutes, or sign in instead.");
   const store = await familyStore(session);
   const child = store ? activeChild(await store.read(), session.temporary.childId) : null;
-  const stored = child ? await deviceRegistry(Boolean(session.account))?.pinHash(child.householdId) : null;
-  if (!stored) throw new PermissionError(409, "no_pin", "Your family hasn't set a grown-up PIN yet. Sign in instead, then set one in Parent controls.");
+  const registry = child ? deviceRegistry(Boolean(session.account)) : null;
+  const stored = child && registry ? await registry.pinHash(child.householdId) : null;
+  if (!child || !registry || !stored) throw new PermissionError(409, "no_pin", "Your family hasn't set a grown-up PIN yet. Sign in instead, then set one in Parent controls.");
+  // Wrong tries are counted twice: in the sealed cookie, and on the server for the family, so putting
+  // back an older copy of the cookie doesn't buy more guesses at a 4-digit PIN.
+  const lock = await registry.pinLock(child.householdId);
+  if (pinLockedNow(lock, new Date(now))) throw new PermissionError(429, "pin_locked", "Too many tries. Try again in a few minutes, or sign in instead.");
   if (typeof pin !== "string" || !/^\d{4}$/.test(pin) || !(await pinMatches(pin, stored))) {
     const next = failedTry(stash, now);
+    const nextLock = failedPinLock(lock, new Date(now));
+    await registry.setPinLock(child.householdId, nextLock);
     jar.set(GROWNUP_COOKIE, sealStash(next, secret()), cookieOptions(Math.max(1, Math.floor((stash.expiresAt - now) / 1000))));
-    if (lockedNow(next, now)) throw new PermissionError(429, "pin_locked", "Too many tries. Try again in a few minutes, or sign in instead.");
-    throw new PermissionError(403, "wrong_pin", "That PIN isn't right.", { triesLeft: 5 - next.failures });
+    if (lockedNow(next, now) || pinLockedNow(nextLock, new Date(now))) throw new PermissionError(429, "pin_locked", "Too many tries. Try again in a few minutes, or sign in instead.");
+    throw new PermissionError(403, "wrong_pin", "That PIN isn't right.", { triesLeft: 5 - Math.max(next.failures, nextLock.failures) });
   }
+  if (lock.failures || lock.lockedUntil) await registry.setPinLock(child.householdId, NO_PIN_LOCK);
   if (stash.kind === "account") {
     const { data, error } = await (await supabaseServer()).auth.refreshSession({ refresh_token: stash.token });
     if (error || data.user?.id !== stash.user) {

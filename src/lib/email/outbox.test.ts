@@ -30,6 +30,8 @@ describe("email outbox", () => {
     const row = s.tables.email_outbox![0]!;
     expect(s.mailer.sent[0]).toMatchObject({ to: "parent@example.com", subject: "Hello", idempotencyKey: `outbox-${row.id}`, headers: message.headers });
     expect(row.status).toBe("sent");
+    // The body (with its links) is gone once it's sent.
+    expect(row).toMatchObject({ html: "", body: "" });
     expect(await s.run()).toMatchObject({ sent: 0 });
   });
 
@@ -45,7 +47,7 @@ describe("email outbox", () => {
     const s = setup([]);
     await s.queue([{}]);
     expect(await s.run()).toMatchObject({ sent: 0, canceled: 1 });
-    expect(s.tables.email_outbox![0]).toMatchObject({ status: "canceled", last_error: "switched_off" });
+    expect(s.tables.email_outbox![0]).toMatchObject({ status: "canceled", last_error: "switched_off", html: "", body: "" });
   });
 
   it("never emails an address that bounced or complained, even transactional email", async () => {
