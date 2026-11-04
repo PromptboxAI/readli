@@ -59,3 +59,19 @@ test("setup's book and listen steps stay in setup, with a small player", async (
   await expect(player.getByRole("button", { name: "Pause" })).toBeVisible();
   expect(clips).toEqual(["/api/family/books/the-lion-and-the-mouse/listen/track"]);
 });
+
+test("finishing setup ends on a page that says what to do next", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  await page.goto("/family/setup?step=listen");
+  await page.getByTestId("setup-next").click();
+  await expect(page).toHaveURL(/step=done/);
+  await expect(page.getByRole("heading", { level: 1, name: "You're all set!" })).toBeVisible();
+  const next = page.getByTestId("setup-whats-next");
+  await expect(next.getByRole("button", { name: /Open Maya's Readli Kids/ })).toBeVisible();
+  await expect(next.getByRole("heading", { name: "Add more books" })).toBeVisible();
+  await expect(next.locator('a[href^="/family/books/"]')).toHaveCount(6);
+  await expect(next.getByTestId("setup-browse-books")).toHaveAttribute("href", "/family/books");
+  await expect(next.getByTestId("setup-invite-voices")).toHaveAttribute("href", "/family/narrators#invite");
+  await noOverflow(page);
+  await page.screenshot({ path: "test-results/setup-done.png", fullPage: true });
+});
