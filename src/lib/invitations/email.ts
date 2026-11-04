@@ -141,7 +141,7 @@ export function invitationEmail(input: InvitationEmailInput): Omit<OutgoingEmail
   const subject = input.reminder ? `Still waiting: ${who} has a bedtime story for your family` : `${who} has a bedtime story for your family`;
   const cta = `Hear ${who} read a story`;
   const hear = book ? `Hear ${who}'s voice reading ${book}.` : null;
-  const support = `${READLI_INTRO} Already have Readli Family? Connect ${who} in a few taps. New to Readli? You can start Readli Family from the same page.`;
+  const support = `Already have Readli Family? Connect ${who} in a few taps. New to Readli? You can start Readli Family from the same page.`;
   const expires = longDate(new Date((input.now ?? new Date()).getTime() + input.linkDays * 86_400_000));
   const origin = new URL(input.previewUrl).origin;
   const lines = [
@@ -154,6 +154,8 @@ export function invitationEmail(input: InvitationEmailInput): Omit<OutgoingEmail
     "",
     ...(hear ? [hear, ""] : []),
     `${cta}: ${input.previewUrl}`,
+    "",
+    READLI_INTRO,
     "",
     support,
     "",
@@ -180,6 +182,7 @@ ${input.reminder ? `<tr><td align="center" style="padding:0 0 8px;font-size:14px
 ${cover}${book ? `<tr><td align="center" style="padding:0 0 4px;font-size:21px;font-weight:700">${esc(book)}</td></tr>
 <tr><td align="center" style="padding:0 0 20px;font-size:16px">${esc(hear!)}</td></tr>
 ` : ""}<tr><td align="center" style="padding:0 0 18px"><a href="${esc(input.previewUrl)}" style="display:inline-block;background:#c9402f;color:#ffffff;text-decoration:none;font-weight:700;font-size:18px;line-height:1.2;padding:16px 28px;border-radius:999px">&#9654;&nbsp; ${esc(cta)}</a></td></tr>
+<tr><td align="center" style="padding:0 0 12px;font-size:16px;line-height:1.5">${esc(READLI_INTRO)}</td></tr>
 <tr><td align="center" style="font-size:14px;line-height:1.5;color:#5b6676">${esc(support)}</td></tr>
 </table></td></tr>
 <tr><td align="center" style="padding:16px 8px 0;font-size:12px;line-height:1.6;color:#5b6676">This invitation expires on ${esc(expires)}.<br>Not for you? <a href="${esc(input.declineUrl)}" style="color:#5b6676">Decline</a> · <a href="${esc(input.unsubscribeUrl)}" style="color:#5b6676">Stop all Readli invitations</a> · <a href="${esc(input.reportUrl)}" style="color:#5b6676">Report this email</a><br>You're getting this because ${esc(who)} entered your email address on Readli. We don't add you to any mailing list.</td></tr>
