@@ -669,4 +669,22 @@ test("Home's invite link opens the invite form on Family storytellers", async ({
   await signIn(page, "adult:sara");
   await page.goto("/family/narrators#invite");
   await expect(page.getByTestId("invite-form")).toBeVisible();
+  // The page still opens at the top, with its heading in view, and drops the hash so a reload doesn't jump.
+  await expect(page.getByRole("heading", { name: "Family storytellers", level: 1 })).toBeInViewport();
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  await expect(page).toHaveURL(/\/family\/narrators$/);
+
+  // The form says who it's for, and sends a partner to the co-parent invitation instead.
+  const who = page.getByTestId("who-to-invite");
+  await expect(who.getByTestId("invite-kind-storyteller")).toContainText("Voice only");
+  await expect(who.getByTestId("invite-kind-co-parent")).toContainText("Full parent access");
+  await who.getByRole("link", { name: "Invite a co-parent instead" }).click();
+  await expect(page).toHaveURL(/\/family\/settings\/parents$/);
+  await expect(page.getByTestId("invite-storyteller-instead")).toHaveAttribute("href", "/family/narrators#invite");
+});
+
+test("a co-parent sees who can invite another parent", async ({ page }) => {
+  await signIn(page, "adult:ben");
+  await page.goto("/family/narrators#invite");
+  await expect(page.getByTestId("invite-kind-co-parent")).toContainText("Only Mom can invite another parent.");
 });
