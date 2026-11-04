@@ -31,6 +31,16 @@
  * cues like "in a low voice" and "in his little wee voice" are gone, repeated sounds are one line
  * ("Caw, caw!", "Buzz, buzz, buzzz!", "Ha, ha!"), and Pooh's misspelled notices and "!!!!!!" are written
  * so a narrator can read them.
+ * Kevin, 2026-11-04: 12 more short books (1 to 9 minutes). Their edits, kept on re-import: Old Mr. Bunny has a
+ * walking-stick, not a pipe or switch, scares the cat off the basket by stamping rather than kicking it, and
+ * scolds Benjamin rather than whipping him; Mrs. Rabbit's rabbit-tobacco is lavender; Mr. McGregor wants a new
+ * hat, not baccy, nobody talks of skinning the Flopsy Bunnies, and the marrow misses the youngest; the Town-Mouse
+ * cook calls for a broom, not a poker, and the canary flies away rather than being killed; Miss Moppet is a Kitty;
+ * the king doesn't threaten the miller's daughter's life, and the queen's comical names no longer mock bodies
+ * (Snickersnee, Roly-Poly, Spindleshanks); the Three Feathers' peasant women tumble down in a heap rather than
+ * breaking their arms and legs; Lazy Jack's girl "could neither hear nor speak", and his mother lives with them
+ * "all her days". Rumpelstiltskin and The Frog Prince are Edgar Taylor's gentler translations, where the little
+ * man stamps off and the frog sleeps on the princess's pillow.
  */
 import type { CatalogBook } from "../catalog";
 import AChildsGardenOfVerses from "./a-childs-garden-of-verses.json";
@@ -42,17 +52,23 @@ import GudbrandOnTheHillSide from "./gudbrand-on-the-hill-side.json";
 import Heidi from "./heidi.json";
 import JerryMuskratsParty from "./jerry-muskrats-party.json";
 import JohnnyChuckFindsTheBestThingInTheWorld from "./johnny-chuck-finds-the-best-thing-in-the-world.json";
+import JohnnyCrowsGarden from "./johnny-crows-garden.json";
 import JustSoStories from "./just-so-stories.json";
+import LazyJack from "./lazy-jack.json";
 import LittleTuk from "./little-tuk.json";
 import MoreAesopsFables from "./more-aesops-fables.json";
 import MotherHolle from "./mother-holle.json";
 import MrsRedwingsSpeckledEgg from "./mrs-redwings-speckled-egg.json";
 import RaggedyAnnStories from "./raggedy-ann-stories.json";
+import Rumpelstiltskin from "./rumpelstiltskin.json";
 import SleepingBeauty from "./sleeping-beauty.json";
+import SweetPorridge from "./sweet-porridge.json";
+import TeenyTiny from "./teeny-tiny.json";
 import TheBremenTownMusicians from "./the-bremen-town-musicians.json";
 import TheDarningNeedle from "./the-darning-needle.json";
 import TheElvesAndTheShoemaker from "./the-elves-and-the-shoemaker.json";
 import TheEmperorsNewClothes from "./the-emperors-new-clothes.json";
+import TheFrogPrince from "./the-frog-prince.json";
 import TheGingerbreadMan from "./the-gingerbread-man.json";
 import TheGoldenGoose from "./the-golden-goose.json";
 import TheHappyFamily from "./the-happy-family.json";
@@ -63,15 +79,21 @@ import TheLittleRedHen from "./the-little-red-hen.json";
 import TheOwlAndThePussyCat from "./the-owl-and-the-pussy-cat.json";
 import ThePrincessAndThePea from "./the-princess-and-the-pea.json";
 import TheQueenBee from "./the-queen-bee.json";
+import TheStarMoney from "./the-star-money.json";
+import TheStoryOfMissMoppet from "./the-story-of-miss-moppet.json";
+import TheTaleOfBenjaminBunny from "./the-tale-of-benjamin-bunny.json";
 import TheTaleOfGingerAndPickles from "./the-tale-of-ginger-and-pickles.json";
+import TheTaleOfJohnnyTownMouse from "./the-tale-of-johnny-town-mouse.json";
 import TheTaleOfMrJeremyFisher from "./the-tale-of-mr-jeremy-fisher.json";
 import TheTaleOfMrsTiggyWinkle from "./the-tale-of-mrs-tiggy-winkle.json";
 import TheTaleOfMrsTittlemouse from "./the-tale-of-mrs-tittlemouse.json";
 import TheTaleOfPeterRabbit from "./the-tale-of-peter-rabbit.json";
+import TheTaleOfTheFlopsyBunnies from "./the-tale-of-the-flopsy-bunnies.json";
 import TheTaleOfTimmyTiptoes from "./the-tale-of-timmy-tiptoes.json";
 import TheTaleOfTomKitten from "./the-tale-of-tom-kitten.json";
 import TheTaleOfTwoBadMice from "./the-tale-of-two-bad-mice.json";
 import TheThreeBillyGoatsGruff from "./the-three-billy-goats-gruff.json";
+import TheThreeFeathers from "./the-three-feathers.json";
 import TheThreeLittlePigs from "./the-three-little-pigs.json";
 import TheThreeSillies from "./the-three-sillies.json";
 import TheUglyDuckling from "./the-ugly-duckling.json";
@@ -95,17 +117,23 @@ export const LIBRARY_TEXTS: Record<string, Pick<CatalogBook, "edition" | "chapte
   "heidi": Heidi,
   "jerry-muskrats-party": JerryMuskratsParty,
   "johnny-chuck-finds-the-best-thing-in-the-world": JohnnyChuckFindsTheBestThingInTheWorld,
+  "johnny-crows-garden": JohnnyCrowsGarden,
   "just-so-stories": JustSoStories,
+  "lazy-jack": LazyJack,
   "little-tuk": LittleTuk,
   "more-aesops-fables": MoreAesopsFables,
   "mother-holle": MotherHolle,
   "mrs-redwings-speckled-egg": MrsRedwingsSpeckledEgg,
   "raggedy-ann-stories": RaggedyAnnStories,
+  "rumpelstiltskin": Rumpelstiltskin,
   "sleeping-beauty": SleepingBeauty,
+  "sweet-porridge": SweetPorridge,
+  "teeny-tiny": TeenyTiny,
   "the-bremen-town-musicians": TheBremenTownMusicians,
   "the-darning-needle": TheDarningNeedle,
   "the-elves-and-the-shoemaker": TheElvesAndTheShoemaker,
   "the-emperors-new-clothes": TheEmperorsNewClothes,
+  "the-frog-prince": TheFrogPrince,
   "the-gingerbread-man": TheGingerbreadMan,
   "the-golden-goose": TheGoldenGoose,
   "the-happy-family": TheHappyFamily,
@@ -116,15 +144,21 @@ export const LIBRARY_TEXTS: Record<string, Pick<CatalogBook, "edition" | "chapte
   "the-owl-and-the-pussy-cat": TheOwlAndThePussyCat,
   "the-princess-and-the-pea": ThePrincessAndThePea,
   "the-queen-bee": TheQueenBee,
+  "the-star-money": TheStarMoney,
+  "the-story-of-miss-moppet": TheStoryOfMissMoppet,
+  "the-tale-of-benjamin-bunny": TheTaleOfBenjaminBunny,
   "the-tale-of-ginger-and-pickles": TheTaleOfGingerAndPickles,
+  "the-tale-of-johnny-town-mouse": TheTaleOfJohnnyTownMouse,
   "the-tale-of-mr-jeremy-fisher": TheTaleOfMrJeremyFisher,
   "the-tale-of-mrs-tiggy-winkle": TheTaleOfMrsTiggyWinkle,
   "the-tale-of-mrs-tittlemouse": TheTaleOfMrsTittlemouse,
   "the-tale-of-peter-rabbit": TheTaleOfPeterRabbit,
+  "the-tale-of-the-flopsy-bunnies": TheTaleOfTheFlopsyBunnies,
   "the-tale-of-timmy-tiptoes": TheTaleOfTimmyTiptoes,
   "the-tale-of-tom-kitten": TheTaleOfTomKitten,
   "the-tale-of-two-bad-mice": TheTaleOfTwoBadMice,
   "the-three-billy-goats-gruff": TheThreeBillyGoatsGruff,
+  "the-three-feathers": TheThreeFeathers,
   "the-three-little-pigs": TheThreeLittlePigs,
   "the-three-sillies": TheThreeSillies,
   "the-ugly-duckling": TheUglyDuckling,

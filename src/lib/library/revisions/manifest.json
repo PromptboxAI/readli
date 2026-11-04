@@ -1075,5 +1075,149 @@
    "current": true,
    "sentences": 124
   }
+ ],
+ "the-tale-of-benjamin-bunny": [
+  {
+   "slug": "the-tale-of-benjamin-bunny",
+   "revision": "3fc4499192a9",
+   "edition": "gutenberg-14407",
+   "firstSeen": "2026-11-04T19:16:03.506Z",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 67
+  }
+ ],
+ "the-tale-of-the-flopsy-bunnies": [
+  {
+   "slug": "the-tale-of-the-flopsy-bunnies",
+   "revision": "9a45cf6a1750",
+   "edition": "gutenberg-14220",
+   "firstSeen": "2026-11-04T19:16:03.506Z",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 66
+  }
+ ],
+ "the-tale-of-johnny-town-mouse": [
+  {
+   "slug": "the-tale-of-johnny-town-mouse",
+   "revision": "7ebd4a8f61fd",
+   "edition": "gutenberg-15284",
+   "firstSeen": "2026-11-04T19:16:03.506Z",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 85
+  }
+ ],
+ "the-story-of-miss-moppet": [
+  {
+   "slug": "the-story-of-miss-moppet",
+   "revision": "95072a2fa775",
+   "edition": "gutenberg-14848",
+   "firstSeen": "2026-11-04T19:16:03.506Z",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 18
+  }
+ ],
+ "rumpelstiltskin": [
+  {
+   "slug": "rumpelstiltskin",
+   "revision": "9a89ad5b4385",
+   "edition": "gutenberg-2591",
+   "firstSeen": "2026-11-04T19:16:03.506Z",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 30
+  }
+ ],
+ "the-frog-prince": [
+  {
+   "slug": "the-frog-prince",
+   "revision": "c382961247cd",
+   "edition": "gutenberg-2591",
+   "firstSeen": "2026-11-04T19:16:03.506Z",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 34
+  }
+ ],
+ "sweet-porridge": [
+  {
+   "slug": "sweet-porridge",
+   "revision": "29c6410ff1cc",
+   "edition": "gutenberg-52521",
+   "firstSeen": "2026-11-04T19:16:03.506Z",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 13
+  }
+ ],
+ "the-star-money": [
+  {
+   "slug": "the-star-money",
+   "revision": "729441ab95b1",
+   "edition": "gutenberg-52521",
+   "firstSeen": "2026-11-04T19:16:03.506Z",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 19
+  }
+ ],
+ "the-three-feathers": [
+  {
+   "slug": "the-three-feathers",
+   "revision": "3910bef09323",
+   "edition": "gutenberg-5314",
+   "firstSeen": "2026-11-04T19:16:03.506Z",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 42
+  }
+ ],
+ "teeny-tiny": [
+  {
+   "slug": "teeny-tiny",
+   "revision": "523ac5bc93da",
+   "edition": "gutenberg-7439",
+   "firstSeen": "2026-11-04T19:16:03.506Z",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 12
+  }
+ ],
+ "lazy-jack": [
+  {
+   "slug": "lazy-jack",
+   "revision": "04f32cd1e75e",
+   "edition": "gutenberg-7439",
+   "firstSeen": "2026-11-04T19:16:03.506Z",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 32
+  }
+ ],
+ "johnny-crows-garden": [
+  {
+   "slug": "johnny-crows-garden",
+   "revision": "371d86f5790c",
+   "edition": "gutenberg-10469",
+   "firstSeen": "2026-11-04T19:16:03.506Z",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 14
+  }
  ]
 }
