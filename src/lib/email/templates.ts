@@ -10,10 +10,10 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 
 /**
  * What Readli is, in one line, for a parent who has never heard of it (Kevin, 2026-11-04). It names
- * real people so "voices" is clear, and says "your kids" so nobody wonders whose stories they are.
+ * real people so "voices" is clear, and says "your child's" so nobody wonders whose stories they are.
  */
 export const READLI_INTRO =
-  "Readli reads classic children's books aloud in the voice of Mom, Dad, Grandma or anyone your kids love.";
+  "Your child's favorite stories, read by their favorite people. Readli reads classic children's books aloud in the voice of Mom, Dad, Grandma or anyone your child loves.";
 
 export interface ReadliEmailInput {
   subject: string;
