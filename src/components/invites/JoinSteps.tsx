@@ -97,7 +97,7 @@ export function JoinSteps({
       {!voice && !waitingRecording && (
         <section className="flex flex-col items-start gap-3 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10">
           <h2 className="font-display text-2xl font-semibold">Record your voice</h2>
-          <p>You&apos;ll agree to how your voice is used, read a short story aloud, then listen and keep it. It takes about five minutes.</p>
+          <p>You&apos;ll agree to how your voice is used, read a short story aloud, then listen and keep it. The reading takes about one minute.</p>
           <ShareTerms familyName={familyName} />
           <Link href={recordHref} className={buttonPrimary}>
             Record my voice

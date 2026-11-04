@@ -246,7 +246,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
           <p className="max-w-2xl text-lg">
             {recorded
               ? "Readli will read your kids' stories in it. You can re-record it any time from My Voice."
-              : "Read a short passage aloud, about five minutes. Readli then reads every story to your kids in your voice, even when you're not there."}
+              : "Read a short passage aloud, about one minute. Readli then reads every story to your kids in your voice, even when you're not there."}
           </p>
         </header>
         {recorded ? (
