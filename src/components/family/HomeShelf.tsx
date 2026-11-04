@@ -21,16 +21,17 @@ function Bar({ percent }: { percent: number }) {
 /**
  * One card per child. However many kids there are, every card has the same rows in the same order,
  * so Open Readli Kids sits in the same place on each: one child gets a wide row, two get detailed
- * cards, and three to six get compact cards in a grid that never needs sideways scrolling.
+ * cards, and three to six get compact cards in a grid that never needs sideways scrolling. Home gives
+ * the kids the page's full width, so four fit in one row on desktop and five or six wrap three by three.
  */
 export function KidCards({ kids }: { kids: HomeKid[] }) {
   const layout = kids.length === 1 ? "wide" : kids.length === 2 ? "detailed" : "compact";
   // Compact cards wrap into even rows (four kids two by two) instead of growing or scrolling sideways.
-  const grid = layout === "wide" ? "" : layout === "detailed" ? "sm:grid-cols-2" : kids.length === 4 ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-3";
+  const grid = layout === "wide" ? "" : layout === "detailed" ? "sm:grid-cols-2" : kids.length === 4 ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-2 lg:grid-cols-3";
   return (
     <ul className={`grid gap-3 ${grid}`} data-testid="home-kids" data-layout={layout}>
       {kids.map((k) => (
-        // Sized by the card's own width, not the screen's: beside the sidebar the kids column is narrow even on a wide screen.
+        // Sized by the card's own width, not the screen's, so a card lays out the same wherever it sits.
         <li key={k.id} className="@container min-w-0">
           {layout === "compact" ? <CompactKid kid={k} /> : <DetailedKid kid={k} wide={layout === "wide"} />}
         </li>
@@ -116,21 +117,24 @@ function kidPlaces(kids: ShelfKid[]): string[] {
   return [...started.map(place), ...(waiting ? [`${waiting} not started`] : [])];
 }
 
-/** How many shelf books Home shows before "View all books". */
-export const HOME_SHELF_BOOKS = 4;
+/** How many shelf books Home shows before "View all books": three rows of three on wider screens. */
+export const HOME_SHELF_BOOKS = 9;
+/** Phones show fewer, since there the books stack one per row. */
+export const PHONE_SHELF_BOOKS = 4;
 
 /**
- * Prepared audiobooks the kids may hear, one card per book with its narrators grouped, two across on
- * wider screens. A book has no status of its own: each child's place shows on it and only moves in
- * Readli Kids. The whole card opens the book's page; only Listen opens the grown-up player.
+ * Prepared audiobooks the kids may hear, one card per book with its narrators grouped: two across on
+ * tablets, three on desktop. A book has no status of its own: each child's place shows on it and only
+ * moves in Readli Kids. The whole card opens the book's page; only Listen opens the grown-up player.
+ * `phoneLimit` hides the books past it on phones, where they stack one per row.
  */
-export function FamilyBookshelf({ books }: { books: ShelfBook[] }) {
+export function FamilyBookshelf({ books, phoneLimit }: { books: ShelfBook[]; phoneLimit?: number }) {
   return (
-    <ul className="grid gap-3 md:grid-cols-2" data-testid="shelf-ready">
-      {books.map((b) => (
+    <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3" data-testid="shelf-ready">
+      {books.map((b, i) => (
         <li
           key={b.slug}
-          className="relative flex gap-3 rounded-3xl bg-surface p-3 ring-2 ring-ink/10 focus-within:ring-ink hover:ring-ink/30"
+          className={`relative flex gap-3 rounded-3xl bg-surface p-3 ring-2 ring-ink/10 focus-within:ring-ink hover:ring-ink/30 ${phoneLimit !== undefined && i >= phoneLimit ? "max-md:hidden" : ""}`}
           data-testid={`shelf-book-${b.slug}`}
           data-state={b.state}
         >
@@ -181,7 +185,7 @@ const STATUS: Record<HomeStoryteller["tone"], { label: string; className: string
   waiting: { label: "Waiting", className: "bg-lavender/40" },
 };
 
-/** The family's storytellers, each with who may hear them, and the narrator slots in use. */
+/** The family's storytellers, each with who may hear them, and the narrator slots in use; full width on Home, so they list in columns. */
 /** `recordFirst`: the parent hasn't recorded their own voice yet, so that comes before inviting anyone else. */
 export function StorytellersCard({ storytellers, slotLine, recordFirst = false }: { storytellers: HomeStoryteller[]; slotLine: string | null; recordFirst?: boolean }) {
   return (
@@ -195,7 +199,7 @@ export function StorytellersCard({ storytellers, slotLine, recordFirst = false }
         </Link>
       </div>
       {storytellers.length > 0 ? (
-        <ul className="flex flex-col gap-1" data-testid="home-storytellers">
+        <ul className="grid gap-x-6 gap-y-1 md:grid-cols-2 lg:grid-cols-3" data-testid="home-storytellers">
           {storytellers.map((s) => (
             <li key={s.voiceId}>
               <Link href={s.href} className="-mx-2 flex items-center gap-3 rounded-2xl p-2 hover:bg-ivory">
