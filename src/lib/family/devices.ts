@@ -417,7 +417,7 @@ export class SupabaseDeviceRegistry implements DeviceRegistry {
     await this.setPinLock(householdId, NO_PIN_LOCK);
   }
 
-  /** Best effort until the lock columns exist (migration 20261103000400): no lock is read or kept before then. */
+  /** Best effort until the lock columns exist (migration 20261104000100): no lock is read or kept before then. */
   async pinLock(householdId: string): Promise<PinLock> {
     const { data, error } = await this.db.from("household_kids_pins").select("failed_attempts, locked_until").eq("household_id", householdId).limit(1);
     if (error) {
