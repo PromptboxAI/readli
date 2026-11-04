@@ -248,7 +248,7 @@ export function familyInviteEmail(input: FamilyInviteEmailInput): Omit<OutgoingE
       : `${who} invited you to read stories to ${family} on Readli`;
   const intro = input.coParent
     ? `${who} would love you to join ${family} on Readli as a parent. You'll share the family's account: choose which storytellers each child hears, prepare books, and open Readli Kids on your own phone or tablet.`
-    : `${who} would love you to read stories to the kids in ${family}. Their favorite stories, read by their favorite people: you record about a minute of your voice, and Readli reads classic children's books to them in it.`;
+    : `${who} would love you to read stories to the kids in ${family}. Record about a minute of your voice, and Readli reads classic children's books to them in it.`;
   const terms = input.coParent
     ? `It's free for you: ${who} looks after the family's plan and billing. Recording your own voice for the kids is optional. The link works once, for ${input.linkDays} days.`
     : `It's free for you and takes about three minutes. This link is just for you and works for ${input.linkDays} days.`;
