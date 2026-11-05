@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Actor, AdultBookProgress, AuditAction, FamilyState, ListeningSession } from "./model";
+import type { Actor, AdultBookProgress, AuditAction, FamilyState, ListeningSession, VoiceShare } from "./model";
 import { isNewer } from "./places";
 import {
   activeChild,
@@ -179,8 +179,13 @@ export async function setHouseholdShare(
   await store.write((s) => {
     const current = s.shares.find((x) => x.voiceId === voice.id && x.householdId === input.householdId && x.revokedAt === null);
     if (input.shared) {
-      if (current) return;
-      const first = !s.shares.some((x) => x.voiceId === voice.id && x.householdId === input.householdId);
+      if (current && sharedSinceJoining(s, current, adultId)) return;
+      // Still on from before they were removed and invited back: this share replaces it.
+      if (current) {
+        current.revokedAt = at;
+        current.revokedBy = adultId;
+      }
+      const first = !s.shares.some((x) => x.voiceId === voice.id && x.householdId === input.householdId && sharedSinceJoining(s, x, adultId));
       s.shares.push({
         id: randomUUID(),
         voiceId: voice.id,
@@ -226,6 +231,15 @@ export async function setHouseholdShare(
 }
 
 /**
+ * Whether a share was made during the storyteller's current time in the family. A share from before
+ * they were removed and invited back doesn't count: accepting a fresh invitation starts over.
+ */
+function sharedSinceJoining(state: FamilyState, share: VoiceShare, adultId: string): boolean {
+  const joinedAt = state.members.find((m) => m.householdId === share.householdId && m.adultId === adultId && m.removedAt === null)?.joinedAt;
+  return !joinedAt || Date.parse(share.grantedAt) >= Date.parse(joinedAt);
+}
+
+/**
  * Puts a voice shared with a family for the first time into a free narrator slot, so a family that invited someone doesn't have to
  * add them by hand. Recorded as the sharer when they're a parent here, otherwise as the family's first
  * parent (only a parent may fill a slot). Leaves things as they are with no plan or no free slot.
@@ -262,7 +276,7 @@ export async function shareWithJoinedFamilies(
   const homes = state.members
     .filter((m) => m.adultId === adultId && m.role === "member" && m.removedAt === null)
     .map((m) => m.householdId)
-    .filter((h) => !state.shares.some((x) => x.voiceId === voice.id && x.householdId === h));
+    .filter((h) => !state.shares.some((x) => x.voiceId === voice.id && x.householdId === h && sharedSinceJoining(state, x, adultId)));
   const out: { householdId: string; notice: ReadyNotice }[] = [];
   for (const householdId of [...new Set(homes)]) {
     const notice = await setHouseholdShare(store, actor, { voiceId: voice.id, householdId, shared: true, policyVersion }, clock);
