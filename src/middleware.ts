@@ -2,15 +2,43 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isAdmin, isAdminPath } from "@/lib/admin/emails";
 import { KIDS_COOKIE, kidsModeRoute } from "@/lib/family/kids-mode";
+import { encodeFirstTouch, FIRST_TOUCH_COOKIE, FIRST_TOUCH_DAYS, firstTouchFrom } from "@/lib/marketing/first-touch";
 
 /** Pages and routes that use the Supabase sign-in, so it's kept fresh there. */
 const SIGN_IN_PATHS = ["/family", "/kids", "/login", "/auth", "/api/family", "/api/kids", "/billing", "/admin", "/api/admin", "/api/account", "/api/people"];
 
 /**
  * Keeps a device in Kids Mode on the child's side (the server checks again on every grown-up route),
- * keeps the Supabase sign-in fresh on the pages that use it, and keeps /admin to named admins.
+ * keeps the Supabase sign-in fresh on the pages that use it, keeps /admin to named admins, and
+ * remembers how a grown-up first found Readli (first touch only).
  */
 export async function middleware(request: NextRequest) {
+  const response = await route(request);
+  rememberFirstTouch(request, response);
+  return response;
+}
+
+/**
+ * Sets the first-touch cookie on a page visit that came from a campaign link, an ad click or another
+ * website, unless one is already set. Never on a Kids Mode device, an API call or a prefetch.
+ */
+function rememberFirstTouch(request: NextRequest, response: NextResponse) {
+  if (request.method !== "GET" || request.cookies.has(FIRST_TOUCH_COOKIE) || request.cookies.get(KIDS_COOKIE)?.value) return;
+  const path = request.nextUrl.pathname;
+  if (path.startsWith("/api/") || path.startsWith("/kids") || path.startsWith("/admin")) return;
+  if (request.headers.get("next-router-prefetch") || request.headers.get("purpose") === "prefetch") return;
+  const touch = firstTouchFrom(request.nextUrl, request.headers.get("referer"));
+  if (!touch) return;
+  response.cookies.set(FIRST_TOUCH_COOKIE, encodeFirstTouch(touch), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: FIRST_TOUCH_DAYS * 86_400,
+  });
+}
+
+async function route(request: NextRequest): Promise<NextResponse> {
   const path = request.nextUrl.pathname;
   if (request.cookies.get(KIDS_COOKIE)?.value) {
     const verdict = kidsModeRoute(path);

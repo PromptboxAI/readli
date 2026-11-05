@@ -10,7 +10,7 @@
 export type PolicyParagraph = { lead?: string; text: string };
 export type PolicySection = { id: string; title: string; paragraphs: PolicyParagraph[] };
 
-export const PRIVACY_EFFECTIVE_DATE = "November 3, 2026";
+export const PRIVACY_EFFECTIVE_DATE = "November 5, 2026";
 
 export const PRIVACY_INTRO: string[] = [
   'Readli ("Readli," "we," "our," or "us"), operated by Readli.ai LLC at 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790, provides family storytelling, children’s reading, and optional AI-generated narration in voices that participating adults choose to record and share. This Privacy Policy describes how we collect, use, disclose, retain, and protect information when you visit readli.ai, try our voice demo, or use Readli Family, Readli Kids, Readli Voice, and related features (together, the "Services").',
@@ -152,7 +152,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     title: "8. Cookies and analytics",
     paragraphs: [
       {
-        text: "We use essential cookies for sign-in, security, Kids Mode devices, and the demo. Readli records its own usage events in its own database and does not use third-party analytics. Fonts are served from Readli’s own site. Embedded content, such as the Loom video above, may set its provider’s cookies when you play it.",
+        text: "We use essential cookies for sign-in, security, Kids Mode devices, and the demo. When you first arrive at readli.ai from another website or a tagged link, a first-party cookie remembers how you found us (such as the campaign name, which kind of ad link it was, or the referring website’s name) for up to 90 days, and we save that with your family when you create one so we can count which channels bring families to Readli. It never runs in Readli Kids and is not shared with anyone. Readli records its own usage events in its own database and does not use third-party analytics. Fonts are served from Readli’s own site. Embedded content, such as the Loom video above, may set its provider’s cookies when you play it.",
       },
       {
         lead: "Meta Pixel",

@@ -1,7 +1,7 @@
 import { after, NextResponse } from "next/server";
-import { applyBillingChange, recordRevenue } from "@/lib/billing/apply";
+import { applyBillingChange, recordCancellation, recordRevenue } from "@/lib/billing/apply";
 import { billingConfig } from "@/lib/billing/config";
-import { billingChange, invitationBilling } from "@/lib/billing/events";
+import { billingChange, cancellationChange, invitationBilling } from "@/lib/billing/events";
 import { revenueRows } from "@/lib/billing/revenue";
 import { verifyStripeSignature } from "@/lib/billing/stripe-signature";
 import { accountDb } from "@/lib/family/account-store";
@@ -29,7 +29,8 @@ interface StripeEvent {
  * only correctly signed events whose mode matches ours, stores each event once and applies it once:
  * subscription events start, update or end the household's Readli Family plan, and paid invoices,
  * one-time payments and refunds are recorded for the admin finance report, and a trial or first
- * payment is credited to the storyteller invitation that brought the family in. A completed checkout
+ * payment is credited to the storyteller invitation that brought the family in, and a cancel's reason is
+ * saved for the growth report. A completed checkout
  * is reported to Meta (Subscribe or Purchase) once, when it was started from a browser that didn't opt
  * out. Sponsorship events (readli_kind=sponsorship, and disputes) go to their own branch and never touch a
  * household's own plan. A failed apply is recorded and answered with a 500, so Stripe retries it.
@@ -81,6 +82,8 @@ export async function POST(req: Request) {
   // The invite funnel is reporting only: a failure here never makes Stripe retry a plan change.
   const funnel = invitationBilling(event);
   if (funnel) await recordInvitationBilling(db, funnel).catch(() => undefined);
+  // So are cancel reasons, for the admin growth report.
+  await recordCancellation(db, cancellationChange(event), event.livemode).catch((err) => console.error("cancellation not recorded", err));
   await db.from("payment_events").update({ processed_at: new Date().toISOString(), error: null }).eq("id", stored.id);
   // Only the first successful processing gets here, so Meta hears each checkout once.
   const conversion = stripeConversion(event);

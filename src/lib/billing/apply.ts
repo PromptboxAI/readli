@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { planConfig, type PlanConfig } from "@/lib/family/plan";
 import { creditUnits } from "@/lib/narration/credits";
-import type { BillingChange } from "./events";
+import type { BillingChange, CancellationChange } from "./events";
 import type { RevenueRow } from "./revenue";
 
 /** Writes a billing change with the service role. Safe to repeat: the same event gives the same rows. */
@@ -67,4 +67,31 @@ export async function recordRevenue(db: SupabaseClient, rows: RevenueRow[]): Pro
   if (!rows.length) return;
   const { error } = await db.from("revenue_events").upsert(rows, { onConflict: "provider,provider_ref", ignoreDuplicates: true });
   if (error) throw new Error(`record revenue: ${error.message}`);
+}
+
+/** Saves why a plan was canceled, or that a scheduled cancel was turned off. Safe to repeat. */
+export async function recordCancellation(db: SupabaseClient, change: CancellationChange | null, livemode: boolean, at = new Date()): Promise<void> {
+  if (!change) return;
+  const now = at.toISOString();
+  if (change.kind === "withdrawn") {
+    const { error } = await db.from("subscription_cancellations").update({ withdrawn_at: now, updated_at: now }).eq("subscription_ref", change.subscriptionRef).is("withdrawn_at", null);
+    if (error) throw new Error(`record withdrawn cancel: ${error.message}`);
+    return;
+  }
+  const { error } = await db.from("subscription_cancellations").upsert(
+    {
+      subscription_ref: change.subscriptionRef,
+      household_id: change.householdId,
+      reason: change.reason,
+      feedback: change.feedback,
+      comment: change.comment,
+      requested_at: change.requestedAt,
+      ends_at: change.endsAt,
+      withdrawn_at: null,
+      livemode,
+      updated_at: now,
+    },
+    { onConflict: "subscription_ref" },
+  );
+  if (error) throw new Error(`record cancellation: ${error.message}`);
 }

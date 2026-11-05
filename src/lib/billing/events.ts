@@ -110,3 +110,51 @@ export function invitationBilling(event: { type: string; data?: { object?: Strip
   const kind = obj.status === "trialing" ? "trial" : obj.status === "active" ? "paid" : null;
   return kind ? { householdId, invitationId: str(meta.invitation_id), kind } : null;
 }
+
+const CANCEL_REASONS = ["cancellation_requested", "payment_failed", "payment_disputed"] as const;
+const CANCEL_FEEDBACK = ["customer_service", "low_quality", "missing_features", "other", "switched_service", "too_complex", "too_expensive", "unused"] as const;
+const oneOf = <T extends string>(list: readonly T[], v: unknown): T | null => (list.includes(v as T) ? (v as T) : null);
+
+export type CancellationChange =
+  | {
+      kind: "canceled";
+      householdId: string;
+      subscriptionRef: string;
+      reason: (typeof CANCEL_REASONS)[number] | null;
+      feedback: (typeof CANCEL_FEEDBACK)[number] | null;
+      comment: string | null;
+      requestedAt: string;
+      endsAt: string | null;
+    }
+  | { kind: "withdrawn"; subscriptionRef: string };
+
+/**
+ * Why a family plan ended, for the admin growth report: Stripe's cancellation_details (asked, failed
+ * payment or dispute, plus the customer portal's cancel survey) once a cancel is scheduled or done,
+ * or "withdrawn" when a scheduled cancel is turned off again. Reporting only.
+ */
+export function cancellationChange(event: { type: string; created?: number; data?: { object?: StripeObject } }): CancellationChange | null {
+  const obj = event.data?.object;
+  if (!obj || !event.type.startsWith("customer.subscription.")) return null;
+  const meta = (obj.metadata as StripeObject | undefined) ?? {};
+  if (meta.readli_kind === "sponsorship") return null;
+  const householdId = str(meta.household_id);
+  const subscriptionRef = str(obj.id);
+  if (!householdId || !subscriptionRef) return null;
+  const ended = event.type === "customer.subscription.deleted" || obj.status === "canceled";
+  const scheduled = obj.cancel_at_period_end === true || typeof obj.cancel_at === "number";
+  if (!ended && !scheduled) return ["active", "trialing", "past_due"].includes(String(obj.status)) ? { kind: "withdrawn", subscriptionRef } : null;
+  const details = (obj.cancellation_details as StripeObject | undefined) ?? {};
+  const comment = str(details.comment);
+  const periodEnd = iso(obj.current_period_end) ?? iso(((obj.items as StripeObject | undefined)?.data as StripeObject[] | undefined)?.[0]?.current_period_end);
+  return {
+    kind: "canceled",
+    householdId,
+    subscriptionRef,
+    reason: oneOf(CANCEL_REASONS, details.reason),
+    feedback: oneOf(CANCEL_FEEDBACK, details.feedback),
+    comment: comment ? comment.trim().slice(0, 1000) || null : null,
+    requestedAt: iso(obj.canceled_at) ?? iso(event.created) ?? new Date().toISOString(),
+    endsAt: ended ? (iso(obj.ended_at) ?? iso(event.created)) : (iso(obj.cancel_at) ?? periodEnd),
+  };
+}
