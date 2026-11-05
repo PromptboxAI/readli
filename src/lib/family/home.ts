@@ -389,7 +389,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
 
   const storytellers: HomeStoryteller[] = state.voices
     .filter((v) => v.deletedAt === null && v.status === "ready" && isActiveMember(state, v.ownerId, householdId))
-    .map((v) => {
+    .map((v): HomeStoryteller => {
       const owner = adultById.get(v.ownerId);
       const card = { voiceId: v.id, person: person(owner), mine: v.ownerId === viewerId, href: "/family/narrators" };
       if (!activeShare(state, v.id, householdId)) {
@@ -410,7 +410,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       state.members
         .filter((m) => m.householdId === householdId && m.removedAt === null && m.adultId !== viewerId)
         .filter((m) => !state.voices.some((v) => v.ownerId === m.adultId && v.deletedAt === null))
-        .map((m) => ({
+        .map((m): HomeStoryteller => ({
           voiceId: `joined-${m.adultId}`,
           person: person(adultById.get(m.adultId)),
           mine: false,
