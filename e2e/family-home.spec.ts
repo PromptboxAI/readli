@@ -35,23 +35,32 @@ test("the family home leads with the kids, stories and storytellers", async ({ p
   await expect(lion).toContainText("Maya · not started");
   // A book carries no status of its own, only each child's place.
   for (const label of ["Ready to play", "In progress", "Completed"]) await expect(lion).not.toContainText(label);
-  // Find your next story leads to Books: a slim strip on phones and tablets, a card beside the kids on desktop.
-  const next = info.project.name === "desktop" ? page.getByTestId("next-story") : page.getByTestId("next-story-strip");
+  // Find your next story leads to Books, in one slim strip across the page on every screen.
+  const next = page.getByTestId("next-story-strip");
   await expect(next.getByRole("link", { name: "Browse Books" })).toBeVisible();
   await expect(next).toContainText(/of [\d.,]+ (monthly|trial) credits remaining/);
   await expect(next.getByRole("link", { name: /How credits work/ })).toHaveAttribute("href", "/family/settings/plan?from=%2Ffamily");
 
-  // Home shows a few books, two across on wider screens, and the rest on request.
+  // Home shows a few books (four on phones, up to nine on wider screens) and the rest on request.
   const shelf = page.getByTestId("shelf-ready");
-  const shown = await shelf.locator(":scope > li").count();
-  expect(shown).toBeLessThanOrEqual(4);
+  const shown = await shelf.locator(":scope > li:visible").count();
+  expect(shown).toBeLessThanOrEqual(info.project.name === "phone" ? 4 : 9);
   const viewAll = page.getByTestId("shelf-view-all");
-  if (await viewAll.count()) {
+  if (await viewAll.isVisible()) {
     await viewAll.click();
     await expect(page).toHaveURL(/shelf=all/);
-    await expect.poll(() => shelf.locator(":scope > li").count()).toBeGreaterThan(shown);
+    await expect.poll(() => shelf.locator(":scope > li:visible").count()).toBeGreaterThan(shown);
     await page.goto("/family");
   }
+  // With two kids, the shelf can narrow to one child's books.
+  const filter = page.getByTestId("shelf-kid-filter");
+  await expect(filter.getByRole("link")).toHaveText(["Everyone", "Maya", "Leo"]);
+  await expect(filter.getByRole("link", { name: "Everyone" })).toHaveAttribute("aria-current", "page");
+  await filter.getByRole("link", { name: "Leo" }).click();
+  await expect(page).toHaveURL(/kid=leo/);
+  await expect(filter.getByRole("link", { name: "Leo" })).toHaveAttribute("aria-current", "page");
+  await expect(shelf.locator(":scope > li").first()).toContainText("Leo ·");
+  await page.goto("/family");
   await expect(page.getByRole("link", { name: "Invite a storyteller" })).toHaveAttribute("href", "/family/narrators#invite");
 
   const storytellers = page.getByTestId("home-storytellers");

@@ -11,7 +11,7 @@ import { ResetButton } from "@/components/family/ResetButton";
 import { SessionButton } from "@/components/family/SessionButton";
 import { SetKidsPin } from "@/components/family/SetKidsPin";
 import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
-import { FamilyBookshelf, HOME_SHELF_BOOKS, KidCards, StorytellersCard, UnassignedBooks } from "@/components/family/HomeShelf";
+import { FamilyBookshelf, HOME_SHELF_BOOKS, KidCards, PHONE_SHELF_BOOKS, StorytellersCard, UnassignedBooks } from "@/components/family/HomeShelf";
 import { HomeNotice } from "@/components/family/HomeNotice";
 import { NewThisWeek } from "@/components/family/NewThisWeek";
 import { PreparingShelf } from "@/components/family/PreparingShelf";
@@ -203,10 +203,21 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   const slotLine = home && entitlement && slots ? `${countedSlots(state, home, plan).length} of ${slots} ${entitlement.extraNarratorSlots ? "" : "included "}narrator slots in use` : null;
   const kidIds = new Set(kids.map((k) => k.id));
   const kidCards = view ? view.kids.filter((k) => kidIds.has(k.id)) : [];
-  const allBooks = (await searchParams).shelf === "all";
-  const shelfShown = view ? (allBooks ? view.shelf : view.shelf.slice(0, HOME_SHELF_BOOKS)) : [];
+  const params = await searchParams;
+  const allBooks = params.shelf === "all";
+  // ?kid= narrows the bookshelf to the books one child may hear.
+  const shelfKid = kidCards.find((k) => k.id === params.kid) ?? null;
+  const shelfBooks = view ? (shelfKid ? view.shelf.filter((b) => b.kids.some((k) => k.id === shelfKid.id)) : view.shelf) : [];
+  const shelfShown = allBooks ? shelfBooks : shelfBooks.slice(0, HOME_SHELF_BOOKS);
+  const shelfHref = (kid: string | null, all: boolean) => {
+    const q = new URLSearchParams();
+    if (kid) q.set("kid", kid);
+    if (all) q.set("shelf", "all");
+    const query = q.toString();
+    return `/family${query ? `?${query}` : ""}#bookshelf`;
+  };
   return (
-    <FamilyShell>
+    <FamilyShell wide={isGuardian}>
       <div className="flex items-center gap-4">
         <StorytellerAvatar name={adult.displayName} avatarUrl={adult.avatarUrl} tint={adult.tint} />
         <div className="min-w-0 flex-1">
@@ -262,172 +273,171 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
       )}
 
       {isGuardian && (
-        // On phones, the way to the next story sits above the kids, in one slim strip.
-        <section className="flex items-center justify-between gap-3 rounded-3xl bg-ink px-4 py-3 text-white lg:hidden" aria-label="Find your next story" data-testid="next-story-strip">
+        // The way to the next story, in one slim strip across the page on every screen.
+        <section className="flex items-center justify-between gap-3 rounded-3xl bg-ink px-4 py-3 text-white sm:px-6 sm:py-4" aria-label="Find your next story" data-testid="next-story-strip">
           <div className="min-w-0">
-            <p className="font-display text-lg font-semibold leading-tight">Find your next story</p>
+            <p className="font-display text-lg font-semibold leading-tight sm:text-xl">Find your next story</p>
             {creditLine && (
               <Link href={settingsLink("/family/settings/plan", "/family")} className="block text-sm text-white/80 underline-offset-4 hover:underline">
                 <strong className="text-white">{creditLine.amount}</strong> {creditLine.rest}
+                <span className="hidden sm:inline">. Anything already prepared plays free</span>
                 <span className="sr-only">. How credits work</span>
               </Link>
             )}
           </div>
-          <Link
-            href="/family/books"
-            className={`${parentSecondary} shrink-0`}
-          >
+          <Link href="/family/books" className={`${parentSecondary} shrink-0`}>
             Browse Books
           </Link>
         </section>
       )}
 
       {isGuardian && (
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
-          <div className="flex min-w-0 flex-col gap-8">
-            <section className="flex flex-col gap-3" aria-labelledby="kids-h">
-              <div className="flex flex-wrap items-baseline justify-between gap-3">
-                <h2 id="kids-h" className="font-display text-2xl font-semibold">
-                  Your kids
-                </h2>
-                {kids.length >= kidsMax ? (
-                  <span className="text-muted">
-                    {kids.length} of {kidsMax} profiles
-                  </span>
-                ) : (
-                  <Link href="/family/kids" className="font-semibold underline underline-offset-4">
-                    {kids.length ? "Add a child" : "Add your first child"}
-                  </Link>
-                )}
-              </div>
-              {account && !hasPlan && !lapsed && (
-                <p className="rounded-2xl bg-sunshine/50 p-3 text-sm">
-                  Kids profiles come with Readli Family.{" "}
-                  {familyCheckoutOpen() ? (
-                    <Link href={settingsLink("/family/settings/plan", "/family")} className="font-semibold underline underline-offset-4">
-                      Choose a plan
-                    </Link>
-                  ) : (
-                    "Checkout isn't switched on yet, so this unlocks when it is."
-                  )}
-                </p>
-              )}
-              {needsPin && <SetKidsPin />}
-              {kidCards.length > 0 ? (
-                <KidCards kids={kidCards} />
-              ) : (
-                <Link
-                  href="/family/kids"
-                  className="flex min-h-28 flex-col items-center justify-center gap-1 rounded-3xl border-[3px] border-dashed border-ink/20 p-4 text-center font-display text-lg font-semibold text-muted hover:border-ink/50"
-                  data-testid="home-kids"
-                >
-                  <span aria-hidden="true" className="text-3xl leading-none">
-                    +
-                  </span>
-                  Add your first child
-                </Link>
-              )}
-              {kidCards.length > 0 && (
-                <details className="group self-start text-sm" data-testid="kids-mode-note">
-                  <summary className="cursor-pointer list-none font-semibold text-muted underline underline-offset-4 hover:text-ink [&::-webkit-details-marker]:hidden">
-                    About Kids Mode
-                  </summary>
-                  <p className="mt-2 max-w-prose rounded-2xl bg-surface p-3 ring-2 ring-ink/10">
-                    Open Readli Kids starts Kids Mode for that child on this browser. A grown-up leaves it with the family PIN, and it ends on its own after{" "}
-                    {TEMPORARY_KIDS_HOURS} hours. To give a child their own iPad,{" "}
-                    <Link href="/family/settings/kids-mode" className="font-semibold underline underline-offset-4">
-                      set up a kids device
-                    </Link>
-                    .
-                  </p>
-                </details>
-              )}
-            </section>
-
-            {view && view.requests.length > 0 && <StoryRequests requests={view.requests} />}
-
-            {view && (
-              <section id="bookshelf" className="flex scroll-mt-24 flex-col gap-3" aria-labelledby="bookshelf-h">
-                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                  <h2 id="bookshelf-h" className="font-display text-2xl font-semibold">
-                    Family bookshelf
-                  </h2>
-                  {view.shelf.length > 0 && (
-                    <span className="text-muted">
-                      {view.shelf.length} {view.shelf.length === 1 ? "audiobook" : "audiobooks"} in family voices
-                    </span>
-                  )}
-                </div>
-                {view.preparing.length > 0 && <PreparingShelf books={view.preparing} />}
-                {view.shelf.length > 0 ? (
-                  <>
-                    <FamilyBookshelf books={shelfShown} />
-                    {view.shelf.length > HOME_SHELF_BOOKS && (
-                      <Link
-                        href={allBooks ? "/family#bookshelf" : "/family?shelf=all#bookshelf"}
-                        className="self-start font-semibold underline underline-offset-4"
-                        data-testid="shelf-view-all"
-                        scroll={false}
-                      >
-                        {allBooks ? "Show fewer" : `View all ${view.shelf.length} books`}
-                      </Link>
-                    )}
-                    <p className="text-sm text-muted">Listen plays here for you, from the start. Each child keeps their own place, which only moves when they listen in Readli Kids.</p>
-                  </>
-                ) : (
-                  view.preparing.length === 0 && (
-                    <div className="flex flex-col items-start gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10" data-testid="shelf-ready-empty">
-                      <p>Pick a story and choose who reads it. Prepared audiobooks show up here, with each child&apos;s place.</p>
-                      <Link href="/family/books" className={parentPrimary}>
-                        Choose a story
-                      </Link>
-                    </div>
-                  )
-                )}
-              </section>
-            )}
-
-            {view && view.unassigned.length > 0 && <UnassignedBooks books={view.unassigned} />}
-          </div>
-
-          <aside className="flex min-w-0 flex-col gap-6">
-            <section className="hidden flex-col gap-3 rounded-3xl bg-ink p-6 text-white lg:flex" aria-labelledby="next-story-h" data-testid="next-story">
-              <h2 id="next-story-h" className="font-display text-2xl font-semibold">
-                Find your next story
+        // Each section takes the page's full width, one under the other, so the kids and the bookshelf have room however many there are.
+        <>
+          <section className="flex flex-col gap-3" aria-labelledby="kids-h">
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+              <h2 id="kids-h" className="font-display text-2xl font-semibold">
+                Your kids
               </h2>
-              <p className="text-white/85">Prepare another book in a family voice. Anything already prepared plays free.</p>
-              {creditLine && (
-                <p>
-                  <strong>{creditLine.amount}</strong> {creditLine.rest}{" "}
-                  <Link href={settingsLink("/family/settings/plan", "/family")} className="text-sm whitespace-nowrap text-white/85 underline underline-offset-4 hover:text-white">
-                    How credits work
-                  </Link>
-                </p>
-              )}
-              <Link href="/family/books" className={parentSecondary}>
-                Browse Books
-              </Link>
-            </section>
-            {view && <StorytellersCard storytellers={view.storytellers} slotLine={slotLine} recordFirst={Boolean(setup && !setup.recorded)} />}
-            <Link
-              href="/family/activity"
-              className="flex items-center justify-between gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10 hover:ring-ink/30"
-              data-testid="activity-link"
-            >
-              <span>
-                <span className="block font-display text-xl font-semibold">Family activity</span>
-                <span className="text-sm text-muted">Notices, and the books your kids have finished</span>
-              </span>
-              {unread > 0 ? (
-                <span className="shrink-0 rounded-full bg-sunshine px-3 py-1 text-sm font-semibold" data-testid="activity-unread">
-                  {unread} new
+              {kids.length >= kidsMax ? (
+                <span className="text-muted">
+                  {kids.length} of {kidsMax} profiles
                 </span>
               ) : (
-                <span aria-hidden="true">→</span>
+                <Link href="/family/kids" className="font-semibold underline underline-offset-4">
+                  {kids.length ? "Add a child" : "Add your first child"}
+                </Link>
               )}
-            </Link>
-          </aside>
-        </div>
+            </div>
+            {account && !hasPlan && !lapsed && (
+              <p className="rounded-2xl bg-sunshine/50 p-3 text-sm">
+                Kids profiles come with Readli Family.{" "}
+                {familyCheckoutOpen() ? (
+                  <Link href={settingsLink("/family/settings/plan", "/family")} className="font-semibold underline underline-offset-4">
+                    Choose a plan
+                  </Link>
+                ) : (
+                  "Checkout isn't switched on yet, so this unlocks when it is."
+                )}
+              </p>
+            )}
+            {needsPin && <SetKidsPin />}
+            {kidCards.length > 0 ? (
+              <KidCards kids={kidCards} />
+            ) : (
+              <Link
+                href="/family/kids"
+                className="flex min-h-28 flex-col items-center justify-center gap-1 rounded-3xl border-[3px] border-dashed border-ink/20 p-4 text-center font-display text-lg font-semibold text-muted hover:border-ink/50"
+                data-testid="home-kids"
+              >
+                <span aria-hidden="true" className="text-3xl leading-none">
+                  +
+                </span>
+                Add your first child
+              </Link>
+            )}
+            {kidCards.length > 0 && (
+              <details className="group self-start text-sm" data-testid="kids-mode-note">
+                <summary className="cursor-pointer list-none font-semibold text-muted underline underline-offset-4 hover:text-ink [&::-webkit-details-marker]:hidden">
+                  About Kids Mode
+                </summary>
+                <p className="mt-2 max-w-prose rounded-2xl bg-surface p-3 ring-2 ring-ink/10">
+                  Open Readli Kids starts Kids Mode for that child on this browser. A grown-up leaves it with the family PIN, and it ends on its own after{" "}
+                  {TEMPORARY_KIDS_HOURS} hours. To give a child their own iPad,{" "}
+                  <Link href="/family/settings/kids-mode" className="font-semibold underline underline-offset-4">
+                    set up a kids device
+                  </Link>
+                  .
+                </p>
+              </details>
+            )}
+          </section>
+
+          {view && view.requests.length > 0 && <StoryRequests requests={view.requests} />}
+
+          {view && (
+            <section id="bookshelf" className="flex scroll-mt-24 flex-col gap-3" aria-labelledby="bookshelf-h">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <h2 id="bookshelf-h" className="font-display text-2xl font-semibold">
+                  Family bookshelf
+                </h2>
+                {view.shelf.length > 0 && (
+                  <span className="text-muted">
+                    {view.shelf.length} {view.shelf.length === 1 ? "audiobook" : "audiobooks"} in family voices
+                  </span>
+                )}
+              </div>
+              {view.preparing.length > 0 && <PreparingShelf books={view.preparing} />}
+              {view.shelf.length > 0 && kidCards.length > 1 && (
+                // With more than one child, the shelf can show just the books one child may hear.
+                <nav aria-label="Show books for" className="-mx-1 flex gap-2 overflow-x-auto px-1 py-0.5" data-testid="shelf-kid-filter">
+                  {[{ id: null, name: "Everyone" }, ...kidCards.map((k) => ({ id: k.id, name: k.name }))].map((c) => (
+                    <Link
+                      key={c.id ?? "everyone"}
+                      href={shelfHref(c.id, false)}
+                      scroll={false}
+                      aria-current={shelfKid?.id === c.id || (!shelfKid && c.id === null) ? "page" : undefined}
+                      className="inline-flex min-h-10 shrink-0 items-center rounded-full bg-surface px-4 font-display font-semibold ring-2 ring-ink/10 hover:ring-ink/30 aria-[current=page]:bg-ink aria-[current=page]:text-white aria-[current=page]:ring-ink"
+                    >
+                      {c.name}
+                    </Link>
+                  ))}
+                </nav>
+              )}
+              {shelfBooks.length > 0 ? (
+                <>
+                  <FamilyBookshelf books={shelfShown} phoneLimit={allBooks ? undefined : PHONE_SHELF_BOOKS} />
+                  {shelfBooks.length > PHONE_SHELF_BOOKS && (
+                    <Link
+                      href={shelfHref(shelfKid?.id ?? null, !allBooks)}
+                      // Wider screens already show up to HOME_SHELF_BOOKS, so the link only appears there when there are more.
+                      className={`self-start font-semibold underline underline-offset-4 ${!allBooks && shelfBooks.length <= HOME_SHELF_BOOKS ? "md:hidden" : ""}`}
+                      data-testid="shelf-view-all"
+                      scroll={false}
+                    >
+                      {allBooks ? "Show fewer" : `View all ${shelfBooks.length} books`}
+                    </Link>
+                  )}
+                  <p className="text-sm text-muted">Listen plays here for you, from the start. Each child keeps their own place, which only moves when they listen in Readli Kids.</p>
+                </>
+              ) : view.shelf.length > 0 && shelfKid ? (
+                <p className="rounded-3xl bg-surface p-5 text-muted ring-2 ring-ink/10" data-testid="shelf-kid-empty">
+                  Nothing on the bookshelf for {shelfKid.name} yet. Approve a storyteller for them, or prepare a story in Books.
+                </p>
+              ) : (
+                view.preparing.length === 0 && (
+                  <div className="flex flex-col items-start gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10" data-testid="shelf-ready-empty">
+                    <p>Pick a story and choose who reads it. Prepared audiobooks show up here, with each child&apos;s place.</p>
+                    <Link href="/family/books" className={parentPrimary}>
+                      Choose a story
+                    </Link>
+                  </div>
+                )
+              )}
+            </section>
+          )}
+
+          {view && view.unassigned.length > 0 && <UnassignedBooks books={view.unassigned} />}
+
+          <Link
+            href="/family/activity"
+            className="flex items-center justify-between gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10 hover:ring-ink/30"
+            data-testid="activity-link"
+          >
+            <span>
+              <span className="block font-display text-xl font-semibold">Family activity</span>
+              <span className="text-sm text-muted">Notices, and the books your kids have finished</span>
+            </span>
+            {unread > 0 ? (
+              <span className="shrink-0 rounded-full bg-sunshine px-3 py-1 text-sm font-semibold" data-testid="activity-unread">
+                {unread} new
+              </span>
+            ) : (
+              <span aria-hidden="true">→</span>
+            )}
+          </Link>
+          {view && <StorytellersCard storytellers={view.storytellers} slotLine={slotLine} recordFirst={Boolean(setup && !setup.recorded)} />}
+        </>
       )}
 
       {!isGuardian && (
