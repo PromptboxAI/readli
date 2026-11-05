@@ -647,13 +647,22 @@ export function NarratorSlots({
               {pendingInvites.map((inv) => {
                 const expired = inv.status === "expired";
                 const declined = inv.status === "declined";
+                // A co-parent joins as a parent, not a storyteller. Only the parent who manages the plan handles their invitation.
+                const parent = inv.role === "guardian";
+                const canManage = !parent || Boolean(coParent?.canInvite);
                 const until = inv.expiresAt ? new Date(inv.expiresAt) : new Date(new Date(inv.createdAt).getTime() + INVITE_TTL_DAYS * 86_400_000);
                 return (
                   <li key={inv.id} data-testid={`invite-${inv.id}`} className="flex flex-wrap items-center gap-4 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
                     <StorytellerAvatar name={inv.name} avatarUrl={null} tint="bg-ivory" muted />
                     <div className="min-w-0 flex-1">
                       <p className="font-display text-xl font-semibold">{inv.name}</p>
-                      {inv.relationship && <p className="text-sm text-muted">{inv.relationship}</p>}
+                      {parent ? (
+                        <p className="text-sm text-muted" data-testid="co-parent-invite-note">
+                          Invited as a co-parent. Once they join, they can record their voice too.
+                        </p>
+                      ) : (
+                        inv.relationship && <p className="text-sm text-muted">{inv.relationship}</p>
+                      )}
                       <p className="text-sm text-muted">
                         {declined
                           ? "They said no thanks. We won't email them again for your family."
@@ -663,8 +672,10 @@ export function NarratorSlots({
                       </p>
                     </div>
                     <InvitationPill state={declined ? "declined" : expired ? "expired" : "sent"} />
-                    {!declined && !expired && relabelInvite(inv)}
-                    {declined ? null : inv.canResend && inviteMode === "live" ? (
+                    {!declined && !expired && !parent && relabelInvite(inv)}
+                    {!canManage ? (
+                      <p className="w-full text-sm text-muted">Only {coParent?.ownerName ?? "the parent who manages your plan"} can resend or withdraw this invitation.</p>
+                    ) : declined ? null : inv.canResend && inviteMode === "live" ? (
                       <div className="flex flex-wrap items-center gap-3">
                         <button type="button" className={parentSecondary} disabled={busy} onClick={() => resend(inv)}>
                           {expired ? "Send a fresh link" : "Resend email"}

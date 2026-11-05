@@ -129,14 +129,14 @@ function members(view: NarratorSlotsView, invites: SavedInvite[], kidName: (id: 
     out.push({
       key: inv.id,
       name: inv.name,
-      relationship: inv.relationship,
+      relationship: inv.relationship || (inv.role === "guardian" ? "Co-parent" : ""),
       avatarUrl: null,
       tint: "bg-ivory",
       kind: "invited",
       badge: expired ? "Invitation expired" : "Invited",
       detail: expired
         ? `The invitation to ${inv.name} expired before it was used.`
-        : `Invited ${day(inv.createdAt)}${inv.expiresAt ? `. The link works until ${day(inv.expiresAt)}` : ""}. Inviting doesn't use a narrator slot.`,
+        : `${inv.role === "guardian" ? "Invited as a co-parent" : "Invited"} ${day(inv.createdAt)}${inv.expiresAt ? `. The link works until ${day(inv.expiresAt)}` : ""}. Inviting doesn't use a narrator slot.`,
       canHear: [],
       card: `invite-${inv.id}`,
       next: {

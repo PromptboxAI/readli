@@ -183,6 +183,7 @@ const STATUS: Record<HomeStoryteller["tone"], { label: string; className: string
   some: { label: "Available", className: "bg-mint/50 text-mint-deep" },
   none: { label: "Not approved yet", className: "bg-sky/30" },
   waiting: { label: "Waiting", className: "bg-lavender/40" },
+  joined: { label: "Joined", className: "bg-sky/30" },
 };
 
 /** The family's storytellers, each with who may hear them, and the narrator slots in use; full width on Home, so they list in columns. */
@@ -203,7 +204,7 @@ export function StorytellersCard({ storytellers, slotLine, recordFirst = false }
           {storytellers.map((s) => (
             <li key={s.voiceId}>
               <Link href={s.href} className="-mx-2 flex items-center gap-3 rounded-2xl p-2 hover:bg-ivory">
-                <StorytellerAvatar name={s.person.name} avatarUrl={s.person.avatarUrl} tint={s.person.tint} size="sm" muted={s.tone === "waiting"} />
+                <StorytellerAvatar name={s.person.name} avatarUrl={s.person.avatarUrl} tint={s.person.tint} size="sm" muted={s.tone === "waiting" || s.tone === "joined"} />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="font-display text-lg font-semibold">
                     {s.person.name}
