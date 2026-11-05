@@ -12,7 +12,7 @@ const steps = (family: string) =>
   [
     ["Sign in or create a free Readli Voice account", "Just you, with your own email."],
     ["Record and approve your voice", "About one minute reading a short story aloud. Already have a Readli voice? You skip this."],
-    [`Agree to share it with ${family}`, "Their parents then choose which children hear you."],
+    [`It's shared with ${family} automatically`, "As soon as you keep your voice. Their parents then choose which children hear you."],
     ["Finish on your Readli Voice home", "Where you see every family using your voice."],
   ] as const;
 
@@ -155,7 +155,7 @@ export function JoinInvite({ token, invite, signedIn, live }: { token: string; i
         {signedIn ? (
           <>
             <h2 className="font-display text-2xl font-semibold">Join {invite.familyName} as a storyteller?</h2>
-            <p>Joining doesn&apos;t share your voice. You choose that after your voice is ready.</p>
+            <p>Once you record and keep your voice, it&apos;s shared with {invite.familyName} straight away. You can stop sharing any time.</p>
             {error && (
               <p role="alert" className="rounded-2xl bg-coral/30 p-3 font-semibold">
                 {error}

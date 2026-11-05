@@ -12,8 +12,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * Where a family's storyteller invitation lands. Signed out: sign in or create a free Readli Voice
- * account with the invitation kept in the sign-in link. Signed in: accept, then record and share.
- * Accepting adds family membership only; it shares no voice and approves no child. A co-parent
+ * account with the invitation kept in the sign-in link. Signed in: accept, then record. Their voice is
+ * shared with the family as soon as it's kept (or on accepting, if they have one); no child is approved. A co-parent
  * invitation makes them a parent of the family instead, and lands them on Family Home.
  */
 export default async function JoinPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

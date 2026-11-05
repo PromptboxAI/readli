@@ -95,6 +95,42 @@ describe("signup and pricing amendment", () => {
     expect((await narratorSlots(store, mom, H, clock)).shared.map((n) => n.voiceId)).toContain("voice-andrea");
   });
 
+  it("a storyteller removed and invited back shares again when they accept, into a free slot", async () => {
+    const { state, store } = basePlanFamily();
+    state.adults.push({ id: "andrea", displayName: "Andrea", avatarUrl: null, tint: "bg-sky" });
+    state.members.push({ householdId: H, adultId: "andrea", role: "member", joinedAt: clock().toISOString(), removedAt: null });
+    state.voices.push({ id: "voice-andrea", ownerId: "andrea", version: 1, status: "ready", createdAt: clock().toISOString(), deletedAt: null });
+    const andrea: Actor = { kind: "adult", adultId: "andrea" };
+    expect((await shareWithJoinedFamilies(store, andrea, "p", clock)).map((x) => x.householdId)).toEqual([H]);
+    // She stops sharing, then a parent removes her.
+    await setHouseholdShare(store, andrea, { voiceId: "voice-andrea", householdId: H, shared: false, policyVersion: "p" }, clock);
+    await removeStoryteller(store, mom, H, "andrea", clock);
+    // A fresh invitation, accepted: the old "stopped sharing" no longer holds her back.
+    const m = state.members.find((x) => x.householdId === H && x.adultId === "andrea")!;
+    m.removedAt = null;
+    m.joinedAt = clock().toISOString();
+    expect((await shareWithJoinedFamilies(store, andrea, "p", clock)).map((x) => x.householdId)).toEqual([H]);
+    expect((await narratorSlots(store, mom, H, clock)).active.map((n) => n.voiceId)).toContain("voice-andrea");
+  });
+
+  it("a storyteller removed while still sharing is shared afresh, into a free slot, when invited back", async () => {
+    const { state, store } = basePlanFamily();
+    state.adults.push({ id: "andrea", displayName: "Andrea", avatarUrl: null, tint: "bg-sky" });
+    state.members.push({ householdId: H, adultId: "andrea", role: "member", joinedAt: clock().toISOString(), removedAt: null });
+    state.voices.push({ id: "voice-andrea", ownerId: "andrea", version: 1, status: "ready", createdAt: clock().toISOString(), deletedAt: null });
+    const andrea: Actor = { kind: "adult", adultId: "andrea" };
+    await shareWithJoinedFamilies(store, andrea, "p", clock);
+    await removeStoryteller(store, mom, H, "andrea", clock);
+    const m = state.members.find((x) => x.householdId === H && x.adultId === "andrea")!;
+    m.removedAt = null;
+    m.joinedAt = clock().toISOString();
+    expect((await shareWithJoinedFamilies(store, andrea, "p", clock)).map((x) => x.householdId)).toEqual([H]);
+    expect(state.shares.filter((x) => x.voiceId === "voice-andrea" && x.revokedAt === null)).toHaveLength(1);
+    expect((await narratorSlots(store, mom, H, clock)).active.map((n) => n.voiceId)).toContain("voice-andrea");
+    // Keeping again later doesn't share or notify twice.
+    expect(await shareWithJoinedFamilies(store, andrea, "p", clock)).toEqual([]);
+  });
+
   it("a first share waits for a parent when every slot is in use", async () => {
     const { store } = basePlanFamily();
     await activateNarrator(store, mom, H, "voice-sara", clock);
