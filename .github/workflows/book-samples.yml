@@ -1,0 +1,59 @@
+name: Book samples
+
+# Records the "How it starts" sample on /books/<slug> for any book that doesn't have one yet, in the
+# sample voice (Grandpa Kevin), and commits the mp3s to main. Runs whenever books change on main, so a
+# new book gets its sample automatically. Needs the ELEVENLABS_API_KEY and SAMPLE_VOICE_ID repository
+# secrets; with every sample already recorded it does nothing and needs neither.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/lib/library/**"
+      - "scripts/book-samples.mjs"
+      - ".github/workflows/book-samples.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: book-samples
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Record missing samples
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          SAMPLE_VOICE_ID: ${{ secrets.SAMPLE_VOICE_ID }}
+          ELEVENLABS_MODEL_ID: ${{ vars.ELEVENLABS_MODEL_ID }}
+        run: npm run samples:books
+      - name: Commit new samples
+        if: always()
+        run: |
+          git add public/samples/books
+          if git diff --cached --quiet; then
+            echo "No new samples."
+            exit 0
+          fi
+          # Commit as whoever made the change that needed the samples, so Vercel deploys it like theirs.
+          git config user.name "$(git log -1 --format=%an)"
+          git config user.email "$(git log -1 --format=%ae)"
+          git commit -m "Record book samples for $(git diff --cached --name-only | xargs -n1 basename | sed 's/\.mp3$//' | paste -sd, - | sed 's/,/, /g')"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((i * 5))
+          done
+          exit 1
