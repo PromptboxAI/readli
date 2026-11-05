@@ -425,9 +425,13 @@ test("Books is one catalog with search, simple filters and each book's cost in t
   const catalog = page.getByTestId("catalog");
   const book = (slug: string) => catalog.getByTestId(`book-${slug}`);
   // Every book shows by default, shortest first, including ones the family can't afford yet.
-  await expect(book("aesops-fables-retold")).toContainText("More credits needed");
   await expect(book("the-lion-and-the-mouse").getByTestId("cost")).toContainText("Ready · free to play");
   await expect(catalog.getByTestId("catalog-count")).toContainText("Showing 12 of");
+  // The first page is all short stories, so search to reach a longer one the family can't afford.
+  await catalog.getByRole("searchbox", { name: "Search books" }).fill("aesop");
+  await expect(book("aesops-fables-retold")).toContainText("More credits needed");
+  await catalog.getByRole("searchbox", { name: "Search books" }).fill("");
+  await expect(book("the-lion-and-the-mouse")).toBeVisible();
   // Sort sits on the same line as search.
   const search = (await catalog.getByRole("searchbox", { name: "Search books" }).boundingBox())!;
   const sort = (await catalog.getByRole("combobox", { name: "Sort" }).boundingBox())!;

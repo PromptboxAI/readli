@@ -83,6 +83,33 @@ const ADDED: readonly UpcomingBook[] = [
   { slug: "the-white-horse-girl-and-the-blue-wind-boy", title: "The White Horse Girl and the Blue Wind Boy", author: "Carl Sandburg", firstPublished: 1922, approxMinutes: 6 },
   { slug: "wynken-blynken-and-nod", title: "Wynken, Blynken, and Nod and Other Lullabies", author: "Eugene Field", firstPublished: 1889, approxMinutes: 6 },
   { slug: "more-aesops-fables", title: "More Aesop's Fables", author: "Aesop", firstPublished: 1919, approxMinutes: 11 },
+  // Kevin, 2026-11-04: twelve more short books.
+  { slug: "the-tale-of-benjamin-bunny", title: "The Tale of Benjamin Bunny", author: "Beatrix Potter", firstPublished: 1904, approxMinutes: 6 },
+  { slug: "the-tale-of-the-flopsy-bunnies", title: "The Tale of the Flopsy Bunnies", author: "Beatrix Potter", firstPublished: 1909, approxMinutes: 6 },
+  { slug: "the-tale-of-johnny-town-mouse", title: "The Tale of Johnny Town-Mouse", author: "Beatrix Potter", firstPublished: 1918, approxMinutes: 7 },
+  { slug: "the-story-of-miss-moppet", title: "The Story of Miss Moppet", author: "Beatrix Potter", firstPublished: 1906, approxMinutes: 1 },
+  { slug: "rumpelstiltskin", title: "Rumpelstiltskin", author: "The Brothers Grimm", firstPublished: 1812, approxMinutes: 6 },
+  { slug: "the-frog-prince", title: "The Frog Prince", author: "The Brothers Grimm", firstPublished: 1812, approxMinutes: 6 },
+  { slug: "sweet-porridge", title: "Sweet Porridge", author: "The Brothers Grimm", firstPublished: 1812, approxMinutes: 1 },
+  { slug: "the-star-money", title: "The Star Money", author: "The Brothers Grimm", firstPublished: 1812, approxMinutes: 2 },
+  { slug: "the-three-feathers", title: "The Three Feathers", author: "The Brothers Grimm", firstPublished: 1819, approxMinutes: 5 },
+  { slug: "teeny-tiny", title: "Teeny-Tiny", author: "Traditional", firstPublished: 1890, approxMinutes: 2 },
+  { slug: "lazy-jack", title: "Lazy Jack", author: "Traditional", firstPublished: 1890, approxMinutes: 4 },
+  { slug: "johnny-crows-garden", title: "Johnny Crow's Garden", author: "L. Leslie Brooke", firstPublished: 1903, approxMinutes: 1 },
+  // Kevin, 2026-11-05: thirteen more books, from picture-book tales to The Secret Garden.
+  { slug: "the-fisherman-and-his-wife", title: "The Fisherman and His Wife", author: "The Brothers Grimm", firstPublished: 1812, approxMinutes: 16 },
+  { slug: "little-idas-flowers", title: "Little Ida's Flowers", author: "Hans Christian Andersen", firstPublished: 1835, approxMinutes: 14 },
+  { slug: "ole-luk-oie", title: "Ole-Luk-Oie, the Dream God", author: "Hans Christian Andersen", firstPublished: 1841, approxMinutes: 19 },
+  { slug: "the-nightingale", title: "The Nightingale", author: "Hans Christian Andersen", firstPublished: 1843, approxMinutes: 19 },
+  { slug: "the-tailor-of-gloucester", title: "The Tailor of Gloucester", author: "Beatrix Potter", firstPublished: 1903, approxMinutes: 15 },
+  { slug: "beauty-and-the-beast", title: "Beauty and the Beast", author: "Andrew Lang", firstPublished: 1889, approxMinutes: 38 },
+  { slug: "the-real-mother-goose", title: "The Real Mother Goose", author: "Traditional", firstPublished: 1916, approxMinutes: 13 },
+  { slug: "when-we-were-very-young", title: "When We Were Very Young", author: "A. A. Milne", firstPublished: 1924, approxMinutes: 32 },
+  { slug: "the-house-at-pooh-corner", title: "The House at Pooh Corner", author: "A. A. Milne", firstPublished: 1928, approxMinutes: 140 },
+  { slug: "raggedy-andy-stories", title: "Raggedy Andy Stories", author: "Johnny Gruelle", firstPublished: 1920, approxMinutes: 77 },
+  { slug: "the-reluctant-dragon", title: "The Reluctant Dragon", author: "Kenneth Grahame", firstPublished: 1898, approxMinutes: 47 },
+  { slug: "the-adventures-of-peter-cottontail", title: "The Adventures of Peter Cottontail", author: "Thornton W. Burgess", firstPublished: 1914, approxMinutes: 82 },
+  { slug: "the-secret-garden", title: "The Secret Garden", author: "Frances Hodgson Burnett", firstPublished: 1911, approxMinutes: 426 },
 ].map((b) => ({ ...b, coverUrl: `/covers/${b.slug}.webp` }));
 
 export const CATALOG: readonly CatalogBook[] = [

@@ -48,7 +48,7 @@ export async function familyLibrary(store: FamilyStore, actor: Actor | null, hou
   const state = await store.read();
   requireHouseholdGuardian(state, actor, householdId);
   const plan = store.plan;
-  const cards = await Promise.all(CATALOG.map(async (b) => card(await prepareView(store, actor, householdId, b.slug), b.coverUrl, b.tint)));
+  const cards = await Promise.all(CATALOG.map(async (b) => card(await prepareView(store, actor, householdId, b.slug, undefined, { alternatives: false }), b.coverUrl, b.tint)));
   // Shortest first: the launch experience leads with quick stories.
   const all = [...cards].sort((a, b) => a.minutes - b.minutes);
   const bySlug = new Map(all.map((c) => [c.slug, c]));
