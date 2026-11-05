@@ -33,6 +33,16 @@ describe("family home", () => {
     expect(view.storytellers.at(-1)?.tone).toBe("waiting");
   });
 
+  it("lists someone who joined but hasn't recorded, after everyone with a voice", () => {
+    const state = demoFamilyState();
+    state.adults.push({ id: "kim", displayName: "Kim", tint: "bg-sky", avatarUrl: null });
+    state.members.push({ householdId: DEMO_HOUSEHOLD_ID, adultId: "kim", role: "guardian", relationship: "", joinedAt: "2026-10-01T00:00:00Z", removedAt: null });
+    const view = familyHome(state, DEMO_HOUSEHOLD_ID, undefined, "sara");
+    expect(view.storytellers.at(-1)).toMatchObject({ person: { name: "Kim" }, tone: "joined", detail: "Joined, hasn't recorded yet", href: "/family/narrators" });
+    // Your own missing voice is asked for separately, not listed.
+    expect(familyHome(state, DEMO_HOUSEHOLD_ID, undefined, "kim").storytellers.some((s) => s.person.name === "Kim")).toBe(false);
+  });
+
   it("shows a story as ready only when every sentence is stored in a voice shared with the family", () => {
     const state = withReadyBook(demoFamilyState());
     expect(familyHome(state, DEMO_HOUSEHOLD_ID).ready.map((b) => [b.slug, b.detail])).toEqual([[SLUG, "Ready with Mom"]]);

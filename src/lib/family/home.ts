@@ -108,7 +108,8 @@ export interface HomeBook {
   voices: HomePerson[];
 }
 
-export type StorytellerTone = "family" | "some" | "none" | "waiting";
+export type StorytellerTone = "family" | "some" | "none" | "waiting" | "joined";
+const TONE_ORDER: StorytellerTone[] = ["family", "some", "none", "waiting", "joined"];
 
 export interface HomeStoryteller {
   voiceId: string;
@@ -404,7 +405,21 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       const next = activeSlot(state, v.id, householdId, plan) ? `/family/narrators?choose=${encodeURIComponent(v.id)}` : "/family/narrators";
       return { ...card, tone: "none" as const, detail: "Not approved for a child yet", href: next };
     })
-    .sort((a, b) => ["family", "some", "none", "waiting"].indexOf(a.tone) - ["family", "some", "none", "waiting"].indexOf(b.tone));
+    .concat(
+      // Someone who joined (a co-parent or storyteller) but hasn't recorded is still one of the family's storytellers.
+      state.members
+        .filter((m) => m.householdId === householdId && m.removedAt === null && m.adultId !== viewerId)
+        .filter((m) => !state.voices.some((v) => v.ownerId === m.adultId && v.deletedAt === null))
+        .map((m) => ({
+          voiceId: `joined-${m.adultId}`,
+          person: person(adultById.get(m.adultId)),
+          mine: false,
+          href: "/family/narrators",
+          tone: "joined" as const,
+          detail: "Joined, hasn't recorded yet",
+        })),
+    )
+    .sort((a, b) => TONE_ORDER.indexOf(a.tone) - TONE_ORDER.indexOf(b.tone));
 
   return {
     kids: kids.map((k) => {
