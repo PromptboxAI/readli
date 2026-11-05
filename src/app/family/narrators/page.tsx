@@ -27,7 +27,15 @@ export default async function NarratorSlotsPage({ searchParams }: { searchParams
   const db = page.session.account ? accountDb() : null;
   const inviteMode = page.session.account ? (db ? "live" : "off") : "preview";
   const email = db ? await inviteEmailOn(db, invitationMailer()) : null;
-  const invites = db ? await listInvites(db, householdId, { maxResends: email?.on ? email.maxResends : null }) : [];
+  const maxResends = email?.on ? email.maxResends : null;
+  // A co-parent who has been invited but hasn't joined is on the way too, like an invited storyteller.
+  const [storytellerInvites, coParentInvites] = db
+    ? await Promise.all([
+        listInvites(db, householdId, { maxResends }),
+        listInvites(db, householdId, { maxResends, role: "guardian" }).then((list) => list.filter((i) => i.status === "invited")),
+      ])
+    : [[], []];
+  const invites = [...storytellerInvites, ...coParentInvites].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const parents = await familyParents(store, page.session.actor, householdId);
   return (
     <FamilyShell>
