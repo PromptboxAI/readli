@@ -23,6 +23,7 @@ import {
   setStorytellerRelationship,
   startListening,
   stopListening,
+  householdOwner,
 } from "./service";
 import { authorizePlayback } from "@/lib/narration/narration";
 
@@ -93,6 +94,17 @@ describe("signup and pricing amendment", () => {
     expect(await shareWithJoinedFamilies(store, andrea, "p", clock)).toEqual([]);
     await setHouseholdShare(store, andrea, { voiceId: "voice-andrea", householdId: H, shared: true, policyVersion: "p" }, clock);
     expect((await narratorSlots(store, mom, H, clock)).shared.map((n) => n.voiceId)).toContain("voice-andrea");
+  });
+
+  it("an invited co-parent's kept voice fills a free slot on its own, but the owner's doesn't", async () => {
+    const { state, store } = basePlanFamily();
+    state.adults.push({ id: "pat", displayName: "Pat", avatarUrl: null, tint: "bg-sky" });
+    state.members.push({ householdId: H, adultId: "pat", role: "guardian", joinedAt: clock().toISOString(), removedAt: null });
+    state.voices.push({ id: "voice-pat", ownerId: "pat", version: 1, status: "ready", createdAt: clock().toISOString(), deletedAt: null });
+    expect((await shareWithJoinedFamilies(store, { kind: "adult", adultId: "pat" }, "p", clock)).map((x) => x.householdId)).toEqual([H]);
+    expect((await narratorSlots(store, mom, H, clock)).active.map((n) => n.voiceId)).toContain("voice-pat");
+    const owner = householdOwner(state, H)!;
+    expect(await shareWithJoinedFamilies(store, { kind: "adult", adultId: owner }, "p", clock)).toEqual([]);
   });
 
   it("a storyteller removed and invited back shares again when they accept, into a free slot", async () => {

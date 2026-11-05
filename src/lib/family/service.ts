@@ -259,8 +259,8 @@ function fillFreeSlot(state: FamilyState, plan: PlanConfig, householdId: string,
 }
 
 /**
- * After an invited storyteller keeps their voice: shares it with each family they joined as a storyteller
- * and haven't shared with before. Accepting the invitation and recording is their go-ahead, so there's no
+ * After an invited storyteller or co-parent keeps their voice: shares it with each family they joined
+ * and haven't shared with before, which puts it in a free narrator slot. Accepting the invitation and recording is their go-ahead, so there's no
  * separate share step. A family they stopped sharing with stays unshared.
  */
 export async function shareWithJoinedFamilies(
@@ -274,7 +274,8 @@ export async function shareWithJoinedFamilies(
   const voice = state.voices.find((v) => v.ownerId === adultId && v.deletedAt === null && v.status === "ready");
   if (!voice) return [];
   const homes = state.members
-    .filter((m) => m.adultId === adultId && m.role === "member" && m.removedAt === null)
+    // A co-parent the family invited counts too; only the family's own owner shares by hand.
+    .filter((m) => m.adultId === adultId && m.removedAt === null && (m.role === "member" || householdOwner(state, m.householdId) !== adultId))
     .map((m) => m.householdId)
     .filter((h) => !state.shares.some((x) => x.voiceId === voice.id && x.householdId === h && sharedSinceJoining(state, x, adultId)));
   const out: { householdId: string; notice: ReadyNotice }[] = [];
