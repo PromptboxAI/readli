@@ -561,7 +561,18 @@ export function bookMinutes(text: BookText, plan: PlanConfig): number {
   return Math.round((estimateSeconds(bookCharacters(text), plan.narrationModelId) / 60) * 10) / 10;
 }
 
-export async function prepareView(store: FamilyStore, actor: Actor | null, householdId: string, slug: string, clock: Clock = now): Promise<PrepareBookView> {
+/**
+ * `alternatives: false` skips the shorter books that would fit the balance. Only the book's own page shows them,
+ * and finding them checks every other book, so a whole library of views would cost the catalog size squared.
+ */
+export async function prepareView(
+  store: FamilyStore,
+  actor: Actor | null,
+  householdId: string,
+  slug: string,
+  clock: Clock = now,
+  { alternatives = true }: { alternatives?: boolean } = {},
+): Promise<PrepareBookView> {
   const state = await store.read();
   const viewerId = requireHouseholdGuardian(state, actor, householdId);
   const text = bookText(slug);
@@ -572,8 +583,9 @@ export async function prepareView(store: FamilyStore, actor: Actor | null, house
   const voices = householdVoiceIds(state, householdId, viewerId).map((id) => voiceView(state, plan, householdId, text, id, credits.available, viewerId));
   const needsMore = voices.some((v) => v.availability === "needs_credits" || (v.availability === "partial" && v.extraCreditsNeeded > 0));
   const shorterThatFit: PrepareBookView["shorterThatFit"] = [];
-  if (needsMore) {
+  if (needsMore && alternatives) {
     for (const other of CATALOG) {
+      if (shorterThatFit.length === 3) break;
       if (other.slug === slug) continue;
       const t = bookText(other.slug)!;
       if (bookCharacters(t) >= bookCharacters(text)) continue;
