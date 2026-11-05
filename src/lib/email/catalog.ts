@@ -41,6 +41,7 @@ export const EMAILS: EmailDefinition[] = [
   { id: "I1", name: "Family invitation reminder", sequence: "invitation_reminders", category: "relationship", topic: "invitation_reminders" },
   { id: "I2", name: "Voice invitation reminder", sequence: "invitation_reminders", category: "relationship", topic: "invitation_reminders" },
   { id: "I3", name: "Storyteller hasn't recorded (to the parent)", sequence: "invitation_reminders", category: "relationship", topic: "setup_reminders" },
+  { id: "I4", name: "Someone accepted your parent invitation (to the inviter)", sequence: "invitation_reminders", category: "transactional", topic: null },
   { id: "G1", name: "Email me my demo", sequence: "guest_demo", category: "transactional", topic: null },
   { id: "BT1", name: "Bedtime Thursdays", sequence: "bedtime_thursdays", category: "commercial", topic: "marketing" },
   { id: "T1", name: "Trial ends in 3 days", sequence: "trial", category: "transactional", topic: null },
