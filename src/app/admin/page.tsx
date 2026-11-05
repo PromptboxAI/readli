@@ -59,6 +59,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <nav className="flex flex-wrap gap-3 pt-2" aria-label="Admin pages">
           <Link href="/admin/users" className={buttonSecondary}>Accounts</Link>
           <Link href="/admin/finance" className={buttonSecondary}>Finances</Link>
+          <Link href="/admin/growth" className={buttonSecondary}>Growth metrics</Link>
           <Link href="/admin/plans" className={buttonSecondary}>Plan settings</Link>
           <Link href="/admin/narration" className={buttonSecondary}>Narration</Link>
           <Link href="/admin/audiobooks" className={buttonSecondary}>Audiobook versions</Link>

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { billingChange, invitationBilling } from "./events";
+import { billingChange, cancellationChange, invitationBilling } from "./events";
 
 const sub = (over: Record<string, unknown> = {}) => ({
   id: "sub_1",
@@ -107,5 +107,35 @@ describe("invitationBilling", () => {
     expect(invitationBilling(event("customer.subscription.updated", sub({ status: "past_due" })))).toBeNull();
     expect(invitationBilling(event("customer.subscription.updated", sub({ metadata: {} })))).toBeNull();
     expect(invitationBilling(event("checkout.session.completed", { metadata: { household_id: "h1" }, customer: "cus_1" }))).toBeNull();
+  });
+});
+
+describe("cancellationChange", () => {
+  const iso = (s: number) => new Date(s * 1000).toISOString();
+
+  it("records a scheduled cancel with Stripe's survey answer", () => {
+    const obj = sub({ cancel_at_period_end: true, canceled_at: 1_761_000_000, cancellation_details: { reason: "cancellation_requested", feedback: "too_expensive", comment: "  Too pricey for us  " } });
+    expect(cancellationChange(event("customer.subscription.updated", obj))).toEqual({
+      kind: "canceled",
+      householdId: "h1",
+      subscriptionRef: "sub_1",
+      reason: "cancellation_requested",
+      feedback: "too_expensive",
+      comment: "Too pricey for us",
+      requestedAt: iso(1_761_000_000),
+      endsAt: iso(1_762_592_000),
+    });
+  });
+
+  it("marks a failed-payment cancel as involuntary and drops unknown values", () => {
+    const obj = sub({ status: "canceled", ended_at: 1_762_000_000, canceled_at: 1_762_000_000, cancellation_details: { reason: "payment_failed", feedback: "made_up" } });
+    expect(cancellationChange(event("customer.subscription.deleted", obj))).toMatchObject({ kind: "canceled", reason: "payment_failed", feedback: null, comment: null, endsAt: iso(1_762_000_000) });
+  });
+
+  it("notices a scheduled cancel being turned off, and ignores sponsorships and unrelated events", () => {
+    expect(cancellationChange(event("customer.subscription.updated", sub()))).toEqual({ kind: "withdrawn", subscriptionRef: "sub_1" });
+    expect(cancellationChange(event("customer.subscription.updated", sub({ metadata: { household_id: "h1", readli_kind: "sponsorship" }, cancel_at_period_end: true })))).toBeNull();
+    expect(cancellationChange(event("invoice.paid", sub()))).toBeNull();
+    expect(cancellationChange(event("customer.subscription.updated", sub({ metadata: {} })))).toBeNull();
   });
 });
