@@ -41,10 +41,23 @@
  * breaking their arms and legs; Lazy Jack's girl "could neither hear nor speak", and his mother lives with them
  * "all her days". Rumpelstiltskin and The Frog Prince are Edgar Taylor's gentler translations, where the little
  * man stamps off and the frog sleeps on the princess's pillow.
+ * Kevin, 2026-11-05: 13 more books, from picture-book tales to The Secret Garden. Their edits, kept on re-import:
+ * the Fisherman's flounder asks to be let go rather than killed, and the sea turns dark without blood; Ida's
+ * flowers are faded and tucked into a box, not dead and buried; Ole-Luk-Oie keeps six nights, leaving out Sunday
+ * and his brother Death, and his Chinese and "heathen" lines; the Nightingale's court goes without supper rather
+ * than being flogged, and Death sits at the Emperor's bed only briefly; the Tailor's mice say Kitty and roosters;
+ * Beauty's father faces punishment, not death; the Reluctant Dragon starts at "Long ago", without the frame story,
+ * and St. George "never really liked hurting anybody"; Peter Cottontail's Unc' Billy Possum and Ol' Mistah Buzzard
+ * speak standard English (Uncle Billy Possum, Old Mr. Buzzard); Raggedy Andy's Dickie is Baby Tommy and the
+ * midgets are penny dolls; When We Were Very Young leaves out Nursery Chairs, Bad Sir Brian Botany and
+ * Disobedience; The Real Mother Goose keeps 66 gentle rhymes; and The Secret Garden's India passages no longer
+ * use "native", "blacks" or "heathen", Mary stamps and shouts rather than hitting, the cholera is told gently,
+ * wench is lass, Colin "can't walk" rather than being called a cripple, and Jem Fettleworth is lazy, not violent.
  */
 import type { CatalogBook } from "../catalog";
 import AChildsGardenOfVerses from "./a-childs-garden-of-verses.json";
 import AlicesAdventuresInWonderland from "./alices-adventures-in-wonderland.json";
+import BeautyAndTheBeast from "./beauty-and-the-beast.json";
 import Cinderella from "./cinderella.json";
 import FivePeasFromOnePod from "./five-peas-from-one-pod.json";
 import GoldilocksAndTheThreeBears from "./goldilocks-and-the-three-bears.json";
@@ -55,32 +68,43 @@ import JohnnyChuckFindsTheBestThingInTheWorld from "./johnny-chuck-finds-the-bes
 import JohnnyCrowsGarden from "./johnny-crows-garden.json";
 import JustSoStories from "./just-so-stories.json";
 import LazyJack from "./lazy-jack.json";
+import LittleIdasFlowers from "./little-idas-flowers.json";
 import LittleTuk from "./little-tuk.json";
 import MoreAesopsFables from "./more-aesops-fables.json";
 import MotherHolle from "./mother-holle.json";
 import MrsRedwingsSpeckledEgg from "./mrs-redwings-speckled-egg.json";
+import OleLukOie from "./ole-luk-oie.json";
+import RaggedyAndyStories from "./raggedy-andy-stories.json";
 import RaggedyAnnStories from "./raggedy-ann-stories.json";
 import Rumpelstiltskin from "./rumpelstiltskin.json";
 import SleepingBeauty from "./sleeping-beauty.json";
 import SweetPorridge from "./sweet-porridge.json";
 import TeenyTiny from "./teeny-tiny.json";
+import TheAdventuresOfPeterCottontail from "./the-adventures-of-peter-cottontail.json";
 import TheBremenTownMusicians from "./the-bremen-town-musicians.json";
 import TheDarningNeedle from "./the-darning-needle.json";
 import TheElvesAndTheShoemaker from "./the-elves-and-the-shoemaker.json";
 import TheEmperorsNewClothes from "./the-emperors-new-clothes.json";
+import TheFishermanAndHisWife from "./the-fisherman-and-his-wife.json";
 import TheFrogPrince from "./the-frog-prince.json";
 import TheGingerbreadMan from "./the-gingerbread-man.json";
 import TheGoldenGoose from "./the-golden-goose.json";
 import TheHappyFamily from "./the-happy-family.json";
+import TheHouseAtPoohCorner from "./the-house-at-pooh-corner.json";
 import TheJumblies from "./the-jumblies.json";
 import TheLeapingMatch from "./the-leaping-match.json";
 import TheLionAndTheMouse from "./the-lion-and-the-mouse.json";
 import TheLittleRedHen from "./the-little-red-hen.json";
+import TheNightingale from "./the-nightingale.json";
 import TheOwlAndThePussyCat from "./the-owl-and-the-pussy-cat.json";
 import ThePrincessAndThePea from "./the-princess-and-the-pea.json";
 import TheQueenBee from "./the-queen-bee.json";
+import TheRealMotherGoose from "./the-real-mother-goose.json";
+import TheReluctantDragon from "./the-reluctant-dragon.json";
+import TheSecretGarden from "./the-secret-garden.json";
 import TheStarMoney from "./the-star-money.json";
 import TheStoryOfMissMoppet from "./the-story-of-miss-moppet.json";
+import TheTailorOfGloucester from "./the-tailor-of-gloucester.json";
 import TheTaleOfBenjaminBunny from "./the-tale-of-benjamin-bunny.json";
 import TheTaleOfGingerAndPickles from "./the-tale-of-ginger-and-pickles.json";
 import TheTaleOfJohnnyTownMouse from "./the-tale-of-johnny-town-mouse.json";
@@ -104,12 +128,14 @@ import Thumbelina from "./thumbelina.json";
 import TwasTheNightBeforeChristmas from "./twas-the-night-before-christmas.json";
 import UncleWiggilysChristmas from "./uncle-wiggilys-christmas.json";
 import UncleWiggilysThanksgiving from "./uncle-wiggilys-thanksgiving.json";
+import WhenWeWereVeryYoung from "./when-we-were-very-young.json";
 import WinnieThePooh from "./winnie-the-pooh.json";
 import WynkenBlynkenAndNod from "./wynken-blynken-and-nod.json";
 
 export const LIBRARY_TEXTS: Record<string, Pick<CatalogBook, "edition" | "chapters"> | undefined> = {
   "a-childs-garden-of-verses": AChildsGardenOfVerses,
   "alices-adventures-in-wonderland": AlicesAdventuresInWonderland,
+  "beauty-and-the-beast": BeautyAndTheBeast,
   "cinderella": Cinderella,
   "five-peas-from-one-pod": FivePeasFromOnePod,
   "goldilocks-and-the-three-bears": GoldilocksAndTheThreeBears,
@@ -120,32 +146,43 @@ export const LIBRARY_TEXTS: Record<string, Pick<CatalogBook, "edition" | "chapte
   "johnny-crows-garden": JohnnyCrowsGarden,
   "just-so-stories": JustSoStories,
   "lazy-jack": LazyJack,
+  "little-idas-flowers": LittleIdasFlowers,
   "little-tuk": LittleTuk,
   "more-aesops-fables": MoreAesopsFables,
   "mother-holle": MotherHolle,
   "mrs-redwings-speckled-egg": MrsRedwingsSpeckledEgg,
+  "ole-luk-oie": OleLukOie,
+  "raggedy-andy-stories": RaggedyAndyStories,
   "raggedy-ann-stories": RaggedyAnnStories,
   "rumpelstiltskin": Rumpelstiltskin,
   "sleeping-beauty": SleepingBeauty,
   "sweet-porridge": SweetPorridge,
   "teeny-tiny": TeenyTiny,
+  "the-adventures-of-peter-cottontail": TheAdventuresOfPeterCottontail,
   "the-bremen-town-musicians": TheBremenTownMusicians,
   "the-darning-needle": TheDarningNeedle,
   "the-elves-and-the-shoemaker": TheElvesAndTheShoemaker,
   "the-emperors-new-clothes": TheEmperorsNewClothes,
+  "the-fisherman-and-his-wife": TheFishermanAndHisWife,
   "the-frog-prince": TheFrogPrince,
   "the-gingerbread-man": TheGingerbreadMan,
   "the-golden-goose": TheGoldenGoose,
   "the-happy-family": TheHappyFamily,
+  "the-house-at-pooh-corner": TheHouseAtPoohCorner,
   "the-jumblies": TheJumblies,
   "the-leaping-match": TheLeapingMatch,
   "the-lion-and-the-mouse": TheLionAndTheMouse,
   "the-little-red-hen": TheLittleRedHen,
+  "the-nightingale": TheNightingale,
   "the-owl-and-the-pussy-cat": TheOwlAndThePussyCat,
   "the-princess-and-the-pea": ThePrincessAndThePea,
   "the-queen-bee": TheQueenBee,
+  "the-real-mother-goose": TheRealMotherGoose,
+  "the-reluctant-dragon": TheReluctantDragon,
+  "the-secret-garden": TheSecretGarden,
   "the-star-money": TheStarMoney,
   "the-story-of-miss-moppet": TheStoryOfMissMoppet,
+  "the-tailor-of-gloucester": TheTailorOfGloucester,
   "the-tale-of-benjamin-bunny": TheTaleOfBenjaminBunny,
   "the-tale-of-ginger-and-pickles": TheTaleOfGingerAndPickles,
   "the-tale-of-johnny-town-mouse": TheTaleOfJohnnyTownMouse,
@@ -169,6 +206,7 @@ export const LIBRARY_TEXTS: Record<string, Pick<CatalogBook, "edition" | "chapte
   "twas-the-night-before-christmas": TwasTheNightBeforeChristmas,
   "uncle-wiggilys-christmas": UncleWiggilysChristmas,
   "uncle-wiggilys-thanksgiving": UncleWiggilysThanksgiving,
+  "when-we-were-very-young": WhenWeWereVeryYoung,
   "winnie-the-pooh": WinnieThePooh,
   "wynken-blynken-and-nod": WynkenBlynkenAndNod,
 };

@@ -226,7 +226,7 @@ describe("credit lots", () => {
     const { store, plan } = family(1);
     const lib = await familyLibrary(store, mom, H);
     expect(lib.all.map((b) => b.slug)).toContain(LONG);
-    expect(lib.all[lib.all.length - 1]!.slug).toBe("heidi");
+    expect(lib.all[lib.all.length - 1]!.slug).toBe("the-secret-garden");
     const shelf = (id: string) => lib.collections.find((c) => c.id === id)!.books.map((b) => b.slug);
     expect(shelf("longer")).toEqual(expect.arrayContaining([LONG, "winnie-the-pooh", "alices-adventures-in-wonderland", "heidi"]));
     expect(shelf("quick")).not.toContain(LONG);

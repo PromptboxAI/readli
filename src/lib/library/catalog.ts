@@ -96,6 +96,20 @@ const ADDED: readonly UpcomingBook[] = [
   { slug: "teeny-tiny", title: "Teeny-Tiny", author: "Traditional", firstPublished: 1890, approxMinutes: 2 },
   { slug: "lazy-jack", title: "Lazy Jack", author: "Traditional", firstPublished: 1890, approxMinutes: 4 },
   { slug: "johnny-crows-garden", title: "Johnny Crow's Garden", author: "L. Leslie Brooke", firstPublished: 1903, approxMinutes: 1 },
+  // Kevin, 2026-11-05: thirteen more books, from picture-book tales to The Secret Garden.
+  { slug: "the-fisherman-and-his-wife", title: "The Fisherman and His Wife", author: "The Brothers Grimm", firstPublished: 1812, approxMinutes: 16 },
+  { slug: "little-idas-flowers", title: "Little Ida's Flowers", author: "Hans Christian Andersen", firstPublished: 1835, approxMinutes: 14 },
+  { slug: "ole-luk-oie", title: "Ole-Luk-Oie, the Dream God", author: "Hans Christian Andersen", firstPublished: 1841, approxMinutes: 19 },
+  { slug: "the-nightingale", title: "The Nightingale", author: "Hans Christian Andersen", firstPublished: 1843, approxMinutes: 19 },
+  { slug: "the-tailor-of-gloucester", title: "The Tailor of Gloucester", author: "Beatrix Potter", firstPublished: 1903, approxMinutes: 15 },
+  { slug: "beauty-and-the-beast", title: "Beauty and the Beast", author: "Andrew Lang", firstPublished: 1889, approxMinutes: 38 },
+  { slug: "the-real-mother-goose", title: "The Real Mother Goose", author: "Traditional", firstPublished: 1916, approxMinutes: 13 },
+  { slug: "when-we-were-very-young", title: "When We Were Very Young", author: "A. A. Milne", firstPublished: 1924, approxMinutes: 32 },
+  { slug: "the-house-at-pooh-corner", title: "The House at Pooh Corner", author: "A. A. Milne", firstPublished: 1928, approxMinutes: 140 },
+  { slug: "raggedy-andy-stories", title: "Raggedy Andy Stories", author: "Johnny Gruelle", firstPublished: 1920, approxMinutes: 77 },
+  { slug: "the-reluctant-dragon", title: "The Reluctant Dragon", author: "Kenneth Grahame", firstPublished: 1898, approxMinutes: 47 },
+  { slug: "the-adventures-of-peter-cottontail", title: "The Adventures of Peter Cottontail", author: "Thornton W. Burgess", firstPublished: 1914, approxMinutes: 82 },
+  { slug: "the-secret-garden", title: "The Secret Garden", author: "Frances Hodgson Burnett", firstPublished: 1911, approxMinutes: 426 },
 ].map((b) => ({ ...b, coverUrl: `/covers/${b.slug}.webp` }));
 
 export const CATALOG: readonly CatalogBook[] = [
