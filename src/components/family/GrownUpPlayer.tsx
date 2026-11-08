@@ -476,9 +476,6 @@ export function GrownUpPlayer({
                   >
                     <StorytellerAvatar name={v.name} avatarUrl={v.avatarUrl} tint={v.tint} size="md" />
                     <span className="font-display text-lg font-semibold">{v.name}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-center text-xs font-bold ${v.complete ? "bg-mint" : "bg-ink/10"}`}>
-                      {v.complete ? "Whole book ready" : `${v.readySentenceIds.length} of ${sentences.length} sentences ready`}
-                    </span>
                   </button>
                 ))}
               </div>
