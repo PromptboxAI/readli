@@ -9,6 +9,7 @@ export function AskButton({
   title,
   initial,
   size = "card",
+  label = "Ask a grown-up",
 }: {
   childId: string;
   bookSlug: string;
@@ -16,6 +17,8 @@ export function AskButton({
   initial: boolean;
   /** "card" sits under a cover in a grid; "large" is the one big action on a book's own page. */
   size?: "card" | "large";
+  /** What the button says, such as "Ask for the next chapter" at the end of what's prepared. */
+  label?: string;
 }) {
   const large = size === "large";
   const [asked, setAsked] = useState(initial);
@@ -51,7 +54,8 @@ export function AskButton({
       }
       data-testid={`ask-${bookSlug}`}
     >
-      Ask a grown-up<span className="sr-only"> for {title}</span>
+      {label}
+      <span className="sr-only"> for {title}</span>
     </button>
   );
 }

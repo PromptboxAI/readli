@@ -65,8 +65,10 @@ export interface ShelfBook {
   kids: ShelfKid[];
   /** Latest listening by any child, for ordering. */
   touchedAt: string | null;
-  /** When the newest of its narrations finished preparing, so a just-prepared book can say it's new. */
+  /** When its narrations could first be played from the start, so a just-prepared book can say it's new. */
   preparedAt: string | null;
+  /** A narrator has the whole book; otherwise it's on the shelf with only its first chapters prepared. */
+  complete: boolean;
 }
 
 /** A book being prepared right now in a family voice, so a grown-up can find it again after closing its page. */
@@ -136,6 +138,8 @@ export interface HomeRequest {
   at: string;
   /** The book's page, where a grown-up chooses a narrator and prepares it. */
   href: string;
+  /** The child already has the start of this book and asked for more, such as its next chapter. */
+  more: boolean;
 }
 
 export interface FamilyHomeView {
@@ -247,6 +251,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     const narrators = new Map<string, Adult | undefined>();
     const hearers = new Set<string>();
     let preparedAt: string | null = null;
+    let complete = false;
     for (const lib of state.libraries) {
       if (lib.bookSlug !== book.slug || !activeShare(state, lib.voiceId, householdId)) continue;
       // Any recording of the voice: an audiobook made before it was re-recorded keeps playing.
@@ -260,6 +265,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       // prepared), or while a child is already part way through it.
       const started = allowed.some((k) => state.progress.some((p) => p.childId === k.id && p.bookSlug === book.slug && p.voiceId === voice.id && p.sentence > 0));
       if (!listenable(heard) && !(started && heard.status.ready > 0)) continue;
+      if (heard.status.readiness === "ready") complete = true;
       narrators.set(voice.id, adultById.get(voice.ownerId));
       for (const k of allowed) hearers.add(k.id);
       const readyAt = listenableAt(state, heard);
@@ -283,13 +289,14 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       coverUrl: book.coverUrl,
       tint: book.tint,
       href: `/family/books/${book.slug}/listen`,
-      bookHref: `/family/books/${book.slug}`,
+      bookHref: `/family/books/${book.slug}?from=bookshelf`,
       state: shelfState,
       narrators: [...narrators.values()].map(person),
       minutes: Math.max(1, Math.round(bookMinutes(text, plan))),
       kids: shelfKids,
       touchedAt,
       preparedAt,
+      complete,
     });
   }
   // Prepared, but in a voice no child here may hear yet: a grown-up still has a step to take. Another
@@ -377,15 +384,22 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
   shelf.sort((a, b) => Number(isNew(b)) - Number(isNew(a)) || order.indexOf(a.state) - order.indexOf(b.state) || latest(b).localeCompare(latest(a)) || a.minutes - b.minutes);
 
   // A request drops off Home once the book is on that child's shelf, as well as when a grown-up clears it.
+  // A book on the shelf with only its first chapters prepared keeps a request made after that preparation:
+  // the child reached the end of what's ready and asked for the next chapter.
+  const onShelf = (r: { bookSlug: string; childId: string }) => shelf.find((b) => b.slug === r.bookSlug && b.kids.some((k) => k.id === r.childId));
+  const wantsMore = (r: { bookSlug: string; childId: string; at: string }) => {
+    const b = onShelf(r);
+    return Boolean(b && !b.complete && r.at > (preparedAt.get(r.bookSlug) ?? ""));
+  };
   const requests: HomeRequest[] = (state.requests ?? [])
     .filter((r) => r.householdId === householdId && r.resolvedAt === null && kidIds.has(r.childId))
-    .filter((r) => !shelf.some((b) => b.slug === r.bookSlug && b.kids.some((k) => k.id === r.childId)))
+    .filter((r) => !onShelf(r) || wantsMore(r))
     .sort((a, b) => b.at.localeCompare(a.at))
     .flatMap((r) => {
       const book = findCatalogBook(r.bookSlug);
       const kid = kids.find((k) => k.id === r.childId);
       if (!book || !kid) return [];
-      return [{ id: r.id, childName: kid.nickname, slug: book.slug, title: book.title, coverUrl: book.coverUrl, tint: book.tint, at: r.at, href: `/family/books/${book.slug}` }];
+      return [{ id: r.id, childName: kid.nickname, slug: book.slug, title: book.title, coverUrl: book.coverUrl, tint: book.tint, at: r.at, href: `/family/books/${book.slug}`, more: wantsMore(r) }];
     });
 
   const fresh: HomeBook[] = [...NEW_BOOKS, ...MORE_BOOKS_ON_PHONES]

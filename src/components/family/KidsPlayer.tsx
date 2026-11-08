@@ -7,7 +7,7 @@ import { isTheEnd, THE_END_PAUSE_MS } from "@/lib/content/the-end";
 import type { NarratorView } from "@/lib/family/service";
 import type { BookTexts, KidsNarratorReadiness } from "@/lib/narration/narration";
 import { mapPosition } from "@/lib/narration/positions";
-import { parseMode, type PlayerMode } from "@/lib/player/pages";
+import { parseMode, preparedEnd, type PlayerMode } from "@/lib/player/pages";
 import { chapterReady, type Track } from "@/lib/player/tracks";
 import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, SleepButton, TimeBar } from "./PlayerParts";
 import { StorytellerAvatar } from "./StorytellerAvatar";
@@ -18,6 +18,7 @@ import { useSleepTimer } from "./useSleepTimer";
 import { useTrackAudio } from "./useTrackAudio";
 import { checkDownloads, offlineTrack, readDownloads } from "./offline";
 import { DownloadButton } from "./DownloadButton";
+import { AskButton } from "./AskButton";
 import { findDownload } from "@/lib/offline/manifest";
 
 const REFRESH_MS = 10_000;
@@ -80,6 +81,8 @@ export function KidsPlayer({
   const [loading, setLoading] = useState(false);
   const [picker, setPicker] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // The story reached the end of what's prepared, so the child can ask a grown-up for the next chapter.
+  const [askMore, setAskMore] = useState(false);
   const [mode, setMode] = useState<PlayerMode>("listen");
   const voiceRef = useRef(voiceId);
   voiceRef.current = voiceId;
@@ -322,6 +325,7 @@ export function KidsPlayer({
       setNotice(PAUSED);
     } else if (code === "not_prepared") {
       setNotice(`${nameOf(voice)}'s reading stops here for now. Pick another storyteller, or ask a grown-up to prepare more.`);
+      setAskMore(true);
     } else if (code === "voice_not_available") {
       // refresh() drops the narrator and explains if access really was removed.
       if (await refresh()) setNotice(PAUSED);
@@ -332,6 +336,7 @@ export function KidsPlayer({
 
   const play = async (at: number, voice: string): Promise<void> => {
     setNotice(null);
+    setAskMore(false);
     const text = textsRef.current[shownRef.current];
     const ready = readinessRef.current.find((r) => r.voiceId === voice)?.readySentenceIds ?? [];
     if (text && chapterReady(text, ready, at) && !noTrack.current.has(trackKey(voice, at))) return playTrack(at, voice);
@@ -506,6 +511,7 @@ export function KidsPlayer({
       setSentence(at + 1);
       halt();
       setNotice(`${nameOf(voice)}'s reading stops here for now. Pick another storyteller, or ask a grown-up to prepare more.`);
+      setAskMore(true);
       return;
     }
     if (at + 1 < sentences.length && voice) {
@@ -688,12 +694,20 @@ export function KidsPlayer({
         )}
 
         {notice && (
-          <p role="alert" className="rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold text-ink">
-            {notice}
-          </p>
+          <div role="alert" className="flex flex-col gap-3 rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold text-ink">
+            <p>{notice}</p>
+            {askMore && !preview && <AskButton childId={childId} bookSlug={book.slug} title={book.title} initial={false} label="Ask for the next chapter" />}
+          </div>
         )}
 
-        <TimeBar mode={mode} seconds={sentenceSeconds} sentence={sentence} playing={playing} onSeek={goTo} />
+        <TimeBar
+          mode={mode}
+          seconds={sentenceSeconds}
+          sentence={sentence}
+          playing={playing}
+          onSeek={goTo}
+          end={preparedEnd(sentenceIds, new Set(readiness.find((r) => r.voiceId === voiceId)?.readySentenceIds ?? []), sentence)}
+        />
 
         <div className="mx-auto grid w-full max-w-[640px] grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-3.5 sm:gap-7">
           <SleepButton label={sleep.label} onClick={() => sleep.cycle(new Set(chapters).size > 1)} className={side} />

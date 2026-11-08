@@ -30,14 +30,23 @@ export function StoryRequests({ requests }: { requests: HomeRequest[] }) {
               )}
             </span>
             <p className="min-w-0 flex-1">
-              <strong>{r.childName}</strong> would like <strong>{r.title}</strong>
+              {r.more ? (
+                <>
+                  <strong>{r.childName}</strong> would like the next chapter of <strong>{r.title}</strong>
+                </>
+              ) : (
+                <>
+                  <strong>{r.childName}</strong> would like <strong>{r.title}</strong>
+                </>
+              )}
             </p>
             <Link
               href={r.href}
               className="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-ink px-4 font-display font-semibold text-white hover:-translate-y-0.5"
               data-testid={`prepare-${r.slug}`}
             >
-              Prepare it<span className="sr-only">: {r.title}</span>
+              {r.more ? "Prepare more" : "Prepare it"}
+              <span className="sr-only">: {r.title}</span>
             </Link>
             <button
               type="button"

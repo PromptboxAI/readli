@@ -8,7 +8,7 @@ import { HelpLink } from "@/components/help/HelpLink";
 import { isTheEnd, THE_END_PAUSE_MS } from "@/lib/content/the-end";
 import type { ListenView } from "@/lib/narration/narration";
 import { mapPosition } from "@/lib/narration/positions";
-import { nextSpeed, parseMode, parseSpeed, type PlayerMode, type Speed } from "@/lib/player/pages";
+import { nextSpeed, parseMode, parseSpeed, preparedEnd, type PlayerMode, type Speed } from "@/lib/player/pages";
 import { chapterReady, type Track } from "@/lib/player/tracks";
 import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, SleepButton, TimeBar } from "./PlayerParts";
 import { StorytellerAvatar } from "./StorytellerAvatar";
@@ -56,6 +56,9 @@ export function GrownUpPlayer({
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // Playback reached the end of what's prepared: the chapter that comes next, offered for preparing.
+  // `fresh`: the next chapter hasn't begun; otherwise the chapter being read was only partly prepared.
+  const [gap, setGap] = useState<{ voiceId: string; chapter: number; fresh: boolean } | null>(null);
   const [picker, setPicker] = useState(false);
   // Grown-ups start in Read-along to follow the words; their last choice on this device is remembered.
   const [mode, setMode] = useState<PlayerMode>("read");
@@ -198,6 +201,7 @@ export function GrownUpPlayer({
 
   const play = async (at: number, id: string): Promise<void> => {
     setNotice(null);
+    setGap(null);
     if (!readyAt(id, at)) {
       stop();
       setNotice(`${voices.find((v) => v.voiceId === id)?.name ?? "This storyteller"}'s reading isn't prepared here yet.`);
@@ -328,7 +332,7 @@ export function GrownUpPlayer({
     else if (readyAt(id, next)) void play(next, id);
     else {
       stop();
-      setNotice(`${voices.find((v) => v.voiceId === id)?.name ?? "This storyteller"}'s reading stops here for now. Prepare the rest of the book to keep listening.`);
+      setGap({ voiceId: id, chapter: chapters[next] ?? 1, fresh: chapters[next] !== chapters[next - 1] });
     }
   };
 
@@ -490,13 +494,35 @@ export function GrownUpPlayer({
             </Link>
           </p>
         )}
+        {gap && (
+          <div role="status" className="flex flex-col gap-3 rounded-2xl bg-surface p-4 text-ink ring-2 ring-ink/10 sm:flex-row sm:items-center sm:justify-between" data-testid="prepared-end">
+            <p className="font-semibold">
+              {(() => {
+                const who = voices.find((v) => v.voiceId === gap.voiceId)?.name ?? "This storyteller";
+                if (!view.chapterPrep) return `${who}'s reading stops here for now.`;
+                return gap.fresh ? `That's the end of chapter ${chapters[sentence - 1] ?? gap.chapter - 1}. ${who} hasn't read chapter ${gap.chapter} yet.` : `${who} hasn't finished reading chapter ${gap.chapter} yet.`;
+              })()}
+            </p>
+            <Link
+              href={
+                view.chapterPrep
+                  ? `/family/books/${book.slug}?voice=${gap.voiceId}&scope=chapter&chapter=${gap.chapter}`
+                  : `/family/books/${book.slug}?voice=${gap.voiceId}&scope=book`
+              }
+              className={`${parentPrimary} shrink-0`}
+              data-testid="prepare-next"
+            >
+              {!view.chapterPrep ? "Prepare the rest" : gap.fresh ? `Prepare chapter ${gap.chapter}` : `Finish chapter ${gap.chapter}`}
+            </Link>
+          </div>
+        )}
         {notice && (
           <p role="alert" className="rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold text-ink">
             {notice} {!/sleep timer/i.test(notice) && <HelpLink slug="audiobook-not-playing">Playback help</HelpLink>}
           </p>
         )}
 
-        <TimeBar mode={mode} seconds={seconds} sentence={sentence} playing={playing} onSeek={goTo} rate={speed} />
+        <TimeBar mode={mode} seconds={seconds} sentence={sentence} playing={playing} onSeek={goTo} rate={speed} end={preparedEnd(sentenceIds, new Set(voice?.readySentenceIds ?? []), sentence)} />
 
         <div className="mx-auto grid w-full max-w-[640px] grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-3.5 sm:gap-7">
           <SleepButton label={sleep.label} onClick={() => sleep.cycle(new Set(chapters).size > 1)} className={side} />

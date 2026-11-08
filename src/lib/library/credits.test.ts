@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { demoFamilyState, DEMO_HOUSEHOLD_ID } from "@/lib/family/demo-family";
 import type { Actor, FamilyState } from "@/lib/family/model";
 import { DEFAULT_PLAN, type PlanConfig } from "@/lib/family/plan";
-import { grantEntitlement, MemoryFamilyStore, PermissionError, startListening } from "@/lib/family/service";
+import { grantEntitlement, MemoryFamilyStore, PermissionError, requestStory, startListening } from "@/lib/family/service";
 import { creditBalance, includedLotId, spendableLots } from "@/lib/narration/credits";
 import { authorizePlayback, grantPromoCredits, kidsReadiness, prepareView, purchaseCredits, quote, requestGeneration, runJob } from "@/lib/narration/narration";
 import { bookText } from "@/lib/narration/text";
@@ -158,6 +158,19 @@ describe("generation credits (required tests)", () => {
     expect(familyHome(state, H, store.plan, "sara", now).shelf.find((b) => b.slug === LONG)?.preparedAt).toBe(at);
   });
 
+  it("a child who reaches the end of a prepared chapter asks for the next one, and Home shows it", async () => {
+    const { store } = family();
+    // An old request for the book, from before its first chapter was prepared, stays satisfied.
+    await requestStory(store, maya, "maya", LONG, clock);
+    const { job } = await requestGeneration(store, mom, H, chapter(1), clock);
+    await runJob(store, new Provider(), job!.id, clock);
+    expect(familyHome(await store.read(), H, store.plan, "sara").requests.map((r) => r.slug)).not.toContain(LONG);
+    // Asking at the end of chapter 1 is a new request, for more of a book already on the shelf.
+    await requestStory(store, maya, "maya", LONG, clock);
+    const asked = familyHome(await store.read(), H, store.plan, "sara").requests.find((r) => r.slug === LONG);
+    expect(asked).toMatchObject({ childName: "Maya", more: true });
+  });
+
   it("a later chapter alone doesn't reach the shelves, since it can't play from the start", async () => {
     const { store } = family();
     const { job } = await requestGeneration(store, mom, H, chapter(2), clock);
@@ -165,6 +178,31 @@ describe("generation credits (required tests)", () => {
     const kids = (await kidsReadiness(store, maya, "maya", LONG)).find((r) => r.voiceId === "voice-june")!;
     expect(kids.listenable).toBe(false);
     expect(familyHome(await store.read(), H, store.plan, "sara").shelf.map((b) => b.slug)).not.toContain(LONG);
+  });
+
+  it("a Stop made from another request halts a running worker, and nothing after it is kept or charged", async () => {
+    const { state, plan } = family();
+    // The worker's store keeps its own snapshot, as a database-backed store does; Stop lands elsewhere.
+    let stored: "running" | "canceled" = "running";
+    const worker = Object.assign(new MemoryFamilyStore(state, plan), { jobStatus: async () => stored });
+    const { job } = await requestGeneration(worker, mom, H, chapter(1), clock);
+    const provider = new Provider();
+    const stopAfter = 3;
+    const synthesize = provider.synthesize.bind(provider);
+    provider.synthesize = async (input) => {
+      const out = await synthesize(input);
+      if (provider.calls === stopAfter) stored = "canceled";
+      return out;
+    };
+    await runJob(worker, provider, job!.id, clock);
+    const ready = state.segments.filter((x) => x.libraryKey === job!.libraryKey && x.status === "ready");
+    // The sentence being made when Stop came isn't kept, and nothing after it is generated.
+    expect(provider.calls).toBe(stopAfter);
+    expect(ready).toHaveLength(stopAfter - 1);
+    const charged = new Set(state.ledger.filter((e) => e.jobId === job!.id && e.kind === "commit").map((e) => e.sentenceId));
+    expect([...charged].sort()).toEqual(ready.map((x) => x.sentenceId).sort());
+    // The worker leaves the job for the Stop to settle, rather than finishing it as done or failed.
+    expect(state.jobs.find((j) => j.id === job!.id)!.status).toBe("running");
   });
 
   it("a page opened while one chapter prepares shows that chapter, not the whole book, as preparing", async () => {

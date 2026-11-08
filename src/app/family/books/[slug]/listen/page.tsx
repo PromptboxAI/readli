@@ -11,9 +11,9 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Listen | Readli" };
 
 /** The grown-up player: a prepared book in any voice the family may use. */
-export default async function ListenPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ voice?: string; from?: string }> }) {
+export default async function ListenPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ voice?: string; from?: string; chapter?: string }> }) {
   const { slug } = await params;
-  const { voice, from } = await searchParams;
+  const { voice, from, chapter } = await searchParams;
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   if (page.session?.actor.kind !== "adult") return <NeedsGrownUp text="Only a parent or guardian can listen here." />;
@@ -27,8 +27,12 @@ export default async function ListenPage({ params, searchParams }: { params: Pro
     const saved = await adultBookPlace(store, page.session.actor, householdId, slug);
     const initialVoice = usable(voice) ?? usable(saved?.voiceId) ?? view.voices[0]?.voiceId ?? null;
     const resume = await adultResume(store, page.session.actor, householdId, slug, initialVoice);
+    // Opened from a chapter's Listen on the book page: start at that chapter, counted in this voice's text.
+    const rev = view.voices.find((v) => v.voiceId === initialVoice)?.revision ?? view.texts.current;
+    const chapterStart = chapter ? (view.texts.texts[rev]?.chapters.indexOf(Number(chapter)) ?? -1) : -1;
+    const start = chapterStart >= 0 ? chapterStart : resume.sentence;
     // Full screen like the Readli Kids player, so the whole story fits on a phone or iPad.
-    return <GrownUpPlayer view={view} initialVoice={initialVoice} resume={resume.sentence} preview={!page.session.account} backHref={from === "setup" ? "/family/setup?step=listen" : undefined} />;
+    return <GrownUpPlayer view={view} initialVoice={initialVoice} resume={start} preview={!page.session.account} backHref={from === "setup" ? "/family/setup?step=listen" : undefined} />;
   } catch (err) {
     if (err instanceof PermissionError && err.status === 404) notFound();
     throw err;

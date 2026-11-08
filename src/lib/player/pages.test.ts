@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clock, endsChapter, nextSleep, nextSpeed, pageCount, pageOf, pageRange, parseMode, parseSpeed, sentenceAt, timeline } from "./pages";
+import { clock, endsChapter, nextSleep, nextSpeed, pageCount, pageOf, pageRange, parseMode, parseSpeed, preparedEnd, sentenceAt, timeline } from "./pages";
 
 describe("player pages", () => {
   it("groups sentences into pages of two", () => {
@@ -66,5 +66,17 @@ describe("player pages", () => {
     expect(clock(185)).toBe("3:05");
     expect(clock(3729)).toBe("1:02:09");
     expect(clock(-3)).toBe("0:00");
+  });
+
+  it("ends the bar where prepared audio ends, such as the end of a prepared chapter", () => {
+    const ids = ["a", "b", "c", "d", "e", "end"];
+    // Chapter one (a, b) prepared: the bar stops after b, wherever in it the listener is.
+    expect(preparedEnd(ids, new Set(["a", "b"]), 0)).toBe(2);
+    expect(preparedEnd(ids, new Set(["a", "b"]), 1)).toBe(2);
+    // A later prepared run ends at its own last sentence.
+    expect(preparedEnd(ids, new Set(["a", "b", "d"]), 3)).toBe(4);
+    // Not on prepared audio, or prepared to the end (a missing closing line aside): the whole text.
+    expect(preparedEnd(ids, new Set(["a", "b"]), 3)).toBe(6);
+    expect(preparedEnd(ids, new Set(["a", "b", "c", "d", "e"]), 0)).toBe(6);
   });
 });

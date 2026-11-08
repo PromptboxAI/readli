@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Actor, AdultBookProgress, AuditAction, FamilyState, ListeningSession, VoiceShare } from "./model";
+import type { Actor, AdultBookProgress, AuditAction, FamilyState, JobStatus, ListeningSession, VoiceShare } from "./model";
 import { isNewer } from "./places";
 import {
   activeChild,
@@ -59,6 +59,11 @@ export interface FamilyStore {
   /** Takes a narration job for one worker until the lease ends; false while another worker holds it. */
   claimJob?(jobId: string, leaseMs: number): Promise<boolean>;
   releaseJob?(jobId: string): Promise<void>;
+  /**
+   * A job's status as stored now, read past this store's snapshot, so a worker sees a parent's Stop
+   * made from another request. Stores whose snapshot is shared (memory) don't need it.
+   */
+  jobStatus?(jobId: string): Promise<JobStatus | null>;
 }
 
 export class MemoryFamilyStore implements FamilyStore {
@@ -1161,13 +1166,15 @@ export async function requestStory(store: FamilyStore, actor: Actor | null, chil
   const child = activeChild(state, childId);
   if (!child) throw new PermissionError(404, "no_child", "That profile isn't here.");
   const open = (state.requests ?? []).filter((r) => r.childId === childId && r.resolvedAt === null);
-  if (!open.some((r) => r.bookSlug === bookSlug)) {
-    if (open.length >= MAX_OPEN_REQUESTS) throw new PermissionError(429, "too_many_requests", "You've asked for lots of stories. A grown-up will look at them soon.");
-    const at = clock().toISOString();
-    await store.write((s) => {
-      s.requests = [...(s.requests ?? []), { id: randomUUID(), householdId: child.householdId, childId, bookSlug, at, resolvedAt: null }];
-    });
-  }
+  const again = open.some((r) => r.bookSlug === bookSlug);
+  if (!again && open.length >= MAX_OPEN_REQUESTS) throw new PermissionError(429, "too_many_requests", "You've asked for lots of stories. A grown-up will look at them soon.");
+  const at = clock().toISOString();
+  await store.write((s) => {
+    // Asking again replaces the earlier request, so asking for the next chapter of a book whose first
+    // chapter came from an older request shows up on Home as new.
+    for (const r of s.requests ?? []) if (r.childId === childId && r.bookSlug === bookSlug && r.resolvedAt === null) r.resolvedAt = at;
+    s.requests = [...(s.requests ?? []), { id: randomUUID(), householdId: child.householdId, childId, bookSlug, at, resolvedAt: null }];
+  });
   return childRequests(store, actor, childId);
 }
 

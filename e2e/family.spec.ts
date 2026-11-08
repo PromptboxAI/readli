@@ -482,6 +482,8 @@ test("short on credits: prepare a chapter, or buy credits and come straight back
   await june.getByTestId("confirm-generation").getByRole("button", { name: "Prepare now" }).click();
   await expect(status("voice-june")).toHaveText("Partly ready", { timeout: 15_000 });
   await expect(june.getByTestId("chapter-1")).toContainText("Ready");
+  // A prepared chapter can be heard right here, starting at that chapter.
+  await expect(june.getByTestId("chapter-1-listen")).toHaveAttribute("href", "/family/books/aesops-fables-retold/listen?voice=voice-june&chapter=1");
 
   // Buying credits returns to this book and narrator with the confirmation already open.
   await june.getByTestId("get-credits").click();

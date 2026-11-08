@@ -20,7 +20,7 @@ export interface KidsShelf {
   resume: { book: CatalogBook; progress: ChildBookProgress; reader: NarratorView | undefined; total: number } | null;
   /** New stories: prepared in the last couple of weeks and not started yet, newest first. */
   newest: ShelfBook[];
-  /** Ready to listen, favorites first, leaving out the stories already shown in Continue listening and New stories. */
+  /** Ready to listen, favorites first (the page shows them in their own row), leaving out the stories already shown in Continue listening and New stories. */
   ready: ShelfBook[];
   /** Books not prepared for this child yet. */
   waiting: CatalogBook[];
