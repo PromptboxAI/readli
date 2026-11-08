@@ -233,7 +233,36 @@ export function narrationFor(state: FamilyState, plan: PlanConfig, voiceId: stri
     if (text && done?.readiness === "ready") earlier.push({ library: l, text, status: done, pinned: true });
   }
   earlier.sort((a, b) => lastReadyAt(state, b.library.key).localeCompare(lastReadyAt(state, a.library.key)));
-  return earlier[0] ?? { library: target, text: today, status, pinned: false };
+  if (earlier[0]) return earlier[0];
+  // Nothing finished: the most prepared narration, so a part-prepared book (say, chapter 1) never
+  // disappears when its text changes or while today's text is being prepared beside it.
+  let best: Narration = { library: target, text: today, status, pinned: false };
+  for (const l of state.libraries) {
+    if (l.voiceId !== voiceId || l.bookSlug !== today.slug || l.key === target.key || (l.scope !== "shared" && l.scope !== householdId)) continue;
+    const text = libraryText(l);
+    const part = text ? libraryStatus(state, l, text) : null;
+    if (!text || !part || part.ready === 0) continue;
+    const cand: Narration = { library: l, text, status: part, pinned: true };
+    const [a, b] = [listenable(cand), listenable(best)];
+    if ((a && !b) || (a === b && part.ready > best.status.ready)) best = cand;
+  }
+  return best;
+}
+
+/**
+ * Today's sentences in every chapter the family's audiobook has fully prepared, when that audiobook is of
+ * an earlier text. Any preparation brings these along (unchanged lines are reused for free), so preparing
+ * chapter 2 never leaves chapter 1 behind in the old text, and today's audiobook never has less in it.
+ */
+function carriedSentences(heard: Narration, today: BookText): Set<string> {
+  const out = new Set<string>();
+  if (!heard.pinned || heard.text.revision === today.revision) return out;
+  const ready = new Set(heard.status.readySentenceIds);
+  for (const c of heard.text.chapters) {
+    if (!c.sentenceIds.length || !c.sentenceIds.every((id) => ready.has(id))) continue;
+    for (const id of today.chapters.find((t) => t.number === c.number)?.sentenceIds ?? []) out.add(id);
+  }
+  return out;
 }
 
 /**
@@ -291,6 +320,8 @@ function freeCorrection(state: FamilyState, plan: PlanConfig, voiceId: string, t
 
 export interface BookUpdate {
   revision: string;
+  /** What the update button prepares: null for the whole book, or one chapter of a part-prepared one (the rest it has come along). */
+  chapter: number | null;
   /** Credits the update costs this family; 0 for a Readli correction or when every changed line is already stored. */
   credits: number;
   free: boolean;
@@ -303,12 +334,20 @@ export interface BookUpdate {
 /** What changed between a family's audiobook and today's text, and what updating would cost. */
 function bookUpdate(state: FamilyState, plan: PlanConfig, householdId: string, voiceId: string, heard: Narration, today: BookText): BookUpdate | null {
   if (!heard.pinned || heard.text.revision === today.revision) return null;
+  // A part-prepared audiobook updates the chapters it has; a finished one, the whole book.
+  const whole = heard.status.readiness === "ready";
+  const carried = carriedSentences(heard, today);
+  if (!whole && carried.size === 0) return null;
+  const chapters = new Set(today.sentences.filter((x) => carried.has(x.id)).map((x) => x.chapter));
+  const inScope = <T extends { chapter: number }>(xs: T[]) => (whole ? xs : xs.filter((x) => chapters.has(x.chapter)));
   const said = new Set(heard.text.sentences.map((x) => spokenForm(x.text)));
   const says = new Set(today.sentences.map((x) => spokenForm(x.text)));
-  const after = today.sentences.filter((x) => !said.has(spokenForm(x.text))).map((x) => x.text);
-  const before = heard.text.sentences.filter((x) => !says.has(spokenForm(x.text))).map((x) => x.text);
-  const q = quote(state, plan, householdId, { voiceId, bookSlug: today.slug, scope: "book" });
-  return { revision: today.revision, credits: q.credits, free: q.free, before: before.slice(0, 12), after: after.slice(0, 12), changed: Math.max(before.length, after.length) };
+  const after = inScope(today.sentences).filter((x) => !said.has(spokenForm(x.text))).map((x) => x.text);
+  const before = inScope(heard.text.sentences).filter((x) => !says.has(spokenForm(x.text))).map((x) => x.text);
+  if (!whole && before.length === 0 && after.length === 0) return null;
+  const chapter = whole ? null : Math.min(...chapters);
+  const q = quote(state, plan, householdId, chapter ? { voiceId, bookSlug: today.slug, scope: "chapter", chapter } : { voiceId, bookSlug: today.slug, scope: "book" });
+  return { revision: today.revision, chapter, credits: q.credits, free: q.free, before: before.slice(0, 12), after: after.slice(0, 12), changed: Math.max(before.length, after.length) };
 }
 
 // ---------------------------------------------------------------------------
@@ -544,7 +583,12 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
   const heard = narrationFor(state, plan, v.id, text, householdId);
   const { library, status } = heard;
   const target = libraryFor(state, plan, v.id, text, householdId);
-  const chapters = missingByChapter(state, plan, library, heard.text);
+  // While today's text is being prepared beside an earlier audiobook, its chapters show their progress.
+  const todays = library.key === target.key ? [] : missingByChapter(state, plan, target, text);
+  const chapters = missingByChapter(state, plan, library, heard.text).map((c) => {
+    const t = c.readiness === "ready" ? undefined : todays.find((x) => x.number === c.number);
+    return t?.readiness === "preparing" ? t : c;
+  });
   const missingCredits = chapters.reduce((n, c) => n + c.credits, 0);
   // An update being prepared runs on today's text while the finished audiobook keeps playing.
   // A whole-book preparation outranks a chapter running beside it, so the page never shows a book as one chapter.
@@ -700,8 +744,10 @@ export interface GenerationRequest {
 }
 
 export interface GenerationQuote {
-  /** Segments this request would generate and pay for. */
+  /** Segments this request would generate. */
   sentenceIds: string[];
+  /** Of those, the ones a Readli correction prepares at Readli's cost. */
+  freeSentenceIds: string[];
   characters: number;
   /** Exact Readli credits this request reserves. */
   credits: number;
@@ -717,10 +763,10 @@ export interface GenerationQuote {
   book: { title: string };
 }
 
-function requestedSentences(text: BookText, req: GenerationRequest) {
+function requestedSentences(text: BookText, req: GenerationRequest, carried: Set<string> = new Set()) {
   if (req.scope === "chapter") {
     const ids = new Set(text.chapters.find((c) => c.number === req.chapter)?.sentenceIds ?? []);
-    return text.sentences.filter((s) => ids.has(s.id));
+    return text.sentences.filter((s) => ids.has(s.id) || carried.has(s.id));
   }
   if (req.scope === "passage") {
     const order = req.sentenceIds ?? [];
@@ -747,27 +793,34 @@ export function quote(state: FamilyState, plan: PlanConfig, householdId: string,
   const segs = segmentsOf(state, library.key);
   // Lines this voice already said the same way, in an earlier text of the book, are reused for free.
   const reusable = reusableAudio(state, library, text);
-  const free = freeCorrection(state, plan, req.voiceId, text, householdId);
+  const heard = narrationFor(state, plan, req.voiceId, text, householdId);
+  const carried = req.scope === "passage" ? new Set<string>() : carriedSentences(heard, text);
+  // A Readli correction re-prepares what the family already had at Readli's cost; anything new is charged.
+  const correction = freeCorrection(state, plan, req.voiceId, text, householdId);
   const missing: string[] = [];
+  const freeIds: string[] = [];
   let characters = 0;
   let credits = 0;
   let reusedReady = 0;
   let alreadyQueued = 0;
-  for (const s of requestedSentences(text, req)) {
+  for (const s of requestedSentences(text, req, carried)) {
     const seg = segs.get(s.id);
     if ((seg?.status === "ready" && seg.storageKey) || reusable.has(s.id)) reusedReady += 1;
     else if (seg && activeJob(state, seg.jobId)) alreadyQueued += 1;
     else {
       missing.push(s.id);
       characters += s.text.length;
-      credits += creditsFor(s.text.length);
+      if (correction && (heard.status.readiness === "ready" || carried.has(s.id))) freeIds.push(s.id);
+      else credits += creditsFor(s.text.length);
     }
   }
+  const free = correction && missing.length > 0 && freeIds.length === missing.length;
   const chapter = req.scope === "chapter" ? text.chapters.find((c) => c.number === req.chapter)! : null;
   return {
     sentenceIds: missing,
+    freeSentenceIds: freeIds,
     characters,
-    credits: free ? 0 : credits,
+    credits,
     estimateSeconds: characters ? estimateSeconds(characters, library.modelId) : 0,
     reusedReady,
     alreadyQueued,
@@ -821,11 +874,15 @@ export async function requestGeneration(
       });
     }
     const library = libraryFor(s, store.plan, req.voiceId, text, householdId);
-    const wanted = new Set(requestedSentences(text, req).map((x) => x.id));
+    const heard = narrationFor(s, store.plan, req.voiceId, text, householdId);
+    const carried = req.scope === "passage" ? new Set<string>() : carriedSentences(heard, text);
+    const wanted = new Set(requestedSentences(text, req, carried).map((x) => x.id));
     const reuse = reusableAudio(s, library, text);
     if (q.sentenceIds.length === 0 && ![...reuse.keys()].some((id) => wanted.has(id))) return;
     if (!s.libraries.some((l) => l.key === library.key)) s.libraries.push({ ...library, createdAt: at });
-    adoptReusable(s, library, text, wanted, at);
+    // Every line this voice already said the same way comes along, not only the requested ones, so
+    // today's audiobook starts with everything the family already has.
+    adoptReusable(s, library, text, req.scope === "passage" ? wanted : null, at);
     if (q.sentenceIds.length === 0) return;
     const job: NarrationJob = {
       id: randomUUID(),
@@ -840,10 +897,11 @@ export async function requestGeneration(
       finishedAt: null,
     };
     const byId = new Map(text.sentences.map((x) => [x.id, x]));
+    const free = new Set(q.freeSentenceIds);
     for (const id of q.sentenceIds) {
       const sentence = byId.get(id)!;
       // A Readli correction is prepared at Readli's cost: nothing is reserved, committed or refunded.
-      const draws = q.free ? [] : draw(lots, creditsFor(sentence.text.length))!;
+      const draws = free.has(id) ? [] : draw(lots, creditsFor(sentence.text.length))!;
       job.reservations[id] = draws;
       const existing = s.segments.find((x) => x.libraryKey === library.key && x.sentenceId === id);
       if (existing) Object.assign(existing, { status: "pending", jobId: job.id, error: null, attempts: 0 });

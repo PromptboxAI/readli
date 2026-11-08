@@ -250,7 +250,9 @@ export function PrepareNarration({
             disabled={busy}
             onClick={() => {
               setSelected(updatable.voiceId);
-              void estimate({ voiceId: updatable.voiceId, scope: "book" }).then(() =>
+              void estimate(
+                updatable.update!.chapter ? { voiceId: updatable.voiceId, scope: "chapter", chapter: updatable.update!.chapter } : { voiceId: updatable.voiceId, scope: "book" },
+              ).then(() =>
                 requestAnimationFrame(() => document.querySelector('[data-testid="confirm-generation"]')?.scrollIntoView({ behavior: "smooth", block: "center" })),
               );
             }}
