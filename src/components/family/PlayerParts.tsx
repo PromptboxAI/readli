@@ -230,9 +230,12 @@ export function TimeBar({
   playing,
   onSeek,
   rate = 1,
+  end,
 }: {
   mode: PlayerMode;
   seconds: number[];
+  /** One past the last prepared sentence the bar covers; the whole text when left out. */
+  end?: number;
   sentence: number;
   playing: boolean;
   onSeek: (sentence: number) => void;
@@ -254,10 +257,12 @@ export function TimeBar({
   }, [playing, seconds, rate]);
 
   const { listen, faint } = playerTone(mode);
-  const starts = timeline(seconds);
+  // Only as far as the audio goes: a book prepared a chapter at a time ends at that chapter.
+  const shown = end === undefined ? seconds : seconds.slice(0, Math.max(end, sentence + 1));
+  const starts = timeline(shown);
   const total = starts[starts.length - 1] ?? 0;
   const elapsed = scrub ?? Math.min(total, (starts[sentence] ?? 0) + spent);
-  const pages = pageCount(seconds.length);
+  const pages = pageCount(shown.length);
   const shownPage = scrub === null ? pageOf(sentence) : pageOf(sentenceAt(starts, scrub));
   const percent = total ? (elapsed / total) * 100 : 0;
 
