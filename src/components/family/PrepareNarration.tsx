@@ -373,6 +373,10 @@ export function PrepareNarration({ initial, resume, prefer = null, inSetup = fal
                   <ol className="divide-y divide-ink/10 border-t border-ink/10 sm:border-t-0">
                     {v.chapters.map((c) => {
                       const target: Target = { voiceId: v.voiceId, scope: "chapter", chapter: c.number };
+                      // The chapter this narrator's running preparation is for, so a page opened later still shows it here.
+                      const running = c.readiness === "preparing" ? (v.job?.chapter?.number === c.number ? v.job : null) : null;
+                      const status = CHAPTER_STATUS[c.readiness];
+                      const pct = c.sentences ? Math.round((c.ready / c.sentences) * 100) : 0;
                       return (
                         <li key={c.number} className="flex flex-col gap-3 px-5 py-3" data-testid={`chapter-${c.number}`}>
                           <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 sm:grid-cols-[2rem_minmax(0,1fr)_5rem_7rem_6.5rem]">
@@ -381,19 +385,45 @@ export function PrepareNarration({ initial, resume, prefer = null, inSetup = fal
                               {c.title}
                               <span className="block text-sm text-muted sm:hidden">
                                 {c.credits > 0 ? `${n(c.credits)} credits · ` : ""}
-                                {CHAPTER_STATUS[c.readiness]}
+                                {status}
                               </span>
                             </span>
                             <span className="hidden text-right tabular-nums sm:block">{c.credits > 0 ? n(c.credits) : "—"}</span>
-                            <span className="hidden text-muted sm:block">{CHAPTER_STATUS[c.readiness]}</span>
+                            <span className="hidden text-muted sm:block" data-testid={`chapter-${c.number}-status`}>
+                              {status}
+                            </span>
                             <span className="text-right">
-                              {c.credits > 0 && c.readiness !== "preparing" && (
-                                <button type="button" className={btnSmall} disabled={busy || c.credits > balance} onClick={() => estimate(target)}>
-                                  Prepare
+                              {running ? (
+                                <button type="button" className={btnSmall} disabled={busy} onClick={() => cancel(v)}>
+                                  Stop
                                 </button>
+                              ) : (
+                                c.credits > 0 &&
+                                c.readiness !== "preparing" && (
+                                  <button type="button" className={btnSmall} disabled={busy || c.credits > balance} onClick={() => estimate(target)}>
+                                    Prepare
+                                  </button>
+                                )
                               )}
                             </span>
                           </div>
+                          {c.readiness === "preparing" && (
+                            <div className="flex items-center gap-3" data-testid={`chapter-${c.number}-progress`}>
+                              <div
+                                className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink/10"
+                                role="progressbar"
+                                aria-valuenow={pct}
+                                aria-valuemin={0}
+                                aria-valuemax={100}
+                                aria-label={`Chapter ${c.number}: ${pct}% prepared`}
+                              >
+                                <div className="h-full rounded-full bg-ink" style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className="text-sm text-muted tabular-nums">
+                                {c.ready} of {c.sentences} sentences
+                              </span>
+                            </div>
+                          )}
                           {openFor(target) && confirmFor(v)}
                         </li>
                       );
@@ -466,6 +496,9 @@ function WholeBook({
   const balance = view.credits.available;
   const short = Math.max(0, v.missingCredits - balance);
   const pct = Math.round((v.status.ready / v.status.total) * 100);
+  // Only one chapter is being prepared: that shows on its row, and the whole book can still be prepared from here.
+  const chapterJob = v.job?.scope === "chapter" ? v.job : null;
+  const bookPreparing = v.status.readiness === "preparing" && !chapterJob;
   return (
     <aside aria-labelledby="whole-h" className={`${card} flex flex-col gap-4 p-5`}>
       <div>
@@ -474,6 +507,15 @@ function WholeBook({
         </h2>
         <p className="text-sm text-muted">Read by {v.name}</p>
       </div>
+
+      {chapterJob?.chapter && (
+        <p className="rounded-lg bg-sky/20 p-3 text-sm" data-testid="chapter-preparing">
+          Preparing chapter {chapterJob.chapter.number}, {chapterJob.chapter.title}: {chapterJob.ready} of {chapterJob.total} sentences.{" "}
+          <a href="#chapters" className="font-semibold underline underline-offset-4">
+            See chapters
+          </a>
+        </p>
+      )}
 
       {v.lastFailure && v.status.readiness !== "preparing" && (
         <p className="rounded-lg bg-coral/15 p-3 text-sm font-semibold" data-testid="last-failure">
@@ -507,7 +549,7 @@ function WholeBook({
             `Finish setting up ${v.name} under Narrator to prepare this book.`
           )}
         </p>
-      ) : v.status.readiness === "preparing" ? (
+      ) : bookPreparing ? (
         <div className="flex flex-col gap-3">
           <div className="h-2 overflow-hidden rounded-full bg-ink/10" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`${v.name}: ${pct}% prepared`}>
             <div className="h-full rounded-full bg-ink" style={{ width: `${pct}%` }} />

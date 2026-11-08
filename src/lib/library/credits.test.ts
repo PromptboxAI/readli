@@ -9,6 +9,8 @@ import { bookText } from "@/lib/narration/text";
 import type { SynthesizedAudio, VoiceProvider } from "@/lib/voice/provider";
 import { toneWav } from "@/lib/voice/stub";
 import { familyLibrary } from "./discovery";
+import { familyHome } from "@/lib/family/home";
+import { kidsShelf } from "@/lib/kids/shelf";
 
 /** Book Discovery, Generation Credits & Short-Story Launch amendment: required tests. */
 const mom: Actor = { kind: "adult", adultId: "sara" };
@@ -128,6 +130,38 @@ describe("generation credits (required tests)", () => {
     // It isn't Ready, and isn't in "Already prepared" as if it were whole; it is in the library.
     const lib = await familyLibrary(store, mom, H);
     expect(lib.all.find((b) => b.slug === LONG)!.narrators.find((n) => n.voiceId === "voice-june")!.availability).toBe("partial");
+  });
+
+  it("a book with its first chapter prepared is on the Family bookshelf and the kids' shelves", async () => {
+    const { store } = family();
+    const { job } = await requestGeneration(store, mom, H, chapter(1), clock);
+    await runJob(store, new Provider(), job!.id, clock);
+    const kids = (await kidsReadiness(store, maya, "maya", LONG)).find((r) => r.voiceId === "voice-june")!;
+    expect(kids.listenable).toBe(true);
+    const state = await store.read();
+    const home = familyHome(state, H, store.plan, "sara");
+    expect(home.shelf.map((b) => b.slug)).toContain(LONG);
+    const shelf = await kidsShelf(store, maya, state, "maya");
+    expect(shelf.ready.map((b) => b.book.slug)).toContain(LONG);
+  });
+
+  it("a later chapter alone doesn't reach the shelves, since it can't play from the start", async () => {
+    const { store } = family();
+    const { job } = await requestGeneration(store, mom, H, chapter(2), clock);
+    await runJob(store, new Provider(), job!.id, clock);
+    const kids = (await kidsReadiness(store, maya, "maya", LONG)).find((r) => r.voiceId === "voice-june")!;
+    expect(kids.listenable).toBe(false);
+    expect(familyHome(await store.read(), H, store.plan, "sara").shelf.map((b) => b.slug)).not.toContain(LONG);
+  });
+
+  it("a page opened while one chapter prepares shows that chapter, not the whole book, as preparing", async () => {
+    const { store } = family();
+    const { job } = await requestGeneration(store, mom, H, chapter(1), clock);
+    const june = (await prepareView(store, mom, H, LONG, clock)).voices.find((v) => v.voiceId === "voice-june")!;
+    expect(june.jobId).toBe(job!.id);
+    expect(june.job).toMatchObject({ id: job!.id, scope: "chapter", chapter: { number: 1, title: long.chapters[0]!.title }, ready: 0, total: job!.sentenceIds.length });
+    expect(june.chapters[0]!.readiness).toBe("preparing");
+    expect(june.chapters.slice(1).every((c) => c.readiness === "not_prepared")).toBe(true);
   });
 
   it("reserved credits can't be spent twice", async () => {
