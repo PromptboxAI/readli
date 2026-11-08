@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { buttonSmall, buttonSmallPrimary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
 import { requireAdmin } from "@/lib/admin/access";
+import { SupportEmails as Emails } from "@/components/admin/SupportEmails";
+import { supportEmails } from "@/lib/admin/problems";
 import { supportBilling, supportCredits, type SupportBilling, type SupportCharge, type SupportLot } from "@/lib/admin/support-credits";
 import { supportFamily, supportPeople, supportPlan, type SupportPerson } from "@/lib/admin/family-support";
 import {
@@ -98,7 +100,7 @@ export default async function FamilyPage({ params, searchParams }: { params: Pro
   const [voices, kidsDevices, history] = await Promise.all([supportVoices(db, state, family.plan, id), supportDevices(db, state, id), supportHistory(db, state, id)]);
   const places = supportPlaces(state, id);
   const ledger = supportCredits(state, family.plan, id, at);
-  const billing = await supportBilling(db, id);
+  const [billing, emails] = await Promise.all([supportBilling(db, id), supportEmails(db, { householdId: id })]);
   const c = (units: number) => displayCredits(units, family.plan.charactersPerCredit).toLocaleString("en-US");
 
   return (
@@ -147,6 +149,7 @@ export default async function FamilyPage({ params, searchParams }: { params: Pro
 
       <Credits householdId={id} lots={ledger.lots} charges={ledger.charges} c={c} />
       <Billing billing={billing} />
+      <Emails emails={emails} people={people} />
       <History events={history} />
     </AdultPage>
   );
@@ -862,3 +865,4 @@ function Billing({ billing }: { billing: SupportBilling }) {
     </section>
   );
 }
+

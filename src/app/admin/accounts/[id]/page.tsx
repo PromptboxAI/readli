@@ -3,7 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { buttonSecondary, buttonSmall, buttonSmallPrimary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
+import { SupportEmails } from "@/components/admin/SupportEmails";
 import { requireAdmin } from "@/lib/admin/access";
+import { supportEmails } from "@/lib/admin/problems";
 import { supportAccount } from "@/lib/admin/support-people";
 import { adminDate, adminDateTime } from "@/lib/admin/time";
 import { accountDb } from "@/lib/family/account-store";
@@ -54,6 +56,7 @@ export default async function AccountPage({ params, searchParams }: { params: Pr
   if (!ID.test(id)) notFound();
   const a = await supportAccount(db, id);
   if (!a) notFound();
+  const emails = await supportEmails(db, { userId: a.id });
   const hidden = <input type="hidden" name="userId" value={a.id} />;
 
   return (
@@ -179,6 +182,8 @@ export default async function AccountPage({ params, searchParams }: { params: Pr
           </ul>
         )}
       </section>
+
+      <SupportEmails emails={emails} people={[{ id: a.id, name: a.name ?? "them" }]} />
     </AdultPage>
   );
 }
