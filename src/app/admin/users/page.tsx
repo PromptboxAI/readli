@@ -85,7 +85,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
         </Eyebrow>
         <h1 className="font-display text-4xl font-semibold">Accounts</h1>
         <p className="text-lg">
-          Every grown-up who has signed up, with each family&apos;s plan. Credits adds narration credits to a family. Pausing stops an account signing in and keeps everything. Deleting does what &ldquo;Delete my
+          Every grown-up who has signed up, with each family&apos;s plan. Open a family to see its people, credits and audiobooks and fix them. Credits adds narration credits to a family. Pausing stops an account signing in and keeps everything. Deleting does what &ldquo;Delete my
           account&rdquo; does and can&apos;t be undone.
         </p>
       </header>
@@ -204,9 +204,9 @@ function AccountRow({ account: a, backQs, deleteHref, creditsHref }: { account: 
       <td className="px-3 py-2">
         {a.homes.length ? (
           a.homes.map((h) => (
-            <span key={h.name} className="block">
+            <Link key={h.id} href={`/admin/families/${h.id}`} className="block underline underline-offset-4" aria-label={`Open ${h.name} in family support`}>
               {h.name}
-            </span>
+            </Link>
           ))
         ) : (
           <span className="text-muted">–</span>

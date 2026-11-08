@@ -165,7 +165,11 @@ function FamilyRow({ family: f, q }: { family: AdminFamily; q: string }) {
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
       <div className="min-w-0">
-        <p className="font-semibold">{f.name}</p>
+        <p className="font-semibold">
+          <Link href={`/admin/families/${f.id}`} className="underline underline-offset-4">
+            {f.name}
+          </Link>
+        </p>
         <p className="break-all text-sm text-muted">{f.ownerEmail ?? "Owner email unknown"}</p>
         <p className="text-sm">
           {f.members} grown-up{f.members === 1 ? "" : "s"}, {f.kids} kid{f.kids === 1 ? "" : "s"} · since {day(f.createdAt)} ·{" "}

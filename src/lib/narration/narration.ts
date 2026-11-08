@@ -100,7 +100,7 @@ function segmentsOf(state: FamilyState, libraryKey: string): Map<string, Narrati
   return new Map(state.segments.filter((s) => s.libraryKey === libraryKey).map((s) => [s.sentenceId, s]));
 }
 
-function activeJob(state: FamilyState, jobId: string | null): NarrationJob | null {
+export function activeJob(state: FamilyState, jobId: string | null): NarrationJob | null {
   const job = jobId ? state.jobs.find((j) => j.id === jobId) : undefined;
   return job && (job.status === "queued" || job.status === "running") ? job : null;
 }
@@ -254,7 +254,7 @@ export function narrationFor(state: FamilyState, plan: PlanConfig, voiceId: stri
  * an earlier text. Any preparation brings these along (unchanged lines are reused for free), so preparing
  * chapter 2 never leaves chapter 1 behind in the old text, and today's audiobook never has less in it.
  */
-function carriedSentences(heard: Narration, today: BookText): Set<string> {
+export function carriedSentences(heard: Narration, today: BookText): Set<string> {
   const out = new Set<string>();
   if (!heard.pinned || heard.text.revision === today.revision) return out;
   const ready = new Set(heard.status.readySentenceIds);
@@ -270,7 +270,7 @@ function carriedSentences(heard: Narration, today: BookText): Set<string> {
  * model, settings and sharing, a narration of the same book, and the sentence said the same way.
  * Each sentence is generated on its own, so reused and new sentences join exactly as they always have.
  */
-function reusableAudio(state: FamilyState, target: NarrationLibrary, text: BookText): Map<string, NarrationSegment> {
+export function reusableAudio(state: FamilyState, target: NarrationLibrary, text: BookText): Map<string, NarrationSegment> {
   const stored = new Map<string, NarrationSegment>();
   for (const l of state.libraries) {
     if (l.key === target.key || l.voiceId !== target.voiceId || l.voiceVersion !== target.voiceVersion || l.bookSlug !== target.bookSlug) continue;
@@ -296,7 +296,7 @@ function reusableAudio(state: FamilyState, target: NarrationLibrary, text: BookT
 }
 
 /** Points the target's missing sentences at audio the voice already has for them (no generation, no credits). */
-function adoptReusable(s: FamilyState, target: NarrationLibrary, text: BookText, ids: Set<string> | null, at: string): number {
+export function adoptReusable(s: FamilyState, target: NarrationLibrary, text: BookText, ids: Set<string> | null, at: string): number {
   let n = 0;
   const byId = new Map(text.sentences.map((x) => [x.id, x]));
   for (const [id, from] of reusableAudio(s, target, text)) {
@@ -534,7 +534,7 @@ export interface PrepareBookView {
   gift: { giverName: string; renewsAt: string | null } | null;
 }
 
-function missingByChapter(state: FamilyState, plan: PlanConfig, library: NarrationLibrary, text: BookText): ChapterView[] {
+export function missingByChapter(state: FamilyState, plan: PlanConfig, library: NarrationLibrary, text: BookText): ChapterView[] {
   const segs = segmentsOf(state, library.key);
   const skip = unpreparedEnd(segs, state, text);
   const byId = new Map(text.sentences.map((x) => [x.id, x]));
@@ -934,7 +934,7 @@ function ledgerHas(state: FamilyState, jobId: string, sentenceId: string, kind: 
 }
 
 /** Releases a job's unfinished segments and refunds their reservations, once. */
-function settleUnfinished(s: FamilyState, job: NarrationJob, at: string) {
+export function settleUnfinished(s: FamilyState, job: NarrationJob, at: string) {
   for (const id of job.sentenceIds) {
     const seg = s.segments.find((x) => x.libraryKey === job.libraryKey && x.sentenceId === id);
     if (seg && seg.status !== "ready" && seg.jobId === job.id) {
