@@ -1370,10 +1370,21 @@
    "revision": "8d91ea7b3ff1",
    "edition": "gutenberg-113",
    "firstSeen": "2026-11-05T02:08:03+00:00",
+   "lastSeen": "2026-11-08T18:19:14+00:00",
+   "published": true,
+   "current": false,
+   "sentences": 5552
+  },
+  {
+   "slug": "the-secret-garden",
+   "revision": "8dc37b0e1bf0",
+   "edition": "gutenberg-113",
+   "firstSeen": "2026-11-08T18:25:28+00:00",
    "lastSeen": null,
    "published": true,
    "current": true,
-   "sentences": 5552
+   "sentences": 5552,
+   "correction": true
   }
  ]
 }
