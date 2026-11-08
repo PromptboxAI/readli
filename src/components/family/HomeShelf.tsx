@@ -199,9 +199,17 @@ const STATUS: Record<HomeStoryteller["tone"], { label: string; className: string
   joined: { label: "Joined", className: "bg-sky/30" },
 };
 
-/** The family's storytellers, each with who may hear them, and the narrator slots in use; full width on Home, so they list in columns. */
+/** The family's storytellers as a list, one row each with who may hear them and their status, then the narrator slots in use beside the invite. */
 /** `recordFirst`: the parent hasn't recorded their own voice yet, so that comes before inviting anyone else. */
-export function StorytellersCard({ storytellers, slotLine, recordFirst = false }: { storytellers: HomeStoryteller[]; slotLine: string | null; recordFirst?: boolean }) {
+export function StorytellersCard({
+  storytellers,
+  slotLine,
+  recordFirst = false,
+}: {
+  storytellers: HomeStoryteller[];
+  slotLine: { used: number; total: number; text: string } | null;
+  recordFirst?: boolean;
+}) {
   return (
     <section className="flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10" aria-labelledby="storytellers-h">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -213,10 +221,10 @@ export function StorytellersCard({ storytellers, slotLine, recordFirst = false }
         </Link>
       </div>
       {storytellers.length > 0 ? (
-        <ul className="grid gap-x-6 gap-y-1 md:grid-cols-2 lg:grid-cols-3" data-testid="home-storytellers">
+        <ul className="flex flex-col divide-y-2 divide-ink/5" data-testid="home-storytellers">
           {storytellers.map((s) => (
             <li key={s.voiceId}>
-              <Link href={s.href} className="-mx-2 flex items-center gap-3 rounded-2xl p-2 hover:bg-ivory">
+              <Link href={s.href} className="-mx-2 my-1 flex items-center gap-3 rounded-2xl p-2 hover:bg-ivory">
                 <StorytellerAvatar name={s.person.name} avatarUrl={s.person.avatarUrl} tint={s.person.tint} size="sm" muted={s.tone === "waiting" || s.tone === "joined"} />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="font-display text-lg font-semibold">
@@ -226,6 +234,9 @@ export function StorytellersCard({ storytellers, slotLine, recordFirst = false }
                   <span className="text-sm text-muted">{s.detail}</span>
                 </span>
                 <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-sm font-semibold ${STATUS[s.tone].className}`}>{STATUS[s.tone].label}</span>
+                <span aria-hidden="true" className="shrink-0 text-xl text-muted">
+                  ›
+                </span>
               </Link>
             </li>
           ))}
@@ -242,13 +253,28 @@ export function StorytellersCard({ storytellers, slotLine, recordFirst = false }
           </Link>
         </div>
       )}
-      {slotLine && <p className="text-sm text-muted">{slotLine}</p>}
-      <Link
-        href="/family/narrators#invite"
-        className="inline-flex min-h-11 items-center gap-2 self-start rounded-xl border-2 border-ink/20 px-4 font-display font-semibold hover:border-ink/50"
-      >
-        <span aria-hidden="true">+</span> Invite a storyteller
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t-2 border-ink/5 pt-3">
+        {slotLine ? (
+          <p className="flex items-center gap-2.5 text-sm text-muted" data-testid="home-slot-line">
+            {slotLine.total <= 10 && (
+              <span className="flex gap-1" aria-hidden="true">
+                {Array.from({ length: slotLine.total }, (_, i) => (
+                  <span key={i} className={`h-2 w-5 rounded-full ${i < slotLine.used ? "bg-mint-deep" : "bg-ink/10"}`} />
+                ))}
+              </span>
+            )}
+            {slotLine.text}
+          </p>
+        ) : (
+          <span />
+        )}
+        <Link
+          href="/family/narrators#invite"
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-ink/20 px-4 font-display font-semibold hover:border-ink/50"
+        >
+          <span aria-hidden="true">+</span> Invite a storyteller
+        </Link>
+      </div>
     </section>
   );
 }
