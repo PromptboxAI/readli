@@ -58,6 +58,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         {!gate.preview && <p className="text-lg">Signed in as {gate.admin.email}.</p>}
         <nav className="flex flex-wrap gap-3 pt-2" aria-label="Admin pages">
           <Link href="/admin/users" className={buttonSecondary}>Accounts</Link>
+          <Link href="/admin/problems" className={buttonSecondary}>Problems</Link>
+          <Link href="/admin/activity" className={buttonSecondary}>Admin activity</Link>
           <Link href="/admin/finance" className={buttonSecondary}>Finances</Link>
           <Link href="/admin/growth" className={buttonSecondary}>Growth metrics</Link>
           <Link href="/admin/plans" className={buttonSecondary}>Plan settings</Link>
@@ -165,7 +167,11 @@ function FamilyRow({ family: f, q }: { family: AdminFamily; q: string }) {
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
       <div className="min-w-0">
-        <p className="font-semibold">{f.name}</p>
+        <p className="font-semibold">
+          <Link href={`/admin/families/${f.id}`} className="underline underline-offset-4">
+            {f.name}
+          </Link>
+        </p>
         <p className="break-all text-sm text-muted">{f.ownerEmail ?? "Owner email unknown"}</p>
         <p className="text-sm">
           {f.members} grown-up{f.members === 1 ? "" : "s"}, {f.kids} kid{f.kids === 1 ? "" : "s"} · since {day(f.createdAt)} ·{" "}
