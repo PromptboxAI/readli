@@ -2,7 +2,7 @@ import { createHash, createHmac, randomUUID } from "node:crypto";
 import { sameHash } from "@/lib/server/guest-token";
 import { voiceSettings } from "@/lib/voice/elevenlabs";
 import type { VoiceProvider } from "@/lib/voice/provider";
-import type { Actor, CreditLot, FamilyState, NarrationJob, NarrationLibrary, NarrationSegment } from "@/lib/family/model";
+import type { Actor, CreditLot, FamilyState, JobScope, NarrationJob, NarrationLibrary, NarrationSegment } from "@/lib/family/model";
 import { activeChild, activeEntitlement, activeShare, activeSlot, childVoiceAccess, countedSlots, isActiveMember, narratorSlotCount, readyVoice } from "@/lib/family/permissions";
 import { calledIn } from "@/lib/family/names";
 import type { PlanConfig } from "@/lib/family/plan";
@@ -175,6 +175,19 @@ export interface Narration {
   status: LibraryStatus;
   /** A finished narration of an earlier text or recording, kept because today's isn't finished in this voice. */
   pinned: boolean;
+}
+
+/**
+ * A child can listen to this narration now: the whole book is stored, or at least its first chapter is,
+ * so a book prepared a chapter at a time reaches bookshelves as soon as it can be played from the start.
+ * Players stop where prepared audio ends, so a part-prepared book never promises more than exists.
+ */
+export function listenable({ text, status }: Pick<Narration, "text" | "status">): boolean {
+  if (status.readiness === "ready") return true;
+  const first = text.chapters[0];
+  if (!first || text.chapters.length < 2 || status.ready === 0) return false;
+  const ready = new Set(status.readySentenceIds);
+  return first.sentenceIds.every((id) => ready.has(id));
 }
 
 /** The text a narration was prepared from: the same book, edition and revision, or null if it was never built. */
@@ -385,6 +398,34 @@ export interface ChapterView {
   credits: number;
 }
 
+export interface ActiveJobView {
+  id: string;
+  scope: JobScope;
+  /** The chapter being prepared, for a chapter-at-a-time preparation. */
+  chapter: { number: number; title: string } | null;
+  /** Sentences this preparation has finished, of those it set out to make. */
+  ready: number;
+  total: number;
+}
+
+/** A running preparation as the prepare page shows it. */
+function activeJobView(state: FamilyState, job: NarrationJob, text: BookText): ActiveJobView {
+  const segs = segmentsOf(state, job.libraryKey);
+  const ready = job.sentenceIds.filter((id) => {
+    const seg = segs.get(id);
+    return seg?.status === "ready" && seg.storageKey;
+  }).length;
+  const ids = new Set(job.sentenceIds);
+  const chapter = job.scope === "chapter" ? text.chapters.find((c) => c.sentenceIds.some((id) => ids.has(id))) : undefined;
+  return {
+    id: job.id,
+    scope: job.scope,
+    chapter: chapter ? { number: chapter.number, title: chapter.title } : null,
+    ready,
+    total: job.sentenceIds.length,
+  };
+}
+
 export interface PrepareVoiceView {
   voiceId: string;
   name: string;
@@ -417,6 +458,8 @@ export interface PrepareVoiceView {
   estimateSeconds: number;
   chapters: ChapterView[];
   jobId: string | null;
+  /** What the running preparation covers and how far it has got, so a page opened later shows it in the right place. */
+  job: ActiveJobView | null;
   /** Today's text differs from the finished audiobook this family hears; offered, never applied for them. */
   update: BookUpdate | null;
 }
@@ -490,7 +533,11 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
   const chapters = missingByChapter(state, plan, library, heard.text);
   const missingCredits = chapters.reduce((n, c) => n + c.credits, 0);
   // An update being prepared runs on today's text while the finished audiobook keeps playing.
-  const job = state.jobs.find((j) => (j.libraryKey === library.key || j.libraryKey === target.key) && j.householdId === householdId && (j.status === "queued" || j.status === "running"));
+  // A whole-book preparation outranks a chapter running beside it, so the page never shows a book as one chapter.
+  const job =
+    state.jobs
+      .filter((j) => (j.libraryKey === library.key || j.libraryKey === target.key) && j.householdId === householdId && (j.status === "queued" || j.status === "running"))
+      .sort((a, b) => Number(a.scope === "chapter") - Number(b.scope === "chapter"))[0] ?? null;
   const approved = new Set(kids.filter((c) => childVoiceAccess(state, c.id, v.id, plan).allowed).map((c) => c.id));
   const approvedFor = kids.filter((c) => approved.has(c.id)).map((c) => c.nickname);
   const yours = viewerId !== undefined && v.ownerId === viewerId;
@@ -536,6 +583,7 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
     estimateSeconds: status.missingCharacters ? estimateSeconds(status.missingCharacters, library.modelId) : 0,
     chapters,
     jobId: job?.id ?? null,
+    job: job ? activeJobView(state, job, text) : null,
     update: reason ? null : bookUpdate(state, plan, householdId, v.id, heard, text),
   };
 }
@@ -988,6 +1036,8 @@ export interface KidsNarratorReadiness {
   voiceId: string;
   readySentenceIds: string[];
   readiness: Readiness;
+  /** Enough is stored to play from the start (the whole book, or its first chapters). */
+  listenable: boolean;
   /** The text this narrator's audiobook reads, so the words shown are the words heard. */
   revision: string;
 }
@@ -1032,7 +1082,7 @@ export async function kidsReadiness(store: FamilyStore, actor: Actor | null, chi
     .filter((v) => childVoiceAccess(state, childId, v.id, store.plan).allowed)
     .map((v) => {
       const heard = narrationFor(state, store.plan, v.id, text, child.householdId);
-      return { voiceId: v.id, readySentenceIds: heard.status.readySentenceIds, readiness: heard.status.readiness, revision: heard.text.revision };
+      return { voiceId: v.id, readySentenceIds: heard.status.readySentenceIds, readiness: heard.status.readiness, listenable: listenable(heard), revision: heard.text.revision };
     });
 }
 

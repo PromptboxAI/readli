@@ -1,6 +1,6 @@
 import { CATALOG, NEW_BOOKS, MORE_BOOKS_ON_PHONES, findCatalogBook } from "@/lib/library/catalog";
 import { THE_END } from "@/lib/content/the-end";
-import { bookMinutes, narrationFor } from "@/lib/narration/narration";
+import { bookMinutes, listenable, narrationFor } from "@/lib/narration/narration";
 import { bookText } from "@/lib/narration/text";
 import type { Adult, FamilyState } from "./model";
 import { calledIn } from "./names";
@@ -228,7 +228,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       if (!voice || owners.has(voice.id)) continue;
       // Ready means a child can play it now: shared, in a slot, on a live plan and approved for someone.
       if (!kids.some((k) => childVoiceAccess(state, k.id, voice.id, plan).allowed)) continue;
-      if (narrationFor(state, plan, voice.id, text, householdId).status.readiness === "ready") owners.set(voice.id, adultById.get(voice.ownerId));
+      if (listenable(narrationFor(state, plan, voice.id, text, householdId))) owners.set(voice.id, adultById.get(voice.ownerId));
     }
     if (!owners.size) continue;
     const who = [...owners.values()].map((a) => a?.displayName ?? "a storyteller");
@@ -251,10 +251,11 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       const allowed = kids.filter((k) => childVoiceAccess(state, k.id, voice.id, plan).allowed);
       if (!allowed.length) continue;
       // What the family hears in this voice, which may be a finished audiobook of an earlier text.
-      const status = narrationFor(state, plan, voice.id, text, householdId).status;
-      // A partly prepared reading stays on the shelf only while a child is already part way through it.
+      const heard = narrationFor(state, plan, voice.id, text, householdId);
+      // A partly prepared reading is on the shelf once it plays from the start (its first chapter is
+      // prepared), or while a child is already part way through it.
       const started = allowed.some((k) => state.progress.some((p) => p.childId === k.id && p.bookSlug === book.slug && p.voiceId === voice.id && p.sentence > 0));
-      if (status.readiness !== "ready" && !(started && status.ready > 0)) continue;
+      if (!listenable(heard) && !(started && heard.status.ready > 0)) continue;
       narrators.set(voice.id, adultById.get(voice.ownerId));
       for (const k of allowed) hearers.add(k.id);
     }
@@ -305,7 +306,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       if (!voice || narrators.has(voice.id) || !isActiveMember(state, voice.ownerId, householdId)) continue;
       if (voice.ownerId !== viewerId && !activeShare(state, voice.id, householdId)) continue;
       if (kids.some((k) => childVoiceAccess(state, k.id, voice.id, plan).allowed)) continue;
-      if (narrationFor(state, plan, voice.id, text, householdId).status.readiness !== "ready") continue;
+      if (!listenable(narrationFor(state, plan, voice.id, text, householdId))) continue;
       const owner = adultById.get(voice.ownerId);
       narrators.set(voice.id, owner);
       const reason = kids.length ? childVoiceAccess(state, kids[0]!.id, voice.id, plan).reason : "no_child";
