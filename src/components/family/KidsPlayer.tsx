@@ -7,7 +7,7 @@ import { isTheEnd, THE_END_PAUSE_MS } from "@/lib/content/the-end";
 import type { NarratorView } from "@/lib/family/service";
 import type { BookTexts, KidsNarratorReadiness } from "@/lib/narration/narration";
 import { mapPosition } from "@/lib/narration/positions";
-import { parseMode, type PlayerMode } from "@/lib/player/pages";
+import { parseMode, preparedEnd, type PlayerMode } from "@/lib/player/pages";
 import { chapterReady, type Track } from "@/lib/player/tracks";
 import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, SleepButton, TimeBar } from "./PlayerParts";
 import { StorytellerAvatar } from "./StorytellerAvatar";
@@ -693,7 +693,14 @@ export function KidsPlayer({
           </p>
         )}
 
-        <TimeBar mode={mode} seconds={sentenceSeconds} sentence={sentence} playing={playing} onSeek={goTo} />
+        <TimeBar
+          mode={mode}
+          seconds={sentenceSeconds}
+          sentence={sentence}
+          playing={playing}
+          onSeek={goTo}
+          end={preparedEnd(sentenceIds, new Set(readiness.find((r) => r.voiceId === voiceId)?.readySentenceIds ?? []), sentence)}
+        />
 
         <div className="mx-auto grid w-full max-w-[640px] grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-3.5 sm:gap-7">
           <SleepButton label={sleep.label} onClick={() => sleep.cycle(new Set(chapters).size > 1)} className={side} />

@@ -80,3 +80,16 @@ export function clock(seconds: number): string {
   const s = String(t % 60).padStart(2, "0");
   return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
 }
+
+/**
+ * Where the prepared run of sentences holding `at` ends (one past its last sentence), so a player
+ * shows pages and time only up to where its audio stops, such as the end of a prepared chapter. The
+ * whole book when `at` isn't prepared or the run reaches the end (a missing closing "The End." aside).
+ */
+export function preparedEnd(sentenceIds: readonly string[], ready: ReadonlySet<string>, at: number): number {
+  const total = sentenceIds.length;
+  if (!ready.has(sentenceIds[at] ?? "")) return total;
+  let end = at;
+  while (end < total && ready.has(sentenceIds[end]!)) end += 1;
+  return end >= total - 1 ? total : end;
+}
