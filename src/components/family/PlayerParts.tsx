@@ -180,7 +180,7 @@ export function ChapterSheet({
                     {c.status === "partial" && <span className="text-sm font-bold text-muted">Read partway</span>}
                   </span>
                   {ready && !playing && <Icon name="play" className="ml-auto size-6 shrink-0" />}
-                  {playing && <span className="ml-auto shrink-0 text-sm font-bold">You're here</span>}
+                  {playing && <span className="ml-auto shrink-0 text-sm font-bold">You&apos;re here</span>}
                 </button>
                 {!ready && notReady?.(c)}
               </div>
