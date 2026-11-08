@@ -406,7 +406,14 @@ export function PrepareNarration({
                               {status}
                             </span>
                             <span className="text-right">
-                              {running ? (
+                              {c.readiness === "ready" && v.canListen ? (
+                                <Link href={`/family/books/${view.book.slug}/listen?voice=${v.voiceId}&chapter=${c.number}`} className={btnSmall} data-testid={`chapter-${c.number}-listen`}>
+                                  <span aria-hidden="true" className="mr-1">
+                                    ▶
+                                  </span>
+                                  Listen<span className="sr-only"> to chapter {c.number}</span>
+                                </Link>
+                              ) : running ? (
                                 <button type="button" className={btnSmall} disabled={busy} onClick={() => cancel(v)}>
                                   Stop
                                 </button>
@@ -622,7 +629,10 @@ function WholeBook({
             )}
           </div>
           {v.canListen && (
-            <Link href={`/family/books/${view.book.slug}/listen?voice=${v.voiceId}`} className="text-sm font-semibold underline underline-offset-4">
+            <Link href={`/family/books/${view.book.slug}/listen?voice=${v.voiceId}`} className={btnSecondary} data-testid="listen-ready">
+              <span aria-hidden="true" className="mr-1.5">
+                ▶
+              </span>
               Listen to what&apos;s ready
             </Link>
           )}
