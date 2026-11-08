@@ -664,7 +664,7 @@ export function KidsPlayer({
                   Done
                 </button>
               </div>
-              <div id="narrator-picker" role="group" aria-label="Choose a storyteller" className="flex gap-3 overflow-x-auto pb-1">
+              <div id="narrator-picker" role="group" aria-label="Choose a storyteller" className="-m-1 flex gap-3 overflow-x-auto p-1 pb-2">
                 {narrators.map((n) => {
                   const ready = readyHere(n.voiceId);
                   return (
