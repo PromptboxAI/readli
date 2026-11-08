@@ -1506,6 +1506,8 @@ export interface ListenView {
   voices: ListenVoice[];
   /** Today's text (`sentences` above) and any earlier text a voice's audiobook reads. */
   texts: BookTexts;
+  /** This book can be prepared a chapter at a time, so the end of a prepared chapter offers the next. */
+  chapterPrep: boolean;
 }
 
 /** The grown-up player for one book: its text and the prepared audio the household may play. */
@@ -1540,6 +1542,7 @@ export async function listenView(store: FamilyStore, actor: Actor | null, househ
     sentenceIds: text.sentences.map((x) => x.id),
     voices,
     texts: bookTexts(slug, voices.map((v) => v.revision), store.plan.narrationModelId),
+    chapterPrep: store.plan.chapterGenerationEnabled && text.chapters.length > 1,
   };
 }
 
