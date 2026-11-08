@@ -1134,9 +1134,10 @@ export interface BookTexts {
   current: string;
   /**
    * Each text's sentences, their ids, roughly how long each takes to read aloud (for the time bar), and
-   * the chapter each is in (chapter tracks play a chapter at a time).
+   * the chapter each is in (chapter tracks play a chapter at a time), and each chapter's title by number
+   * (chapter 1 first) for the player's chapter list.
    */
-  texts: Record<string, { sentences: string[]; sentenceIds: string[]; seconds: number[]; chapters: number[] }>;
+  texts: Record<string, { sentences: string[]; sentenceIds: string[]; seconds: number[]; chapters: number[]; chapterTitles?: string[] }>;
 }
 
 /** Texts for these revisions of a book, leaving out the ones the player already has. */
@@ -1152,6 +1153,7 @@ export function bookTexts(slug: string, revisions: string[], modelId: string, ha
         sentenceIds: t.sentences.map((x) => x.id),
         seconds: t.sentences.map((x) => estimateSeconds(x.text.length, modelId)),
         chapters: t.sentences.map((x) => x.chapter),
+        chapterTitles: t.chapters.map((c) => c.title),
       };
     }
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { PlayerChapter } from "@/lib/player/chapters";
 import { clock, pageCount, pageOf, pageRange, sentenceAt, timeline, type PlayerMode } from "@/lib/player/pages";
 
 /** Pieces shared by the Readli Kids player and the grown-up player, so both look and behave alike. */
@@ -101,6 +102,96 @@ export function SleepButton({ label, onClick, className }: { label: string | nul
   );
 }
 
+/**
+ * The chapter being read, centered like a chapter heading: under the title in Just listen, over the
+ * page in Read along. Tapping it opens the chapter sheet.
+ */
+export function ChapterPill({ chapter, open, onClick, mode }: { chapter: PlayerChapter; open: boolean; onClick: () => void; mode: PlayerMode }) {
+  const { soft } = playerTone(mode);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={open}
+      aria-controls="chapter-sheet"
+      data-testid="chapter-pill"
+      className={`inline-flex min-h-10 max-w-full items-center gap-1.5 self-center rounded-full py-1 pr-2.5 pl-3.5 font-display text-sm font-semibold sm:text-base ${soft}`}
+    >
+      <span className="truncate">
+        Chapter {chapter.number}
+        {chapter.title && <span className="font-medium"> · {chapter.title}</span>}
+      </span>
+      <span className="sr-only">, choose a chapter</span>
+      <Icon name="down" className="size-[18px] shrink-0" />
+    </button>
+  );
+}
+
+/**
+ * The chapter list the pill opens, in the same spot as the storyteller picker. Chapters the storyteller
+ * has read can be tapped and play from their start; the rest are greyed out with "Not read yet" and
+ * whatever `notReady` offers (asking a grown-up, or preparing it).
+ */
+export function ChapterSheet({
+  chapters,
+  current,
+  onPick,
+  onClose,
+  notReady,
+}: {
+  chapters: PlayerChapter[];
+  current: number | null;
+  onPick: (chapter: PlayerChapter) => void;
+  onClose: () => void;
+  notReady?: (chapter: PlayerChapter) => ReactNode;
+}) {
+  const here = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    here.current?.scrollIntoView({ block: "nearest" });
+  }, []);
+  return (
+    <div className="absolute inset-x-0 bottom-0 z-10 mx-auto flex max-h-full w-full max-w-xl flex-col gap-3 rounded-[28px] bg-surface p-4 text-ink shadow-lg ring-2 ring-ink/10">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-display text-xl font-semibold">Chapters</h2>
+        <button type="button" onClick={onClose} className="min-h-11 rounded-full px-4 font-display font-semibold hover:bg-ink/10">
+          Done
+        </button>
+      </div>
+      <ol id="chapter-sheet" aria-label="Chapters" className="-m-1 flex min-h-0 flex-col gap-2 overflow-y-auto p-1">
+        {chapters.map((c) => {
+          const playing = c.number === current;
+          const ready = c.status !== "none";
+          return (
+            <li key={c.number} ref={playing ? here : undefined} data-testid="chapter-row" data-status={c.status}>
+              <div className={`flex items-center gap-3 rounded-3xl p-2 pr-3 ${playing ? "bg-sunshine" : ready ? "bg-ivory ring-2 ring-ink/10" : "bg-ink/5"}`}>
+                <button
+                  type="button"
+                  disabled={!ready}
+                  aria-current={playing || undefined}
+                  onClick={() => onPick(c)}
+                  className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-not-allowed"
+                >
+                  <span className={`grid size-10 shrink-0 place-items-center rounded-full font-display text-lg font-semibold ${ready ? "bg-surface" : "bg-ink/10 text-ink/50"}`}>
+                    {c.number}
+                  </span>
+                  <span className={`flex min-w-0 flex-col ${ready ? "" : "text-ink/50"}`}>
+                    <span className="truncate font-display text-lg leading-tight font-semibold">{c.title || `Chapter ${c.number}`}</span>
+                    {!ready && <span className="text-sm font-bold">Not read yet</span>}
+                    {c.status === "partial" && <span className="text-sm font-bold text-muted">Read partway</span>}
+                  </span>
+                  {ready && !playing && <Icon name="play" className="ml-auto size-6 shrink-0" />}
+                  {playing && <span className="ml-auto shrink-0 text-sm font-bold">You're here</span>}
+                </button>
+                {!ready && notReady?.(c)}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
 /** Three small bars that bounce while a story plays. */
 export function PlayingBars() {
   return (
@@ -161,12 +252,15 @@ export function ReadStage({
   byline,
   sentences,
   sentence,
+  chapter,
 }: {
   coverUrl: string | null;
   title: string;
   byline: ReactNode;
   sentences: string[];
   sentence: number;
+  /** In a chapter book, the chapter pill, centered over the page like a chapter heading. */
+  chapter?: ReactNode;
 }) {
   const card = useRef<HTMLDivElement>(null);
   const [first, last] = pageRange(pageOf(sentence), sentences.length);
@@ -214,6 +308,7 @@ export function ReadStage({
           {byline}
         </div>
       </div>
+      {chapter && <div className="-mb-1 flex justify-center">{chapter}</div>}
       <div
         ref={card}
         data-testid="read-page"

@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { isTheEnd, THE_END_PAUSE_MS } from "@/lib/content/the-end";
 import type { NarratorView } from "@/lib/family/service";
 import type { BookTexts, KidsNarratorReadiness } from "@/lib/narration/narration";
 import { mapPosition } from "@/lib/narration/positions";
+import { chapterAt, chapterList, hasChapters, nextChapterStart, previousChapterStart } from "@/lib/player/chapters";
 import { parseMode, preparedEnd, type PlayerMode } from "@/lib/player/pages";
 import { chapterReady, type Track } from "@/lib/player/tracks";
-import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, SleepButton, TimeBar } from "./PlayerParts";
+import { ChapterPill, ChapterSheet, Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, SleepButton, TimeBar } from "./PlayerParts";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 import { AHEAD, useGaplessAudio } from "./useGaplessAudio";
 import { useMediaSession } from "./useMediaSession";
@@ -75,11 +76,12 @@ export function KidsPlayer({
     const r = revisionOf(voiceId);
     return texts[r] ? r : initialTexts.current;
   });
-  const { sentences, sentenceIds, chapters, seconds: sentenceSeconds } = texts[shown] ?? texts[initialTexts.current]!;
+  const { sentences, sentenceIds, chapters, chapterTitles, seconds: sentenceSeconds } = texts[shown] ?? texts[initialTexts.current]!;
   const [sentence, setSentence] = useState(Math.max(0, Math.min(resume.sentence, sentences.length - 1)));
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [picker, setPicker] = useState(false);
+  const [chapterSheet, setChapterSheet] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   // The story reached the end of what's prepared, so the child can ask a grown-up for the next chapter.
   const [askMore, setAskMore] = useState(false);
@@ -153,6 +155,16 @@ export function KidsPlayer({
 
   const readyAt = (id: string | null, at: number) =>
     Boolean(id && readiness.find((r) => r.voiceId === id)?.readySentenceIds.includes(sentenceIds[at] ?? ""));
+
+  // The chapters of the text on screen, and which of them this storyteller has read, for the chapter pill and sheet.
+  const chapterReadySet = useMemo(() => new Set(readiness.find((r) => r.voiceId === voiceId)?.readySentenceIds ?? []), [readiness, voiceId]);
+  const chapterRows = useMemo(
+    () => (hasChapters(chapters) ? chapterList(chapters, chapterTitles, (at) => chapterReadySet.has(sentenceIds[at] ?? "")) : []),
+    [chapters, chapterTitles, sentenceIds, chapterReadySet],
+  );
+  const chapterNow = chapterAt(chapterRows, sentence);
+  const chapterRowsRef = useRef(chapterRows);
+  chapterRowsRef.current = chapterRows;
 
   /** Whether every sentence of the reading this narrator's audiobook gives is prepared, so it can be downloaded. */
   const wholeReady = (id: string) => {
@@ -527,6 +539,9 @@ export function KidsPlayer({
 
   const choose = (id: string) => {
     setPicker(false);
+    // The end-of-what's-prepared notice was about the storyteller before.
+    setNotice(null);
+    setAskMore(false);
     setVoiceId(id);
     voiceRef.current = id;
     audio.clear();
@@ -570,8 +585,17 @@ export function KidsPlayer({
         if (!playingRef.current && voiceRef.current) void play(sentenceRef.current, voiceRef.current);
       },
       pause: () => halt(),
-      previous: () => sentenceRef.current > 0 && goTo(sentenceRef.current - 1),
-      next: () => sentenceRef.current + 1 < sentences.length && goTo(sentenceRef.current + 1),
+      // A chapter at a time, as in audiobook apps; a book without chapters steps a sentence.
+      previous: () => {
+        if (!chapterRowsRef.current.length) return sentenceRef.current > 0 && goTo(sentenceRef.current - 1);
+        const at = previousChapterStart(chapterRowsRef.current, sentenceRef.current);
+        if (at !== null) goTo(at);
+      },
+      next: () => {
+        if (!chapterRowsRef.current.length) return sentenceRef.current + 1 < sentences.length && goTo(sentenceRef.current + 1);
+        const at = nextChapterStart(chapterRowsRef.current, sentenceRef.current);
+        if (at !== null) goTo(at);
+      },
       skip: (seconds) => {
         if (!track.skip(seconds)) goTo(Math.max(0, Math.min(sentences.length - 1, sentenceRef.current + Math.sign(seconds))));
       },
@@ -608,6 +632,19 @@ export function KidsPlayer({
   const currentReady = readyAt(voiceId, sentence);
   const { listen, soft, faint, main, round, side } = playerTone(mode);
 
+  // Only the next chapter not read yet offers asking, as at the end of what's prepared.
+  const firstUnread = chapterRows.find((c) => c.status === "none")?.number;
+  const pill = chapterNow && (
+    <ChapterPill
+      chapter={chapterNow}
+      open={chapterSheet}
+      mode={mode}
+      onClick={() => {
+        setPicker(false);
+        setChapterSheet((o) => !o);
+      }}
+    />
+  );
   const reading = current && (
     <span className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${listen ? "justify-center" : ""}`}>
       <span className={`flex items-center gap-2 font-bold ${faint}`}>
@@ -635,7 +672,10 @@ export function KidsPlayer({
           <ModeToggle mode={mode} onChange={switchMode} />
           <button
             type="button"
-            onClick={() => setPicker((p) => !p)}
+            onClick={() => {
+              setChapterSheet(false);
+              setPicker((p) => !p);
+            }}
             aria-expanded={picker}
             aria-controls="narrator-picker"
             className={`flex min-h-12 shrink-0 items-center gap-1.5 rounded-full py-1 pr-2.5 pl-1 font-display font-semibold ${soft}`}
@@ -651,9 +691,32 @@ export function KidsPlayer({
 
         <div className="relative flex min-h-0 flex-1 flex-col">
           {listen ? (
-            <ListenStage coverUrl={book.coverUrl} title={book.title} byline={reading} />
+            <ListenStage coverUrl={book.coverUrl} title={book.title} byline={<>{reading}{pill}</>} />
           ) : (
-            <ReadStage coverUrl={book.coverUrl} title={book.title} byline={reading} sentences={sentences} sentence={sentence} />
+            <ReadStage coverUrl={book.coverUrl} title={book.title} byline={reading} chapter={pill} sentences={sentences} sentence={sentence} />
+          )}
+
+          {chapterSheet && chapterRows.length > 0 && (
+            <ChapterSheet
+              chapters={chapterRows}
+              current={chapterNow?.number ?? null}
+              onClose={() => setChapterSheet(false)}
+              onPick={(c) => {
+                setChapterSheet(false);
+                setNotice(null);
+                setAskMore(false);
+                track.unlock();
+                audio.clear();
+                setSentence(c.start);
+                sentenceRef.current = c.start;
+                if (voiceId) void play(c.start, voiceId);
+              }}
+              notReady={(c) =>
+                !preview && c.number === firstUnread ? (
+                  <AskButton childId={childId} bookSlug={book.slug} title={book.title} initial={false} label="Ask for it" />
+                ) : null
+              }
+            />
           )}
 
           {picker && (
@@ -687,17 +750,24 @@ export function KidsPlayer({
           )}
         </div>
 
-        {!currentReady && current && !playing && (
+        {/* At the end of what's prepared, the notice below already says so and offers asking for more. */}
+        {!currentReady && current && !playing && !askMore && (
           <p className="rounded-2xl bg-sunshine p-3 font-semibold text-ink" data-testid="not-prepared">
             {current.name}&apos;s reading isn&apos;t prepared here yet. Pick another storyteller, or ask a grown-up to prepare it.
           </p>
         )}
 
-        {notice && (
-          <div role="alert" className="flex flex-col gap-3 rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold text-ink">
-            <p>{notice}</p>
-            {askMore && !preview && <AskButton childId={childId} bookSlug={book.slug} title={book.title} initial={false} label="Ask for the next chapter" />}
+        {/* At the end of what's prepared, a child just gets the button to ask for more. */}
+        {notice && askMore && !preview ? (
+          <div role="status" className="flex flex-col" data-testid="ask-more">
+            <AskButton childId={childId} bookSlug={book.slug} title={book.title} initial={false} label="Ask for the next chapter" />
           </div>
+        ) : (
+          notice && (
+            <div role="alert" className="flex flex-col gap-3 rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold text-ink">
+              <p>{notice}</p>
+            </div>
+          )
         )}
 
         <TimeBar
