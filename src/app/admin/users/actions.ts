@@ -5,7 +5,8 @@ import { AccountError } from "@/lib/account/privacy";
 import { voiceProvider } from "@/lib/account/server";
 import { requireAdmin } from "@/lib/admin/access";
 import { AdminActionError } from "@/lib/admin/tester-plans";
-import { adminDeleteAccount, setAccountPaused } from "@/lib/admin/users";
+import { adminDeleteAccount, grantCredits, setAccountPaused, wholeNumber } from "@/lib/admin/users";
+import { planConfig } from "@/lib/family/plan";
 import { accountDb } from "@/lib/family/account-store";
 import { providerRefCipher } from "@/lib/server/provider-ref";
 
@@ -77,4 +78,29 @@ export async function pauseAccountAction(form: FormData) {
 
 export async function unpauseAccountAction(form: FormData) {
   await pause(form, false);
+}
+
+/** Adds narration credits to one of an account's families. Blank expiry means they never expire. */
+export async function grantCreditsAction(form: FormData) {
+  const gate = await requireAdmin("/admin/users");
+  const db = accountDb();
+  let outcome: string;
+  if (gate.preview || !db) outcome = `err=${encodeURIComponent("Granting credits needs sign-in and Supabase connected.")}`;
+  else {
+    try {
+      const days = field(form, "expiresInDays").trim();
+      const credits = wholeNumber(field(form, "credits"));
+      const done = await grantCredits(
+        db,
+        gate.admin,
+        { userId: field(form, "userId"), householdId: field(form, "householdId"), credits, expiresInDays: days ? wholeNumber(days) : 0, note: field(form, "note") },
+        planConfig(),
+      );
+      outcome = `ok=${encodeURIComponent(`Added ${credits.toLocaleString("en-US")} credits to ${done.family} (${done.email}).`)}`;
+    } catch (err) {
+      if (!(err instanceof AdminActionError)) console.error("[admin] credit grant failed", err);
+      outcome = `err=${encodeURIComponent(err instanceof Error ? err.message : String(err))}`;
+    }
+  }
+  back(form, outcome);
 }

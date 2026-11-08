@@ -5,6 +5,8 @@ import type { VoiceProvider } from "@/lib/voice/provider";
 import type { ProviderRefCipher } from "@/lib/server/provider-ref";
 import type { AdminUser } from "./access";
 import { isAdmin } from "./emails";
+import { creditUnits, displayCredits } from "@/lib/narration/credits";
+import type { PlanConfig } from "@/lib/family/plan";
 import { AdminActionError } from "./tester-plans";
 import { livePlan, type AdminPlan } from "./overview";
 
@@ -19,7 +21,13 @@ export interface AdminAccount {
   paused: boolean;
   families: string[];
   /** Each family with the plan it has right now (paid, complimentary, tester or trial), if any. */
-  homes: { name: string; plan: AdminPlan | null }[];
+  homes: AdminHome[];
+}
+
+export interface AdminHome {
+  id: string;
+  name: string;
+  plan: AdminPlan | null;
 }
 
 const PAGE = 1000;
@@ -47,7 +55,7 @@ export async function listAccounts(db: SupabaseClient, env: NodeJS.ProcessEnv = 
   const users = await allUsers(db);
   const ids = users.map((u) => u.id);
   const families = new Map<string, string[]>();
-  const homes = new Map<string, { name: string; plan: AdminPlan | null }[]>();
+  const homes = new Map<string, AdminHome[]>();
   if (ids.length) {
     const { data: members, error } = await db.from("household_members").select("user_id, household_id").is("removed_at", null);
     if (error) throw new Error(`read members: ${error.message}`);
@@ -69,7 +77,7 @@ export async function listAccounts(db: SupabaseClient, env: NodeJS.ProcessEnv = 
       if (!name) continue;
       const user = m.user_id as string;
       families.set(user, [...(families.get(user) ?? []), name]);
-      homes.set(user, [...(homes.get(user) ?? []), { name, plan: livePlan((plans ?? []) as Record<string, unknown>[], id, now) }]);
+      homes.set(user, [...(homes.get(user) ?? []), { id, name, plan: livePlan((plans ?? []) as Record<string, unknown>[], id, now) }]);
     }
   }
   return users
@@ -196,4 +204,74 @@ export async function setAccountPaused(db: SupabaseClient, admin: AdminUser, use
   if (error) throw new Error(`${paused ? "pause" : "unpause"} account: ${error.message}`);
   console.info(`[admin] ${admin.id} ${paused ? "paused" : "unpaused"} account ${user.id}`);
   return user.email ?? "the account";
+}
+
+/** The most credits one grant can add, so a typo can't hand out a fortune. */
+export const MAX_GRANT_CREDITS = 10000;
+
+export interface CreditGrant {
+  userId: string;
+  householdId: string;
+  credits: number;
+  /** Days until the credits expire; 0 means they never do. */
+  expiresInDays: number;
+  note: string;
+}
+
+/** A form's numbers as a whole number, or NaN for anything else. */
+export function wholeNumber(raw: string): number {
+  const t = raw.trim();
+  return /^\d+$/.test(t) ? Number.parseInt(t, 10) : Number.NaN;
+}
+
+/**
+ * Adds promotional narration credits to one of an account's families. Any admin can do this for any
+ * account, their own included, because it only adds credits. The lot records who granted it.
+ */
+export async function grantCredits(db: SupabaseClient, admin: AdminUser, grant: CreditGrant, plan: PlanConfig, now = new Date()): Promise<{ email: string; family: string }> {
+  const { credits, expiresInDays } = grant;
+  if (!Number.isInteger(credits) || credits < 1 || credits > MAX_GRANT_CREDITS) {
+    throw new AdminActionError(`Enter a whole number of credits from 1 to ${MAX_GRANT_CREDITS.toLocaleString("en-US")}.`);
+  }
+  if (!Number.isInteger(expiresInDays) || expiresInDays < 0 || expiresInDays > 3650) {
+    throw new AdminActionError("Enter days until they expire from 1 to 3650, or leave it blank so they never expire.");
+  }
+  const { data, error } = await db.auth.admin.getUserById(grant.userId);
+  if (error || !data.user) throw new AdminActionError("That account no longer exists.");
+  const { data: member, error: memberError } = await db
+    .from("household_members")
+    .select("household_id")
+    .eq("user_id", grant.userId)
+    .eq("household_id", grant.householdId)
+    .is("removed_at", null)
+    .maybeSingle();
+  if (memberError) throw new Error(`read family: ${memberError.message}`);
+  if (!member) throw new AdminActionError("That account isn't in that family any more.");
+  const { data: home, error: homeError } = await db.from("households").select("name").eq("id", grant.householdId).maybeSingle();
+  if (homeError) throw new Error(`read family: ${homeError.message}`);
+  const note = grant.note.trim().slice(0, 200) || `Credits from Readli (${credits})`;
+  const { error: insertError } = await db.from("narration_credit_lots").insert({
+    household_id: grant.householdId,
+    source: "promotional",
+    credits: creditUnits(credits, plan),
+    granted_at: now.toISOString(),
+    expires_at: expiresInDays > 0 ? new Date(now.getTime() + expiresInDays * 86_400_000).toISOString() : null,
+    note,
+    granted_by: admin.id,
+  });
+  if (insertError) throw new Error(`grant credits: ${insertError.message}`);
+  console.info(`[admin] ${admin.id} granted ${credits} credits to household ${grant.householdId} for account ${grant.userId}`);
+  return { email: data.user.email ?? "the account", family: (home?.name as string | undefined) ?? "their family" };
+}
+
+/** Each family's credits available right now, for the grant form. A family that can't be read is left out. */
+export async function familyBalances(db: SupabaseClient, householdIds: string[], plan: PlanConfig): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  await Promise.all(
+    householdIds.map(async (id) => {
+      const { data, error } = await db.rpc("narration_credits_available", { p_household: id });
+      if (!error && typeof data === "number") out.set(id, displayCredits(data, plan.charactersPerCredit));
+    }),
+  );
+  return out;
 }

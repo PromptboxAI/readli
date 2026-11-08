@@ -7,8 +7,10 @@ import { adminDate } from "@/lib/admin/time";
 import {
   ACCOUNT_FILTERS,
   ACCOUNT_SORTS,
+  familyBalances,
   filterAccounts,
   listAccounts,
+  MAX_GRANT_CREDITS,
   matchesFilter,
   sortAccounts,
   type AccountFilter,
@@ -16,7 +18,8 @@ import {
   type AdminAccount,
 } from "@/lib/admin/users";
 import { accountDb } from "@/lib/family/account-store";
-import { deleteAccountAction, pauseAccountAction, unpauseAccountAction } from "./actions";
+import { planConfig } from "@/lib/family/plan";
+import { deleteAccountAction, grantCreditsAction, pauseAccountAction, unpauseAccountAction } from "./actions";
 
 export const metadata: Metadata = { title: "Accounts | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -54,8 +57,10 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
   const page = Math.min(pages, Math.max(1, Number.parseInt(param(params, "page"), 10) || 1));
   const rows = matches.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   const deleting = all.find((a) => a.id === param(params, "delete") && !a.isAdmin && a.email) ?? null;
+  const crediting = all.find((a) => a.id === param(params, "credits") && a.homes.length) ?? null;
+  const balances = db && crediting ? await familyBalances(db, crediting.homes.map((h) => h.id), planConfig()) : new Map<string, number>();
 
-  const href = (change: { sort?: AccountSort; page?: number; delete?: string | null }) => {
+  const href = (change: { sort?: AccountSort; page?: number; delete?: string | null; credits?: string | null }) => {
     const qs = new URLSearchParams();
     if (q) qs.set("q", q);
     if (show) qs.set("show", show);
@@ -64,6 +69,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
     const n = change.page ?? (change.sort ? 1 : page);
     if (n > 1) qs.set("page", String(n));
     if (change.delete) qs.set("delete", change.delete);
+    if (change.credits) qs.set("credits", change.credits);
     return `/admin/users${qs.size ? `?${qs}` : ""}`;
   };
   const backQs = href({}).split("?")[1] ?? "";
@@ -79,7 +85,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
         </Eyebrow>
         <h1 className="font-display text-4xl font-semibold">Accounts</h1>
         <p className="text-lg">
-          Every grown-up who has signed up, with each family&apos;s plan. Pausing stops an account signing in and keeps everything. Deleting does what &ldquo;Delete my
+          Every grown-up who has signed up, with each family&apos;s plan. Credits adds narration credits to a family. Pausing stops an account signing in and keeps everything. Deleting does what &ldquo;Delete my
           account&rdquo; does and can&apos;t be undone.
         </p>
       </header>
@@ -88,6 +94,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
       {err && <p role="alert" className="rounded-2xl bg-coral/30 px-4 py-3">{err}</p>}
 
       {deleting && <ConfirmDelete account={deleting} backQs={backQs} cancel={href({ delete: null })} />}
+      {crediting && <GrantCredits account={crediting} balances={balances} backQs={backQs} cancel={href({ credits: null })} />}
 
       <form className="flex flex-wrap gap-2" role="search">
         <label htmlFor="q" className="sr-only">Find an account</label>
@@ -140,7 +147,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
             </thead>
             <tbody>
               {rows.map((a) => (
-                <AccountRow key={a.id} account={a} backQs={backQs} deleteHref={href({ delete: a.id })} />
+                <AccountRow key={a.id} account={a} backQs={backQs} deleteHref={href({ delete: a.id })} creditsHref={href({ credits: a.id })} />
               ))}
             </tbody>
           </table>
@@ -186,7 +193,7 @@ function Badge({ tone, children }: { tone: string; children: React.ReactNode }) 
   return <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-bold ${tone}`}>{children}</span>;
 }
 
-function AccountRow({ account: a, backQs, deleteHref }: { account: AdminAccount; backQs: string; deleteHref: string }) {
+function AccountRow({ account: a, backQs, deleteHref, creditsHref }: { account: AdminAccount; backQs: string; deleteHref: string; creditsHref: string }) {
   const label = a.email ?? a.id;
   return (
     <tr className="border-b border-ink/10 align-top last:border-b-0">
@@ -228,8 +235,13 @@ function AccountRow({ account: a, backQs, deleteHref }: { account: AdminAccount;
         </span>
       </td>
       <td className="px-3 py-2">
-        {!a.isAdmin && (
-          <span className="flex items-center justify-end gap-1">
+        <span className="flex items-center justify-end gap-1">
+          {a.homes.length > 0 && (
+            <Link href={creditsHref} className="inline-flex min-h-11 items-center px-2 font-semibold underline underline-offset-4" aria-label={`Grant credits to ${label}`}>
+              Credits
+            </Link>
+          )}
+          {!a.isAdmin && (
             <form action={a.paused ? unpauseAccountAction : pauseAccountAction}>
               <input type="hidden" name="userId" value={a.id} />
               <input type="hidden" name="back" value={backQs} />
@@ -237,13 +249,13 @@ function AccountRow({ account: a, backQs, deleteHref }: { account: AdminAccount;
                 {a.paused ? "Unpause" : "Pause"}
               </button>
             </form>
-            {a.email && (
-              <Link href={deleteHref} className="inline-flex min-h-11 items-center px-2 font-semibold text-coral-deep underline underline-offset-4" aria-label={`Delete ${label}`}>
-                Delete
-              </Link>
-            )}
-          </span>
-        )}
+          )}
+          {!a.isAdmin && a.email && (
+            <Link href={deleteHref} className="inline-flex min-h-11 items-center px-2 font-semibold text-coral-deep underline underline-offset-4" aria-label={`Delete ${label}`}>
+              Delete
+            </Link>
+          )}
+        </span>
       </td>
     </tr>
   );
@@ -270,6 +282,60 @@ function ConfirmDelete({ account: a, backQs, cancel }: { account: AdminAccount; 
         <Link href={cancel} className={buttonSecondary}>
           Cancel
         </Link>
+      </form>
+    </section>
+  );
+}
+
+function GrantCredits({ account: a, balances, backQs, cancel }: { account: AdminAccount; balances: Map<string, number>; backQs: string; cancel: string }) {
+  const input = "min-w-0 w-full rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/15";
+  const balance = (id: string) => (balances.has(id) ? `${balances.get(id)!.toLocaleString("en-US")} credits now` : "balance unavailable");
+  return (
+    <section aria-labelledby="credits-h" className="flex flex-col gap-3 rounded-3xl bg-mint/20 p-4 ring-2 ring-mint/50">
+      <h2 id="credits-h" className="font-display text-xl font-semibold">
+        Grant credits to <span className="break-all">{a.email ?? a.id}</span>
+      </h2>
+      <p className="text-sm">
+        Credits go to the family, so everyone in it can use them. They&apos;re spent before paid credits and show in the family&apos;s balance right away.
+      </p>
+      <form action={grantCreditsAction} className="grid gap-3 sm:grid-cols-2">
+        <input type="hidden" name="userId" value={a.id} />
+        <input type="hidden" name="back" value={backQs} />
+        {a.homes.length === 1 ? (
+          <p className="text-sm sm:col-span-2">
+            <input type="hidden" name="householdId" value={a.homes[0]!.id} />
+            Family: <strong>{a.homes[0]!.name}</strong> ({balance(a.homes[0]!.id)})
+          </p>
+        ) : (
+          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+            <span>Family</span>
+            <select name="householdId" required className={input}>
+              {a.homes.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name} ({balance(h.id)})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <label className="flex flex-col gap-1 text-sm">
+          <span>Credits to add</span>
+          <input name="credits" inputMode="numeric" pattern="[0-9]*" required autoFocus placeholder={`1 to ${MAX_GRANT_CREDITS.toLocaleString("en-US")}`} className={input} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span>Expire after (days)</span>
+          <input name="expiresInDays" inputMode="numeric" pattern="[0-9]*" placeholder="Blank = never" className={input} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+          <span>Note (the family sees this with the credits)</span>
+          <input name="note" maxLength={200} placeholder="Credits from Readli" className={input} />
+        </label>
+        <div className="flex flex-wrap gap-2 sm:col-span-2">
+          <button className={buttonPrimary}>Add credits</button>
+          <Link href={cancel} className={buttonSecondary}>
+            Cancel
+          </Link>
+        </div>
       </form>
     </section>
   );
