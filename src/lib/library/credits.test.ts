@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { demoFamilyState, DEMO_HOUSEHOLD_ID } from "@/lib/family/demo-family";
 import type { Actor, FamilyState } from "@/lib/family/model";
 import { DEFAULT_PLAN, type PlanConfig } from "@/lib/family/plan";
-import { grantEntitlement, MemoryFamilyStore, PermissionError, startListening } from "@/lib/family/service";
+import { grantEntitlement, MemoryFamilyStore, PermissionError, requestStory, startListening } from "@/lib/family/service";
 import { creditBalance, includedLotId, spendableLots } from "@/lib/narration/credits";
 import { authorizePlayback, grantPromoCredits, kidsReadiness, prepareView, purchaseCredits, quote, requestGeneration, runJob } from "@/lib/narration/narration";
 import { bookText } from "@/lib/narration/text";
@@ -143,6 +143,19 @@ describe("generation credits (required tests)", () => {
     expect(home.shelf.map((b) => b.slug)).toContain(LONG);
     const shelf = await kidsShelf(store, maya, state, "maya");
     expect(shelf.ready.map((b) => b.book.slug)).toContain(LONG);
+  });
+
+  it("a child who reaches the end of a prepared chapter asks for the next one, and Home shows it", async () => {
+    const { store } = family();
+    // An old request for the book, from before its first chapter was prepared, stays satisfied.
+    await requestStory(store, maya, "maya", LONG, clock);
+    const { job } = await requestGeneration(store, mom, H, chapter(1), clock);
+    await runJob(store, new Provider(), job!.id, clock);
+    expect(familyHome(await store.read(), H, store.plan, "sara").requests.map((r) => r.slug)).not.toContain(LONG);
+    // Asking at the end of chapter 1 is a new request, for more of a book already on the shelf.
+    await requestStory(store, maya, "maya", LONG, clock);
+    const asked = familyHome(await store.read(), H, store.plan, "sara").requests.find((r) => r.slug === LONG);
+    expect(asked).toMatchObject({ childName: "Maya", more: true });
   });
 
   it("a later chapter alone doesn't reach the shelves, since it can't play from the start", async () => {
