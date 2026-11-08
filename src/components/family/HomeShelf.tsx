@@ -165,7 +165,8 @@ export function FamilyBookshelf({ books, phoneLimit, now = Date.now() }: { books
                 <li key={c}>{c}</li>
               ))}
             </ul>
-            <div className="mt-1 flex flex-wrap gap-2">
+            {/* Pinned to the card's foot, so Listen and Book page line up across a row whatever the title wraps to. */}
+            <div className="mt-auto flex flex-wrap gap-2 pt-1">
               <Link
                 href={b.href}
                 className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-ink px-4 font-display font-semibold text-white hover:bg-ink/85"
