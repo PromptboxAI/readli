@@ -5,6 +5,17 @@ import { buttonSmall, buttonSmallPrimary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
 import { requireAdmin } from "@/lib/admin/access";
 import { supportFamily, supportPeople, supportPlan, type SupportPerson } from "@/lib/admin/family-support";
+import {
+  supportDevices,
+  supportHistory,
+  supportPlaces,
+  supportVoices,
+  type SupportDevice,
+  type SupportEvent,
+  type SupportPin,
+  type SupportPlace,
+  type SupportVoice,
+} from "@/lib/admin/support-people";
 import { adminDate, adminDateTime } from "@/lib/admin/time";
 import { accountDb } from "@/lib/family/account-store";
 import type { FamilyState } from "@/lib/family/model";
@@ -13,7 +24,16 @@ import type { PlanConfig } from "@/lib/family/plan";
 import { creditBalance, displayCredits } from "@/lib/narration/credits";
 import { READINESS_LABELS, type Readiness } from "@/lib/narration/narration";
 import { supportAudiobooks, type SupportBook, type SupportJob, type SupportNarration } from "@/lib/narration/support";
-import { carryForwardAction, prepareFreeAction, refundPreparationAction, resumePreparationAction, stopPreparationAction } from "./actions";
+import {
+  carryForwardAction,
+  clearPinAction,
+  prepareFreeAction,
+  refundPreparationAction,
+  resumePreparationAction,
+  signOutDeviceAction,
+  stopPreparationAction,
+  unlockPinAction,
+} from "./actions";
 
 export const metadata: Metadata = { title: "Family | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -73,6 +93,8 @@ export default async function FamilyPage({ params, searchParams }: { params: Pro
   const credits = creditBalance(state, family.plan, id, at);
   const people = await supportPeople(db, state, id);
   const books = supportAudiobooks(state, family.plan, id, at);
+  const [voices, kidsDevices, history] = await Promise.all([supportVoices(db, state, family.plan, id), supportDevices(db, state, id), supportHistory(db, state, id)]);
+  const places = supportPlaces(state, id);
   const c = (units: number) => displayCredits(units, family.plan.charactersPerCredit).toLocaleString("en-US");
 
   return (
@@ -94,6 +116,9 @@ export default async function FamilyPage({ params, searchParams }: { params: Pro
 
       <People people={people} />
       <Kids state={state} householdId={id} plan={family.plan} />
+      <Voices voices={voices} />
+      <Devices householdId={id} devices={kidsDevices.devices} pin={kidsDevices.pin} />
+      <Places places={places} />
 
       <section className="flex flex-col gap-3" aria-labelledby="books-h">
         <h2 id="books-h" className="font-display text-2xl font-semibold">
@@ -105,6 +130,8 @@ export default async function FamilyPage({ params, searchParams }: { params: Pro
         </p>
         {books.length === 0 ? <p className="text-muted">No audiobooks prepared or asked for yet.</p> : books.map((b) => <Book key={b.slug} book={b} householdId={id} c={c} />)}
       </section>
+
+      <History events={history} />
     </AdultPage>
   );
 }
@@ -162,7 +189,7 @@ function People({ people }: { people: SupportPerson[] }) {
                 </td>
                 <td className="break-all px-3 py-2">
                   {p.email ? (
-                    <Link href={`/admin/users?q=${encodeURIComponent(p.email)}`} className="underline underline-offset-4">
+                    <Link href={`/admin/accounts/${p.id}`} className="underline underline-offset-4">
                       {p.email}
                     </Link>
                   ) : (
@@ -425,5 +452,229 @@ function Job({ j, hidden, c }: { j: SupportJob; hidden: (extra?: Record<string, 
         </span>
       </td>
     </tr>
+  );
+}
+
+function Voices({ voices }: { voices: SupportVoice[] }) {
+  return (
+    <section id="voices" className="flex scroll-mt-6 flex-col gap-2" aria-labelledby="voices-h">
+      <h2 id="voices-h" className="font-display text-2xl font-semibold">
+        Storyteller voices
+      </h2>
+      <p className="text-sm">
+        A kid hears a voice only when its owner shares it with the family, the family puts it in a narrator slot, and a parent approves it for that kid. Consent is the
+        owner&apos;s recorded agreement to make the voice.
+      </p>
+      {voices.length === 0 ? (
+        <p className="text-muted">No voices yet.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-[var(--radius-panel)] bg-surface ring-2 ring-ink/10">
+          <table className="w-full min-w-[820px] text-left text-sm" data-testid="family-voices">
+            <thead>
+              <tr className="border-b-2 border-ink/10 text-xs font-bold uppercase tracking-[0.06em] text-muted">
+                <th className="px-3 py-3">Voice</th>
+                <th className="px-3 py-3">Shared here</th>
+                <th className="px-3 py-3">Slot</th>
+                <th className="px-3 py-3">Approved for</th>
+                <th className="px-3 py-3">Consent</th>
+              </tr>
+            </thead>
+            <tbody>
+              {voices.map((v) => (
+                <tr key={v.id} className="border-b border-ink/10 align-top last:border-b-0">
+                  <td className="px-3 py-2">
+                    <span className="block font-semibold">{v.owner}</span>
+                    <span className="block text-xs text-muted">
+                      {v.status === "ready" ? "Ready" : v.status === "deleted" ? "Deleted" : "Still being made"} · recording {v.version} · made {adminDate(v.createdAt)}
+                      {v.modelId ? ` · ${v.modelId}` : ""}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    {v.sharedSince ? `Since ${adminDate(v.sharedSince)}` : v.unsharedAt ? <span className="text-coral-deep">Stopped {adminDate(v.unsharedAt)}</span> : <span className="text-muted">Never</span>}
+                  </td>
+                  <td className="px-3 py-2">{v.inSlot ? "Yes" : <span className="text-muted">No</span>}</td>
+                  <td className="px-3 py-2">{v.approvedFor.length ? v.approvedFor.join(", ") : <span className="text-muted">No one</span>}</td>
+                  <td className="px-3 py-2">
+                    {v.consent ? (
+                      <>
+                        <span className="block">
+                          {v.consent.revokedAt ? <span className="text-coral-deep">Withdrawn {adminDate(v.consent.revokedAt)}</span> : `Given ${adminDate(v.consent.capturedAt)}`}
+                        </span>
+                        <span className="block text-xs text-muted">policy {v.consent.policyVersion}</span>
+                      </>
+                    ) : (
+                      <span className="text-muted">None on file</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+const DEVICE_STATUS: Record<SupportDevice["status"], string> = { active: "Signed in", revoked: "Signed out", expired: "Expired (unused)" };
+
+function Devices({ householdId, devices, pin }: { householdId: string; devices: SupportDevice[]; pin: SupportPin }) {
+  const locked = Boolean(pin.lockedUntil) || pin.failures > 0 || devices.some((d) => d.pinLockedUntil || d.failedPinAttempts > 0);
+  const hidden = (extra: Record<string, string> = {}) => (
+    <>
+      <input type="hidden" name="householdId" value={householdId} />
+      <input type="hidden" name="section" value="devices" />
+      {Object.entries(extra).map(([k, v]) => (
+        <input key={k} type="hidden" name={k} value={v} />
+      ))}
+    </>
+  );
+  return (
+    <section id="devices" className="flex scroll-mt-6 flex-col gap-2" aria-labelledby="devices-h">
+      <h2 id="devices-h" className="font-display text-2xl font-semibold">
+        Kids Mode and devices
+      </h2>
+      <div className="flex flex-wrap items-center gap-2 rounded-3xl bg-surface p-4 ring-2 ring-ink/10" data-testid="family-pin">
+        <p className="mr-auto text-sm">
+          <strong>Grown-up PIN:</strong> {pin.set ? `set${pin.updatedAt ? ` ${adminDate(pin.updatedAt)}` : ""}` : "not set"}
+          {pin.lockedUntil && <> · <span className="text-coral-deep">locked until {adminDateTime(pin.lockedUntil)}</span></>}
+          {!pin.lockedUntil && pin.failures > 0 && <> · {pin.failures} wrong {pin.failures === 1 ? "try" : "tries"}</>}
+        </p>
+        {locked && (
+          <form action={unlockPinAction}>
+            {hidden()}
+            <button className={buttonSmall}>Clear lockout</button>
+          </form>
+        )}
+        {pin.set && (
+          <details>
+            <summary className="cursor-pointer font-semibold underline underline-offset-4">Forget PIN</summary>
+            <form action={clearPinAction} className="flex flex-col items-end gap-2 pt-2">
+              {hidden()}
+              <span className="max-w-xs text-right text-xs">For a parent who forgot it. They set a new one in Settings, Kids Mode. Until then, leaving Readli Kids needs a grown-up to sign in.</span>
+              <button className={buttonSmallPrimary}>Forget the PIN</button>
+            </form>
+          </details>
+        )}
+      </div>
+      {devices.length === 0 ? (
+        <p className="text-muted">No kids devices set up.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-[var(--radius-panel)] bg-surface ring-2 ring-ink/10">
+          <table className="w-full min-w-[760px] text-left text-sm" data-testid="family-devices">
+            <thead>
+              <tr className="border-b-2 border-ink/10 text-xs font-bold uppercase tracking-[0.06em] text-muted">
+                <th className="px-3 py-3">Device</th>
+                <th className="px-3 py-3">Kids</th>
+                <th className="px-3 py-3">Status</th>
+                <th className="px-3 py-3">Last used</th>
+                <th className="px-3 py-3">
+                  <span className="sr-only">Fix</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {devices.map((d) => (
+                <tr key={d.id} className="border-b border-ink/10 align-top last:border-b-0">
+                  <td className="px-3 py-2">
+                    <span className="block font-semibold">{d.label}</span>
+                    <span className="block text-xs text-muted">
+                      set up by {d.registeredBy}, {adminDate(d.createdAt)}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    {d.kids.join(", ") || <span className="text-muted">–</span>}
+                    {d.listening && <span className="block text-xs text-muted">{d.listening} is on it</span>}
+                  </td>
+                  <td className="px-3 py-2">
+                    {DEVICE_STATUS[d.status]}
+                    {d.pinLockedUntil && <span className="block text-xs text-coral-deep">PIN locked until {adminDateTime(d.pinLockedUntil)}</span>}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2">{adminDateTime(d.lastSeenAt)}</td>
+                  <td className="px-3 py-2 text-right">
+                    {d.status === "active" && (
+                      <form action={signOutDeviceAction}>
+                        {hidden({ deviceId: d.id })}
+                        <button className={buttonSmall} aria-label={`Sign out ${d.label}`}>
+                          Sign out
+                        </button>
+                      </form>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Places({ places }: { places: SupportPlace[] }) {
+  if (places.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-2" aria-labelledby="places-h">
+      <details>
+        <summary className="cursor-pointer">
+          <h2 id="places-h" className="inline font-display text-2xl font-semibold">
+            Reading places ({places.length})
+          </h2>
+        </summary>
+        <div className="mt-2 overflow-x-auto rounded-[var(--radius-panel)] bg-surface ring-2 ring-ink/10">
+          <table className="w-full min-w-[640px] text-left text-sm" data-testid="family-places">
+            <thead>
+              <tr className="border-b-2 border-ink/10 text-xs font-bold uppercase tracking-[0.06em] text-muted">
+                <th className="px-3 py-3">Kid</th>
+                <th className="px-3 py-3">Book</th>
+                <th className="px-3 py-3">Place</th>
+                <th className="px-3 py-3">Narrator</th>
+                <th className="px-3 py-3">Last listened</th>
+              </tr>
+            </thead>
+            <tbody>
+              {places.map((p, i) => (
+                <tr key={`${p.kid}-${p.book}-${i}`} className="border-b border-ink/10 last:border-b-0">
+                  <td className="px-3 py-2">{p.kid}</td>
+                  <td className="px-3 py-2">{p.book}</td>
+                  <td className="px-3 py-2">
+                    sentence {p.sentence}
+                    {p.of ? ` of ${p.of}` : ""}
+                  </td>
+                  <td className="px-3 py-2">{p.narrator ?? <span className="text-muted">–</span>}</td>
+                  <td className="whitespace-nowrap px-3 py-2">{adminDateTime(p.at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+  );
+}
+
+function History({ events }: { events: SupportEvent[] }) {
+  return (
+    <section className="flex flex-col gap-2" aria-labelledby="history-h">
+      <h2 id="history-h" className="font-display text-2xl font-semibold">
+        History
+      </h2>
+      <p className="text-sm">The family&apos;s sharing, approvals and slot changes, and every support action on this family, newest first.</p>
+      {events.length === 0 ? (
+        <p className="text-muted">Nothing recorded yet.</p>
+      ) : (
+        <ul className="flex flex-col gap-1 text-sm" data-testid="family-history">
+          {events.map((e, i) => (
+            <li key={`${e.at}-${i}`} className="flex flex-wrap gap-x-2">
+              <span className="whitespace-nowrap text-muted">{adminDateTime(e.at)}</span>
+              {e.bySupport && <Badge tone="bg-sky/40">Support</Badge>}
+              <span>
+                <strong>{e.who}</strong> {e.what}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

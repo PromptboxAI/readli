@@ -92,13 +92,19 @@ export type SupportAction =
   | "narration_prepared_free"
   | "narration_stopped"
   | "narration_resumed"
-  | "narration_refunded";
+  | "narration_refunded"
+  | "kids_pin_unlocked"
+  | "kids_pin_cleared"
+  | "kids_device_signed_out"
+  | "sign_in_email_sent"
+  | "email_confirmed"
+  | "email_changed";
 
 /**
  * Records a support action. Logging never blocks the fix itself: until migration 20261108000200 widens
  * the log's list of actions, a failed insert is only warned about.
  */
-export async function logSupportAction(db: SupabaseClient, admin: AdminUser, action: SupportAction, householdId: string, detail: Record<string, unknown>) {
+export async function logSupportAction(db: SupabaseClient, admin: AdminUser, action: SupportAction, householdId: string | null, detail: Record<string, unknown>) {
   const { error } = await db.from("admin_actions").insert({ admin_id: admin.id, admin_email: admin.email, action, household_id: householdId, detail });
   if (error) console.warn(`[admin] log ${action}: ${error.message}`);
 }

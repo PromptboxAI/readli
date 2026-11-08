@@ -198,7 +198,9 @@ function AccountRow({ account: a, backQs, deleteHref, creditsHref }: { account: 
   return (
     <tr className="border-b border-ink/10 align-top last:border-b-0">
       <td className="px-3 py-2">
-        <span className="block break-all font-semibold">{label}</span>
+        <Link href={`/admin/accounts/${a.id}`} className="block break-all font-semibold underline underline-offset-4">
+          {label}
+        </Link>
         {a.name && <span className="block text-xs text-muted">{a.name}</span>}
       </td>
       <td className="px-3 py-2">

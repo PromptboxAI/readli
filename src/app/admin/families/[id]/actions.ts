@@ -4,6 +4,8 @@ import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { requireAdmin, type AdminUser } from "@/lib/admin/access";
 import { logSupportAction, supportFamily, type SupportFamily } from "@/lib/admin/family-support";
+import { clearKidsPin, signOutDevice, unlockKidsPin } from "@/lib/admin/support-people";
+import { AdminActionError } from "@/lib/admin/tester-plans";
 import { accountDb } from "@/lib/family/account-store";
 import { AccountNarrationProvider } from "@/lib/narration/account-provider";
 import { displayCredits } from "@/lib/narration/credits";
@@ -55,11 +57,12 @@ async function forFamily(form: FormData, run: (ctx: { db: SupabaseClient; admin:
       if (!family) throw new SupportError("That family no longer exists, or has no grown-up left in it.");
       outcome = `ok=${encodeURIComponent(await run({ db, admin: gate.admin, family, householdId }))}`;
     } catch (err) {
-      if (!(err instanceof SupportError)) console.error("[admin] support fix failed", err);
+      if (!(err instanceof SupportError) && !(err instanceof AdminActionError)) console.error("[admin] support fix failed", err);
       outcome = `err=${encodeURIComponent(err instanceof Error ? err.message : String(err))}`;
     }
   }
-  redirect(`${path}?${outcome}${anchor ? `#book-${anchor}` : ""}`);
+  const section = field(form, "section").replace(/[^a-z-]/g, "");
+  redirect(`${path}?${outcome}${anchor ? `#book-${anchor}` : section ? `#${section}` : ""}`);
 }
 
 /** Today's text takes every sentence the voice already said the same way. Free, nothing generated. */
@@ -121,5 +124,33 @@ export async function refundPreparationAction(form: FormData) {
     const credits = displayCredits(units, family.plan.charactersPerCredit);
     await logSupportAction(db, admin, "narration_refunded", householdId, { jobId, units, credits });
     return `Refunded ${credits.toLocaleString("en-US")} credits. The family sees "${note}" with them, and keeps the audio.`;
+  });
+}
+
+/** Clears wrong-PIN lockouts on the family's kids devices. The PIN stays the same. */
+export async function unlockPinAction(form: FormData) {
+  await forFamily(form, async ({ db, admin, householdId }) => {
+    const n = await unlockKidsPin(db, householdId);
+    await logSupportAction(db, admin, "kids_pin_unlocked", householdId, { devices: n });
+    return "Cleared the PIN lockout. The family can try their PIN again now.";
+  });
+}
+
+/** Forgets the Kids Mode PIN so a parent can set a new one. */
+export async function clearPinAction(form: FormData) {
+  await forFamily(form, async ({ db, admin, householdId }) => {
+    await clearKidsPin(db, householdId);
+    await logSupportAction(db, admin, "kids_pin_cleared", householdId, {});
+    return "Cleared the Kids Mode PIN. A parent can set a new one in Settings, Kids Mode. Until then, leaving Readli Kids asks a grown-up to sign in.";
+  });
+}
+
+/** Signs one kids device out. */
+export async function signOutDeviceAction(form: FormData) {
+  await forFamily(form, async ({ db, admin, householdId }) => {
+    const deviceId = field(form, "deviceId");
+    const label = await signOutDevice(db, admin, householdId, deviceId);
+    await logSupportAction(db, admin, "kids_device_signed_out", householdId, { deviceId, label });
+    return `Signed out "${label}". A parent can set it up again from Settings, Kids Mode.`;
   });
 }
