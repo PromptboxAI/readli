@@ -15,7 +15,7 @@ export interface ShelfBook {
 export interface KidsShelf {
   /** The story this child is part way through, if it is still ready for them and not finished. */
   resume: { book: CatalogBook; progress: ChildBookProgress; reader: NarratorView | undefined; total: number } | null;
-  /** Ready to listen, favorites first, leaving out the story already shown in Continue listening. */
+  /** Ready to listen, favorites first (the page shows them in their own row), leaving out the story already shown in Continue listening. */
   ready: ShelfBook[];
   /** Books not prepared for this child yet. */
   waiting: CatalogBook[];
