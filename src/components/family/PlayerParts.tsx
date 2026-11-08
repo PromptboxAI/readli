@@ -144,9 +144,16 @@ export function ListenStage({ coverUrl, title, byline }: { coverUrl: string | nu
 }
 
 /**
+ * How far the words may shrink to keep both sentences of a page on screen. Past this (long sentences on
+ * a phone), the page shows just the sentence being read, at full size, instead of tiny text.
+ */
+const PAIR_MIN_SCALE = 0.85;
+
+/**
  * Read-along mode: a small cover, the title, and the current page with the sentence being read
- * highlighted. The page always fits its card: the words get smaller, a step at a time, before anything
- * scrolls.
+ * highlighted. The page always fits its card: when its sentences are too long to sit together at a
+ * readable size, it shows them one at a time; only a single sentence too long for the card gets
+ * smaller, a step at a time, before anything scrolls.
  */
 export function ReadStage({
   coverUrl,
@@ -163,6 +170,11 @@ export function ReadStage({
 }) {
   const card = useRef<HTMLDivElement>(null);
   const [first, last] = pageRange(pageOf(sentence), sentences.length);
+  // The page (by its first sentence) that's showing one sentence at a time because the pair didn't fit.
+  const [splitPage, setSplitPage] = useState<number | null>(null);
+  const split = splitPage === first && last - first > 1;
+  const [from, to] = split ? [sentence, sentence + 1] : [first, last];
+  const size = useRef({ w: 0, h: 0 });
   useLayoutEffect(() => {
     const box = card.current;
     if (!box) return;
@@ -173,13 +185,21 @@ export function ReadStage({
         scale -= 0.05;
         box.style.setProperty("--fit", scale.toFixed(2));
       }
+      if (!split && last - first > 1 && scale < PAIR_MIN_SCALE) setSplitPage(first);
     };
     fit();
     void document.fonts.ready.then(fit);
-    const watch = new ResizeObserver(fit);
+    size.current = { w: box.clientWidth, h: box.clientHeight };
+    const watch = new ResizeObserver(() => {
+      // A bigger card (a rotated phone, a resized window) may fit the pair again, so measure it afresh.
+      const grew = box.clientWidth > size.current.w || box.clientHeight > size.current.h;
+      size.current = { w: box.clientWidth, h: box.clientHeight };
+      if (split && grew) setSplitPage(null);
+      else fit();
+    });
     watch.observe(box);
     return () => watch.disconnect();
-  }, [first, sentences]);
+  }, [first, last, from, sentences, split]);
 
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-4">
@@ -200,8 +220,8 @@ export function ReadStage({
         className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-3xl bg-surface p-[22px] ring-2 ring-ink/8 ring-inset sm:p-8 tall:rounded-[32px] tall:p-12"
       >
         <p className="my-auto font-display text-[length:calc(21px*var(--fit,1))] leading-[1.4] font-medium text-pretty sm:text-[length:calc(27px*var(--fit,1))] tall:text-[length:calc(34px*var(--fit,1))]">
-          {sentences.slice(first, last).map((s, k) => {
-            const i = first + k;
+          {sentences.slice(from, to).map((s, k) => {
+            const i = from + k;
             return (
               <span
                 key={i}

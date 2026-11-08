@@ -304,7 +304,7 @@ test("the sleep timer is a deadline kept across a reload, and stops the story wh
   expect(await page.evaluate(() => window.localStorage.getItem("readli-sleep:maya"))).toBeNull();
 });
 
-test("every read-along page fits its card without scrolling", async ({ page }, info) => {
+test("every read-along page fits its card without scrolling or tiny text", async ({ page }, info) => {
   await signIn(page, "adult:sara");
   await signIn(page, "child:maya");
   await page.goto("/kids/listen/the-tale-of-peter-rabbit");
@@ -314,6 +314,9 @@ test("every read-along page fits its card without scrolling", async ({ page }, i
   for (let step = 0; step < 40 && (await next.isEnabled()); step++) {
     await expect(page.locator("[data-current]")).toBeVisible();
     await expect.poll(() => card.evaluate((el) => el.scrollHeight - el.clientHeight), { message: `sentence ${step + 1}` }).toBeLessThanOrEqual(0);
+    // Two sentences share the card only at a readable size; longer pairs show one sentence at a time.
+    const shown = await card.evaluate((el) => ({ sentences: el.querySelectorAll("p > span").length, fit: Number(el.style.getPropertyValue("--fit") || 1) }));
+    if (shown.sentences > 1) expect(shown.fit, `sentence ${step + 1}`).toBeGreaterThanOrEqual(0.85);
     await next.click();
   }
   await noOverflow(page);
