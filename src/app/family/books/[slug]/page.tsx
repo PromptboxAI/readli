@@ -35,7 +35,7 @@ export default async function PrepareNarrationPage({ params, searchParams }: { p
             </Link>
           </p>
         )}
-        <PrepareNarration initial={view} resume={resumeTarget(q, view.voices.map((v) => v.voiceId))} prefer={q.voice ?? null} inSetup={q.from === "setup"} />
+        <PrepareNarration initial={view} resume={resumeTarget(q, view.voices.map((v) => v.voiceId))} prefer={q.voice ?? null} inSetup={q.from === "setup"} fromShelf={q.from === "bookshelf"} />
       </FamilyShell>
     );
   } catch (err) {

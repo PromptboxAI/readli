@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Actor, AdultBookProgress, AuditAction, FamilyState, ListeningSession, VoiceShare } from "./model";
+import type { Actor, AdultBookProgress, AuditAction, FamilyState, JobStatus, ListeningSession, VoiceShare } from "./model";
 import { isNewer } from "./places";
 import {
   activeChild,
@@ -59,6 +59,11 @@ export interface FamilyStore {
   /** Takes a narration job for one worker until the lease ends; false while another worker holds it. */
   claimJob?(jobId: string, leaseMs: number): Promise<boolean>;
   releaseJob?(jobId: string): Promise<void>;
+  /**
+   * A job's status as stored now, read past this store's snapshot, so a worker sees a parent's Stop
+   * made from another request. Stores whose snapshot is shared (memory) don't need it.
+   */
+  jobStatus?(jobId: string): Promise<JobStatus | null>;
 }
 
 export class MemoryFamilyStore implements FamilyStore {

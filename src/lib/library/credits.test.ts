@@ -154,6 +154,31 @@ describe("generation credits (required tests)", () => {
     expect(familyHome(await store.read(), H, store.plan, "sara").shelf.map((b) => b.slug)).not.toContain(LONG);
   });
 
+  it("a Stop made from another request halts a running worker, and nothing after it is kept or charged", async () => {
+    const { state, plan } = family();
+    // The worker's store keeps its own snapshot, as a database-backed store does; Stop lands elsewhere.
+    let stored: "running" | "canceled" = "running";
+    const worker = Object.assign(new MemoryFamilyStore(state, plan), { jobStatus: async () => stored });
+    const { job } = await requestGeneration(worker, mom, H, chapter(1), clock);
+    const provider = new Provider();
+    const stopAfter = 3;
+    const synthesize = provider.synthesize.bind(provider);
+    provider.synthesize = async (input) => {
+      const out = await synthesize(input);
+      if (provider.calls === stopAfter) stored = "canceled";
+      return out;
+    };
+    await runJob(worker, provider, job!.id, clock);
+    const ready = state.segments.filter((x) => x.libraryKey === job!.libraryKey && x.status === "ready");
+    // The sentence being made when Stop came isn't kept, and nothing after it is generated.
+    expect(provider.calls).toBe(stopAfter);
+    expect(ready).toHaveLength(stopAfter - 1);
+    const charged = new Set(state.ledger.filter((e) => e.jobId === job!.id && e.kind === "commit").map((e) => e.sentenceId));
+    expect([...charged].sort()).toEqual(ready.map((x) => x.sentenceId).sort());
+    // The worker leaves the job for the Stop to settle, rather than finishing it as done or failed.
+    expect(state.jobs.find((j) => j.id === job!.id)!.status).toBe("running");
+  });
+
   it("a page opened while one chapter prepares shows that chapter, not the whole book, as preparing", async () => {
     const { store } = family();
     const { job } = await requestGeneration(store, mom, H, chapter(1), clock);

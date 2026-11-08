@@ -125,7 +125,8 @@ export const PHONE_SHELF_BOOKS = 4;
 /**
  * Prepared audiobooks the kids may hear, one card per book with its narrators grouped: two across on
  * tablets, three on desktop. A book has no status of its own: each child's place shows on it and only
- * moves in Readli Kids. The whole card opens the book's page; only Listen opens the grown-up player.
+ * moves in Readli Kids. Two plain buttons: Listen opens the grown-up player, Book page opens the book's
+ * page; the cover and title aren't links, so a tap on the card never lands somewhere unexpected.
  * `phoneLimit` hides the books past it on phones, where they stack one per row.
  */
 export function FamilyBookshelf({ books, phoneLimit }: { books: ShelfBook[]; phoneLimit?: number }) {
@@ -134,7 +135,7 @@ export function FamilyBookshelf({ books, phoneLimit }: { books: ShelfBook[]; pho
       {books.map((b, i) => (
         <li
           key={b.slug}
-          className={`relative flex gap-3 rounded-3xl bg-surface p-3 ring-2 ring-ink/10 focus-within:ring-ink hover:ring-ink/30 ${phoneLimit !== undefined && i >= phoneLimit ? "max-md:hidden" : ""}`}
+          className={`flex gap-3 rounded-3xl bg-surface p-3 ring-2 ring-ink/10 ${phoneLimit !== undefined && i >= phoneLimit ? "max-md:hidden" : ""}`}
           data-testid={`shelf-book-${b.slug}`}
           data-state={b.state}
         >
@@ -146,13 +147,7 @@ export function FamilyBookshelf({ books, phoneLimit }: { books: ShelfBook[]; pho
             )}
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <Link
-              href={b.bookHref}
-              className="font-display text-lg leading-tight font-semibold outline-none after:absolute after:inset-0 after:rounded-3xl"
-              data-testid={`home-book-page-${b.slug}`}
-            >
-              {b.title}
-            </Link>
+            <h3 className="font-display text-lg leading-tight font-semibold">{b.title}</h3>
             <p className="text-sm text-muted">
               Read by {names(b.narrators.map((n) => n.name))} · {b.minutes} min
             </p>
@@ -161,16 +156,25 @@ export function FamilyBookshelf({ books, phoneLimit }: { books: ShelfBook[]; pho
                 <li key={c}>{c}</li>
               ))}
             </ul>
-            <Link
-              href={b.href}
-              className="relative z-10 mt-1 inline-flex min-h-10 items-center gap-1.5 self-start rounded-xl bg-ink px-4 font-display font-semibold text-white hover:bg-ink/85"
-              data-testid={`home-book-${b.slug}`}
-            >
-              <span aria-hidden="true">▶</span>
-              <span>
-                Listen<span className="sr-only"> to {b.title}</span>
-              </span>
-            </Link>
+            <div className="mt-1 flex flex-wrap gap-2">
+              <Link
+                href={b.href}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-ink px-4 font-display font-semibold text-white hover:bg-ink/85"
+                data-testid={`home-book-${b.slug}`}
+              >
+                <span aria-hidden="true">▶</span>
+                <span>
+                  Listen<span className="sr-only"> to {b.title}</span>
+                </span>
+              </Link>
+              <Link
+                href={b.bookHref}
+                className="inline-flex min-h-10 items-center rounded-xl px-4 font-display font-semibold ring-2 ring-ink/20 hover:bg-ivory"
+                data-testid={`home-book-page-${b.slug}`}
+              >
+                Book page<span className="sr-only"> for {b.title}</span>
+              </Link>
+            </div>
           </div>
         </li>
       ))}

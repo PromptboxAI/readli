@@ -913,8 +913,19 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
   });
 
   let outOfTime = false;
+  // A parent's Stop may come from another request, whose write this worker's snapshot never sees, so
+  // the stored status is asked for again around each sentence. Once stopped, nothing more is generated,
+  // stored or charged: the cancel already released the job's sentences and refunded what was left.
+  let stopped = false;
+  const stillWanted = async () => {
+    if (job.status !== "running") return false;
+    const fresh = store.jobStatus ? await store.jobStatus(job.id) : job.status;
+    if (fresh === "queued" || fresh === "running") return true;
+    stopped = true;
+    return false;
+  };
   for (const id of job.sentenceIds) {
-    if (job.status !== "running") break; // canceled
+    if (!(await stillWanted())) break; // canceled
     // Stop between sentences when this worker's time is up; the next one picks up from here.
     if (Date.now() > deadline) {
       outOfTime = true;
@@ -932,6 +943,8 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
       try {
         const sentence = byId.get(id)!;
         const { audio, contentType } = await provider.synthesize({ voiceId: voice.id, text: sentence.text, modelId: library.modelId });
+        // Stopped while this sentence was being made: it isn't kept or charged.
+        if (!(await stillWanted())) break;
         const storageKey = `${library.key.replaceAll(":", "/")}/${id}`;
         await store.audio.put(storageKey, audio, contentType);
         if (!(await store.audio.exists(storageKey))) throw new Error("stored audio not readable");
@@ -979,7 +992,7 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
     }
   }
 
-  if (outOfTime) return job;
+  if (outOfTime || stopped) return job;
   const at = clock().toISOString();
   await store.write((s) => {
     if (job.status !== "running") return;
