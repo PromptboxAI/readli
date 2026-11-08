@@ -200,7 +200,8 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   const newBooks = isGuardian && home ? await newThisWeekFor(session, accountDb()) : null;
   const slots = home ? narratorSlotCount(state, home, plan) : 0;
   const kidsMax = home ? childProfileLimit(state, home, plan) : plan.maxChildProfiles;
-  const slotLine = home && entitlement && slots ? `${countedSlots(state, home, plan).length} of ${slots} ${entitlement.extraNarratorSlots ? "" : "included "}narrator slots in use` : null;
+  const slotsUsed = home ? countedSlots(state, home, plan).length : 0;
+  const slotLine = home && entitlement && slots ? { used: slotsUsed, total: slots, text: `${slotsUsed} of ${slots} ${entitlement.extraNarratorSlots ? "" : "included "}narrator slots in use` } : null;
   const kidIds = new Set(kids.map((k) => k.id));
   const kidCards = view ? view.kids.filter((k) => kidIds.has(k.id)) : [];
   const params = await searchParams;
