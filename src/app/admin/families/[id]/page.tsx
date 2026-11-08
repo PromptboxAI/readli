@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { buttonSmall, buttonSmallPrimary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
 import { requireAdmin } from "@/lib/admin/access";
+import { supportBilling, supportCredits, type SupportBilling, type SupportCharge, type SupportLot } from "@/lib/admin/support-credits";
 import { supportFamily, supportPeople, supportPlan, type SupportPerson } from "@/lib/admin/family-support";
 import {
   supportDevices,
@@ -32,6 +33,7 @@ import {
   resumePreparationAction,
   signOutDeviceAction,
   stopPreparationAction,
+  takeBackGrantAction,
   unlockPinAction,
 } from "./actions";
 
@@ -95,6 +97,8 @@ export default async function FamilyPage({ params, searchParams }: { params: Pro
   const books = supportAudiobooks(state, family.plan, id, at);
   const [voices, kidsDevices, history] = await Promise.all([supportVoices(db, state, family.plan, id), supportDevices(db, state, id), supportHistory(db, state, id)]);
   const places = supportPlaces(state, id);
+  const ledger = supportCredits(state, family.plan, id, at);
+  const billing = await supportBilling(db, id);
   const c = (units: number) => displayCredits(units, family.plan.charactersPerCredit).toLocaleString("en-US");
 
   return (
@@ -114,6 +118,16 @@ export default async function FamilyPage({ params, searchParams }: { params: Pro
         <Stat label="Used this month" value={c(credits.usedThisPeriod)} note={credits.renewsAt ? `renews ${adminDate(credits.renewsAt)}` : undefined} />
       </section>
 
+      <p className="-mt-2 flex flex-wrap gap-3 text-sm">
+        <Link href={`/admin/users?credits=${family.readThrough}`} className="font-semibold underline underline-offset-4">
+          Grant credits
+        </Link>
+        <a href="#credits" className="underline underline-offset-4">Credit history</a>
+        <a href="#billing" className="underline underline-offset-4">Plan and payments</a>
+        <a href="#books-h" className="underline underline-offset-4">Audiobooks</a>
+        <a href="#devices" className="underline underline-offset-4">Kids Mode</a>
+      </p>
+
       <People people={people} />
       <Kids state={state} householdId={id} plan={family.plan} />
       <Voices voices={voices} />
@@ -131,6 +145,8 @@ export default async function FamilyPage({ params, searchParams }: { params: Pro
         {books.length === 0 ? <p className="text-muted">No audiobooks prepared or asked for yet.</p> : books.map((b) => <Book key={b.slug} book={b} householdId={id} c={c} />)}
       </section>
 
+      <Credits householdId={id} lots={ledger.lots} charges={ledger.charges} c={c} />
+      <Billing billing={billing} />
       <History events={history} />
     </AdultPage>
   );
@@ -674,6 +690,174 @@ function History({ events }: { events: SupportEvent[] }) {
             </li>
           ))}
         </ul>
+      )}
+    </section>
+  );
+}
+
+const SOURCE_LABEL: Record<SupportLot["source"], string> = { subscription: "Monthly", trial: "Trial", promotional: "Promotional", purchased: "Purchased" };
+
+function Credits({ householdId, lots, charges, c }: { householdId: string; lots: SupportLot[]; charges: SupportCharge[]; c: (units: number) => string }) {
+  return (
+    <section id="credits" className="flex scroll-mt-6 flex-col gap-2" aria-labelledby="credits-h">
+      <h2 id="credits-h" className="font-display text-2xl font-semibold">
+        Credit history
+      </h2>
+      <p className="text-sm">Every grant and purchase with what&apos;s left of it, then every preparation&apos;s charges. Monthly credits are spent first.</p>
+      <div className="overflow-x-auto rounded-[var(--radius-panel)] bg-surface ring-2 ring-ink/10">
+        <table className="w-full min-w-[820px] text-left text-sm" data-testid="family-lots">
+          <thead>
+            <tr className="border-b-2 border-ink/10 text-xs font-bold uppercase tracking-[0.06em] text-muted">
+              <th className="px-3 py-3">Credits</th>
+              <th className="px-3 py-3">Given</th>
+              <th className="px-3 py-3">Expires</th>
+              <th className="px-3 py-3">Amount</th>
+              <th className="px-3 py-3">Used</th>
+              <th className="px-3 py-3">Left</th>
+              <th className="px-3 py-3">
+                <span className="sr-only">Fix</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {lots.map((l) => (
+              <tr key={l.id} className={`border-b border-ink/10 align-top last:border-b-0 ${l.live ? "" : "text-muted"}`}>
+                <td className="px-3 py-2">
+                  <span className="block font-semibold">{SOURCE_LABEL[l.source]}</span>
+                  <span className="block text-xs">{l.note}</span>
+                </td>
+                <td className="whitespace-nowrap px-3 py-2">{adminDate(l.grantedAt)}</td>
+                <td className="whitespace-nowrap px-3 py-2">{l.expiresAt ? adminDate(l.expiresAt) : "Never"}</td>
+                <td className="px-3 py-2">{c(l.credits)}</td>
+                <td className="px-3 py-2">
+                  {c(l.used)}
+                  {l.held > 0 && <span className="block text-xs">{c(l.held)} held</span>}
+                </td>
+                <td className="px-3 py-2">{l.live ? c(l.left) : "Expired"}</td>
+                <td className="px-3 py-2 text-right">
+                  {l.canTakeBack && (
+                    <details>
+                      <summary className="cursor-pointer font-semibold underline underline-offset-4">Take back</summary>
+                      <form action={takeBackGrantAction} className="flex flex-col items-end gap-2 pt-2">
+                        <input type="hidden" name="householdId" value={householdId} />
+                        <input type="hidden" name="section" value="credits" />
+                        <input type="hidden" name="lotId" value={l.id} />
+                        <span className="max-w-xs text-right text-xs">Ends this grant now, so the {c(l.left)} credits left go away. What was used stays used.</span>
+                        <button className={buttonSmallPrimary}>Take back {c(l.left)} credits</button>
+                      </form>
+                    </details>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {charges.length > 0 && (
+        <details>
+          <summary className="cursor-pointer font-semibold">Charges for preparing ({charges.length})</summary>
+          <div className="mt-2 overflow-x-auto rounded-[var(--radius-panel)] bg-surface ring-2 ring-ink/10">
+            <table className="w-full min-w-[720px] text-left text-sm" data-testid="family-charges">
+              <thead>
+                <tr className="border-b-2 border-ink/10 text-xs font-bold uppercase tracking-[0.06em] text-muted">
+                  <th className="px-3 py-3">When</th>
+                  <th className="px-3 py-3">Preparation</th>
+                  <th className="px-3 py-3">Status</th>
+                  <th className="px-3 py-3">Used</th>
+                  <th className="px-3 py-3">Returned</th>
+                </tr>
+              </thead>
+              <tbody>
+                {charges.map((x) => (
+                  <tr key={x.jobId} className="border-b border-ink/10 last:border-b-0">
+                    <td className="whitespace-nowrap px-3 py-2">{adminDateTime(x.at)}</td>
+                    <td className="px-3 py-2">{x.what}</td>
+                    <td className="px-3 py-2">{x.status}</td>
+                    <td className="px-3 py-2">
+                      {c(x.used)}
+                      {x.held > 0 && <span className="block text-xs text-muted">{c(x.held)} held</span>}
+                    </td>
+                    <td className="px-3 py-2">{c(x.returned)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
+    </section>
+  );
+}
+
+const money = (cents: number, currency: string) => (cents / 100).toLocaleString("en-US", { style: "currency", currency: currency.toUpperCase() });
+const PAYMENT_KIND: Record<string, string> = { subscription: "Readli Family", narrator_slot: "Extra narrator slot", credit_pack: "Credit pack", gift: "Gift" };
+
+function Billing({ billing }: { billing: SupportBilling }) {
+  return (
+    <section id="billing" className="flex scroll-mt-6 flex-col gap-2" aria-labelledby="billing-h">
+      <h2 id="billing-h" className="font-display text-2xl font-semibold">
+        Plan and payments
+      </h2>
+      {billing.customer && (
+        <p className="text-sm">
+          Stripe customer{" "}
+          <a href={billing.customer.url} target="_blank" rel="noreferrer" className="font-mono underline underline-offset-4">
+            {billing.customer.ref}
+          </a>{" "}
+          (refunds and card changes happen in Stripe).
+        </p>
+      )}
+      <ul className="flex flex-col gap-1 text-sm" data-testid="family-plans">
+        {billing.plans.length === 0 && <li className="text-muted">Never had a plan.</li>}
+        {billing.plans.map((p) => (
+          <li key={p.id} className="flex flex-wrap gap-x-2">
+            <strong>{PLAN_LABEL[p.source] ?? p.source}</strong>
+            <span>
+              {adminDate(p.startsAt)} to {p.endsAt ? adminDate(p.endsAt) : "ongoing"}
+            </span>
+            {p.live ? <Badge tone="bg-mint/50">Now</Badge> : p.status === "canceled" ? <Badge tone="bg-ink/10">Canceled</Badge> : null}
+            {p.note && <span className="text-muted">{p.note}</span>}
+          </li>
+        ))}
+      </ul>
+      {billing.cancellations.map((x) => (
+        <p key={x.requestedAt} className="rounded-2xl bg-sunshine/20 px-3 py-2 text-sm">
+          Asked to cancel {adminDate(x.requestedAt)}
+          {x.endsAt ? `, ends ${adminDate(x.endsAt)}` : ""}
+          {x.reason ? ` (${x.reason.replaceAll("_", " ")})` : ""}
+          {x.feedback ? `. Said: ${x.feedback.replaceAll("_", " ")}` : ""}
+          {x.comment ? `, "${x.comment}"` : ""}
+          {x.withdrawnAt ? `. Changed their mind ${adminDate(x.withdrawnAt)}.` : "."}
+        </p>
+      ))}
+      {billing.payments.length > 0 ? (
+        <div className="overflow-x-auto rounded-[var(--radius-panel)] bg-surface ring-2 ring-ink/10">
+          <table className="w-full min-w-[560px] text-left text-sm" data-testid="family-payments">
+            <thead>
+              <tr className="border-b-2 border-ink/10 text-xs font-bold uppercase tracking-[0.06em] text-muted">
+                <th className="px-3 py-3">When</th>
+                <th className="px-3 py-3">For</th>
+                <th className="px-3 py-3">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {billing.payments.map((x, i) => (
+                <tr key={`${x.at}-${i}`} className="border-b border-ink/10 last:border-b-0">
+                  <td className="whitespace-nowrap px-3 py-2">{adminDate(x.at)}</td>
+                  <td className="px-3 py-2">
+                    {PAYMENT_KIND[x.kind] ?? x.kind}
+                    {x.quantity > 1 ? ` × ${x.quantity}` : ""}
+                    {x.interval ? `, ${x.interval === "year" ? "yearly" : "monthly"}` : ""}
+                    {!x.livemode && <span className="ml-1"><Badge tone="bg-ink/10">Test</Badge></span>}
+                  </td>
+                  <td className="px-3 py-2">{money(x.amountCents, x.currency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="text-sm text-muted">No payments recorded.</p>
       )}
     </section>
   );

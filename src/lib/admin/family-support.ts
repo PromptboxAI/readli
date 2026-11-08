@@ -98,7 +98,8 @@ export type SupportAction =
   | "kids_device_signed_out"
   | "sign_in_email_sent"
   | "email_confirmed"
-  | "email_changed";
+  | "email_changed"
+  | "credits_taken_back";
 
 /**
  * Records a support action. Logging never blocks the fix itself: until migration 20261108000200 widens

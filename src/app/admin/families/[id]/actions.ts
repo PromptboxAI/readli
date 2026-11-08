@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin, type AdminUser } from "@/lib/admin/access";
 import { logSupportAction, supportFamily, type SupportFamily } from "@/lib/admin/family-support";
 import { clearKidsPin, signOutDevice, unlockKidsPin } from "@/lib/admin/support-people";
+import { takeBackGrant } from "@/lib/admin/support-credits";
 import { AdminActionError } from "@/lib/admin/tester-plans";
 import { accountDb } from "@/lib/family/account-store";
 import { AccountNarrationProvider } from "@/lib/narration/account-provider";
@@ -152,5 +153,16 @@ export async function signOutDeviceAction(form: FormData) {
     const label = await signOutDevice(db, admin, householdId, deviceId);
     await logSupportAction(db, admin, "kids_device_signed_out", householdId, { deviceId, label });
     return `Signed out "${label}". A parent can set it up again from Settings, Kids Mode.`;
+  });
+}
+
+/** Ends what's left of a promotional grant now. */
+export async function takeBackGrantAction(form: FormData) {
+  await forFamily(form, async ({ db, admin, family, householdId }) => {
+    const lotId = field(form, "lotId");
+    const { units, note } = await takeBackGrant(db, await family.store.read(), family.plan, householdId, lotId);
+    const credits = displayCredits(units, family.plan.charactersPerCredit);
+    await logSupportAction(db, admin, "credits_taken_back", householdId, { lotId, units, credits, note });
+    return `Took back ${credits.toLocaleString("en-US")} credits from "${note}". Anything already used stays used.`;
   });
 }
