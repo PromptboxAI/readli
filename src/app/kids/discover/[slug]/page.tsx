@@ -24,8 +24,8 @@ export default async function KidsBookPreview({ params }: { params: Promise<{ sl
   const child = actor?.kind === "child" && page.state ? activeChild(page.state, actor.childId) : null;
   if (!child) redirect("/kids");
   const store = (await familyStore(page.session!))!;
-  const { resume, ready, waiting } = await kidsShelf(store, actor!, page.state!, child.id);
-  if (resume?.book.slug === slug || ready.some((b) => b.book.slug === slug)) redirect(`/kids/listen/${slug}`);
+  const { resume, newest, ready, waiting } = await kidsShelf(store, actor!, page.state!, child.id);
+  if (resume?.book.slug === slug || [...newest, ...ready].some((b) => b.book.slug === slug)) redirect(`/kids/listen/${slug}`);
   const book = waiting.find((b) => b.slug === slug);
   const text = bookText(slug);
   if (!book || !text) notFound();

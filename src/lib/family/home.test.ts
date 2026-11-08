@@ -186,6 +186,22 @@ describe("family home", () => {
     expect(lines).toEqual(["5 new readings ready: A, B and 3 more, read by Mom.", "Newer update.", "Older update."]);
   });
 
+  it("leads the bookshelf with a book just prepared that nobody has started, marked by its preparedAt", () => {
+    const state = withReadyBook(withReadyBook(demoFamilyState()), "the-tale-of-peter-rabbit");
+    const total = bookText(SLUG)!.sentences.length;
+    state.progress.push({ childId: "maya", bookSlug: SLUG, sentence: Math.round(total / 2), voiceId: "voice-sara", updatedAt: "2026-11-07T19:00:00Z" });
+    for (const x of state.segments) if (x.libraryKey === "lib-the-tale-of-peter-rabbit-voice-sara") x.readyAt = "2026-11-08T09:00:00Z";
+    const now = Date.parse("2026-11-08T12:00:00Z");
+    const view = familyHome(state, DEMO_HOUSEHOLD_ID, undefined, undefined, now);
+    expect(view.shelf.map((b) => [b.slug, b.preparedAt])).toEqual([
+      ["the-tale-of-peter-rabbit", "2026-11-08T09:00:00Z"],
+      [SLUG, "2026-10-01T00:00:00Z"],
+    ]);
+    // Two weeks on it's no longer new, so the story a child is part way through leads again.
+    const later = familyHome(state, DEMO_HOUSEHOLD_ID, undefined, undefined, now + 15 * 24 * 60 * 60 * 1000);
+    expect(later.shelf.map((b) => b.slug)).toEqual([SLUG, "the-tale-of-peter-rabbit"]);
+  });
+
   it("puts a book being prepared at the front of the bookshelf, newest first, until it is done", () => {
     const state = demoFamilyState();
     const text = bookText(SLUG)!;

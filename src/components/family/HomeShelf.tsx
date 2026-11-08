@@ -3,6 +3,7 @@ import Link from "next/link";
 import { parentPrimary } from "@/components/brand/buttons";
 import { SessionButton } from "@/components/family/SessionButton";
 import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
+import { isNewlyPrepared } from "@/lib/family/newest";
 import type { HomeKid, HomeStoryteller, ShelfBook, ShelfKid, UnassignedBook } from "@/lib/family/home";
 
 function names(list: string[]): string {
@@ -128,7 +129,7 @@ export const PHONE_SHELF_BOOKS = 4;
  * moves in Readli Kids. The whole card opens the book's page; only Listen opens the grown-up player.
  * `phoneLimit` hides the books past it on phones, where they stack one per row.
  */
-export function FamilyBookshelf({ books, phoneLimit }: { books: ShelfBook[]; phoneLimit?: number }) {
+export function FamilyBookshelf({ books, phoneLimit, now = Date.now() }: { books: ShelfBook[]; phoneLimit?: number; now?: number }) {
   return (
     <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3" data-testid="shelf-ready">
       {books.map((b, i) => (
@@ -152,6 +153,12 @@ export function FamilyBookshelf({ books, phoneLimit }: { books: ShelfBook[]; pho
               data-testid={`home-book-page-${b.slug}`}
             >
               {b.title}
+              {/* Just prepared and nobody has started it yet, so a grown-up can spot what's new. */}
+              {isNewlyPrepared(b.preparedAt, now) && b.kids.every((k) => k.percent === null) && (
+                <span className="ml-2 inline-block rounded-full bg-sunshine px-2 py-0.5 align-[0.15em] font-sans text-xs font-bold" data-testid={`shelf-new-${b.slug}`}>
+                  New
+                </span>
+              )}
             </Link>
             <p className="text-sm text-muted">
               Read by {names(b.narrators.map((n) => n.name))} · {b.minutes} min

@@ -190,13 +190,27 @@ export function listenable({ text, status }: Pick<Narration, "text" | "status">)
   return first.sentenceIds.every((id) => ready.has(id));
 }
 
+/**
+ * When a listenable narration first reached the bookshelves: when the last sentence of its first chapter
+ * was stored, or of the whole book when it has no chapters. Null while it can't be played from the start.
+ */
+export function listenableAt(state: FamilyState, heard: Narration): string | null {
+  if (!listenable(heard)) return null;
+  const first = heard.text.chapters.length >= 2 ? heard.text.chapters[0] : undefined;
+  if (!first) return lastReadyAt(state, heard.library.key) || null;
+  const ids = new Set(first.sentenceIds);
+  const at = state.segments.reduce((max, x) => (x.libraryKey === heard.library.key && ids.has(x.sentenceId) && x.readyAt && x.readyAt > max ? x.readyAt : max), "");
+  return at || null;
+}
+
 /** The text a narration was prepared from: the same book, edition and revision, or null if it was never built. */
 export function libraryText(library: NarrationLibrary): BookText | null {
   const text = bookTextAt(library.bookSlug, library.textRevision);
   return text && text.edition === library.edition ? text : null;
 }
 
-function lastReadyAt(state: FamilyState, libraryKey: string): string {
+/** When a narration's newest sentence was stored, or "" when none is. */
+export function lastReadyAt(state: FamilyState, libraryKey: string): string {
   return state.segments.reduce((at, x) => (x.libraryKey === libraryKey && x.readyAt && x.readyAt > at ? x.readyAt : at), "");
 }
 
@@ -1040,6 +1054,8 @@ export interface KidsNarratorReadiness {
   listenable: boolean;
   /** The text this narrator's audiobook reads, so the words shown are the words heard. */
   revision: string;
+  /** When this audiobook could first be played from the start (see listenableAt); null until then. */
+  readyAt: string | null;
 }
 
 /** The read-along text of each revision narrators read, keyed by revision; `current` is today's. */
@@ -1082,7 +1098,7 @@ export async function kidsReadiness(store: FamilyStore, actor: Actor | null, chi
     .filter((v) => childVoiceAccess(state, childId, v.id, store.plan).allowed)
     .map((v) => {
       const heard = narrationFor(state, store.plan, v.id, text, child.householdId);
-      return { voiceId: v.id, readySentenceIds: heard.status.readySentenceIds, readiness: heard.status.readiness, listenable: listenable(heard), revision: heard.text.revision };
+      return { voiceId: v.id, readySentenceIds: heard.status.readySentenceIds, readiness: heard.status.readiness, listenable: listenable(heard), revision: heard.text.revision, readyAt: listenableAt(state, heard) };
     });
 }
 
