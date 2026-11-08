@@ -369,16 +369,20 @@ describe("existing audiobooks keep playing", () => {
     expect(q.reusedReady).toBe(0);
   });
 
-  it("a partly prepared earlier text is not pinned; preparation continues on today's text", async () => {
+  it("a partly prepared earlier text stays shown until today's has more; preparation continues on today's text", async () => {
     const { state, store } = family();
     const { library } = await seedFinished(state, store, GOLDILOCKS, GOLDILOCKS_OLD);
     state.segments = state.segments.filter((s) => s.libraryKey !== library.key || s.ordinal < 10);
-    const heard = narrationFor(state, store.plan, "voice-june", bookText(GOLDILOCKS)!, H);
-    expect(heard.pinned).toBe(false);
-    expect(heard.text.revision).toBe(bookText(GOLDILOCKS)!.revision);
-    // The ten lines already said the same way are free.
+    const today = bookText(GOLDILOCKS)!;
+    // Prepared audio is never hidden: the ten stored lines still count while today's text has none.
+    const heard = narrationFor(state, store.plan, "voice-june", today, H);
+    expect(heard).toMatchObject({ pinned: true, text: { revision: GOLDILOCKS_OLD }, status: { ready: 10 } });
+    // The ten lines already said the same way are free, and the work happens on today's text.
     const q = quote(state, store.plan, H, { voiceId: "voice-june", bookSlug: GOLDILOCKS, scope: "book" });
     expect(q.reusedReady).toBe(10);
+    const { job } = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: GOLDILOCKS, scope: "book" }, clock);
+    await runJob(store, new CountingProvider(), job!.id, clock);
+    expect(narrationFor(state, store.plan, "voice-june", today, H)).toMatchObject({ pinned: false, text: { revision: today.revision }, status: { readiness: "ready" } });
   });
 
   it("an earlier text with no snapshot is never guessed at", async () => {
