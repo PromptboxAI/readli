@@ -277,7 +277,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       coverUrl: book.coverUrl,
       tint: book.tint,
       href: `/family/books/${book.slug}/listen`,
-      bookHref: `/family/books/${book.slug}`,
+      bookHref: `/family/books/${book.slug}?from=bookshelf`,
       state: shelfState,
       narrators: [...narrators.values()].map(person),
       minutes: Math.max(1, Math.round(bookMinutes(text, plan))),

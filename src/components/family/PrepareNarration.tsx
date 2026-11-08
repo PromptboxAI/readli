@@ -43,7 +43,7 @@ function StatusBadge({ availability, label, testId }: { availability: Availabili
   );
 }
 
-/** A small spinner beside "Family library" while the library loads, so a tap on a phone shows it was heard. */
+/** A small spinner beside the breadcrumb while the page it goes back to loads, so a tap on a phone shows it was heard. */
 function BackPending() {
   const { pending } = useLinkStatus();
   return pending ? <span aria-hidden="true" className="ml-2 size-4 animate-spin rounded-full border-2 border-ink/25 border-t-ink" /> : null;
@@ -81,7 +81,20 @@ function firstVoice(view: PrepareBookView, resume: Target | null, prefer: string
  * `resume` reopens the confirmation after buying credits, so the parent doesn't choose again.
  */
 /** `inSetup`: opened from the guided setup, so a ready book goes on to setup's Listen step instead of the player. */
-export function PrepareNarration({ initial, resume, prefer = null, inSetup = false }: { initial: PrepareBookView; resume: Target | null; prefer?: string | null; inSetup?: boolean }) {
+export function PrepareNarration({
+  initial,
+  resume,
+  prefer = null,
+  inSetup = false,
+  fromShelf = false,
+}: {
+  initial: PrepareBookView;
+  resume: Target | null;
+  prefer?: string | null;
+  inSetup?: boolean;
+  /** Opened from the Family bookshelf on Home, so the way back leads there. */
+  fromShelf?: boolean;
+}) {
   const [view, setView] = useState(initial);
   const [selected, setSelected] = useState<string | null>(() => firstVoice(initial, resume, prefer));
   const [pending, setPending] = useState<{ target: Target; quote: GenerationQuote } | null>(null);
@@ -209,14 +222,14 @@ export function PrepareNarration({ initial, resume, prefer = null, inSetup = fal
     <div className="flex flex-col gap-7" data-testid="prepare-narration">
       <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-muted sm:text-sm">
         <Link
-          href="/family/books"
+          href={fromShelf ? "/family#bookshelf" : "/family/books"}
           className="-ml-2 flex min-h-11 items-center rounded-lg px-2 font-display text-lg font-semibold text-ink underline-offset-4 transition-colors hover:underline active:bg-ink/10 sm:font-sans sm:text-sm"
           data-testid="back-link"
         >
           <span aria-hidden="true" className="mr-1.5 sm:hidden">
             ←
           </span>
-          Family library
+          {fromShelf ? "Family bookshelf" : "Books"}
           <BackPending />
         </Link>
         <span aria-hidden="true" className="hidden sm:inline">

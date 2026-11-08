@@ -593,6 +593,11 @@ export class AccountFamilyStore implements FamilyStore {
     return rows.length > 0;
   }
 
+  async jobStatus(jobId: string): Promise<JobStatus | null> {
+    const rows = await this.q(this.db.from("narration_jobs").select("status").eq("id", jobId), "read narration job status");
+    return rows.length ? (rows[0]!.status as JobStatus) : null;
+  }
+
   async releaseJob(jobId: string): Promise<void> {
     await this.q(this.db.from("narration_jobs").update({ lease_until: null }).eq("id", jobId), "release narration job");
   }
