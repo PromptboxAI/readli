@@ -462,7 +462,7 @@ export function GrownUpPlayer({
                   Done
                 </button>
               </div>
-              <div id="storyteller-picker" role="group" aria-label="Storyteller" className="flex gap-3 overflow-x-auto pb-1">
+              <div id="storyteller-picker" role="group" aria-label="Storyteller" className="-m-1 flex gap-3 overflow-x-auto p-1 pb-2">
                 {voices.map((v) => (
                   <button
                     key={v.voiceId}
