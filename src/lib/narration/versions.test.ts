@@ -16,6 +16,7 @@ import {
   kidsReadiness,
   kidsResume,
   libraryFor,
+  listenable,
   listenView,
   narrationFor,
   prepareView,
@@ -44,6 +45,8 @@ const LION = "the-lion-and-the-mouse";
 const LION_OLD = "1b359a189a29"; // a different edition altogether
 const PIGS = "the-three-little-pigs";
 const PIGS_OLD = "b95bb8109234"; // 89 sentences, then 90
+const GARDEN = "the-secret-garden";
+const GARDEN_OLD = "8d91ea7b3ff1"; // "born in India" was removed from chapter 1, marked a Readli correction
 
 let tick = Date.parse("2026-10-21T00:00:00Z");
 const clock = () => new Date((tick += 1000));
@@ -66,11 +69,12 @@ function family() {
 }
 
 /** A family's finished audiobook of an earlier text, as it was stored before the book changed. */
-async function seedFinished(state: FamilyState, store: MemoryFamilyStore, slug: string, revision: string, voiceId = "voice-june") {
+async function seedFinished(state: FamilyState, store: MemoryFamilyStore, slug: string, revision: string, voiceId = "voice-june", chapters?: number[]) {
   const text = bookTextAt(slug, revision)!;
   const library = { ...libraryFor(state, store.plan, voiceId, text, H), createdAt: "2026-10-11T00:00:00Z" };
   state.libraries.push(library);
   for (const s of text.sentences) {
+    if (chapters && !chapters.includes(s.chapter)) continue;
     const storageKey = `seed/${library.key}/${s.id}`;
     await store.audio.put(storageKey, toneWav(1), "audio/wav");
     state.segments.push({
@@ -279,6 +283,69 @@ describe("existing audiobooks keep playing", () => {
     expect(quote(fresh.state, fresh.store.plan, H, { voiceId: "voice-june", bookSlug: OWL, scope: "book" })).toMatchObject({ free: false });
   });
 
+  it("a part-prepared book keeps its chapters when the text changes, and preparing the next chapter carries them forward", async () => {
+    const { state, store } = family();
+    // Chapter 1 of The Secret Garden was prepared before "born in India" was removed (a Readli correction).
+    const { library: oldLibrary } = await seedFinished(state, store, GARDEN, GARDEN_OLD, "voice-june", [1]);
+    const today = bookText(GARDEN)!;
+    const old = bookTextAt(GARDEN, GARDEN_OLD)!;
+    const ch1 = old.chapters[0]!.sentenceIds.length;
+    const oldKeys = state.segments.filter((s) => s.libraryKey === oldLibrary.key).map((s) => s.storageKey);
+
+    // Chapter 1 still shows as prepared and still plays; nothing reads "Not prepared".
+    const before = narrationFor(state, store.plan, "voice-june", today, H);
+    expect(before).toMatchObject({ pinned: true, text: { revision: GARDEN_OLD } });
+    expect(before.status.ready).toBe(ch1);
+    expect(listenable(before)).toBe(true);
+    const june = (await prepareView(store, mom, H, GARDEN, clock)).voices.find((v) => v.voiceId === "voice-june")!;
+    expect(june.chapters[0]!.readiness).toBe("ready");
+    expect(june.update).toMatchObject({ chapter: 1, free: true, credits: 0, changed: 1 });
+    expect((await kidsReadiness(store, maya, "maya", GARDEN)).find((r) => r.voiceId === "voice-june")?.listenable).toBe(true);
+
+    // Preparing chapter 2 pays for chapter 2 only; chapter 1's corrected line comes along for free.
+    const changed = changedLines(GARDEN_OLD, today.revision, GARDEN);
+    expect(changed).toHaveLength(1);
+    const ch2 = today.chapters[1]!.sentenceIds;
+    const { job, quote: q } = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: GARDEN, scope: "chapter", chapter: 2 }, clock);
+    expect(q.sentenceIds[0]).toBe(changed[0]!.id);
+    expect(q.sentenceIds.slice(1).every((id) => ch2.includes(id))).toBe(true);
+    expect(q.freeSentenceIds).toEqual([changed[0]!.id]);
+    expect(q.free).toBe(false);
+    expect(charged(state)).toBe(q.credits);
+
+    // While it prepares, chapter 1 keeps showing as prepared and chapter 2 shows its progress.
+    const during = (await prepareView(store, mom, H, GARDEN, clock)).voices.find((v) => v.voiceId === "voice-june")!;
+    expect(during.chapters[0]!.readiness).toBe("ready");
+    expect(during.chapters[1]!.readiness).toBe("preparing");
+    expect(during.jobId).toBe(job!.id);
+    expect(narrationFor(state, store.plan, "voice-june", today, H).status.ready).toBeGreaterThanOrEqual(ch1);
+
+    const provider = new CountingProvider();
+    await runJob(store, provider, job!.id, clock);
+    expect(provider.calls.length).toBe(q.sentenceIds.length);
+    const after = narrationFor(state, store.plan, "voice-june", today, H);
+    expect(after.text.revision).toBe(today.revision);
+    const ready = new Set(after.status.readySentenceIds);
+    expect([...today.chapters[0]!.sentenceIds, ...ch2].every((id) => ready.has(id))).toBe(true);
+    // The old audio was reused in place, never copied or deleted.
+    for (const k of oldKeys) expect(await store.audio.exists(k!)).toBe(true);
+    expect(state.segments.filter((s) => s.libraryKey === after.library.key && oldKeys.includes(s.storageKey)).length).toBeGreaterThanOrEqual(ch1 - 1);
+  });
+
+  it("preparing a later chapter never hides chapters already prepared in the same text", async () => {
+    const { state, store } = family();
+    const today = bookText(GARDEN)!;
+    const { job: first } = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: GARDEN, scope: "chapter", chapter: 1 }, clock);
+    await runJob(store, new CountingProvider(), first!.id, clock);
+    const { job } = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: GARDEN, scope: "chapter", chapter: 2 }, clock);
+    const during = (await prepareView(store, mom, H, GARDEN, clock)).voices.find((v) => v.voiceId === "voice-june")!;
+    expect(during.chapters[0]!.readiness).toBe("ready");
+    expect(during.chapters[1]!.readiness).toBe("preparing");
+    await runJob(store, new CountingProvider(), job!.id, clock);
+    const ready = new Set(narrationFor(state, store.plan, "voice-june", today, H).status.readySentenceIds);
+    expect([...today.chapters[0]!.sentenceIds, ...today.chapters[1]!.sentenceIds].every((id) => ready.has(id))).toBe(true);
+  });
+
   it("a new edition keeps the old audiobook and reuses nothing it doesn't say the same way", async () => {
     const { state, store } = family();
     await seedFinished(state, store, LION, LION_OLD);
@@ -302,16 +369,20 @@ describe("existing audiobooks keep playing", () => {
     expect(q.reusedReady).toBe(0);
   });
 
-  it("a partly prepared earlier text is not pinned; preparation continues on today's text", async () => {
+  it("a partly prepared earlier text stays shown until today's has more; preparation continues on today's text", async () => {
     const { state, store } = family();
     const { library } = await seedFinished(state, store, GOLDILOCKS, GOLDILOCKS_OLD);
     state.segments = state.segments.filter((s) => s.libraryKey !== library.key || s.ordinal < 10);
-    const heard = narrationFor(state, store.plan, "voice-june", bookText(GOLDILOCKS)!, H);
-    expect(heard.pinned).toBe(false);
-    expect(heard.text.revision).toBe(bookText(GOLDILOCKS)!.revision);
-    // The ten lines already said the same way are free.
+    const today = bookText(GOLDILOCKS)!;
+    // Prepared audio is never hidden: the ten stored lines still count while today's text has none.
+    const heard = narrationFor(state, store.plan, "voice-june", today, H);
+    expect(heard).toMatchObject({ pinned: true, text: { revision: GOLDILOCKS_OLD }, status: { ready: 10 } });
+    // The ten lines already said the same way are free, and the work happens on today's text.
     const q = quote(state, store.plan, H, { voiceId: "voice-june", bookSlug: GOLDILOCKS, scope: "book" });
     expect(q.reusedReady).toBe(10);
+    const { job } = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: GOLDILOCKS, scope: "book" }, clock);
+    await runJob(store, new CountingProvider(), job!.id, clock);
+    expect(narrationFor(state, store.plan, "voice-june", today, H)).toMatchObject({ pinned: false, text: { revision: today.revision }, status: { readiness: "ready" } });
   });
 
   it("an earlier text with no snapshot is never guessed at", async () => {
