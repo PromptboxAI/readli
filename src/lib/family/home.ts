@@ -1,10 +1,11 @@
 import { CATALOG, NEW_BOOKS, MORE_BOOKS_ON_PHONES, findCatalogBook } from "@/lib/library/catalog";
 import { THE_END } from "@/lib/content/the-end";
-import { bookMinutes, listenable, narrationFor } from "@/lib/narration/narration";
+import { bookMinutes, listenable, listenableAt, narrationFor } from "@/lib/narration/narration";
 import { bookText } from "@/lib/narration/text";
 import type { Adult, FamilyState } from "./model";
 import { calledIn } from "./names";
 import { activeApproval, activeChild, activeShare, activeSlot, childVoiceAccess, isActiveMember } from "./permissions";
+import { isNewlyPrepared } from "./newest";
 import { DEFAULT_PLAN, type PlanConfig } from "./plan";
 
 /** Who a card shows: a selfie when there is one, else tinted initials. */
@@ -64,6 +65,8 @@ export interface ShelfBook {
   kids: ShelfKid[];
   /** Latest listening by any child, for ordering. */
   touchedAt: string | null;
+  /** When its narrations could first be played from the start, so a just-prepared book can say it's new. */
+  preparedAt: string | null;
   /** A narrator has the whole book; otherwise it's on the shelf with only its first chapters prepared. */
   complete: boolean;
 }
@@ -175,7 +178,7 @@ function names(list: string[]): string {
  * in a voice one of the kids may hear now, the newest books, and the family's storytellers with who may hear them.
  * `viewerId` is the signed-in adult, so their own voice reads as theirs rather than someone else's.
  */
-export function familyHome(state: FamilyState, householdId: string, plan: PlanConfig = DEFAULT_PLAN, viewerId?: string): FamilyHomeView {
+export function familyHome(state: FamilyState, householdId: string, plan: PlanConfig = DEFAULT_PLAN, viewerId?: string, now: number = Date.now()): FamilyHomeView {
   const kids = state.children.filter((c) => c.householdId === householdId && activeChild(state, c.id));
   const kidIds = new Set(kids.map((k) => k.id));
   const adultById = new Map(state.adults.map((a) => [a.id, calledIn(state, a, householdId)!]));
@@ -247,6 +250,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     if (!text) continue;
     const narrators = new Map<string, Adult | undefined>();
     const hearers = new Set<string>();
+    let preparedAt: string | null = null;
     let complete = false;
     for (const lib of state.libraries) {
       if (lib.bookSlug !== book.slug || !activeShare(state, lib.voiceId, householdId)) continue;
@@ -264,6 +268,8 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       if (heard.status.readiness === "ready") complete = true;
       narrators.set(voice.id, adultById.get(voice.ownerId));
       for (const k of allowed) hearers.add(k.id);
+      const readyAt = listenableAt(state, heard);
+      if (readyAt && (!preparedAt || readyAt > preparedAt)) preparedAt = readyAt;
     }
     if (!narrators.size) continue;
     const shelfKids: ShelfKid[] = kids
@@ -289,6 +295,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       minutes: Math.max(1, Math.round(bookMinutes(text, plan))),
       kids: shelfKids,
       touchedAt,
+      preparedAt,
       complete,
     });
   }
@@ -362,17 +369,19 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     percent: asked ? Math.min(99, Math.round((done / asked) * 100)) : 0,
   }));
 
-  // Within each state, the newest activity comes first: a child's latest listening, or else when the
-  // book last finished preparing in this family, so a book just prepared sits at the top.
+  // Books just prepared that nobody has started lead the shelf, newest first, so a grown-up finds what
+  // they just made ready (Kevin, 2026-11-08). After those, within each state, the newest activity comes
+  // first: a child's latest listening, or else when the book last finished preparing in this family.
   const preparedAt = new Map<string, string>();
   for (const job of state.jobs) {
     if (job.householdId !== householdId || job.status !== "done" || !job.finishedAt) continue;
     const slug = state.libraries.find((l) => l.key === job.libraryKey)?.bookSlug;
     if (slug && (preparedAt.get(slug) ?? "") < job.finishedAt) preparedAt.set(slug, job.finishedAt);
   }
-  const latest = (b: ShelfBook) => [b.touchedAt ?? "", preparedAt.get(b.slug) ?? ""].reduce((x, y) => (y > x ? y : x));
+  const latest = (b: ShelfBook) => [b.touchedAt ?? "", preparedAt.get(b.slug) ?? "", b.preparedAt ?? ""].reduce((x, y) => (y > x ? y : x));
   const order: ShelfState[] = ["progress", "ready", "done"];
-  shelf.sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state) || latest(b).localeCompare(latest(a)) || a.minutes - b.minutes);
+  const isNew = (b: ShelfBook) => isNewlyPrepared(b.preparedAt, now) && b.kids.every((k) => k.percent === null);
+  shelf.sort((a, b) => Number(isNew(b)) - Number(isNew(a)) || order.indexOf(a.state) - order.indexOf(b.state) || latest(b).localeCompare(latest(a)) || a.minutes - b.minutes);
 
   // A request drops off Home once the book is on that child's shelf, as well as when a grown-up clears it.
   // A book on the shelf with only its first chapters prepared keeps a request made after that preparation:

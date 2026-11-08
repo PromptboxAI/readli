@@ -13,7 +13,8 @@ import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
 import { pageCount, pageOf } from "@/lib/player/pages";
 import { activeChild } from "@/lib/family/permissions";
 import { familyPage } from "@/lib/family/page-data";
-import { kidsShelf } from "@/lib/kids/shelf";
+import { kidsShelf, type ShelfBook } from "@/lib/kids/shelf";
+import type { KidsShelfItem } from "@/components/family/KidsShelfGrid";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Readli Kids" };
@@ -42,7 +43,7 @@ export default async function KidsHome() {
   if (!child) return <NeedsGrownUp text="A grown-up opens your Readli Kids bookshelf for you." />;
   // Kids browse the family's books and listen to what's already prepared; they can't start generation.
   const store = (await familyStore(page.session!))!;
-  const { resume: shelfResume, ready, waiting } = await kidsShelf(store, actor!, page.state!, child.id);
+  const { resume: shelfResume, newest, ready, waiting } = await kidsShelf(store, actor!, page.state!, child.id);
   const resume = shelfResume?.book ?? null;
   const last = shelfResume?.progress;
   const reader = shelfResume?.reader;
@@ -85,7 +86,8 @@ export default async function KidsHome() {
       <KidsShelfGrid
         childId={child.id}
         showEmpty={!resume}
-        books={ready.map(({ book: b, voices, favorite }) => ({ slug: b.slug, title: b.title, coverUrl: b.coverUrl, tint: b.tint, voices, favorite }))}
+        newest={newest.map(toItem)}
+        books={ready.map(toItem)}
       />
 
       {waiting.length > 0 && (
@@ -122,6 +124,10 @@ export default async function KidsHome() {
       )}
     </main>
   );
+}
+
+function toItem({ book: b, voices, favorite }: ShelfBook): KidsShelfItem {
+  return { slug: b.slug, title: b.title, coverUrl: b.coverUrl, tint: b.tint, voices, favorite };
 }
 
 /** A device whose Readli Kids was ended by a parent, or unused for 90 days. */

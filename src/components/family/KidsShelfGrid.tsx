@@ -17,11 +17,12 @@ export interface KidsShelfItem {
 }
 
 /**
- * The ready books on a child's bookshelf: hearted ones in "My favorites", the rest in "Ready to listen".
- * Tapping a heart moves the book between the two rows straight away and saves it in the background.
+ * The ready books on a child's bookshelf: just-prepared ones in "New stories", hearted ones in
+ * "My favorites", the rest in "Ready to listen". Tapping a heart moves a book between the last two rows
+ * straight away and saves it in the background; a new story stays in New stories until it's started.
  */
-export function KidsShelfGrid({ childId, books, showEmpty }: { childId: string; books: KidsShelfItem[]; showEmpty: boolean }) {
-  const [favorites, setFavorites] = useState(() => new Set(books.filter((b) => b.favorite).map((b) => b.slug)));
+export function KidsShelfGrid({ childId, newest = [], books, showEmpty }: { childId: string; newest?: KidsShelfItem[]; books: KidsShelfItem[]; showEmpty: boolean }) {
+  const [favorites, setFavorites] = useState(() => new Set([...newest, ...books].filter((b) => b.favorite).map((b) => b.slug)));
   const set = (slug: string, on: boolean) =>
     setFavorites((prev) => {
       const next = new Set(prev);
@@ -41,7 +42,7 @@ export function KidsShelfGrid({ childId, books, showEmpty }: { childId: string; 
   };
   const faves = books.filter((b) => favorites.has(b.slug));
   const rest = books.filter((b) => !favorites.has(b.slug));
-  const grid = (list: KidsShelfItem[]) => (
+  const grid = (list: KidsShelfItem[], label = "Ready to listen", isNew = false) => (
     <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
       {list.map((b) => (
         <li key={b.slug} className="relative">
@@ -49,10 +50,15 @@ export function KidsShelfGrid({ childId, books, showEmpty }: { childId: string; 
             <span className="relative block">
               <KidsCover url={b.coverUrl} tint={b.tint} title={b.title} />
               <SavedBadge childId={childId} bookSlug={b.slug} />
+              {isNew && (
+                <span className="absolute top-2 left-2 rounded-full bg-sunshine px-2.5 py-0.5 font-display text-sm font-semibold shadow-[0_2px_0_rgb(40_53_72/0.15)]" aria-hidden="true">
+                  New
+                </span>
+              )}
             </span>
             <span className="font-display text-lg leading-tight font-semibold">{b.title}</span>
             <span className="text-sm text-muted">
-              <span className="sr-only">Ready to listen, </span>with {b.voices.join(" or ")}
+              <span className="sr-only">{label}, </span>with {b.voices.join(" or ")}
             </span>
           </Link>
           <span className="absolute top-2 right-2 rounded-full bg-surface/90">
@@ -64,6 +70,14 @@ export function KidsShelfGrid({ childId, books, showEmpty }: { childId: string; 
   );
   return (
     <>
+      {newest.length > 0 && (
+        <section className="flex flex-col gap-4" aria-labelledby="new-stories-h" data-testid="kids-new">
+          <h2 id="new-stories-h" className="font-display text-2xl font-semibold">
+            New stories
+          </h2>
+          {grid(newest, "New story", true)}
+        </section>
+      )}
       {faves.length > 0 && (
         <section className="flex flex-col gap-4" aria-labelledby="my-favorites-h" data-testid="kids-favorites">
           <h2 id="my-favorites-h" className="flex items-center gap-2 font-display text-2xl font-semibold">
@@ -75,8 +89,8 @@ export function KidsShelfGrid({ childId, books, showEmpty }: { childId: string; 
           {grid(faves)}
         </section>
       )}
-      {/* The story in Continue listening isn't repeated here; with nothing else ready, the section steps aside. */}
-      {(rest.length > 0 || (books.length === 0 && showEmpty)) && (
+      {/* Stories in Continue listening and New stories aren't repeated here; with nothing else ready, the section steps aside. */}
+      {(rest.length > 0 || (books.length === 0 && newest.length === 0 && showEmpty)) && (
         <section className="flex flex-col gap-4" aria-labelledby="my-stories-h" data-testid="kids-ready">
           <h2 id="my-stories-h" className="font-display text-2xl font-semibold">
             {faves.length > 0 ? "More stories" : "Ready to listen"}

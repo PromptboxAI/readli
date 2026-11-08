@@ -142,7 +142,20 @@ describe("generation credits (required tests)", () => {
     const home = familyHome(state, H, store.plan, "sara");
     expect(home.shelf.map((b) => b.slug)).toContain(LONG);
     const shelf = await kidsShelf(store, maya, state, "maya");
-    expect(shelf.ready.map((b) => b.book.slug)).toContain(LONG);
+    expect([...shelf.newest, ...shelf.ready].map((b) => b.book.slug)).toContain(LONG);
+  });
+
+  it("a book with only its first chapter prepared shows as new from when that chapter was ready", async () => {
+    const { store } = family();
+    const { job } = await requestGeneration(store, mom, H, chapter(1), clock);
+    await runJob(store, new Provider(), job!.id, clock);
+    const state = await store.read();
+    const segs = state.segments.filter((x) => x.libraryKey === job!.libraryKey && x.readyAt);
+    const at = segs.reduce((m, x) => (x.readyAt! > m ? x.readyAt! : m), "");
+    const now = Date.parse(at) + 60_000;
+    const shelf = await kidsShelf(store, maya, state, "maya", now);
+    expect(shelf.newest.find((b) => b.book.slug === LONG)?.preparedAt).toBe(at);
+    expect(familyHome(state, H, store.plan, "sara", now).shelf.find((b) => b.slug === LONG)?.preparedAt).toBe(at);
   });
 
   it("a child who reaches the end of a prepared chapter asks for the next one, and Home shows it", async () => {
