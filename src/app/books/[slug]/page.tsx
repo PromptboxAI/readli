@@ -150,7 +150,7 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
                 </section>
               )}
               <div className="flex flex-wrap gap-3">
-                <Link href={authConfigured() ? `/login?next=${encodeURIComponent(prepare)}` : prepare} className={buttonPrimary} data-testid="public-prepare">
+                <Link href={authConfigured() ? `/login?next=${encodeURIComponent(prepare)}` : prepare} className={buttonPrimary} data-testid="public-prepare" rel="nofollow">
                   Hear it in your family&apos;s voices
                 </Link>
                 <Link href="/try" className={buttonSecondary}>
