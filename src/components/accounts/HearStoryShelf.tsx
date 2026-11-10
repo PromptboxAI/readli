@@ -27,16 +27,26 @@ export function HearStoryShelf({ ready, texts = {} }: { ready: boolean; /** What
 
   useEffect(() => () => heard.current.forEach((p) => URL.revokeObjectURL(p.url)), []);
 
+  // Picking a story from the shelf brings the step's heading and the player back into view: once on the tap,
+  // and again when the player has replaced the loader, since its height changes the page.
+  const [asked, setAsked] = useState(0);
+  useEffect(() => {
+    if (!asked) return;
+    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const target = document.querySelector("h1") ?? topRef.current;
+    target?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+  }, [asked, loading, playing]);
+
   const hear = async (book: DemoBook) => {
     setError(null);
     setActiveSlug(book.slug);
+    setAsked((n) => n + 1);
     const already = heard.current.get(book.slug);
     if (already) {
       setPlaying({ ...already });
       return;
     }
     setLoading(true);
-    topRef.current?.scrollIntoView({ block: "start" });
     const res = await fetch(`/api/voice/sample?book=${encodeURIComponent(book.slug)}`, { method: "POST" }).catch(() => null);
     setLoading(false);
     if (!res?.ok) {
