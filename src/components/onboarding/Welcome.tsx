@@ -41,12 +41,15 @@ export function Welcome({
   startHref,
   name,
   askName,
+  nameNext,
 }: {
   kind: "family" | "storyteller";
   startHref: string;
   name?: string | null;
   /** The signed-in name to keep or change before starting. Sign-in fills it from Google, which may be a business or a nickname. */
   askName?: string | null;
+  /** Saving the name is the start button itself: it saves, then goes here (the new-signup welcome). */
+  nameNext?: string;
 }) {
   const copy = COPY[kind];
   const books = CATALOG.filter((b) => b.coverUrl).slice(0, SAMPLE);
@@ -106,15 +109,21 @@ export function Welcome({
               : "Families see this name on invitations and in Readli Kids. We filled it in from your sign-in, so change it if it isn't right."
           }
           placeholder={kind === "family" ? "Mom, Dad, Kevin…" : "Grandpa Joe, Nana, Aunt Sue…"}
+          next={nameNext}
+          submitLabel={nameNext ? "Let's get started!" : undefined}
         />
       )}
 
+      {nameNext && askName !== undefined ? (
+        <p className="text-sm text-muted">It takes about five minutes, and you can stop and come back any time.</p>
+      ) : (
       <div className="flex flex-col items-center gap-2 border-t border-ink/10 pt-6 sm:items-start">
         <Link href={startHref} className={buttonPrimary} data-testid="welcome-start">
           Let&apos;s get started!
         </Link>
         <p className="text-center text-sm text-muted sm:text-left">It takes about five minutes, and you can stop and come back any time.</p>
       </div>
+      )}
     </div>
   );
 }
