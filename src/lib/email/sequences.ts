@@ -98,7 +98,7 @@ async function planSummary(db: SupabaseClient, h: Household, name: string, now: 
     const state = await new AccountFamilyStore(db, { id: h.ownerId, name: name || "Grown-up" }, plan).read();
     const at = now.toISOString();
     const e = activeEntitlement(state, h.id, at);
-    if (!e) return "When you're ready, choose a plan in Billing to start making narration.";
+    if (!e) return "When you're ready, choose a plan in Billing to start making memories.";
     const b = creditBalance(state, plan, h.id, at);
     const credits = displayCredits(b.available, b.unitsPerCredit);
     const creditText = `${credits.toLocaleString("en-US")} narration ${credits === 1 ? "credit" : "credits"}`;
