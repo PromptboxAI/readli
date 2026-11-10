@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
 import { HearStoryShelf } from "@/components/accounts/HearStoryShelf";
+import { welcomeStoryTexts } from "@/lib/content/welcome-stories";
 import { Welcome } from "@/components/onboarding/Welcome";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { AdultPage } from "@/components/invites/AdultPage";
@@ -155,7 +156,7 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
         {ctx.voice !== "none" ? (
           <div className="flex flex-col gap-3" data-testid="start-listen">
             {ctx.voice !== "ready" && <p className="rounded-2xl bg-sunshine/50 p-4">Your voice is still being made, usually a minute. Refresh this page in a moment to play it.</p>}
-            <HearStoryShelf ready={ctx.voice === "ready"} />
+            <HearStoryShelf ready={ctx.voice === "ready"} texts={welcomeStoryTexts()} />
           </div>
         ) : (
           <Link href={startHref("voice")} className={`${buttonSecondary} self-start`}>

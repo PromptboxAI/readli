@@ -16,7 +16,7 @@ interface Played {
  * their own saved voice. A story heard once replays from this page without asking again. Like everywhere
  * else in Readli, nothing plays until they tap.
  */
-export function HearStoryShelf({ ready }: { ready: boolean }) {
+export function HearStoryShelf({ ready, texts = {} }: { ready: boolean; /** What each book reads, for the read-along. */ texts?: Record<string, string> }) {
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState<Played | null>(null);
@@ -67,7 +67,7 @@ export function HearStoryShelf({ ready }: { ready: boolean }) {
             {playing.standIn && <p className="rounded-xl bg-sunshine px-3 py-2 text-sm font-semibold text-ink">Test mode: this is a stand-in sound, not your voice.</p>}
             <details className="text-sm text-white/85">
               <summary className="cursor-pointer font-semibold">Read along</summary>
-              <p className="mt-2 leading-relaxed">{playing.book.passageText}</p>
+              <p className="mt-2 leading-relaxed">{texts[playing.book.slug] ?? playing.book.passageText}</p>
             </details>
           </div>
         </div>

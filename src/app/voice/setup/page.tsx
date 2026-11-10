@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
 import { HearStoryShelf } from "@/components/accounts/HearStoryShelf";
+import { welcomeStoryTexts } from "@/lib/content/welcome-stories";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { AdultPage } from "@/components/invites/AdultPage";
 import { Welcome } from "@/components/onboarding/Welcome";
@@ -259,7 +260,7 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
         {voice ? (
           <div className="flex flex-col gap-3" data-testid="storyteller-play">
             {!ready && <p className="rounded-2xl bg-sunshine/50 p-4">Your voice is still being made, usually a minute. Refresh this page in a moment to play it.</p>}
-            <HearStoryShelf ready={ready} />
+            <HearStoryShelf ready={ready} texts={welcomeStoryTexts()} />
           </div>
         ) : (
           <Link href={storytellerHref("voice")} className={`${buttonSecondary} self-start`}>
