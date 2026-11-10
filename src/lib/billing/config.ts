@@ -38,3 +38,13 @@ export function billingConfig(env: NodeJS.ProcessEnv = process.env): BillingConf
 export function paymentsOn(config: BillingConfig = billingConfig()): boolean {
   return config.mode !== "off";
 }
+
+/**
+ * The saved Stripe customer, only when it was made in the mode payments run in now. A customer from
+ * test mode doesn't exist in live mode (and the other way round), so after the switch to live a family
+ * that only ever paid in test mode checks out as a new customer.
+ */
+export function customerForMode(row: { customer_ref?: string | null; livemode?: boolean | null } | null | undefined, mode: PaymentsMode): string | undefined {
+  if (!row?.customer_ref || mode === "off") return undefined;
+  return Boolean(row.livemode) === (mode === "live") ? row.customer_ref : undefined;
+}
