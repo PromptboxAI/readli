@@ -174,7 +174,7 @@ describe("checkoutReturn", () => {
 
   it("returns the welcome's checkout to family setup, and a canceled one to the welcome's plans", () => {
     expect(checkoutReturn(origin, { fromSignup: false, fromStart: true, invitationId: null, returnPath: undefined })).toEqual({
-      success: `${origin}/family/setup?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      success: `${origin}/family/setup?checkout=success&from=start&session_id={CHECKOUT_SESSION_ID}`,
       cancel: `${origin}/start/plan?checkout=canceled`,
     });
   });
