@@ -79,6 +79,8 @@ export function HearStoryShelf({ ready }: { ready: boolean }) {
       )}
       <DemoBookShelf
         heading={playing ? "Pick another story" : "Pick a story to hear in your voice"}
+        // The same first story family setup prepares.
+        first="the-lion-and-the-mouse"
         onHear={(book) => void hear(book)}
         activeSlug={playing && !loading ? activeSlug : null}
         busy={loading}
