@@ -30,7 +30,7 @@ export interface HearOptions {
 }
 
 const hearButton =
-  "inline-flex min-h-12 items-center justify-center whitespace-nowrap rounded-full border-[3px] border-ink bg-sunshine px-2 text-sm font-display font-semibold sm:px-4 sm:text-base";
+  "inline-flex min-h-12 cursor-pointer items-center justify-center whitespace-nowrap rounded-full border-[3px] border-ink bg-sunshine px-2 text-sm font-display font-semibold transition-transform hover:-translate-y-0.5 hover:shadow-[0_3px_0_rgba(40,53,72,0.25)] active:scale-[0.97] disabled:translate-y-0 disabled:shadow-none motion-reduce:transform-none sm:px-4 sm:text-base";
 
 export function DemoBookCard({ book, onHear, activeSlug, disabledReason, explored, busy }: { book: DemoBook } & HearOptions) {
   const playable = isPassagePlayable(book);
