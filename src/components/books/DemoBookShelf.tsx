@@ -88,14 +88,19 @@ export function DemoBookCard({ book, onHear, activeSlug, disabledReason, explore
   );
 }
 
-export function DemoBookShelf({ heading = "Pick a story to hear in your voice", ...hear }: { heading?: string } & HearOptions) {
+export function DemoBookShelf({
+  heading = "Pick a story to hear in your voice",
+  first,
+  ...hear
+}: { heading?: string; /** A book to put at the front of this shelf only; the homepage keeps the decided order. */ first?: string } & HearOptions) {
+  const books = first ? [...DEMO_BOOKS.filter((b) => b.slug === first), ...DEMO_BOOKS.filter((b) => b.slug !== first)] : DEMO_BOOKS;
   return (
     <section aria-labelledby="demo-books-heading" data-testid="demo-books" className="flex flex-col gap-4">
       <h2 id="demo-books-heading" className="font-display text-2xl font-semibold sm:text-3xl">
         {heading}
       </h2>
       <ul className="grid grid-cols-2 gap-x-4 gap-y-8 rounded-[var(--radius-panel)] bg-bookcase px-5 pb-6 pt-7 sm:gap-x-6 sm:px-8 md:grid-cols-3">
-        {DEMO_BOOKS.map((book) => (
+        {books.map((book) => (
           <li key={book.slug} className="flex">
             <DemoBookCard book={book} {...hear} />
           </li>

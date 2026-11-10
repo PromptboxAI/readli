@@ -48,7 +48,7 @@ export function checkoutReturn(
     return { success: `${origin}${opts.returnPath}?checkout=success&session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}${opts.returnPath}?checkout=canceled` };
   }
   // The new-signup welcome's plan page: on to family setup once paid, or back to the plans if canceled.
-  if (opts.fromStart) return { success: `${origin}/family/setup?checkout=success&session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}/start/plan?checkout=canceled` };
+  if (opts.fromStart) return { success: `${origin}/family/setup?checkout=success&from=start&session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}/start/plan?checkout=canceled` };
   if (opts.fromSignup) return { success: `${origin}/family/setup?checkout=success&session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}/signup/family?checkout=canceled` };
   return { success: `${origin}/family/billing/thanks?session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}/family/settings/plan?checkout=canceled` };
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { cookies } from "next/headers";
+import { FAMILY_NAME_COOKIE } from "@/lib/onboarding/start";
 import { redirect } from "next/navigation";
 import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
 import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
@@ -158,7 +159,7 @@ function Done({ children }: { children: React.ReactNode }) {
  * co-parent and other storytellers, then prepare a first book. Family checkout and claimed gifts both
  * land here, and Family Home sends a new family here the first time it opens.
  */
-export default async function FamilySetupPage({ searchParams }: { searchParams: Promise<{ checkout?: string; session_id?: string; step?: string; book?: string; voice?: string; named?: string }> }) {
+export default async function FamilySetupPage({ searchParams }: { searchParams: Promise<{ checkout?: string; session_id?: string; step?: string; book?: string; voice?: string; named?: string; from?: string }> }) {
   const q = await searchParams;
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
@@ -194,7 +195,10 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   const invited = familyInvited(state, adultId, home, pendingInvites);
   const progress = setupProgress({ voice, kids: kids.length > 0, story: firstStoryChosen(state, home), family: invited });
   // A family that hasn't started yet sees the welcome page first: what Readli is, then "Let's get started!".
-  const welcome = q.step === "welcome" || (!q.step && !voice && kids.length === 0 && !progress.story);
+  // Someone who came through the signup welcome (/start) already saw it, named themselves and heard their voice:
+  // they carry on from the first step still to do, never the welcome again.
+  const throughStart = q.from === "start" || Boolean((await cookies()).get(FAMILY_NAME_COOKIE));
+  const welcome = q.step === "welcome" || (!q.step && !throughStart && !voice && kids.length === 0 && !progress.story);
   const step = setupStep(q.step, progress);
   // The first story can't be skipped: Listen and the last page wait until one is prepared (or being prepared).
   const storyLib = plan && (step === "listen" || step === "done") ? await familyLibrary(store, actor, home) : null;

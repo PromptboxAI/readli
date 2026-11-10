@@ -35,7 +35,9 @@ test("storytellers get a welcome page, then record, share and listen steps", asy
   await expect(page.getByTestId("storyteller-families")).toContainText("can use your voice now");
   await page.getByTestId("storyteller-next").click();
   await expect(page.getByTestId("storyteller-listen")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Play my story" })).toBeVisible();
+  const shelf = page.getByTestId("hear-story-shelf");
+  await expect(shelf).toContainText("The Lion and the Mouse");
+  await expect(shelf.getByRole("button", { name: "Hear this passage" }).first()).toBeVisible();
   await noOverflow(page);
 });
 

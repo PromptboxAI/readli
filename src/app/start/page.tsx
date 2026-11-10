@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AskName } from "@/components/account/AskName";
 import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
-import { HearMyVoice } from "@/components/accounts/HearMyVoice";
-import { ReadiMascot } from "@/components/brand/ReadiMascot";
+import { HearStoryShelf } from "@/components/accounts/HearStoryShelf";
+import { welcomeStoryTexts } from "@/lib/content/welcome-stories";
+import { Welcome } from "@/components/onboarding/Welcome";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { AdultPage } from "@/components/invites/AdultPage";
 import { StartStepper } from "@/components/onboarding/StartStepper";
@@ -65,28 +65,8 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
 
   let body: React.ReactNode;
   if (step === "name") {
-    body = (
-      <>
-        <header className="flex flex-col items-center gap-4 rounded-[var(--radius-panel)] bg-sky/40 px-5 py-8 text-center sm:flex-row sm:gap-8 sm:px-10 sm:text-left">
-          <ReadiMascot size={110} decorative />
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-bold tracking-wider uppercase">Welcome to Readli</p>
-            <h1 className="font-display text-3xl leading-tight font-semibold sm:text-4xl">Bedtime stories, read in the voices your kids love</h1>
-            <p className="text-lg">
-              In a few minutes you&apos;ll name your family, record your voice and hear it read a real bedtime story. Then you choose how you&apos;d like to use Readli.
-            </p>
-          </div>
-        </header>
-        <AskName
-          initial={ctx.name ?? ""}
-          label="First, what should we call you?"
-          hint="This is how you'll appear to your kids and the family you invite. Change it if the name from your sign-in isn't right."
-          placeholder="Mom, Dad, Grandpa Kevin…"
-          next={startHref("family")}
-          submitLabel="Next"
-        />
-      </>
-    );
+    // The same welcome family and storyteller setup open with: how Readli works, a peek at the library, then their name.
+    body = <Welcome kind="family" startHref={startHref("family")} name={first} askName={ctx.name ?? ""} nameNext={startHref("family")} />;
   } else if (step === "family") {
     body = (
       <>
@@ -174,9 +154,9 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
           </p>
         </header>
         {ctx.voice !== "none" ? (
-          <div className="flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10 sm:p-6" data-testid="start-listen">
+          <div className="flex flex-col gap-3" data-testid="start-listen">
             {ctx.voice !== "ready" && <p className="rounded-2xl bg-sunshine/50 p-4">Your voice is still being made, usually a minute. Refresh this page in a moment to play it.</p>}
-            <HearMyVoice ready={ctx.voice === "ready"} />
+            <HearStoryShelf ready={ctx.voice === "ready"} texts={welcomeStoryTexts()} />
           </div>
         ) : (
           <Link href={startHref("voice")} className={`${buttonSecondary} self-start`}>

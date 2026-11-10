@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
-import { HearMyVoice } from "@/components/accounts/HearMyVoice";
+import { HearStoryShelf } from "@/components/accounts/HearStoryShelf";
+import { welcomeStoryTexts } from "@/lib/content/welcome-stories";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { AdultPage } from "@/components/invites/AdultPage";
 import { Welcome } from "@/components/onboarding/Welcome";
@@ -257,9 +258,9 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
           </p>
         </header>
         {voice ? (
-          <div className="flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10 sm:p-6" data-testid="storyteller-play">
+          <div className="flex flex-col gap-3" data-testid="storyteller-play">
             {!ready && <p className="rounded-2xl bg-sunshine/50 p-4">Your voice is still being made, usually a minute. Refresh this page in a moment to play it.</p>}
-            <HearMyVoice ready={ready} />
+            <HearStoryShelf ready={ready} texts={welcomeStoryTexts()} />
           </div>
         ) : (
           <Link href={storytellerHref("voice")} className={`${buttonSecondary} self-start`}>
