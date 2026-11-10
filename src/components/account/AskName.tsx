@@ -13,12 +13,17 @@ export function AskName({
   hint = "This is how you'll appear to your kids and storytellers.",
   placeholder = "Mom, Dad, Grandpa Kevin…",
   initial = "",
+  next,
+  submitLabel = "Save",
 }: {
   label?: string;
   hint?: string;
   placeholder?: string;
   /** The name they have now (say, from their Google profile), to keep or change. */
   initial?: string;
+  /** Inside a walkthrough: go on to this page once saved, instead of staying here. */
+  next?: string;
+  submitLabel?: string;
 } = {}) {
   const id = useId();
   const router = useRouter();
@@ -32,12 +37,14 @@ export function AskName({
     setBusy(true);
     setError(null);
     const res = await fetch("/api/account", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ displayName: name.trim() }) }).catch(() => null);
-    setBusy(false);
     if (!res?.ok) {
+      setBusy(false);
       const body = await res?.json().catch(() => null);
       setError(body?.error?.message ?? "We couldn't save your name. Please try again.");
       return;
     }
+    if (next) return router.push(next);
+    setBusy(false);
     setSaved(true);
     router.refresh();
   };
@@ -62,7 +69,7 @@ export function AskName({
           className="min-h-12 w-full max-w-sm flex-1 rounded-2xl border-[3px] border-ink/20 bg-surface px-4 text-lg focus:border-ink"
         />
         <button type="submit" className={buttonPrimary} disabled={busy || !name.trim()}>
-          {busy ? "Saving…" : "Save"}
+          {busy ? "Saving…" : submitLabel}
         </button>
       </div>
       <p role="status" aria-live="polite" className={saved ? "text-sm font-semibold" : "sr-only"}>

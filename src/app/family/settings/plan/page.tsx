@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckoutDone, ManagePlan, StartPlan } from "@/components/family/BillingActions";
 import { CreditsPanel } from "@/components/family/CreditsPanel";
+import { buttonPrimary } from "@/components/brand/buttons";
 import { FamilyOff, NeedsGrownUp } from "@/components/family/FamilyShell";
 import { SettingsShell } from "@/components/family/SettingsShell";
 import { settingsBack, settingsLink } from "@/lib/family/settings-nav";
@@ -124,6 +125,8 @@ export default async function PlanAndCreditsPage({ searchParams }: { searchParam
   const shown = q.history === "all" ? history : history.slice(0, RECENT);
   const need = Math.max(0, Math.floor(Number(q.need) || 0));
   const returnTo = safeReturn(q.return);
+  // No plan and no credits yet: the page is just the way to the plans, not a wall of zeros and add-ons.
+  const noPlanYet = s.plan === "none" && b.available === 0 && b.held === 0 && history.length === 0;
   const monthlyLeft = b.allowance > 0 ? Math.min(1, (b.bySource.subscription + b.bySource.trial) / b.allowance) : 0;
 
   return (
@@ -147,7 +150,7 @@ export default async function PlanAndCreditsPage({ searchParams }: { searchParam
         </p>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className={`grid gap-4 ${noPlanYet ? "" : "lg:grid-cols-2"}`}>
         <section className={card} aria-labelledby="plan-h" data-testid="current-plan">
           <p className={label}>Plan</p>
           <div>
@@ -170,6 +173,7 @@ export default async function PlanAndCreditsPage({ searchParams }: { searchParam
           {s.plan === "subscription" && owns && <ManagePlan paymentsOn={paymentsOn} />}
         </section>
 
+        {!noPlanYet && (
         <section className={card} aria-labelledby="credits-h" data-testid="credit-balance">
           <h2 id="credits-h" className={label}>
             Credits
@@ -200,14 +204,27 @@ export default async function PlanAndCreditsPage({ searchParams }: { searchParam
           </p>
           {b.held > 0 && <p className="text-sm">{n(b.held)} credits are set aside for narration being prepared. Anything not used comes back.</p>}
         </section>
+        )}
       </div>
 
       {gift && <GiftCard gift={gift} ends={gift.endsAt ?? s.endsAt} />}
 
-      {s.canStartPlan && owns && (
+      {s.plan === "none" && owns && (
+        <section className="flex flex-col items-start gap-3 rounded-[var(--radius-panel)] bg-sunshine/40 p-5 sm:p-6" aria-labelledby="start-h" data-testid="choose-plan">
+          <h2 id="start-h" className="font-display text-2xl font-semibold">
+            Choose your plan
+          </h2>
+          <p className="text-lg">See what Readli Family includes, monthly or yearly, and start your family in a minute.</p>
+          <Link href="/start/plan" className={buttonPrimary}>
+            See plans
+          </Link>
+        </section>
+      )}
+
+      {s.canStartPlan && s.plan !== "none" && owns && (
         <section className="flex flex-col gap-3" aria-labelledby="start-h">
           <h2 id="start-h" className="font-display text-2xl font-semibold">
-            {s.plan === "none" ? "Start Readli Family" : s.plan === "sponsored" ? "Keep Readli with your own plan" : "Keep Readli Family going"}
+            {s.plan === "sponsored" ? "Keep Readli with your own plan" : "Keep Readli Family going"}
           </h2>
           {s.plan === "sponsored" && s.endsAt && (
             <p data-testid="own-plan-offer">
@@ -225,7 +242,7 @@ export default async function PlanAndCreditsPage({ searchParams }: { searchParam
         </section>
       )}
 
-      {owns && (
+      {owns && !noPlanYet && (
         <CreditsPanel
           packs={store.plan.creditPacks}
           need={need}
@@ -235,6 +252,7 @@ export default async function PlanAndCreditsPage({ searchParams }: { searchParam
         />
       )}
 
+      {!noPlanYet && (
       <section className="flex flex-col gap-2" aria-labelledby="history-h" data-testid="credit-history">
         <h2 id="history-h" className="font-display text-xl font-semibold">
           Credit activity
@@ -265,6 +283,7 @@ export default async function PlanAndCreditsPage({ searchParams }: { searchParam
           </Link>
         )}
       </section>
+      )}
 
       <p className="text-sm text-muted">
         A storyteller slot lets one more family voice read to your kids. Credits pay for preparing new stories, at {store.plan.charactersPerCredit.toLocaleString("en-US")}{" "}

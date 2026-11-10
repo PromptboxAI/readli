@@ -20,8 +20,8 @@ export const runtime = "nodejs";
 /**
  * Starts a Stripe Checkout for Readli Family ({ item: "family_monthly" | "family_annual", extraSlots })
  * or a credit pack ({ item: "credit_pack:<id>" }) and returns its URL. A Family checkout may name the
- * storyteller invitation (invitationId) that brought the household in, and from: "signup" to come back
- * to setup instead of Plan and billing. With that invitation, returnPath "/v/<token>/connect" comes back
+ * storyteller invitation (invitationId) that brought the household in, and from: "signup" (or "start",
+ * the new-signup welcome) to come back to setup instead of Plan and billing. With that invitation, returnPath "/v/<token>/connect" comes back
  * to the storyteller's guided steps instead. Answers 404 while payments are off. Plans and credits are
  * granted from the webhook, never from here. Unless the browser opted out, Meta hears InitiateCheckout
  * (sharing metaEventId with the pixel), and the browser's ad details ride in the session's metadata so
@@ -65,7 +65,8 @@ export async function POST(req: Request) {
     };
     const deferred = request.mode === "subscription" ? deferredStart(request.startsAfter) : {};
     const fromSignup = request.mode === "subscription" && body.from === "signup";
-    const back = checkoutReturn(origin, { fromSignup, invitationId, returnPath: body.returnPath });
+    const fromStart = request.mode === "subscription" && body.from === "start";
+    const back = checkoutReturn(origin, { fromSignup, fromStart, invitationId, returnPath: body.returnPath });
     const attribution = attributionFrom(req);
     const stripe = new StripeApi(config);
     try {
