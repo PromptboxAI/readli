@@ -3,7 +3,7 @@ import Link from "next/link";
 import { parentPrimary } from "@/components/brand/buttons";
 import { SessionButton } from "@/components/family/SessionButton";
 import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
-import { isNewlyPrepared } from "@/lib/family/newest";
+import { isNewOnFamilyShelf } from "@/lib/family/newest";
 import type { HomeKid, HomeStoryteller, ShelfBook, ShelfKid, UnassignedBook } from "@/lib/family/home";
 
 function names(list: string[]): string {
@@ -150,8 +150,8 @@ export function FamilyBookshelf({ books, phoneLimit, now = Date.now() }: { books
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <h3 className="font-display text-lg leading-tight font-semibold">
               {b.title}
-              {/* Just prepared and nobody has started it yet, so a grown-up can spot what's new. */}
-              {isNewlyPrepared(b.preparedAt, now) && b.kids.every((k) => k.percent === null) && (
+              {/* Just prepared and not every child has finished it yet, so a grown-up can spot what's new. */}
+              {isNewOnFamilyShelf(b.preparedAt, b.kids.map((k) => k.percent), now) && (
                 <span className="ml-2 inline-block rounded-full bg-sunshine px-2 py-0.5 align-[0.15em] font-sans text-xs font-bold" data-testid={`shelf-new-${b.slug}`}>
                   New
                 </span>

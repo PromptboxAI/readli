@@ -5,7 +5,7 @@ import { bookText } from "@/lib/narration/text";
 import type { Adult, FamilyState } from "./model";
 import { calledIn } from "./names";
 import { activeApproval, activeChild, activeShare, activeSlot, childVoiceAccess, isActiveMember } from "./permissions";
-import { isNewlyPrepared } from "./newest";
+import { isNewOnFamilyShelf } from "./newest";
 import { DEFAULT_PLAN, type PlanConfig } from "./plan";
 
 /** Who a card shows: a selfie when there is one, else tinted initials. */
@@ -369,7 +369,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     percent: asked ? Math.min(99, Math.round((done / asked) * 100)) : 0,
   }));
 
-  // Books just prepared that nobody has started lead the shelf, newest first, so a grown-up finds what
+  // Books just prepared that not every child has finished lead the shelf, newest first, so a grown-up finds what
   // they just made ready (Kevin, 2026-11-08). After those, within each state, the newest activity comes
   // first: a child's latest listening, or else when the book last finished preparing in this family.
   const preparedAt = new Map<string, string>();
@@ -380,7 +380,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
   }
   const latest = (b: ShelfBook) => [b.touchedAt ?? "", preparedAt.get(b.slug) ?? "", b.preparedAt ?? ""].reduce((x, y) => (y > x ? y : x));
   const order: ShelfState[] = ["progress", "ready", "done"];
-  const isNew = (b: ShelfBook) => isNewlyPrepared(b.preparedAt, now) && b.kids.every((k) => k.percent === null);
+  const isNew = (b: ShelfBook) => isNewOnFamilyShelf(b.preparedAt, b.kids.map((k) => k.percent), now);
   shelf.sort((a, b) => Number(isNew(b)) - Number(isNew(a)) || order.indexOf(a.state) - order.indexOf(b.state) || latest(b).localeCompare(latest(a)) || a.minutes - b.minutes);
 
   // A request drops off Home once the book is on that child's shelf, as well as when a grown-up clears it.

@@ -35,13 +35,25 @@ describe("kids shelf: New stories", () => {
     expect(ready.map((b) => b.book.slug)).toEqual(["the-three-little-pigs"]);
   });
 
-  it("moves a new story back to Ready to listen once the child starts it", async () => {
+  it("moves a new story back to Ready to listen once the child finishes it", async () => {
     const state = withReadyBook(demoFamilyState(), "the-lion-and-the-mouse", "2026-11-07T10:00:00Z");
     const total = bookText("the-lion-and-the-mouse")!.sentences.length;
     state.progress.push({ childId: "maya", bookSlug: "the-lion-and-the-mouse", sentence: total - 1, voiceId: "voice-sara", updatedAt: "2026-11-08T08:00:00Z" });
     const { newest, ready } = await shelf(state);
     expect(newest).toEqual([]);
     expect(ready.map((b) => b.book.slug)).toEqual(["the-lion-and-the-mouse"]);
+  });
+
+  it("keeps a sampled story in New stories, unless it's the one in Continue listening", async () => {
+    let state = demoFamilyState();
+    state = withReadyBook(state, "the-lion-and-the-mouse", "2026-11-07T10:00:00Z");
+    state = withReadyBook(state, "the-tale-of-peter-rabbit", "2026-11-07T11:00:00Z");
+    state.progress.push({ childId: "maya", bookSlug: "the-lion-and-the-mouse", sentence: 2, voiceId: "voice-sara", updatedAt: "2026-11-08T08:00:00Z" });
+    state.progress.push({ childId: "maya", bookSlug: "the-tale-of-peter-rabbit", sentence: 2, voiceId: "voice-sara", updatedAt: "2026-11-08T09:00:00Z" });
+    const { resume, newest, ready } = await shelf(state);
+    expect(resume?.book.slug).toBe("the-tale-of-peter-rabbit");
+    expect(newest.map((b) => b.book.slug)).toEqual(["the-lion-and-the-mouse"]);
+    expect(ready).toEqual([]);
   });
 
   it("shows at most one row of new stories", async () => {
