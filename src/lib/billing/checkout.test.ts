@@ -172,6 +172,13 @@ describe("checkoutReturn", () => {
     });
   });
 
+  it("returns the welcome's checkout to family setup, and a canceled one to the welcome's plans", () => {
+    expect(checkoutReturn(origin, { fromSignup: false, fromStart: true, invitationId: null, returnPath: undefined })).toEqual({
+      success: `${origin}/family/setup?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel: `${origin}/start/plan?checkout=canceled`,
+    });
+  });
+
   it("only for an invitation this household accepted, and only to a connect page", () => {
     expect(checkoutReturn(origin, { fromSignup: false, invitationId: null, returnPath: `/v/${token}/connect` }).success).toBe(`${origin}/family/billing/thanks?session_id={CHECKOUT_SESSION_ID}`);
     for (const returnPath of ["https://evil.example/v/x/connect", `//evil.example/v/${token}/connect`, `/v/${token}/connect?x=1`, "/family", `/v/short/connect`, 42]) {

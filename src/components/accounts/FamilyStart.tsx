@@ -5,14 +5,7 @@ import { LoginForm } from "@/components/auth/LoginForm";
 import { BillingChoice, type Billing } from "@/components/accounts/BillingChoice";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { PlanIncludes, StepHeading } from "@/components/accounts/SignupSteps";
-import { newMetaEventId, rememberCheckout, trackMeta } from "@/lib/marketing/meta-pixel";
-
-async function post(path: string, body: unknown): Promise<Record<string, unknown>> {
-  const res = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } } & Record<string, unknown>;
-  if (!res.ok) throw new Error(json.error?.message ?? "Checkout couldn't start. Please try again.");
-  return json;
-}
+import { startFamilyCheckout } from "@/lib/accounts/family-checkout";
 
 /**
  * Family signup: choose monthly or yearly with the real price, sign in with the emailed code on this
@@ -45,16 +38,7 @@ export function FamilyStart(props: {
       window.location.assign("/family?start=1");
       return;
     }
-    await post("/api/family/household", { provisional: true });
-    const item = billing === "annual" ? "family_annual" : "family_monthly";
-    const cents = billing === "annual" ? props.annualCents : props.monthlyCents;
-    // The server reports the same checkout with this id once Stripe's session exists.
-    const eventId = newMetaEventId();
-    trackMeta("InitiateCheckout", { value: cents / 100, currency: "USD", content_name: item }, eventId);
-    rememberCheckout(cents);
-    const { url } = await post("/api/billing/checkout", { item, from: "signup", ...(eventId ? { metaEventId: eventId } : {}) });
-    if (typeof url !== "string") throw new Error("Checkout couldn't start. Please try again.");
-    window.location.assign(url);
+    await startFamilyCheckout({ billing, cents: billing === "annual" ? props.annualCents : props.monthlyCents, familyName: null, from: "signup" });
   };
 
   const run = async () => {

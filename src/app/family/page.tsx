@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AskName } from "@/components/account/AskName";
-import { CreateFamily } from "@/components/family/CreateFamily";
 import { InviteActions } from "@/components/invites/InviteActions";
 import { FamilyRewardsCard } from "@/components/rewards/FamilyRewardsCard";
 import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
@@ -43,6 +42,7 @@ import { settingsLink } from "@/lib/family/settings-nav";
 import { unreadCount } from "@/lib/family/activity";
 import { familyInvited, firstStoryChosen, firstStoryReady, hasReadingVoice, SETUP_TOTAL, setupProgress } from "@/lib/family/setup";
 import { SETUP_LATER_COOKIE } from "@/lib/family/setup-cookie";
+import { START_CHOSE_VOICE_COOKIE } from "@/lib/onboarding/start";
 import { cookies } from "next/headers";
 
 function SignOutButton() {
@@ -149,22 +149,11 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   }
   const kids = guardianChildren(state, adult.id);
   if (account && !state.members.some((m) => m.adultId === adult.id && m.removedAt === null)) {
-    return (
-      <FamilyShell>
-        <div>
-          <p className="text-muted">Signed in as</p>
-          <h1 className="font-display text-4xl font-semibold">{myName ?? account.email ?? "you"}</h1>
-        </div>
-        {!myName && <AskName />}
-        <CreateFamily />
-        <div className="flex flex-wrap gap-2">
-          <Link href="/family/settings" className={parentSecondary}>
-            Settings
-          </Link>
-          <SignOutButton />
-        </div>
-      </FamilyShell>
-    );
+    // Someone new, with no family and no voice yet: the welcome walks them through their name, their family's
+    // name, their voice and a story read in it, then the plans. Once they chose to stay on free Readli Voice,
+    // My Voice is their home instead.
+    if (!startingFamily && (await cookies()).get(START_CHOSE_VOICE_COOKIE)) redirect("/voice");
+    redirect(startingFamily ? "/start/plan" : "/start");
   }
   const isGuardian = state.members.some((m) => m.adultId === adult.id && m.role === "guardian" && m.removedAt === null);
   const home = homeHousehold(state, adult.id) ?? undefined;
@@ -175,7 +164,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   const lapsed = isGuardian && pastPlans.length > 0;
   const endedAt = pastPlans.map((e) => e.endsAt).filter((d): d is string => d !== null && d <= new Date().toISOString()).sort().at(-1) ?? null;
   // Family signup continues to choosing a plan, so nobody lands on an empty portal with no way to check out.
-  if (startingFamily && isGuardian && !hasPlan) redirect("/family/settings/plan");
+  if (startingFamily && isGuardian && !hasPlan) redirect("/start/plan");
   // An invitation carried through signup or checkout: offer the next step until a child can listen.
   const carried = account && isGuardian && home ? await carriedInvitationToken() : null;
   const inviteCtx = carried ? invitationContext() : null;

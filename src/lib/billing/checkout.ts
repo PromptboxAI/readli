@@ -40,10 +40,15 @@ const INVITATION_RETURN = /^\/v\/[A-Za-z0-9_-]{20,64}\/connect$/;
  * household accepted, and only to an invitation's connect page. Family signup returns to setup. Stripe
  * fills in the session id, which the thank-you page's pixel event shares with the webhook's.
  */
-export function checkoutReturn(origin: string, opts: { fromSignup: boolean; invitationId: string | null; returnPath: unknown }): { success: string; cancel: string } {
+export function checkoutReturn(
+  origin: string,
+  opts: { fromSignup: boolean; fromStart?: boolean; invitationId: string | null; returnPath: unknown },
+): { success: string; cancel: string } {
   if (opts.invitationId && typeof opts.returnPath === "string" && INVITATION_RETURN.test(opts.returnPath)) {
     return { success: `${origin}${opts.returnPath}?checkout=success&session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}${opts.returnPath}?checkout=canceled` };
   }
+  // The new-signup welcome's plan page: on to family setup once paid, or back to the plans if canceled.
+  if (opts.fromStart) return { success: `${origin}/family/setup?checkout=success&session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}/start/plan?checkout=canceled` };
   if (opts.fromSignup) return { success: `${origin}/family/setup?checkout=success&session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}/signup/family?checkout=canceled` };
   return { success: `${origin}/family/billing/thanks?session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}/family/settings/plan?checkout=canceled` };
 }
