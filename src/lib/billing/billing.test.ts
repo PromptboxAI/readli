@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { billingConfig, paymentsOn } from "./config";
+import { billingConfig, customerForMode, paymentsOn } from "./config";
 import { signStripePayload, verifyStripeSignature } from "./stripe-signature";
 
 const env = (vars: Record<string, string>) => vars as unknown as NodeJS.ProcessEnv;
@@ -32,6 +32,23 @@ describe("billingConfig", () => {
 
   it("refuses keys that aren't Stripe secret keys", () => {
     expect(billingConfig(env({ PAYMENTS_ENABLED: "true", ...keys, STRIPE_SECRET_KEY: "pk_test_abc" })).offReason).toBe("unknown_key");
+  });
+});
+
+describe("customerForMode", () => {
+  it("reuses a customer only in the mode it was made in", () => {
+    expect(customerForMode({ customer_ref: "cus_test", livemode: false }, "test")).toBe("cus_test");
+    expect(customerForMode({ customer_ref: "cus_live", livemode: true }, "live")).toBe("cus_live");
+  });
+
+  it("starts a new customer in live mode when the saved one is from test mode, and the other way round", () => {
+    expect(customerForMode({ customer_ref: "cus_test", livemode: false }, "live")).toBeUndefined();
+    expect(customerForMode({ customer_ref: "cus_live", livemode: true }, "test")).toBeUndefined();
+  });
+
+  it("has nothing to reuse without a saved customer or with payments off", () => {
+    expect(customerForMode(null, "live")).toBeUndefined();
+    expect(customerForMode({ customer_ref: "cus_live", livemode: true }, "off")).toBeUndefined();
   });
 });
 

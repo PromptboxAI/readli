@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { after, NextResponse } from "next/server";
 import { checkoutRequest, checkoutReturn, deferredStart } from "@/lib/billing/checkout";
-import { billingConfig } from "@/lib/billing/config";
+import { billingConfig, customerForMode } from "@/lib/billing/config";
 import { StripeApi, StripeError } from "@/lib/billing/stripe-api";
 import { catalogItem } from "@/lib/billing/catalog";
 import { effectivePlan } from "@/lib/billing/price-settings";
@@ -51,7 +51,8 @@ export async function POST(req: Request) {
     const request = checkoutRequest(plan, activeEntitlement(state, householdId), String(body.item ?? ""), body.extraSlots);
     if (!request.ok) return fail(request.status, request.code, request.message);
 
-    const { data: customer } = await db.from("billing_customers").select("customer_ref").eq("household_id", householdId).maybeSingle();
+    const { data: saved } = await db.from("billing_customers").select("customer_ref, livemode").eq("household_id", householdId).maybeSingle();
+    const customerRef = customerForMode(saved, config.mode);
     const origin = new URL(req.url).origin;
     const invitationId = request.mode === "subscription" ? await acceptedInvitation(db, householdId, body.invitationId) : null;
     const metadata = {
@@ -81,8 +82,8 @@ export async function POST(req: Request) {
         mode: request.mode,
         line_items: lineItems,
         client_reference_id: householdId,
-        customer: customer?.customer_ref ?? undefined,
-        customer_email: customer ? undefined : (session.account.email ?? undefined),
+        customer: customerRef,
+        customer_email: customerRef ? undefined : (session.account.email ?? undefined),
         metadata: { ...metadata, ...attributionMetadata(attribution) },
         ...(request.mode === "subscription"
           ? { subscription_data: { metadata: { ...metadata, ...deferred.metadata }, trial_end: deferred.trial_end } }
