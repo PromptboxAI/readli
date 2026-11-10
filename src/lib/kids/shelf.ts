@@ -18,7 +18,7 @@ export interface ShelfBook {
 export interface KidsShelf {
   /** The story this child is part way through, if it is still ready for them and not finished. */
   resume: { book: CatalogBook; progress: ChildBookProgress; reader: NarratorView | undefined; total: number } | null;
-  /** New stories: prepared in the last couple of weeks and not started yet, newest first. */
+  /** New stories: prepared in the last couple of weeks and not finished yet, newest first. */
   newest: ShelfBook[];
   /** Ready to listen, favorites first (the page shows them in their own row), leaving out the stories already shown in Continue listening and New stories. */
   ready: ShelfBook[];
@@ -67,10 +67,20 @@ export async function kidsShelf(store: FamilyStore, actor: Actor, state: FamilyS
     last && resumeBook
       ? { book: resumeBook, progress: last, reader: last.voiceId ? nameOf.get(last.voiceId) : undefined, total: bookText(resumeBook.slug)?.sentences.length ?? 1 }
       : null;
-  // New stories, for the ones a grown-up just got ready: once the child starts one, it moves back to Ready to listen.
-  const started = new Set(state.progress.filter((p) => p.childId === childId && p.sentence > 0).map((p) => p.bookSlug));
+  // New stories, for the ones a grown-up just got ready: a book stays here while the child samples it, and
+  // moves to Ready to listen once they finish it or two weeks pass (Kevin, 2026-11-10). The book in Continue
+  // listening shows only there.
+  const finishedBooks = new Set(
+    state.progress
+      .filter((p) => {
+        if (p.childId !== childId || p.sentence <= 0) return false;
+        const text = bookText(p.bookSlug);
+        return Boolean(text) && reachedEnd(text!.sentences, p.sentence);
+      })
+      .map((p) => p.bookSlug),
+  );
   const newest = allReady
-    .filter((b) => b.book.slug !== resume?.book.slug && !started.has(b.book.slug) && isNewlyPrepared(b.preparedAt, now))
+    .filter((b) => b.book.slug !== resume?.book.slug && !finishedBooks.has(b.book.slug) && isNewlyPrepared(b.preparedAt, now))
     .sort((a, b) => b.preparedAt!.localeCompare(a.preparedAt!))
     .slice(0, NEWEST_SHOWN);
   const shownNew = new Set(newest.map((b) => b.book.slug));

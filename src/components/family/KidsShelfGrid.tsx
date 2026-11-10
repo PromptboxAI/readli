@@ -19,7 +19,7 @@ export interface KidsShelfItem {
 /**
  * The ready books on a child's bookshelf: just-prepared ones in "New stories", hearted ones in
  * "My favorites", the rest in "Ready to listen". Tapping a heart moves a book between the last two rows
- * straight away and saves it in the background; a new story stays in New stories until it's started.
+ * straight away and saves it in the background; a new story stays in New stories until it's finished or two weeks pass.
  */
 export function KidsShelfGrid({ childId, newest = [], books, showEmpty }: { childId: string; newest?: KidsShelfItem[]; books: KidsShelfItem[]; showEmpty: boolean }) {
   const [favorites, setFavorites] = useState(() => new Set([...newest, ...books].filter((b) => b.favorite).map((b) => b.slug)));
