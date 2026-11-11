@@ -20,8 +20,8 @@ import { shareKeptVoice } from "@/lib/invites/share-on-keep";
 import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
 import { recorderProps } from "@/lib/voice/recorder";
-import {
 import { PinStep } from "@/components/onboarding/PinStep";
+import {
   STORYTELLER_STEP_LABELS,
   STORYTELLER_STEPS,
   storytellerHref,
