@@ -280,10 +280,10 @@ function ConfirmDelete({ account: a, backQs, cancel }: { account: AdminAccount; 
           Type <strong className="break-all">{a.email}</strong> to confirm.
         </label>
         <input id="confirm-email" name="confirmEmail" autoComplete="off" required autoFocus className="min-w-0 flex-1 rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/15" />
-        <button className={buttonPrimary}>Delete account</button>
         <Link href={cancel} className={buttonSecondary}>
           Cancel
         </Link>
+        <button className={buttonPrimary}>Delete account</button>
       </form>
     </section>
   );
@@ -333,10 +333,10 @@ function GrantCredits({ account: a, balances, backQs, cancel }: { account: Admin
           <input name="note" maxLength={200} placeholder="Credits from Readli" className={input} />
         </label>
         <div className="flex flex-wrap gap-2 sm:col-span-2">
-          <button className={buttonPrimary}>Add credits</button>
           <Link href={cancel} className={buttonSecondary}>
             Cancel
           </Link>
+          <button className={buttonPrimary}>Add credits</button>
         </div>
       </form>
     </section>

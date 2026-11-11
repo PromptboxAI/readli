@@ -51,6 +51,9 @@ export function AccountVoiceSetup({
   askName = false,
   waiting = null,
   nextLabel,
+  intro,
+  footer,
+  doneFooter,
 }: {
   hasVoice: boolean;
   next?: string;
@@ -67,6 +70,12 @@ export function AccountVoiceSetup({
   waiting?: WaitingRecording | null;
   /** Inside a setup walkthrough: names the next step, in place of "Continue". */
   nextLabel?: string;
+  /** The step's heading and how-to, shown only until there's a recording: once they're hearing it, "Does this sound like you?" leads. */
+  intro?: React.ReactNode;
+  /** The step's Back / Skip row, shown until the voice is kept. */
+  footer?: React.ReactNode;
+  /** The step's Back / Next row once the voice is kept. It replaces the ready card's own button, so there's one way forward. */
+  doneFooter?: React.ReactNode;
 }) {
   const [step, setStep] = useState(waiting ? 2 : 0);
   /** On the first step: make the voice from the /try take (preferred) or record a new one. */
@@ -231,6 +240,7 @@ export function AccountVoiceSetup({
 
   return (
     <div className="flex flex-col gap-6">
+      {step < 2 && intro}
       {step === 0 && (
         <section className="flex max-w-2xl flex-col gap-5" data-testid="voice-start">
           {error && (
@@ -356,7 +366,11 @@ export function AccountVoiceSetup({
             </p>
           )}
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          {/* The main button sits last (on the right), and on top when the buttons stack on a phone. */}
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap">
+            <button type="button" className={buttonSecondary} disabled={busy} onClick={() => recordAgain()}>
+              Record Again
+            </button>
             {phase === "ready" && sample?.cleanUp === cleanUp ? (
               <button type="button" className={buttonPrimary} onClick={() => void keepVoice()}>
                 Keep This Voice
@@ -366,9 +380,6 @@ export function AccountVoiceSetup({
                 {sample ? `Try again with clean-up ${cleanUp ? "on" : "off"}` : busy ? "Creating…" : "Create & Hear My Voice"}
               </button>
             )}
-            <button type="button" className={buttonSecondary} disabled={busy} onClick={() => recordAgain()}>
-              Record Again
-            </button>
           </div>
           <RecordingTipsDialog open={tipsOpen} onClose={() => setTipsOpen(false)} onRecordAgain={() => recordAgain(true)} where="account_sample" />
         </section>
@@ -384,18 +395,21 @@ export function AccountVoiceSetup({
               <AskName label="What should families call you?" hint="Invitations use this name, like “Grandpa Joe has a bedtime story for your family.”" placeholder="Grandpa Joe, Nana, Aunt Sue…" />
             </div>
           )}
-          <div className="flex w-full flex-col items-center gap-2 sm:w-auto">
-            <Link href={next ?? "/voice/invite"} className={`${buttonPrimary} w-full sm:w-auto`}>
-              {nextLabel ?? (next ? "Continue" : "Choose a Story to Share")}
-            </Link>
-            {!next && (
-              <Link href={myVoice} className={buttonQuiet}>
-                Go to My Voice
+          {!doneFooter && (
+            <div className="flex w-full flex-col items-center gap-2 sm:w-auto">
+              <Link href={next ?? "/voice/invite"} className={`${buttonPrimary} w-full sm:w-auto`}>
+                {nextLabel ?? (next ? "Continue" : "Choose a Story to Share")}
               </Link>
-            )}
-          </div>
+              {!next && (
+                <Link href={myVoice} className={buttonQuiet}>
+                  Go to My Voice
+                </Link>
+              )}
+            </div>
+          )}
         </section>
       )}
+      {step === 3 ? doneFooter : step !== 1 && footer}
     </div>
   );
 }

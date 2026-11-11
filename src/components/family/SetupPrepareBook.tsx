@@ -10,9 +10,10 @@ import type { GenerationQuote, PrepareBookView } from "@/lib/narration/narration
 
 /**
  * Setup's Book step: the one intro book, prepared right here in the parent's own voice. One tap shows the cost
- * on the button and prepares it; the step waits while it's made, then goes on to Listen. Never leaves setup.
+ * on the button (or that it's on us, for a new family) and prepares it; a progress bar shows it being made,
+ * then the step's Next goes on to Listen. Never leaves setup.
  */
-export function SetupPrepareBook({ initial, voiceId, listenHref }: { initial: PrepareBookView; voiceId: string; listenHref: string }) {
+export function SetupPrepareBook({ initial, voiceId, onUs = false }: { initial: PrepareBookView; voiceId: string; /** A new family's first book: free. */ onUs?: boolean }) {
   const router = useRouter();
   const [view, setView] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -21,6 +22,9 @@ export function SetupPrepareBook({ initial, voiceId, listenHref }: { initial: Pr
   const v = view.voices.find((x) => x.voiceId === voiceId) ?? null;
   const preparing = Boolean(v && (v.status.readiness === "preparing" || v.jobId !== null));
   const ready = v?.availability === "ready";
+  // From the tap on, so there's something to watch while the request starts the work.
+  const working = !ready && (busy || preparing);
+  const pct = v && v.status.total > 0 ? Math.round((v.status.ready / v.status.total) * 100) : 0;
 
   const reload = useCallback(async () => {
     const res = await fetch(url, { cache: "no-store" });
@@ -28,10 +32,10 @@ export function SetupPrepareBook({ initial, voiceId, listenHref }: { initial: Pr
   }, [url]);
 
   useEffect(() => {
-    if (!preparing) return;
+    if (!working) return;
     const id = window.setInterval(reload, 1500);
     return () => window.clearInterval(id);
-  }, [preparing, reload]);
+  }, [working, reload]);
 
   useEffect(() => {
     if (ready) router.refresh();
@@ -50,7 +54,7 @@ export function SetupPrepareBook({ initial, voiceId, listenHref }: { initial: Pr
   const prepare = async () => {
     setBusy(true);
     setMessage(null);
-    const target = { voiceId, scope: "book" as const };
+    const target = { voiceId, scope: "book" as const, welcome: onUs };
     // The button already shows the cost, so the quote and the go-ahead happen in one tap.
     const quoted = (await post(target)) as { quote: GenerationQuote } | null;
     const done = quoted ? ((await post({ ...target, confirm: true })) as { view: PrepareBookView } | null) : null;
@@ -78,17 +82,27 @@ export function SetupPrepareBook({ initial, voiceId, listenHref }: { initial: Pr
         {!v ? (
           <p>Your voice isn&apos;t ready to read yet. It usually takes a few minutes after recording.</p>
         ) : ready ? (
-          <>
-            <p className="font-semibold">Ready! It&apos;s on your kids&apos; bookshelves now.</p>
-            <Link href={listenHref} className={parentPrimary} data-testid="setup-book-next">
-              Next: listen to it
-            </Link>
-          </>
-        ) : preparing ? (
-          <p role="status" className="font-semibold">
-            Preparing it in your voice now. This usually takes a minute or two.
+          <p className="font-semibold" data-testid="setup-book-ready">
+            Ready! It&apos;s on your kids&apos; bookshelves now. Tap Next to listen to it.
           </p>
-        ) : v.availability === "needs_credits" ? (
+        ) : working ? (
+          <div className="flex w-full flex-col gap-2" data-testid="setup-book-preparing">
+            <p role="status" className="font-semibold">
+              Preparing it in your voice now. This usually takes a minute or two, and you can stay right here.
+            </p>
+            <div
+              className="h-2 w-full overflow-hidden rounded-full bg-ink/10"
+              role="progressbar"
+              aria-valuenow={pct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`${pct}% prepared`}
+            >
+              <div className={`h-full rounded-full bg-ink transition-[width] duration-500 ${pct === 0 ? "w-1/12 animate-pulse" : ""}`} style={pct ? { width: `${pct}%` } : undefined} />
+            </div>
+            <p className="text-sm text-muted">{v.status.ready > 0 ? `${v.status.ready} of ${v.status.total} sentences prepared` : "Getting started…"}</p>
+          </div>
+        ) : v.availability === "needs_credits" && !onUs ? (
           <>
             <p>You need {displayCredits(v.extraCreditsNeeded, view.credits.unitsPerCredit)} more credits to prepare it.</p>
             <Link href="/family/settings/plan" className={parentSecondary}>
@@ -99,7 +113,7 @@ export function SetupPrepareBook({ initial, voiceId, listenHref }: { initial: Pr
           <p>{v.unavailableReason ?? "This voice can't read it yet."}</p>
         ) : (
           <button type="button" className={parentPrimary} disabled={busy} onClick={() => void prepare()} data-testid="setup-prepare-book">
-            {busy ? "Starting…" : `Prepare it · ${cost} ${cost === 1 ? "credit" : "credits"}`}
+            {onUs ? "Prepare it free" : `Prepare it · ${cost} ${cost === 1 ? "credit" : "credits"}`}
           </button>
         )}
         {message && (

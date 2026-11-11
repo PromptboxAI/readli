@@ -58,6 +58,9 @@ export function ContributorDashboard({ invited = false }: { invited?: boolean })
               <div className="flex flex-col gap-3 rounded-2xl bg-coral/20 p-4">
                 <p className="font-semibold">Delete your voice? Every family loses it straight away, and their kids can&apos;t hear it any more.</p>
                 <div className="flex flex-wrap gap-3">
+                  <button type="button" className={buttonSecondary} onClick={() => setConfirmDelete(false)}>
+                    Keep it
+                  </button>
                   <button
                     type="button"
                     className={buttonPrimary}
@@ -68,9 +71,6 @@ export function ContributorDashboard({ invited = false }: { invited?: boolean })
                     }}
                   >
                     Delete my voice
-                  </button>
-                  <button type="button" className={buttonSecondary} onClick={() => setConfirmDelete(false)}>
-                    Keep it
                   </button>
                 </div>
               </div>
@@ -116,11 +116,11 @@ export function ContributorDashboard({ invited = false }: { invited?: boolean })
               Nothing plays until they do.
             </p>
             <div className="flex flex-wrap gap-3">
-              <button type="button" className={buttonPrimary} disabled={voice !== "ready"} onClick={() => set(f.id, "shared")}>
-                Share my voice
-              </button>
               <button type="button" className={buttonSecondary} onClick={() => set(f.id, "declined")}>
                 Not now
+              </button>
+              <button type="button" className={buttonPrimary} disabled={voice !== "ready"} onClick={() => set(f.id, "shared")}>
+                Share my voice
               </button>
             </div>
           </article>

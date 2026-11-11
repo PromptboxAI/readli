@@ -11,6 +11,7 @@ import { StartStepper } from "@/components/onboarding/StartStepper";
 import { FAMILY_NAME_MAX, startHref, startStep, startStepBefore, type StartStep } from "@/lib/onboarding/start";
 import { startContext } from "@/lib/onboarding/start-server";
 import { recorderProps } from "@/lib/voice/recorder";
+import { PinStep } from "@/components/onboarding/PinStep";
 
 export const metadata: Metadata = {
   title: "Welcome | Readli",
@@ -95,26 +96,44 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
             </p>
           )}
           <div className="flex flex-wrap items-center gap-5 pt-2">
-            <button type="submit" className={buttonPrimary}>
+            <Back step="family" />
+            <button type="submit" className={`${buttonPrimary} ml-auto`}>
               Next: record your voice
             </button>
-            <Back step="family" />
           </div>
         </form>
       </>
     );
   } else if (step === "voice") {
     const recorder = ctx.voice === "none" ? await recorderProps(ctx.userId) : null;
+    const intro = (
+      <header className="flex flex-col gap-2">
+        <h1 className="font-display text-3xl font-semibold sm:text-4xl">{ctx.voice === "none" ? "Now, record your voice" : "Your voice is recorded"}</h1>
+        <p className="max-w-2xl text-lg">
+          {ctx.voice === "none"
+            ? "Read a short passage aloud in your bedtime-story voice. It takes about a minute, and you only do it once. Your voice stays private: only the families you choose can use it."
+            : "Next, hear it read a bedtime story. You can record again any time from My Voice."}
+        </p>
+      </header>
+    );
+    // Back on the left; on the right, skip ahead until there's a voice, then Next.
+    const nav = (recorded: boolean) => (
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-ink/10 pt-5">
+        <Back step="voice" />
+        {recorded ? (
+          <Link href={startHref("listen")} className={`${buttonPrimary} ml-auto`} data-testid="start-next">
+            Next: hear it read a story
+          </Link>
+        ) : (
+          <Link href={startHref("plan")} className={`${buttonSecondary} ml-auto`} data-testid="start-skip">
+            Skip, I&apos;ll record later
+          </Link>
+        )}
+      </div>
+    );
     body = (
       <>
-        <header className="flex flex-col gap-2">
-          <h1 className="font-display text-3xl font-semibold sm:text-4xl">{ctx.voice === "none" ? "Now, record your voice" : "Your voice is recorded"}</h1>
-          <p className="max-w-2xl text-lg">
-            {ctx.voice === "none"
-              ? "Read a short passage aloud in your bedtime-story voice. It takes about a minute, and you only do it once. Your voice stays private: only the families you choose can use it."
-              : "Next, hear it read a bedtime story. You can record again any time from My Voice."}
-          </p>
-        </header>
+        {!recorder && intro}
         {ctx.voice !== "none" ? (
           <Done>{ctx.voice === "ready" ? "Your voice is ready." : "Your voice is being made. It usually takes a minute, so carry on."}</Done>
         ) : recorder ? (
@@ -124,22 +143,14 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
             waiting={recorder.waiting}
             next={startHref("listen")}
             nextLabel="Next: hear it read a story"
+            intro={intro}
+            footer={nav(false)}
+            doneFooter={nav(true)}
           />
         ) : (
           <p className="rounded-2xl bg-sunshine/50 p-4">Recording isn&apos;t switched on here yet, so you can go straight on to choosing a plan.</p>
         )}
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-ink/10 pt-5">
-          {ctx.voice !== "none" ? (
-            <Link href={startHref("listen")} className={buttonPrimary} data-testid="start-next">
-              Next: hear it read a story
-            </Link>
-          ) : (
-            <Link href={startHref("plan")} className={buttonSecondary} data-testid="start-skip">
-              Skip, I&apos;ll record later
-            </Link>
-          )}
-          <Back step="voice" />
-        </div>
+        {!recorder && nav(ctx.voice !== "none")}
       </>
     );
   } else {
@@ -164,10 +175,10 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
           </Link>
         )}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-ink/10 pt-5">
-          <Link href={startHref("plan")} className={buttonPrimary} data-testid="start-next">
+          <Back step="listen" />
+          <Link href={startHref("plan")} className={`${buttonPrimary} ml-auto`} data-testid="start-next">
             Next: choose your plan
           </Link>
-          <Back step="listen" />
         </div>
       </>
     );
@@ -176,6 +187,7 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
   return (
     <AdultPage>
       <StartStepper step={step} done={done} />
+      {!q.step && <PinStep step={step} />}
       <div className="flex flex-col gap-6" data-testid={`start-${step}`}>
         {body}
       </div>

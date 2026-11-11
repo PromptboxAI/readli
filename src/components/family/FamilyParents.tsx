@@ -128,11 +128,11 @@ export function FamilyParents({ view, initialInvites, live, inSetup = false }: {
                         : `${p.name} will stop being a parent in ${view.familyName}. The children keep every storyteller ${p.name} approved, and ${p.name}'s own voice leaves your storyteller slots.`}
                     </p>
                     <div className="flex flex-wrap gap-3">
-                      <button type="button" className={parentPrimary} disabled={busy !== null} onClick={() => remove(p.adultId, p.you)}>
-                        {busy === p.adultId ? "Working…" : p.you ? "Leave family" : `Remove ${p.name}`}
-                      </button>
                       <button type="button" className={parentSecondary} onClick={() => setConfirming(null)}>
                         Cancel
+                      </button>
+                      <button type="button" className={parentPrimary} disabled={busy !== null} onClick={() => remove(p.adultId, p.you)}>
+                        {busy === p.adultId ? "Working…" : p.you ? "Leave family" : `Remove ${p.name}`}
                       </button>
                     </div>
                   </div>
@@ -199,11 +199,11 @@ export function FamilyParents({ view, initialInvites, live, inSetup = false }: {
                 {sent.link}
               </p>
               <div className="flex flex-wrap gap-3">
-                <button type="button" className={parentPrimary} onClick={() => share(sent.link, sent.name)}>
-                  {copied ? "Link copied" : "Share the link"}
-                </button>
                 <button type="button" className={parentSecondary} onClick={() => setSent(null)}>
                   Done
+                </button>
+                <button type="button" className={parentPrimary} onClick={() => share(sent.link, sent.name)}>
+                  {copied ? "Link copied" : "Share the link"}
                 </button>
               </div>
             </section>

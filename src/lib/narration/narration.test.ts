@@ -25,9 +25,12 @@ import {
   libraryStatus,
   listenView,
   prepareView,
+  quote,
   readPlayback,
   requestGeneration,
   runJob,
+  WELCOME_BOOK,
+  welcomeBookOnUs,
 } from "./narration";
 import { creditBalance } from "./credits";
 import { bookText, withoutTheEnd } from "./text";
@@ -432,3 +435,31 @@ describe("grown-up listening", () => {
   });
 });
 
+
+describe("a new family's first book is on Readli", () => {
+  it("setup's welcome book costs nothing the first time, and only then", async () => {
+    const { state, store } = family();
+    const first = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: BOOK, scope: "book", welcome: true }, clock);
+    expect(first.quote.free).toBe(true);
+    expect(first.quote.credits).toBe(0);
+    expect(charged(state, H)).toBe(0);
+    await runJob(store, new CountingProvider(), first.job!.id, clock);
+    expect(welcomeBookOnUs(state, H, WELCOME_BOOK)).toBe(false);
+  });
+
+  it("is charged without the setup flag, for another book, or once something else was prepared", async () => {
+    const { state, store } = family();
+    expect(quote(state, DEFAULT_PLAN, H, { voiceId: "voice-june", bookSlug: BOOK, scope: "book" }).free).toBe(false);
+    expect(welcomeBookOnUs(state, H, "the-tale-of-peter-rabbit")).toBe(false);
+    await prepareJune(store);
+    expect(charged(state, H)).toBeGreaterThan(0);
+    expect(welcomeBookOnUs(state, H, WELCOME_BOOK)).toBe(false);
+  });
+
+  it("can be tried again after a stopped first try", async () => {
+    const { state, store } = family();
+    const { job } = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: BOOK, scope: "book", welcome: true }, clock);
+    await cancelGeneration(store, mom, job!.id, clock);
+    expect(welcomeBookOnUs(state, H, WELCOME_BOOK)).toBe(true);
+  });
+});

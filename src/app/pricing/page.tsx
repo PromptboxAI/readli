@@ -100,17 +100,17 @@ export default async function PricingPage() {
         </section>
 
         <section aria-label="Plans" className="bg-sunshine/35 px-4 pb-14 sm:px-6">
-          <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-[1.25fr_1fr]">
+          <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-2">
             <article
               aria-labelledby="plan-family"
               data-testid="plan-family"
-              className="flex flex-col gap-5 rounded-[var(--radius-panel)] border-[3px] border-ink bg-surface p-6 shadow-[6px_8px_0_rgba(40,53,72,0.15)] sm:p-8"
+              className="flex flex-col gap-4 rounded-[var(--radius-panel)] border-[3px] border-ink bg-surface p-6 shadow-[6px_8px_0_rgba(40,53,72,0.15)] sm:p-8"
             >
               <div className="flex flex-col gap-1">
                 <h2 id="plan-family" className="font-display text-3xl font-semibold">
                   Readli Family
                 </h2>
-                <p className="font-display text-4xl font-semibold">
+                <p className="font-display text-2xl">
                   {dollars(P.familyMonthlyCents)}
                   <span className="text-lg font-normal text-muted">/month</span>
                 </p>
@@ -136,14 +136,14 @@ export default async function PricingPage() {
             <article
               aria-labelledby="plan-voice"
               data-testid="plan-voice"
-              className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-mint/60 p-6 ring-2 ring-ink/10 sm:p-8"
+              className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-mint/50 p-6 ring-2 ring-ink/10 sm:p-8"
             >
               <div className="flex flex-col gap-1">
                 <h2 id="plan-voice" className="font-display text-3xl font-semibold">
                   Readli Voice
                 </h2>
-                <p className="font-display text-4xl font-semibold">Always free</p>
-                <p className="text-muted">Record your voice once. Share it with the families you love.</p>
+                <p className="font-display text-2xl">Always free</p>
+                <p>Record your voice once. Share it with the families you love.</p>
               </div>
               <PlanList items={VOICE_HIGHLIGHTS} />
               <Link href="/signup/voice" className={`${buttonSecondary} mt-auto w-full`}>

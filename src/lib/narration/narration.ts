@@ -741,6 +741,19 @@ export interface GenerationRequest {
   chapter?: number;
   /** For passage scope: generated first, in this order. */
   sentenceIds?: string[];
+  /** Family setup's first book: prepared on Readli when the family hasn't prepared anything yet (see welcomeBookOnUs). */
+  welcome?: boolean;
+}
+
+/** The short book family setup prepares first. */
+export const WELCOME_BOOK = "the-lion-and-the-mouse";
+
+/**
+ * A new family's first book is on Readli: setup's welcome book, while the family has no preparation
+ * started or finished (a stopped or failed one doesn't count, so they can try again).
+ */
+export function welcomeBookOnUs(state: FamilyState, householdId: string, slug: string): boolean {
+  return slug === WELCOME_BOOK && !state.jobs.some((j) => j.householdId === householdId && j.status !== "failed" && j.status !== "canceled");
 }
 
 export interface GenerationQuote {
@@ -756,7 +769,7 @@ export interface GenerationQuote {
   reusedReady: number;
   /** Segments another request is already generating (that request pays). */
   alreadyQueued: number;
-  /** A Readli correction of a book this family already has: generated without spending their credits. */
+  /** A Readli correction of a book this family already has, or a new family's first book: generated without spending their credits. */
   free: boolean;
   scope: GenerationRequest["scope"];
   chapter: { number: number; title: string } | null;
@@ -797,6 +810,8 @@ export function quote(state: FamilyState, plan: PlanConfig, householdId: string,
   const carried = req.scope === "passage" ? new Set<string>() : carriedSentences(heard, text);
   // A Readli correction re-prepares what the family already had at Readli's cost; anything new is charged.
   const correction = freeCorrection(state, plan, req.voiceId, text, householdId);
+  // So is a new family's first book in setup.
+  const onUs = req.welcome === true && req.scope === "book" && welcomeBookOnUs(state, householdId, req.bookSlug);
   const missing: string[] = [];
   const freeIds: string[] = [];
   let characters = 0;
@@ -810,11 +825,11 @@ export function quote(state: FamilyState, plan: PlanConfig, householdId: string,
     else {
       missing.push(s.id);
       characters += s.text.length;
-      if (correction && (heard.status.readiness === "ready" || carried.has(s.id))) freeIds.push(s.id);
+      if (onUs || (correction && (heard.status.readiness === "ready" || carried.has(s.id)))) freeIds.push(s.id);
       else credits += creditsFor(s.text.length);
     }
   }
-  const free = correction && missing.length > 0 && freeIds.length === missing.length;
+  const free = (correction || onUs) && missing.length > 0 && freeIds.length === missing.length;
   const chapter = req.scope === "chapter" ? text.chapters.find((c) => c.number === req.chapter)! : null;
   return {
     sentenceIds: missing,

@@ -101,14 +101,14 @@ export function AccountSettings({ blockers }: { blockers: DeletionBlocker[] }) {
               </>
             )}
             <div className="flex flex-wrap gap-2">
+              <button type="button" className={buttonSmallQuiet} disabled={busy} onClick={() => (setOpen(false), setConfirm(""))}>
+                Keep my account
+              </button>
               {blockers.length === 0 && (
                 <button type="submit" className={buttonSmallPrimary} disabled={busy || confirm !== DELETE_CONFIRMATION}>
                   {busy ? "Deleting…" : "Delete my account"}
                 </button>
               )}
-              <button type="button" className={buttonSmallQuiet} disabled={busy} onClick={() => (setOpen(false), setConfirm(""))}>
-                Keep my account
-              </button>
             </div>
           </form>
         )}
