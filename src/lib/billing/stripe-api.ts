@@ -6,7 +6,7 @@ import type { CatalogItem } from "./catalog";
  * Callers check payments are on first; this refuses to run while they're off.
  */
 type Scalar = string | number | boolean | null | undefined;
-interface Params {
+export interface Params {
   [key: string]: Scalar | Params | Params[] | string[];
 }
 

@@ -430,7 +430,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     status: "published",
     answer: [
       "Your plan includes two storyteller slots. Each shared voice you want your children to hear uses one slot. If your family would like more storytellers, you can add extra slots for $5.99 a month each.",
-      "Extra slots don't add narration credits, and the relative sharing their voice never pays anything. You can add or remove extra slots at any time from Settings, then Plan & credits.",
+      "Extra slots don't add narration credits, and the relative sharing their voice never pays anything. The parent who manages your plan can add or remove extra slots at any time from My Family, then Family storytellers. Adding one charges the rest of the current billing period; removing one needs an empty slot and credits the unused time on your next bill.",
     ],
     keywords: ["slots", "more storytellers", "third voice"],
     related: ["family-plan-included", "voice-not-available-to-child"],

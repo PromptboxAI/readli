@@ -3,7 +3,7 @@ import { after, NextResponse } from "next/server";
 import { checkoutRequest, checkoutReturn, deferredStart } from "@/lib/billing/checkout";
 import { billingConfig, customerForMode } from "@/lib/billing/config";
 import { StripeApi, StripeError } from "@/lib/billing/stripe-api";
-import { catalogItem } from "@/lib/billing/catalog";
+import { slotItemFor } from "@/lib/billing/catalog";
 import { effectivePlan } from "@/lib/billing/price-settings";
 import { accountDb } from "@/lib/family/account-store";
 import { jsonBody, withFamily } from "@/lib/family/http";
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
         request.mode === "subscription"
           ? [
               { price: await stripe.priceFor(request.plan), quantity: 1 },
-              ...(request.extraSlots ? [{ price: await stripe.priceFor(catalogItem(plan, "extra_slot")!), quantity: request.extraSlots }] : []),
+              ...(request.extraSlots ? [{ price: await stripe.priceFor(slotItemFor(plan, request.plan.interval === "year" ? "year" : "month")), quantity: request.extraSlots }] : []),
             ]
           : [{ price: await stripe.priceFor(request.pack), quantity: 1 }];
       const checkout = await stripe.createCheckoutSession({
@@ -95,7 +95,7 @@ export async function POST(req: Request) {
       if (attribution) {
         const cents =
           request.mode === "subscription"
-            ? request.plan.amountCents + (request.extraSlots ? (catalogItem(plan, "extra_slot")?.amountCents ?? 0) * request.extraSlots : 0)
+            ? request.plan.amountCents + (request.extraSlots ? slotItemFor(plan, request.plan.interval === "year" ? "year" : "month").amountCents * request.extraSlots : 0)
             : request.pack.amountCents;
         const email = session.account.email;
         after(() =>
