@@ -30,7 +30,7 @@ describe("Family onboarding", () => {
     const row = w.tables.email_outbox![0]!;
     expect(row).toMatchObject({ email_id: "F1", category: "transactional", recipient_user_id: PARENT, household_id: "h1" });
     expect(row.body).toContain("Hi Dana,");
-    expect(row.body).toContain("https://readli.ai/family");
+    expect(row.body).toContain("https://readli.ai/home");
     await w.run();
     expect(w.queued()).toEqual(["F1:h1"]);
   });
