@@ -109,24 +109,26 @@ function StepNav({ step, ready, skip = "Skip for now", nextHref, required }: { s
   const next = stepAfter(step);
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-ink/10 pt-5">
-      {!ready && required ? (
-        // A step that can't be skipped: Next waits until it's done.
-        <button type="button" className={`${parentPrimary} cursor-not-allowed opacity-50`} disabled data-testid="setup-next">
-          {required}
-        </button>
-      ) : (
-        <Link href={nextHref ?? setupHref(next)} className={ready ? parentPrimary : parentSecondary} data-testid="setup-next">
-          {ready ? NEXT_LABEL[next] : skip}
-        </Link>
-      )}
       {backHref && (
         <Link href={backHref} className="font-semibold underline underline-offset-4">
           Back
         </Link>
       )}
-      <Link href="/family/setup/later" className="ml-auto text-sm text-muted underline underline-offset-4 hover:text-ink">
-        Finish setting up later
-      </Link>
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-x-5 gap-y-3">
+        <Link href="/family/setup/later" className="text-sm text-muted underline underline-offset-4 hover:text-ink">
+          Finish setting up later
+        </Link>
+        {!ready && required ? (
+          // A step that can't be skipped: Next waits until it's done.
+          <button type="button" className={`${parentPrimary} cursor-not-allowed opacity-50`} disabled data-testid="setup-next">
+            {required}
+          </button>
+        ) : (
+          <Link href={nextHref ?? setupHref(next)} className={ready ? parentPrimary : parentSecondary} data-testid="setup-next">
+            {ready ? NEXT_LABEL[next] : skip}
+          </Link>
+        )}
+      </div>
     </div>
   );
 }
@@ -523,11 +525,11 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
           </section>
         )}
         <div className="flex flex-wrap items-center gap-4 border-t border-ink/10 pt-5">
-          <Link href="/family/setup/later" className={parentPrimary} data-testid="setup-finish">
-            Go to Family Home
-          </Link>
           <Link href={setupHref("listen")} className={parentSecondary}>
             Back
+          </Link>
+          <Link href="/family/setup/later" className={`${parentPrimary} ml-auto`} data-testid="setup-finish">
+            Go to Family Home
           </Link>
         </div>
       </>

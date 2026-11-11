@@ -73,17 +73,19 @@ function StepNav({ step, ready, skip = "Skip for now", nextHref }: { step: Story
   const next = storytellerStepAfter(step);
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-ink/10 pt-5">
-      <Link href={nextHref ?? storytellerHref(next)} className={ready ? buttonPrimary : buttonSecondary} data-testid="storyteller-next">
-        {ready ? NEXT_LABEL[next] : skip}
-      </Link>
       {back && (
         <Link href={storytellerHref(back)} className="font-semibold underline underline-offset-4">
           Back
         </Link>
       )}
-      <Link href="/voice/setup/later" className="ml-auto text-sm text-muted underline underline-offset-4 hover:text-ink">
-        Finish later
-      </Link>
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-x-5 gap-y-3">
+        <Link href="/voice/setup/later" className="text-sm text-muted underline underline-offset-4 hover:text-ink">
+          Finish later
+        </Link>
+        <Link href={nextHref ?? storytellerHref(next)} className={ready ? buttonPrimary : buttonSecondary} data-testid="storyteller-next">
+          {ready ? NEXT_LABEL[next] : skip}
+        </Link>
+      </div>
     </div>
   );
 }
@@ -283,11 +285,11 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
           </p>
         </header>
         <div className="flex flex-wrap items-center gap-4 border-t border-ink/10 pt-5">
-          <Link href="/voice/setup/later" className={buttonPrimary} data-testid="storyteller-finish">
-            Go to My Voice
-          </Link>
           <Link href={storytellerHref("listen")} className={buttonSecondary}>
             Back
+          </Link>
+          <Link href="/voice/setup/later" className={`${buttonPrimary} ml-auto`} data-testid="storyteller-finish">
+            Go to My Voice
           </Link>
         </div>
       </>

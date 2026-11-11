@@ -95,10 +95,10 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
             </p>
           )}
           <div className="flex flex-wrap items-center gap-5 pt-2">
-            <button type="submit" className={buttonPrimary}>
+            <Back step="family" />
+            <button type="submit" className={`${buttonPrimary} ml-auto`}>
               Next: record your voice
             </button>
-            <Back step="family" />
           </div>
         </form>
       </>
@@ -129,16 +129,16 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
           <p className="rounded-2xl bg-sunshine/50 p-4">Recording isn&apos;t switched on here yet, so you can go straight on to choosing a plan.</p>
         )}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-ink/10 pt-5">
+          <Back step="voice" />
           {ctx.voice !== "none" ? (
-            <Link href={startHref("listen")} className={buttonPrimary} data-testid="start-next">
+            <Link href={startHref("listen")} className={`${buttonPrimary} ml-auto`} data-testid="start-next">
               Next: hear it read a story
             </Link>
           ) : (
-            <Link href={startHref("plan")} className={buttonSecondary} data-testid="start-skip">
+            <Link href={startHref("plan")} className={`${buttonSecondary} ml-auto`} data-testid="start-skip">
               Skip, I&apos;ll record later
             </Link>
           )}
-          <Back step="voice" />
         </div>
       </>
     );
@@ -164,10 +164,10 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
           </Link>
         )}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-ink/10 pt-5">
-          <Link href={startHref("plan")} className={buttonPrimary} data-testid="start-next">
+          <Back step="listen" />
+          <Link href={startHref("plan")} className={`${buttonPrimary} ml-auto`} data-testid="start-next">
             Next: choose your plan
           </Link>
-          <Back step="listen" />
         </div>
       </>
     );
