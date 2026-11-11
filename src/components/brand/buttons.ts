@@ -20,3 +20,11 @@ const parent =
 
 export const parentPrimary = `${parent} bg-ink text-white hover:bg-ink/85`;
 export const parentSecondary = `${parent} border border-ink/25 bg-surface text-ink hover:border-ink/60`;
+
+/**
+ * A step's bottom row: Back (or another way back) first, the way forward last. Side by side from small screens
+ * up, with the forward button on the right; on a phone the forward button goes full width with Back centered under it.
+ */
+export const stepRow = "flex flex-col-reverse items-center gap-3 sm:flex-row sm:gap-5";
+/** The forward button in a stepRow. */
+export const stepNext = "w-full sm:ml-auto sm:w-auto";

@@ -115,13 +115,13 @@ export function Welcome({
       )}
 
       {nameNext && askName !== undefined ? (
-        <p className="text-sm text-muted">It takes about five minutes, and you can stop and come back any time.</p>
+        <p className="text-center text-sm text-muted sm:text-right">It takes about five minutes, and you can stop and come back any time.</p>
       ) : (
-      <div className="flex flex-col items-center gap-2 border-t border-ink/10 pt-6 sm:items-start">
-        <Link href={startHref} className={buttonPrimary} data-testid="welcome-start">
+      <div className="flex flex-col items-center gap-2 border-t border-ink/10 pt-6 sm:items-end">
+        <Link href={startHref} className={`${buttonPrimary} w-full sm:w-auto`} data-testid="welcome-start">
           Let&apos;s get started!
         </Link>
-        <p className="text-center text-sm text-muted sm:text-left">It takes about five minutes, and you can stop and come back any time.</p>
+        <p className="text-center text-sm text-muted sm:text-right">It takes about five minutes, and you can stop and come back any time.</p>
       </div>
       )}
     </div>

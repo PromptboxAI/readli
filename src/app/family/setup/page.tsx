@@ -4,7 +4,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { FAMILY_NAME_COOKIE } from "@/lib/onboarding/start";
 import { redirect } from "next/navigation";
-import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
+import { parentPrimary, parentSecondary, stepNext, stepRow } from "@/components/brand/buttons";
 import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
 import { CheckoutDone } from "@/components/family/BillingActions";
 import { SetKidsPin } from "@/components/family/SetKidsPin";
@@ -110,7 +110,7 @@ function StepNav({ step, ready, skip = "Skip for now", nextHref, required }: { s
   const next = stepAfter(step);
   return (
     <div className="flex flex-col gap-4 border-t border-ink/10 pt-5">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+      <div className={stepRow}>
         {backHref && (
           <Link href={backHref} className="font-semibold underline underline-offset-4">
             Back
@@ -118,11 +118,11 @@ function StepNav({ step, ready, skip = "Skip for now", nextHref, required }: { s
         )}
         {!ready && required ? (
           // A step that can't be skipped: Next waits until it's done.
-          <button type="button" className={`${parentPrimary} ml-auto cursor-not-allowed opacity-50`} disabled data-testid="setup-next">
+          <button type="button" className={`${parentPrimary} ${stepNext} cursor-not-allowed opacity-50`} disabled data-testid="setup-next">
             {required}
           </button>
         ) : (
-          <Link href={nextHref ?? setupHref(next)} className={`${ready ? parentPrimary : parentSecondary} ml-auto`} data-testid="setup-next">
+          <Link href={nextHref ?? setupHref(next)} className={`${ready ? parentPrimary : parentSecondary} ${stepNext}`} data-testid="setup-next">
             {ready ? NEXT_LABEL[next] : skip}
           </Link>
         )}
@@ -542,11 +542,11 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
             <NameFamily current="" />
           </section>
         )}
-        <div className="flex flex-wrap items-center gap-4 border-t border-ink/10 pt-5">
+        <div className={`${stepRow} border-t border-ink/10 pt-5`}>
           <Link href={setupHref("listen")} className={parentSecondary}>
             Back
           </Link>
-          <Link href="/family/setup/later" className={`${parentPrimary} ml-auto`} data-testid="setup-finish">
+          <Link href="/family/setup/later" className={`${parentPrimary} ${stepNext}`} data-testid="setup-finish">
             Go to Family Home
           </Link>
         </div>
