@@ -185,7 +185,16 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
           <Done>{ready ? "Your voice is ready." : "Your voice is being made. It usually takes a minute, so carry on."}</Done>
         ) : recorder ? (
           // Recording, making and keeping the voice all happen right here, so setup never leaves for another page.
-          <AccountVoiceSetup hasVoice={recorder.hasVoice} guestTake={recorder.guestTake} waiting={recorder.waiting} next={storytellerHref("share")} nextLabel="Next: share it with a family" intro={intro} />
+          <AccountVoiceSetup
+            hasVoice={recorder.hasVoice}
+            guestTake={recorder.guestTake}
+            waiting={recorder.waiting}
+            next={storytellerHref("share")}
+            nextLabel="Next: share it with a family"
+            intro={intro}
+            footer={<StepNav step="voice" ready={false} skip="Skip, I'll record later" />}
+            doneFooter={<StepNav step="voice" ready />}
+          />
         ) : (
           <div className="flex flex-col items-start gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10 sm:p-6">
             <ul className="flex list-disc flex-col gap-1 pl-5">
@@ -199,7 +208,7 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
             {waiting && <p className="text-sm text-muted">You recorded your voice but haven&apos;t kept it yet. Listen to it, then tap Keep This Voice.</p>}
           </div>
         )}
-        <StepNav step="voice" ready={Boolean(voice)} skip="Skip, I'll record later" />
+        {!recorder && <StepNav step="voice" ready={Boolean(voice)} skip="Skip, I'll record later" />}
       </>
     );
   } else if (step === "share") {

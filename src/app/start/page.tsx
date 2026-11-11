@@ -115,6 +115,21 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
         </p>
       </header>
     );
+    // Back on the left; on the right, skip ahead until there's a voice, then Next.
+    const nav = (recorded: boolean) => (
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-ink/10 pt-5">
+        <Back step="voice" />
+        {recorded ? (
+          <Link href={startHref("listen")} className={`${buttonPrimary} ml-auto`} data-testid="start-next">
+            Next: hear it read a story
+          </Link>
+        ) : (
+          <Link href={startHref("plan")} className={`${buttonSecondary} ml-auto`} data-testid="start-skip">
+            Skip, I&apos;ll record later
+          </Link>
+        )}
+      </div>
+    );
     body = (
       <>
         {!recorder && intro}
@@ -128,22 +143,13 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
             next={startHref("listen")}
             nextLabel="Next: hear it read a story"
             intro={intro}
+            footer={nav(false)}
+            doneFooter={nav(true)}
           />
         ) : (
           <p className="rounded-2xl bg-sunshine/50 p-4">Recording isn&apos;t switched on here yet, so you can go straight on to choosing a plan.</p>
         )}
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-ink/10 pt-5">
-          <Back step="voice" />
-          {ctx.voice !== "none" ? (
-            <Link href={startHref("listen")} className={`${buttonPrimary} ml-auto`} data-testid="start-next">
-              Next: hear it read a story
-            </Link>
-          ) : (
-            <Link href={startHref("plan")} className={`${buttonSecondary} ml-auto`} data-testid="start-skip">
-              Skip, I&apos;ll record later
-            </Link>
-          )}
-        </div>
+        {!recorder && nav(ctx.voice !== "none")}
       </>
     );
   } else {

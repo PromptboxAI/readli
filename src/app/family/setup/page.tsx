@@ -262,7 +262,17 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
           <Done>{ownInState?.status === "ready" ? "Your voice is ready." : "Your voice is being made. It usually takes a few minutes, so carry on."}</Done>
         ) : recorder ? (
           // Recording, making and keeping the voice all happen right here, so setup never leaves for another page.
-          <AccountVoiceSetup hasVoice={recorder.hasVoice} guestTake={recorder.guestTake} waiting={recorder.waiting} parent next={setupHref("kids")} nextLabel="Next: add your kids" intro={intro} />
+          <AccountVoiceSetup
+            hasVoice={recorder.hasVoice}
+            guestTake={recorder.guestTake}
+            waiting={recorder.waiting}
+            parent
+            next={setupHref("kids")}
+            nextLabel="Next: add your kids"
+            intro={intro}
+            footer={<StepNav step="voice" ready={false} skip="Skip, I'll record later" />}
+            doneFooter={<StepNav step="voice" ready />}
+          />
         ) : (
           <div className="flex flex-col items-start gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10 sm:p-6">
             <ul className="flex list-disc flex-col gap-1 pl-5">
@@ -275,7 +285,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
             </Link>
           </div>
         )}
-        <StepNav step="voice" ready={recorded} skip="Skip, I'll record later" />
+        {!recorder && <StepNav step="voice" ready={recorded} skip="Skip, I'll record later" />}
       </>
     );
   } else if (step === "kids") {
