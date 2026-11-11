@@ -105,7 +105,7 @@ export function CheckoutDone({ sessionId }: { sessionId?: string }) {
   return null;
 }
 
-/** Opens Stripe's page for changing the card, slots or canceling. */
+/** Opens Stripe's billing page: card, invoices and canceling. Storyteller slots are managed in Readli, not here. */
 export function ManagePlan({ paymentsOn }: { paymentsOn: boolean }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -122,7 +122,7 @@ export function ManagePlan({ paymentsOn }: { paymentsOn: boolean }) {
           void goTo("/api/billing/portal", {}, setError).finally(() => setBusy(false));
         }}
       >
-        Change card, slots or cancel
+        Manage billing
       </button>
     </div>
   );

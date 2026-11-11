@@ -15,12 +15,12 @@ const icon = (paths: React.ReactNode) => (
 );
 
 /**
- * Parent Portal sections: Home | Books | Family | Settings. Family is the kids and who reads to them: kids
+ * Parent Portal sections: Home (/home) | Books | Family (/family, My Family) | Settings. Family is the kids and who reads to them: kids
  * profiles (each child's profile is where Readli Kids opens), family storytellers and My Voice. Settings is
  * the grown-up's account, the family's plan and credits, and Kids Mode.
  */
 const NAV: Tab[] = [
-  { label: "Home", href: "/family", match: ["/family"], icon: icon(<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" />) },
+  { label: "Home", href: "/home", match: ["/home"], icon: icon(<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" />) },
   {
     label: "Books",
     href: "/family/books",
@@ -34,8 +34,8 @@ const NAV: Tab[] = [
   },
   {
     label: "Family",
-    href: "/family/kids",
-    match: ["/family/kids", "/family/narrators", "/family/my-voice"],
+    href: "/family",
+    match: ["/family", "/family/kids", "/family/narrators", "/family/my-voice"],
     icon: icon(
       <>
         <circle cx="9" cy="8" r="3" />

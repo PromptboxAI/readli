@@ -35,7 +35,7 @@ export default async function InviteFamilyPage() {
           <p className="text-lg">
             {page.mode === "sign_in" ? "Log in to invite family to your circle." : "Create your family first, then invite your storytellers."}
           </p>
-          <Link href={page.mode === "sign_in" ? "/login?next=/invite/family" : "/family"} className={buttonPrimary}>
+          <Link href={page.mode === "sign_in" ? "/login?next=/invite/family" : "/home"} className={buttonPrimary}>
             {page.mode === "sign_in" ? "Log in" : "Set up my family"}
           </Link>
         </section>

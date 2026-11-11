@@ -145,7 +145,7 @@ export function TemporaryKidsExit({ childName, preview = false }: { childName: s
     setPin("");
     // Kids Mode already ended on this browser (a grown-up signed in or left it in another tab, or this page
     // was left open): there's nothing to unlock, so go where this browser belongs now.
-    if (res.ok || json?.error?.code === "not_temporary") return window.location.replace("/family");
+    if (res.ok || json?.error?.code === "not_temporary") return window.location.replace("/home");
     setBusy(false);
     setMessage(json?.error?.message ?? "That didn't work. Please try again.");
   };
@@ -190,7 +190,7 @@ export function TemporaryKidsExit({ childName, preview = false }: { childName: s
           {preview ? (
             <PreviewKidsExit />
           ) : (
-            <a href="/login?next=/family" className="self-start text-sm font-semibold underline underline-offset-4">
+            <a href="/login?next=/home" className="self-start text-sm font-semibold underline underline-offset-4">
               Forgot the PIN? Sign in instead
             </a>
           )}
@@ -207,7 +207,7 @@ export function PreviewKidsExit() {
   const leave = async () => {
     setBusy(true);
     const res = await fetch("/api/family/session", { method: "DELETE" });
-    if (res.ok) return window.location.replace("/family");
+    if (res.ok) return window.location.replace("/home");
     setBusy(false);
     setMessage(res.status === 403 ? "Use the grown-up PIN to leave Readli Kids on this device." : "That didn't work. Please try again.");
   };

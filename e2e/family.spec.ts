@@ -35,7 +35,7 @@ async function sentenceBySentence(page: Page) {
 }
 
 test("a parent manages storytellers child by child", async ({ page }) => {
-  await page.goto("/family");
+  await page.goto("/home");
   await page.getByRole("button", { name: "Sign in as Mom" }).click();
   await expect(page.getByRole("heading", { name: "Mom" })).toBeVisible();
   await page.goto("/family/kids/maya/storytellers");
@@ -106,7 +106,7 @@ test("a ready storyteller is added and approved for children from one page", asy
 
 test("kids see only approved narrators and can switch without losing their place", async ({ page }) => {
   await signIn(page, "adult:sara");
-  await page.goto("/family");
+  await page.goto("/home");
   await openKids(page, "Maya");
   await expect(page.getByRole("heading", { name: /Hi Maya/ })).toBeVisible();
   await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
@@ -143,7 +143,7 @@ test("kids see only approved narrators and can switch without losing their place
 test("reading sentence by sentence, the kids player buffers the next few sentences so the story reads straight through", async ({ page }) => {
   await sentenceBySentence(page);
   await signIn(page, "adult:sara");
-  await page.goto("/family");
+  await page.goto("/home");
   await openKids(page, "Maya");
   await expect(page.getByRole("heading", { name: /Hi Maya/ })).toBeVisible();
   await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
@@ -174,7 +174,7 @@ test("reading sentence by sentence, the kids player buffers the next few sentenc
 test("reading sentence by sentence, the kids player skips a sentence whose audio won't play instead of stopping", async ({ page }) => {
   await sentenceBySentence(page);
   await signIn(page, "adult:sara");
-  await page.goto("/family");
+  await page.goto("/home");
   await openKids(page, "Maya");
   await expect(page.getByRole("heading", { name: /Hi Maya/ })).toBeVisible();
   await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
@@ -196,7 +196,7 @@ test("reading sentence by sentence, the kids player skips a sentence whose audio
 
 test("a chapter track that won't play is asked for once more, then the story carries on sentence by sentence", async ({ page }) => {
   await signIn(page, "adult:sara");
-  await page.goto("/family");
+  await page.goto("/home");
   await openKids(page, "Maya");
   await expect(page.getByRole("heading", { name: /Hi Maya/ })).toBeVisible();
   await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
@@ -223,7 +223,7 @@ test("a chapter track that won't play is asked for once more, then the story car
 test("reading sentence by sentence, the kids player keeps reading when its listening session lapses", async ({ page }) => {
   await sentenceBySentence(page);
   await signIn(page, "adult:sara");
-  await page.goto("/family");
+  await page.goto("/home");
   await openKids(page, "Maya");
   await expect(page.getByRole("heading", { name: /Hi Maya/ })).toBeVisible();
   await page.getByRole("link", { name: /The Lion and the Mouse/ }).click();
@@ -317,7 +317,7 @@ test("direct API requests can't reach unapproved voices or change approvals", as
 
 test("a fourth child can be added at no extra charge, up to six", async ({ page }) => {
   await signIn(page, "adult:sara");
-  await page.goto("/family/kids");
+  await page.goto("/family");
   await expect(page.getByTestId("profiles-count")).toHaveText("2 of 6 profiles");
   for (const name of ["Ava", "Ben"]) {
     await page.getByLabel("Add a child").fill(name);
@@ -374,7 +374,7 @@ test("kids can only switch to a storyteller whose reading is prepared at their p
 
 test("a parent prepares narration ahead of time and is told when it's ready", async ({ page }) => {
   await signIn(page, "adult:sara");
-  await page.goto("/family");
+  await page.goto("/home");
   await page.getByRole("navigation", { name: "Readli Family" }).getByRole("link", { name: "Books" }).click();
   await expect(page.getByRole("heading", { name: "Books", exact: true })).toBeVisible();
   await page.getByTestId("catalog").getByTestId("book-the-princess-and-the-pea").click();
@@ -406,7 +406,7 @@ test("a parent prepares narration ahead of time and is told when it's ready", as
   await confirm.getByRole("button", { name: "Prepare now" }).click();
   await expect(status("voice-june")).toHaveText("Ready", { timeout: 15_000 });
 
-  await page.goto("/family");
+  await page.goto("/home");
   const notice = page.getByTestId("notifications");
   await expect(notice).toContainText("The Princess and the Pea");
   await expect(notice).toContainText("read by Grandma June");

@@ -40,7 +40,7 @@ export default async function FamilyActivityPage({ searchParams }: { searchParam
   return (
     <FamilyShell>
       <PreviewNote />
-      <BackLink href="/family" label="Family Home" />
+      <BackLink href="/home" label="Home" />
       <h1 className="font-display text-4xl font-semibold">Family activity</h1>
 
       <section className="flex flex-col gap-3" aria-labelledby="notices-h" data-testid="notices">

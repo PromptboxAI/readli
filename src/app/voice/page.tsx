@@ -87,7 +87,7 @@ export default async function VoiceHomePage({ searchParams }: { searchParams: Pr
             </Link>
           )}
         </div>
-        <MyVoiceSharing initial={voices} storyteller />
+        <MyVoiceSharing initial={voices} storyteller recorded={Boolean(recording && recording.status !== "deleted")} />
       </section>
       {invitations.length > 0 && <InvitationList items={invitations} />}
       {gifting && (

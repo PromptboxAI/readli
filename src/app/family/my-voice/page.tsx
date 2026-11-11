@@ -34,7 +34,7 @@ export default async function MyVoicePage() {
   return (
     <FamilyShell>
       <PreviewNote />
-      <BackLink href="/family/kids" label="Family" />
+      <BackLink href="/family" label="My Family" />
       <h1 className="font-display text-4xl font-semibold">My voice</h1>
       {model?.canUpgrade && <VoiceModelUpgrade />}
       {user && <AccountVoiceControls voice={recording && { status: recording.status, version: recording.version, updatedAt: recording.updatedAt }} />}
@@ -64,7 +64,7 @@ export default async function MyVoicePage() {
         who then choose, child by child, whether their kids can hear it. Being connected on a family tree never shares
         it. You can stop sharing at any time.
       </p>
-      <MyVoiceSharing initial={voices} />
+      <MyVoiceSharing initial={voices} recorded={Boolean(recording && recording.status !== "deleted")} />
     </FamilyShell>
   );
 }

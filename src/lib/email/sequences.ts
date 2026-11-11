@@ -163,7 +163,7 @@ async function familyWelcome(ctx: SequenceContext): Promise<QueuedEmail[]> {
           "Three things make Readli feel like home: record your own voice, invite a grandparent or another storyteller, and set up your kids' tablet.",
         ],
         cta: "Open Readli",
-        path: "/family",
+        path: "/home",
       }),
     });
   }

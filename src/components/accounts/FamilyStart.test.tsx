@@ -61,7 +61,7 @@ describe("FamilyStart", () => {
     render(<FamilyStart {...props} paymentsOn={false} signedInAs="kevin@example.com" />);
     expect(screen.getByTestId("checkout-off")).toBeTruthy();
     fireEvent.click(screen.getByTestId("family-checkout"));
-    await waitFor(() => expect(assign).toHaveBeenCalledWith("/family?start=1"));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith("/home?start=1"));
     expect(calls).toEqual([]);
   });
 });

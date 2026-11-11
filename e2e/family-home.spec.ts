@@ -12,7 +12,7 @@ async function noOverflow(page: Page) {
 
 test("the family home leads with the kids, stories and storytellers", async ({ page }, info) => {
   await signIn(page, "adult:sara");
-  await page.goto("/family");
+  await page.goto("/home");
   await expect(page.getByRole("heading", { name: "Welcome back, Mom" })).toBeVisible();
   const kids = page.getByTestId("home-kids");
   await expect(kids).toContainText("Maya");
@@ -39,7 +39,7 @@ test("the family home leads with the kids, stories and storytellers", async ({ p
   const next = page.getByTestId("next-story-strip");
   await expect(next.getByRole("link", { name: "Browse Books" })).toBeVisible();
   await expect(next).toContainText(/of [\d.,]+ (monthly|trial) credits remaining/);
-  await expect(next.getByRole("link", { name: /How credits work/ })).toHaveAttribute("href", "/family/settings/plan?from=%2Ffamily");
+  await expect(next.getByRole("link", { name: /How credits work/ })).toHaveAttribute("href", "/family/settings/plan?from=%2Fhome");
 
   // Home shows a few books (four on phones, up to nine on wider screens) and the rest on request.
   const shelf = page.getByTestId("shelf-ready");
@@ -50,7 +50,7 @@ test("the family home leads with the kids, stories and storytellers", async ({ p
     await viewAll.click();
     await expect(page).toHaveURL(/shelf=all/);
     await expect.poll(() => shelf.locator(":scope > li:visible").count()).toBeGreaterThan(shown);
-    await page.goto("/family");
+    await page.goto("/home");
   }
   // With two kids, the shelf can narrow to one child's books.
   const filter = page.getByTestId("shelf-kid-filter");
@@ -60,7 +60,7 @@ test("the family home leads with the kids, stories and storytellers", async ({ p
   await expect(page).toHaveURL(/kid=leo/);
   await expect(filter.getByRole("link", { name: "Leo" })).toHaveAttribute("aria-current", "page");
   await expect(shelf.locator(":scope > li").first()).toContainText("Leo ·");
-  await page.goto("/family");
+  await page.goto("/home");
   await expect(page.getByRole("link", { name: "Invite a storyteller" })).toHaveAttribute("href", "/family/narrators#invite");
 
   const storytellers = page.getByTestId("home-storytellers");
@@ -75,7 +75,7 @@ test("the family home leads with the kids, stories and storytellers", async ({ p
 
 test("Settings gathers the account, plan and credits, and Kids Mode", async ({ page }, info) => {
   await signIn(page, "adult:sara");
-  await page.goto("/family");
+  await page.goto("/home");
   const nav = page.getByRole("navigation", { name: "Readli Family" });
   await expect(nav.getByRole("link")).toHaveText(["Home", "Books", "Family", "Settings"]);
   await nav.getByRole("link", { name: "Settings" }).click();
@@ -107,7 +107,7 @@ test("Settings gathers the account, plan and credits, and Kids Mode", async ({ p
 
 test("the Family tab holds the kids and who reads to them", async ({ page }) => {
   await signIn(page, "adult:sara");
-  await page.goto("/family/kids");
+  await page.goto("/family");
   const readers = page.getByTestId("family-readers");
   await expect(readers.getByRole("link", { name: /Family storytellers/ })).toContainText("slots");
   await readers.getByRole("link", { name: /My Voice/ }).click();
@@ -133,13 +133,20 @@ test("old settings links still open the right Settings page", async ({ page }) =
 
 test("the Family tab lists the kids and opens Readli Kids from a child's profile", async ({ page }, info) => {
   await signIn(page, "adult:sara");
-  await page.goto("/family");
+  await page.goto("/home");
   await page.getByRole("navigation", { name: "Readli Family" }).getByRole("link", { name: "Family" }).click();
-  await expect(page).toHaveURL(/\/family\/kids$/);
+  await expect(page).toHaveURL(/\/family$/);
   await expect(page.getByRole("heading", { name: "Kids profiles" })).toBeVisible();
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/family-kids-${info.project.name}.png`, fullPage: true });
   await page.getByRole("button", { name: "Open Readli Kids for Maya" }).click();
+  // The preview's family PIN is shared by every test: when no other test has set it yet, a PIN comes first.
+  const setPin = page.getByTestId("pin-before-kids");
+  await expect(setPin.or(page.getByRole("heading", { name: "Hi Maya! Pick a story." }))).toBeVisible();
+  if (await setPin.isVisible()) {
+    await setPin.getByLabel("New PIN").fill("4821");
+    await setPin.getByRole("button", { name: "Save PIN" }).click();
+  }
   await expect(page).toHaveURL(/\/kids$/);
 });
 
@@ -153,12 +160,12 @@ test("a kids profile can't open parent controls", async ({ page }) => {
 test("every page below the main tabs has a way back up", async ({ page }) => {
   await signIn(page, "adult:sara");
   const pages: [string, string][] = [
-    ["/family/narrators", "/family/kids"],
-    ["/family/my-voice", "/family/kids"],
+    ["/family/narrators", "/family"],
+    ["/family/my-voice", "/family"],
     ["/family/settings/plan", "/family/settings"],
     ["/family/settings/kids-mode", "/family/settings"],
     ["/family/settings/account", "/family/settings"],
-    ["/family/kids/maya/storytellers", "/family/kids"],
+    ["/family/kids/maya/storytellers", "/family"],
   ];
   for (const [path, up] of pages) {
     await page.goto(path);
@@ -166,7 +173,7 @@ test("every page below the main tabs has a way back up", async ({ page }) => {
   }
   await page.goto("/family/narrators");
   await page.getByTestId("back-link").click();
-  await expect(page).toHaveURL(/\/family\/kids$/);
+  await expect(page).toHaveURL(/\/family$/);
 });
 
 test("Settings goes back to the page that opened it", async ({ page }) => {
@@ -182,7 +189,7 @@ test("Settings goes back to the page that opened it", async ({ page }) => {
   // Opened directly, or from anywhere it can't trust, the way back is Home.
   for (const from of ["", "?from=https://example.com", "?from=//example.com"]) {
     await page.goto(`/family/settings${from}`);
-    await expect(page.getByTestId("back-link").filter({ visible: true }), from).toHaveAttribute("href", "/family");
+    await expect(page.getByTestId("back-link").filter({ visible: true }), from).toHaveAttribute("href", "/home");
   }
 });
 
@@ -198,7 +205,7 @@ test("a storyteller in a slot leads straight to choosing which kids hear them", 
 
 test("Back after approving a storyteller shows the change, not a stale page", async ({ page }) => {
   await signIn(page, "adult:sara");
-  await page.goto("/family");
+  await page.goto("/home");
   const dad = page.getByTestId("home-storytellers").getByRole("link", { name: /Dad/ });
   await expect(dad).toContainText("Approved for Leo");
   await page.goto("/family/kids/maya/storytellers");
@@ -206,19 +213,19 @@ test("Back after approving a storyteller shows the change, not a stale page", as
   await page.getByRole("switch", { name: "Dad for Maya" }).click();
   await expect(page.getByTestId("storyteller-voice-ben")).toContainText("Approved for Maya");
   await page.goBack();
-  await expect(page).toHaveURL(/\/family$/);
+  await expect(page).toHaveURL(/\/home$/);
   await expect(page.getByTestId("home-storytellers").getByRole("link", { name: /Dad/ })).toContainText("Approved for every child");
 });
 
 test("a ready story opens the grown-up player and plays stored audio", async ({ page }) => {
   await signIn(page, "adult:sara");
-  await page.goto("/family");
+  await page.goto("/home");
   // Book page opens the book's page, where a grown-up can change its voice, and the way back is the bookshelf.
   await page.getByTestId("shelf-ready").getByTestId("home-book-page-the-lion-and-the-mouse").click();
   await expect(page).toHaveURL(/\/family\/books\/the-lion-and-the-mouse\?from=bookshelf$/);
   await expect(page.getByTestId("back-link")).toHaveAttribute("href", "/family#bookshelf");
   await expect(page.getByTestId("back-link")).toContainText("Family bookshelf");
-  await page.goto("/family");
+  await page.goto("/home");
   await page.getByTestId("shelf-ready").getByTestId("home-book-the-lion-and-the-mouse").click();
   await expect(page).toHaveURL(/\/family\/books\/the-lion-and-the-mouse\/listen$/);
   const player = page.getByTestId("grown-up-player");
@@ -318,7 +325,7 @@ test("Kids devices separates temporary Kids Mode from a registered device", asyn
 test("six kids stay easy to tell apart, each one tap from Readli Kids, without sideways scrolling", async ({ page }, info) => {
   await signIn(page, "adult:sara");
   for (const name of ["Ava", "Ben", "Cleo", "Dev"]) expect((await page.request.post("/api/family/children", { data: { nickname: name } })).status()).toBe(200);
-  await page.goto("/family");
+  await page.goto("/home");
   const kids = page.getByTestId("home-kids");
   await expect(kids).toHaveAttribute("data-layout", "compact");
   await expect(page.getByText("6 of 6 profiles")).toBeVisible();
@@ -381,7 +388,7 @@ test("Family activity shows notices with their buttons and what the kids have li
   await signIn(page, "adult:sara");
   const res = await page.request.put("/api/kids/maya/progress", { data: { bookSlug: "the-lion-and-the-mouse", sentence: 3, voiceId: "voice-sara" } });
   expect(await res.json()).toMatchObject({ saved: true });
-  await page.goto("/family");
+  await page.goto("/home");
   await page.getByTestId("activity-link").click();
   await expect(page).toHaveURL(/\/family\/activity$/);
   await expect(page.getByRole("heading", { name: "Family activity" })).toBeVisible();

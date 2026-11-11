@@ -81,7 +81,7 @@ export function NeedsGrownUp({ text }: { text: string }) {
 export function GrownUpSignIn() {
   if (!authConfigured()) return <PreviewKidsExit />;
   return (
-    <Link href="/login?next=/family" className={`${buttonPrimary} self-start`}>
+    <Link href="/login?next=/home" className={`${buttonPrimary} self-start`}>
       Grown-ups: sign in
     </Link>
   );

@@ -62,7 +62,7 @@ export async function currentUser(): Promise<SignedInUser | null> {
 }
 
 /** Only same-site paths may follow sign-in, so a link can't bounce someone to another site. */
-export function safeNext(value: string | null | undefined, fallback = "/family"): string {
+export function safeNext(value: string | null | undefined, fallback = "/home"): string {
   if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return fallback;
   return value;
 }

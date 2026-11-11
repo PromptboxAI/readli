@@ -13,8 +13,9 @@ test("a parent sees their plan and slots, and billing stays switched off", async
   await expect(page.getByRole("heading", { name: "Plan & credits", level: 1 })).toBeVisible();
   const plan = page.getByTestId("current-plan");
   await expect(plan).toContainText("Readli Family");
-  await expect(plan).toContainText("4 storyteller slots (2 extra, $11.98 a month)");
-  await expect(page.getByRole("button", { name: "Change card, slots or cancel" })).toBeDisabled();
+  await expect(plan.getByTestId("plan-storytellers")).toContainText(/\d of 4 slots in use · 2 extra, \$11\.98 a month/);
+  await expect(plan.getByTestId("plan-storytellers")).toHaveAttribute("href", "/family/narrators?from=/family/settings/plan");
+  await expect(page.getByRole("button", { name: "Manage billing" })).toBeDisabled();
   await expect(page.getByTestId("credit-balance")).toContainText("available");
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/billing-${info.project.name}.png`, fullPage: true });

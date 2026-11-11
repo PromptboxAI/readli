@@ -7,7 +7,7 @@ export function signupIntent(next: string): "family" | "voice" | "voice_invited"
   if (next.startsWith("/voice/join")) return "voice_invited";
   if (next.startsWith("/voice") || next.startsWith("/signup/voice")) return "voice";
   // Claiming a gift or complimentary membership signs someone up for Readli Family.
-  if (next.startsWith("/family") || next.startsWith("/signup/family") || /^\/(claim|redeem|gift\/open)(\b|[/?#]|$)/.test(next)) return "family";
+  if (next.startsWith("/family") || next === "/home" || next.startsWith("/home?") || next.startsWith("/signup/family") || /^\/(claim|redeem|gift\/open)(\b|[/?#]|$)/.test(next)) return "family";
   return null;
 }
 

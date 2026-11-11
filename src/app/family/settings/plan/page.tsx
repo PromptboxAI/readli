@@ -13,6 +13,7 @@ import { effectivePlan } from "@/lib/billing/price-settings";
 import { billingSummary, type BillingSummary } from "@/lib/billing/summary";
 import { accountDb } from "@/lib/family/account-store";
 import { familyPage } from "@/lib/family/page-data";
+import { countedSlots } from "@/lib/family/permissions";
 import { formatPrice } from "@/lib/family/plan";
 import { familyParents, guardianHousehold } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
@@ -115,6 +116,7 @@ export default async function PlanAndCreditsPage({ searchParams }: { searchParam
   const owns = parents.youOwn;
   const plan = await effectivePlan(db, store.plan);
   const s = billingSummary(state, plan, householdId);
+  const storytellersInUse = countedSlots(state, householdId, store.plan).length;
   const gift = s.plan === "sponsored" && db ? await householdGift(db, householdId).catch(() => null) : null;
 
   // Credits use the family's stored plan, as narration does.
@@ -160,15 +162,23 @@ export default async function PlanAndCreditsPage({ searchParams }: { searchParam
             <p className="text-muted">{planNote(s)}</p>
           </div>
           {s.plan !== "none" && (
-            <p className="flex flex-wrap gap-2 text-sm">
-              <span className="rounded-full bg-ink/5 px-3 py-0.5">
-                {s.narratorSlots} storyteller {s.narratorSlots === 1 ? "slot" : "slots"}
-                {s.extraNarratorSlots > 0 ? ` (${s.extraNarratorSlots} extra${s.extraSlotsMonthlyCents ? `, ${formatPrice(s.extraSlotsMonthlyCents)} a month` : ""})` : ""}
+            // One row for storytellers: how many slots are in use, so 2 slots never reads as 2 storytellers.
+            <Link
+              href="/family/narrators?from=/family/settings/plan"
+              className="flex min-h-14 items-center gap-3 rounded-2xl bg-ink/5 px-4 py-2 hover:bg-ink/10"
+              data-testid="plan-storytellers"
+            >
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="font-display font-semibold">Family storytellers</span>
+                <span className="text-sm text-muted">
+                  {storytellersInUse} of {s.narratorSlots} {s.narratorSlots === 1 ? "slot" : "slots"} in use
+                  {s.extraNarratorSlots > 0 ? ` · ${s.extraNarratorSlots} extra${s.extraSlotsMonthlyCents ? `, ${formatPrice(s.extraSlotsMonthlyCents)} a month` : ""}` : ""}
+                </span>
               </span>
-              <Link href="/family/narrators" className="rounded-full px-1 py-0.5 font-semibold underline underline-offset-4">
-                Family storytellers
-              </Link>
-            </p>
+              <span aria-hidden="true" className="text-muted">
+                ›
+              </span>
+            </Link>
           )}
           {s.plan === "subscription" && owns && <ManagePlan paymentsOn={paymentsOn} />}
         </section>

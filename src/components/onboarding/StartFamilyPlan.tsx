@@ -27,7 +27,7 @@ export function StartFamilyPlan(props: { monthlyCents: number; annualCents: numb
           body: JSON.stringify(props.familyName ? { name: props.familyName } : { provisional: true }),
         });
         if (!res.ok) throw new Error("Your family couldn't be started. Please try again.");
-        window.location.assign("/family");
+        window.location.assign("/home");
         return;
       }
       await startFamilyCheckout({

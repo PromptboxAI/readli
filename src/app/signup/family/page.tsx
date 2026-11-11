@@ -35,7 +35,7 @@ export default async function FamilySignupPage({
   if (adult) {
     const nav = await navState();
     // Already on Readli Family: nothing to buy here.
-    if (nav.kind === "adult" && nav.family.plan !== "none") redirect("/family");
+    if (nav.kind === "adult" && nav.family.plan !== "none") redirect("/home");
   }
   const carry = new URLSearchParams();
   if (fromTry) carry.set("from", "try");

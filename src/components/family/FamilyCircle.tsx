@@ -174,7 +174,7 @@ export function FamilyCircle({
     const angle = (i / Math.max(people.length, 1)) * 2 * Math.PI - Math.PI / 2;
     return { x: 50 + 40 * Math.cos(angle), y: 50 + 40 * Math.sin(angle) };
   };
-  const approveHref = (ids: string[]) => (ids.length === 1 || kids.length === 1 ? `/family/kids/${ids[0] ?? kids[0]!.id}/storytellers` : "/family/kids");
+  const approveHref = (ids: string[]) => (ids.length === 1 || kids.length === 1 ? `/family/kids/${ids[0] ?? kids[0]!.id}/storytellers` : "/family");
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start" data-testid="family-circle">
@@ -217,7 +217,7 @@ export function FamilyCircle({
                 ))}
               </ul>
             ) : (
-              <Link href="/family/kids" className="text-sm font-semibold underline underline-offset-4">
+              <Link href="/family" className="text-sm font-semibold underline underline-offset-4">
                 Add your first child
               </Link>
             )}

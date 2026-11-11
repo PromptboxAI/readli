@@ -7,6 +7,7 @@ import type { FamilyState } from "@/lib/family/model";
 import { familyParents, guardianHousehold, narratorSlots } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
 import { BackLink } from "@/components/family/BackLink";
+import { backFrom } from "@/lib/family/settings-nav";
 import { invitationMailer } from "@/lib/invitations/email";
 import { inviteEmailOn } from "@/lib/invites/email";
 import { listInvites } from "@/lib/invites/server";
@@ -37,10 +38,12 @@ export default async function NarratorSlotsPage({ searchParams }: { searchParams
     : [[], []];
   const invites = [...storytellerInvites, ...coParentInvites].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const parents = await familyParents(store, page.session.actor, householdId);
+  // Opened from Settings › Plan & credits, the way back returns there; otherwise to My Family.
+  const back = backFrom(params.from, { href: "/family", label: "My Family" });
   return (
     <FamilyShell>
       <PreviewNote />
-      <BackLink href="/family/kids" label="Family" />
+      <BackLink href={back.href} label={back.label} />
       <NarratorSlots
         initial={await narratorSlots(store, page.session.actor, householdId)}
         canBuy={!page.session.account}
@@ -59,5 +62,5 @@ export default async function NarratorSlotsPage({ searchParams }: { searchParams
 /** Where a parent approves storytellers: straight to the only child, or the list of children. */
 function approveHref(state: FamilyState | null, householdId: string): string {
   const kids = state?.children.filter((c) => c.householdId === householdId && c.deletedAt === null) ?? [];
-  return kids.length === 1 ? `/family/kids/${kids[0]!.id}/storytellers` : "/family/kids";
+  return kids.length === 1 ? `/family/kids/${kids[0]!.id}/storytellers` : "/family";
 }
