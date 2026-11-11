@@ -51,7 +51,7 @@ export async function queueInviterJoinedEmail(ctx: JoinedEmailContext, token: st
         `${who} accepted your invitation and now has parent access to your family. They can see your children's profiles, choose books and storytellers, and change settings with you. Billing stays with the plan's owner.`,
         "If you weren't expecting this, you can remove them in Settings, under Parents.",
       ],
-      cta: { label: "See your family's parents", url: `${ctx.base}/family/settings/parents` },
+      cta: { label: "See your family's grown-ups", url: `${ctx.base}/family/settings/parents` },
       reason: "You're getting this because you invited someone to help run your family on Readli.",
       preferencesUrl: preferencesUrl(ctx.base, ctx.secret, inviter),
     }),
