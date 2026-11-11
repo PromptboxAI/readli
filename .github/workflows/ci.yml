@@ -19,7 +19,23 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      - run: npx playwright install --with-deps chromium
+      - name: Find the Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache the Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-chromium
+      # The browser itself comes from Playwright's CDN, not apt, so an Ubuntu mirror outage can't block it.
+      - name: Install the Playwright browser
+        run: npx playwright install chromium
+      # The runner image already has Chromium's system libraries. This only tops up extras such as fonts,
+      # so a broken apt mirror logs a warning instead of failing the build.
+      - name: Install extra browser system packages (best effort)
+        continue-on-error: true
+        timeout-minutes: 5
+        run: npx playwright install-deps chromium
       - run: npm run test:e2e
         env:
           CI: "true"
