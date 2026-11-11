@@ -14,7 +14,7 @@ import { currentAdult } from "@/lib/auth/adult";
 import { familyPage } from "@/lib/family/page-data";
 import { isParent, isStorytellerOnly } from "@/lib/family/storyteller";
 import { START_CHOSE_VOICE_COOKIE } from "@/lib/onboarding/start";
-import { VOICE_SETUP_LATER_COOKIE } from "@/lib/family/setup-cookie";
+import { VOICE_SETUP_LATER_COOKIE, chosenBy } from "@/lib/family/setup-cookie";
 import { myVoices } from "@/lib/family/service";
 import { familyAccountsEnabled, familyStore } from "@/lib/family/session";
 import { invitationContext } from "@/lib/invitations/context";
@@ -54,10 +54,10 @@ export default async function VoiceHomePage({ searchParams }: { searchParams: Pr
   // A new storyteller with no voice yet, recorded or waiting to be kept, starts with the welcome page and steps.
   const candidate = deps && !recording && voices.length === 0 ? await deps.store.findCandidate(user.id).catch(() => null) : null;
   const jar = await cookies();
-  if (deps && !recording && !candidate && voices.length === 0 && !jar.get(VOICE_SETUP_LATER_COOKIE)) {
+  if (deps && !recording && !candidate && voices.length === 0 && !chosenBy(jar.get(VOICE_SETUP_LATER_COOKIE)?.value, user.id)) {
     // Someone brand new (no family invited them, and they haven't picked free Readli Voice in the signup welcome)
     // goes through the signup welcome, the same as signing in anywhere else. Storytellers get their own steps.
-    const fresh = !isStorytellerOnly(state, user.id) && !jar.get(START_CHOSE_VOICE_COOKIE);
+    const fresh = !isStorytellerOnly(state, user.id) && !chosenBy(jar.get(START_CHOSE_VOICE_COOKIE)?.value, user.id);
     redirect(fresh ? "/start" : "/voice/setup");
   }
   const me = state?.adults.find((a) => a.id === user.id);
