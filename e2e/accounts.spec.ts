@@ -58,16 +58,11 @@ test("family checkout shows the plan and stays switched off", async ({ page }, i
   await page.screenshot({ path: `e2e/screenshots/signup-family-${info.project.name}.png`, fullPage: true });
 });
 
-test("contributors approve requests and stop sharing per family", async ({ page }, info) => {
+test("signed-out visitors to /voice are sent to sign in and back", async ({ page }) => {
   await page.goto("/voice");
-  await page.screenshot({ path: `e2e/screenshots/voice-dashboard-${info.project.name}.png`, fullPage: true });
-  const requests = page.getByTestId("sharing-requests");
-  await requests.getByRole("button", { name: "Share my voice" }).click();
-  const shared = page.getByTestId("shared-families");
-  await expect(shared.getByRole("listitem")).toHaveCount(3);
-  await shared.getByRole("listitem").filter({ hasText: "Priya" }).getByRole("button", { name: "Stop sharing" }).click();
-  await expect(shared.getByRole("listitem")).toHaveCount(2);
-  await noOverflow(page);
+  await expect(page).toHaveURL(/\/login\?next=(\/|%2F)voice$/);
+  await page.goto("/voice?invite=abc123");
+  await expect(page).toHaveURL(/\/voice\/join\?invite=abc123$/);
 });
 
 test("extra narrator slots add to the bill but aren't sold until payments are on", async ({ page }, info) => {

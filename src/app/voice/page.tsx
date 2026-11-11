@@ -3,13 +3,12 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AskName } from "@/components/account/AskName";
-import { ContributorDashboard } from "@/components/accounts/ContributorDashboard";
 import { buttonSecondary } from "@/components/brand/buttons";
 import { AccountVoiceControls } from "@/components/family/AccountVoiceControls";
 import { MyVoiceSharing } from "@/components/family/MyVoiceSharing";
 import { InvitationList } from "@/components/invitations/InvitationList";
 import { VoiceModelUpgrade } from "@/components/family/VoiceModelUpgrade";
-import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
+import { AdultPage, Eyebrow } from "@/components/invites/AdultPage";
 import { chosenName } from "@/lib/account/names";
 import { currentAdult } from "@/lib/auth/adult";
 import { familyPage } from "@/lib/family/page-data";
@@ -30,20 +29,15 @@ export const dynamic = "force-dynamic";
 /**
  * The free storyteller's home: their voice and the families using it. No family setup, children,
  * plans or credits: those belong to each family's own account. Parents manage their voice inside
- * Readli Family instead. Older invitation links (/voice?invite=) go to the join page.
+ * Readli Family instead. Signed-out visitors go to sign in and come back here. Older invitation
+ * links (/voice?invite=) go to the join page first, so they keep working signed out.
  */
 export default async function VoiceHomePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const p = await searchParams;
   if (typeof p.invite === "string" && p.invite) redirect(`/voice/join?invite=${encodeURIComponent(p.invite)}`);
   const user = familyAccountsEnabled() ? await currentAdult() : null;
-  if (!user) {
-    return (
-      <AdultPage>
-        <PreviewNote>This is an example Readli Voice dashboard. Nothing here changes a real voice.</PreviewNote>
-        <ContributorDashboard invited={false} />
-      </AdultPage>
-    );
-  }
+  // Signed out: sign in first, then come back here.
+  if (!user) redirect("/login?next=/voice");
   const page = await familyPage();
   if (!page.enabled || !page.session || page.session.actor.kind !== "adult") return redirect("/login?next=/voice");
   const { session, state } = page;
