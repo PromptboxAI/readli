@@ -12,10 +12,11 @@ import { AdultPage, Eyebrow } from "@/components/invites/AdultPage";
 import { chosenName } from "@/lib/account/names";
 import { currentAdult } from "@/lib/auth/adult";
 import { familyPage } from "@/lib/family/page-data";
+import { isParent, isStorytellerOnly } from "@/lib/family/storyteller";
+import { START_CHOSE_VOICE_COOKIE } from "@/lib/onboarding/start";
 import { VOICE_SETUP_LATER_COOKIE } from "@/lib/family/setup-cookie";
 import { myVoices } from "@/lib/family/service";
 import { familyAccountsEnabled, familyStore } from "@/lib/family/session";
-import { isParent } from "@/lib/family/storyteller";
 import { invitationContext } from "@/lib/invitations/context";
 import { invitationSettings, listInvitations } from "@/lib/invitations/server";
 import { pendingJoinPath } from "@/lib/invites/pending";
@@ -52,7 +53,13 @@ export default async function VoiceHomePage({ searchParams }: { searchParams: Pr
   const model = deps ? await voiceModelStatus(deps, user.id).catch(() => null) : null;
   // A new storyteller with no voice yet, recorded or waiting to be kept, starts with the welcome page and steps.
   const candidate = deps && !recording && voices.length === 0 ? await deps.store.findCandidate(user.id).catch(() => null) : null;
-  if (deps && !recording && !candidate && voices.length === 0 && !(await cookies()).get(VOICE_SETUP_LATER_COOKIE)) redirect("/voice/setup");
+  const jar = await cookies();
+  if (deps && !recording && !candidate && voices.length === 0 && !jar.get(VOICE_SETUP_LATER_COOKIE)) {
+    // Someone brand new (no family invited them, and they haven't picked free Readli Voice in the signup welcome)
+    // goes through the signup welcome, the same as signing in anywhere else. Storytellers get their own steps.
+    const fresh = !isStorytellerOnly(state, user.id) && !jar.get(START_CHOSE_VOICE_COOKIE);
+    redirect(fresh ? "/start" : "/voice/setup");
+  }
   const me = state?.adults.find((a) => a.id === user.id);
   const named = Boolean(chosenName(me?.displayName ?? user.name, user.email, user.named));
   // Invitations sent and how each is doing: sent, opened, connected.
