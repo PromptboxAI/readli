@@ -51,6 +51,7 @@ export function AccountVoiceSetup({
   askName = false,
   waiting = null,
   nextLabel,
+  intro,
 }: {
   hasVoice: boolean;
   next?: string;
@@ -67,6 +68,8 @@ export function AccountVoiceSetup({
   waiting?: WaitingRecording | null;
   /** Inside a setup walkthrough: names the next step, in place of "Continue". */
   nextLabel?: string;
+  /** The step's heading and how-to, shown only until there's a recording: once they're hearing it, "Does this sound like you?" leads. */
+  intro?: React.ReactNode;
 }) {
   const [step, setStep] = useState(waiting ? 2 : 0);
   /** On the first step: make the voice from the /try take (preferred) or record a new one. */
@@ -231,6 +234,7 @@ export function AccountVoiceSetup({
 
   return (
     <div className="flex flex-col gap-6">
+      {step < 2 && intro}
       {step === 0 && (
         <section className="flex max-w-2xl flex-col gap-5" data-testid="voice-start">
           {error && (

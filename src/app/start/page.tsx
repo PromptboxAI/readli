@@ -105,16 +105,19 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
     );
   } else if (step === "voice") {
     const recorder = ctx.voice === "none" ? await recorderProps(ctx.userId) : null;
+    const intro = (
+      <header className="flex flex-col gap-2">
+        <h1 className="font-display text-3xl font-semibold sm:text-4xl">{ctx.voice === "none" ? "Now, record your voice" : "Your voice is recorded"}</h1>
+        <p className="max-w-2xl text-lg">
+          {ctx.voice === "none"
+            ? "Read a short passage aloud in your bedtime-story voice. It takes about a minute, and you only do it once. Your voice stays private: only the families you choose can use it."
+            : "Next, hear it read a bedtime story. You can record again any time from My Voice."}
+        </p>
+      </header>
+    );
     body = (
       <>
-        <header className="flex flex-col gap-2">
-          <h1 className="font-display text-3xl font-semibold sm:text-4xl">{ctx.voice === "none" ? "Now, record your voice" : "Your voice is recorded"}</h1>
-          <p className="max-w-2xl text-lg">
-            {ctx.voice === "none"
-              ? "Read a short passage aloud in your bedtime-story voice. It takes about a minute, and you only do it once. Your voice stays private: only the families you choose can use it."
-              : "Next, hear it read a bedtime story. You can record again any time from My Voice."}
-          </p>
-        </header>
+        {!recorder && intro}
         {ctx.voice !== "none" ? (
           <Done>{ctx.voice === "ready" ? "Your voice is ready." : "Your voice is being made. It usually takes a minute, so carry on."}</Done>
         ) : recorder ? (
@@ -124,6 +127,7 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
             waiting={recorder.waiting}
             next={startHref("listen")}
             nextLabel="Next: hear it read a story"
+            intro={intro}
           />
         ) : (
           <p className="rounded-2xl bg-sunshine/50 p-4">Recording isn&apos;t switched on here yet, so you can go straight on to choosing a plan.</p>

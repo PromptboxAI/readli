@@ -168,21 +168,24 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
 
   let body: React.ReactNode;
   if (step === "voice") {
+    const intro = (
+      <header className="flex flex-col gap-2">
+        <h1 className="font-display text-3xl font-semibold sm:text-4xl">{voice ? "Your voice is recorded" : "First, record your voice"}</h1>
+        <p className="max-w-2xl text-lg">
+          {voice
+            ? "Families you share it with can have any story read in it. You can record again any time from My Voice."
+            : "You'll agree to how your voice is used, then read a short passage aloud in your bedtime-story voice. Reading it takes about one minute, and you only do it once."}
+        </p>
+      </header>
+    );
     body = (
       <>
-        <header className="flex flex-col gap-2">
-          <h1 className="font-display text-3xl font-semibold sm:text-4xl">{voice ? "Your voice is recorded" : "First, record your voice"}</h1>
-          <p className="max-w-2xl text-lg">
-            {voice
-              ? "Families you share it with can have any story read in it. You can record again any time from My Voice."
-              : "You'll agree to how your voice is used, then read a short passage aloud in your bedtime-story voice. Reading it takes about one minute, and you only do it once."}
-          </p>
-        </header>
+        {!recorder && intro}
         {voice ? (
           <Done>{ready ? "Your voice is ready." : "Your voice is being made. It usually takes a minute, so carry on."}</Done>
         ) : recorder ? (
           // Recording, making and keeping the voice all happen right here, so setup never leaves for another page.
-          <AccountVoiceSetup hasVoice={recorder.hasVoice} guestTake={recorder.guestTake} waiting={recorder.waiting} next={storytellerHref("share")} nextLabel="Next: share it with a family" />
+          <AccountVoiceSetup hasVoice={recorder.hasVoice} guestTake={recorder.guestTake} waiting={recorder.waiting} next={storytellerHref("share")} nextLabel="Next: share it with a family" intro={intro} />
         ) : (
           <div className="flex flex-col items-start gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10 sm:p-6">
             <ul className="flex list-disc flex-col gap-1 pl-5">

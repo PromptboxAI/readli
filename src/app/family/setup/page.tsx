@@ -245,21 +245,24 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
 
   let body: React.ReactNode;
   if (step === "voice") {
+    const intro = (
+      <header className="flex flex-col gap-2">
+        <h1 className="font-display text-3xl font-semibold sm:text-4xl">{recorded ? "Your voice is recorded" : "First, record your voice"}</h1>
+        <p className="max-w-2xl text-lg">
+          {recorded
+            ? "Readli will read your kids' stories in it. You can re-record it any time from My Voice."
+            : "Read a short passage aloud, about one minute. Readli then reads every story to your kids in your voice, even when you're not there."}
+        </p>
+      </header>
+    );
     body = (
       <>
-        <header className="flex flex-col gap-2">
-          <h1 className="font-display text-3xl font-semibold sm:text-4xl">{recorded ? "Your voice is recorded" : "First, record your voice"}</h1>
-          <p className="max-w-2xl text-lg">
-            {recorded
-              ? "Readli will read your kids' stories in it. You can re-record it any time from My Voice."
-              : "Read a short passage aloud, about one minute. Readli then reads every story to your kids in your voice, even when you're not there."}
-          </p>
-        </header>
+        {!recorder && intro}
         {recorded ? (
           <Done>{ownInState?.status === "ready" ? "Your voice is ready." : "Your voice is being made. It usually takes a few minutes, so carry on."}</Done>
         ) : recorder ? (
           // Recording, making and keeping the voice all happen right here, so setup never leaves for another page.
-          <AccountVoiceSetup hasVoice={recorder.hasVoice} guestTake={recorder.guestTake} waiting={recorder.waiting} parent next={setupHref("kids")} nextLabel="Next: add your kids" />
+          <AccountVoiceSetup hasVoice={recorder.hasVoice} guestTake={recorder.guestTake} waiting={recorder.waiting} parent next={setupHref("kids")} nextLabel="Next: add your kids" intro={intro} />
         ) : (
           <div className="flex flex-col items-start gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10 sm:p-6">
             <ul className="flex list-disc flex-col gap-1 pl-5">
