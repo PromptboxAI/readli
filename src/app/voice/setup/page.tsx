@@ -133,8 +133,13 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
   if (user) await shareKeptVoice();
 
   const store = (await familyStore(session))!;
-  const voice = (await myVoices(store, session.actor))[0] ?? null;
+  const familyVoice = (await myVoices(store, session.actor))[0] ?? null;
   const deps = user ? accountVoiceDeps(serverConfig()) : null;
+  // A voice kept on a free Readli Voice account lives in the account's own voice store until a family uses it,
+  // so it counts as recorded here even before it shows up in any family.
+  const kept = deps ? await deps.store.findVoice(adultId).catch(() => null) : null;
+  const recorded = kept && kept.status !== "deleted" ? kept : null;
+  const voice: typeof familyVoice = familyVoice ?? (recorded ? { voiceId: recorded.id, status: recorded.status, households: [] } : null);
   const waiting = !voice && deps ? Boolean(await deps.store.findCandidate(adultId).catch(() => null)) : false;
   const ready = voice?.status === "ready";
   const families = state.members

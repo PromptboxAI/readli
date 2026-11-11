@@ -3,20 +3,20 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AskName } from "@/components/account/AskName";
-import { ContributorDashboard } from "@/components/accounts/ContributorDashboard";
 import { buttonSecondary } from "@/components/brand/buttons";
 import { AccountVoiceControls } from "@/components/family/AccountVoiceControls";
 import { MyVoiceSharing } from "@/components/family/MyVoiceSharing";
 import { InvitationList } from "@/components/invitations/InvitationList";
 import { VoiceModelUpgrade } from "@/components/family/VoiceModelUpgrade";
-import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
+import { AdultPage, Eyebrow } from "@/components/invites/AdultPage";
 import { chosenName } from "@/lib/account/names";
 import { currentAdult } from "@/lib/auth/adult";
 import { familyPage } from "@/lib/family/page-data";
-import { VOICE_SETUP_LATER_COOKIE } from "@/lib/family/setup-cookie";
+import { isParent, isStorytellerOnly } from "@/lib/family/storyteller";
+import { START_CHOSE_VOICE_COOKIE } from "@/lib/onboarding/start";
+import { VOICE_SETUP_LATER_COOKIE, chosenBy } from "@/lib/family/setup-cookie";
 import { myVoices } from "@/lib/family/service";
 import { familyAccountsEnabled, familyStore } from "@/lib/family/session";
-import { isParent } from "@/lib/family/storyteller";
 import { invitationContext } from "@/lib/invitations/context";
 import { invitationSettings, listInvitations } from "@/lib/invitations/server";
 import { pendingJoinPath } from "@/lib/invites/pending";
@@ -30,20 +30,15 @@ export const dynamic = "force-dynamic";
 /**
  * The free storyteller's home: their voice and the families using it. No family setup, children,
  * plans or credits: those belong to each family's own account. Parents manage their voice inside
- * Readli Family instead. Older invitation links (/voice?invite=) go to the join page.
+ * Readli Family instead. Signed-out visitors go to sign in and come back here. Older invitation
+ * links (/voice?invite=) go to the join page first, so they keep working signed out.
  */
 export default async function VoiceHomePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const p = await searchParams;
   if (typeof p.invite === "string" && p.invite) redirect(`/voice/join?invite=${encodeURIComponent(p.invite)}`);
   const user = familyAccountsEnabled() ? await currentAdult() : null;
-  if (!user) {
-    return (
-      <AdultPage>
-        <PreviewNote>This is an example Readli Voice dashboard. Nothing here changes a real voice.</PreviewNote>
-        <ContributorDashboard invited={false} />
-      </AdultPage>
-    );
-  }
+  // Signed out: sign in first, then come back here.
+  if (!user) redirect("/login?next=/voice");
   const page = await familyPage();
   if (!page.enabled || !page.session || page.session.actor.kind !== "adult") return redirect("/login?next=/voice");
   const { session, state } = page;
@@ -58,7 +53,13 @@ export default async function VoiceHomePage({ searchParams }: { searchParams: Pr
   const model = deps ? await voiceModelStatus(deps, user.id).catch(() => null) : null;
   // A new storyteller with no voice yet, recorded or waiting to be kept, starts with the welcome page and steps.
   const candidate = deps && !recording && voices.length === 0 ? await deps.store.findCandidate(user.id).catch(() => null) : null;
-  if (deps && !recording && !candidate && voices.length === 0 && !(await cookies()).get(VOICE_SETUP_LATER_COOKIE)) redirect("/voice/setup");
+  const jar = await cookies();
+  if (deps && !recording && !candidate && voices.length === 0 && !chosenBy(jar.get(VOICE_SETUP_LATER_COOKIE)?.value, user.id)) {
+    // Someone brand new (no family invited them, and they haven't picked free Readli Voice in the signup welcome)
+    // goes through the signup welcome, the same as signing in anywhere else. Storytellers get their own steps.
+    const fresh = !isStorytellerOnly(state, user.id) && !chosenBy(jar.get(START_CHOSE_VOICE_COOKIE)?.value, user.id);
+    redirect(fresh ? "/start" : "/voice/setup");
+  }
   const me = state?.adults.find((a) => a.id === user.id);
   const named = Boolean(chosenName(me?.displayName ?? user.name, user.email, user.named));
   // Invitations sent and how each is doing: sent, opened, connected.

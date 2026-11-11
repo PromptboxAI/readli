@@ -41,7 +41,7 @@ import { listInvites } from "@/lib/invites/server";
 import { settingsLink } from "@/lib/family/settings-nav";
 import { unreadCount } from "@/lib/family/activity";
 import { familyInvited, firstStoryChosen, firstStoryReady, hasReadingVoice, SETUP_TOTAL, setupProgress } from "@/lib/family/setup";
-import { SETUP_LATER_COOKIE } from "@/lib/family/setup-cookie";
+import { SETUP_LATER_COOKIE, chosenBy } from "@/lib/family/setup-cookie";
 import { START_CHOSE_VOICE_COOKIE } from "@/lib/onboarding/start";
 import { cookies } from "next/headers";
 import { PRIVATE_ROBOTS } from "@/lib/seo/site";
@@ -153,7 +153,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
     // Someone new, with no family and no voice yet: the welcome walks them through their name, their family's
     // name, their voice and a story read in it, then the plans. Once they chose to stay on free Readli Voice,
     // My Voice is their home instead.
-    if (!startingFamily && (await cookies()).get(START_CHOSE_VOICE_COOKIE)) redirect("/voice");
+    if (!startingFamily && chosenBy((await cookies()).get(START_CHOSE_VOICE_COOKIE)?.value, adult.id)) redirect("/voice");
     redirect(startingFamily ? "/start/plan" : "/start");
   }
   const isGuardian = state.members.some((m) => m.adultId === adult.id && m.role === "guardian" && m.removedAt === null);
@@ -186,7 +186,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   // Until the three getting-started steps are done, Home keeps a way back to them.
   const setup = account && isGuardian && hasPlan && home ? await setupFor(state, adult.id, home) : null;
   // A new family is walked through setup the first time Home opens; after that, Home keeps a reminder.
-  if (setup?.next && !(await cookies()).get(SETUP_LATER_COOKIE)) redirect("/family/setup");
+  if (setup?.next && !chosenBy((await cookies()).get(SETUP_LATER_COOKIE)?.value, adult.id)) redirect("/family/setup");
   const newBooks = isGuardian && home ? await newThisWeekFor(session, accountDb()) : null;
   const slots = home ? narratorSlotCount(state, home, plan) : 0;
   const kidsMax = home ? childProfileLimit(state, home, plan) : plan.maxChildProfiles;

@@ -7,7 +7,7 @@ import { AdultPage, Eyebrow } from "@/components/invites/AdultPage";
 import { JoinSteps } from "@/components/invites/JoinSteps";
 import { currentAdult } from "@/lib/auth/adult";
 import { familyPage } from "@/lib/family/page-data";
-import { VOICE_SETUP_LATER_COOKIE } from "@/lib/family/setup-cookie";
+import { VOICE_SETUP_LATER_COOKIE, chosenBy } from "@/lib/family/setup-cookie";
 import { isActiveMember } from "@/lib/family/permissions";
 import { isParent } from "@/lib/family/storyteller";
 import { myVoices } from "@/lib/family/service";
@@ -57,7 +57,7 @@ export default async function JoinStepsPage({ params, searchParams }: { params: 
   // Someone new to Readli, who hasn't recorded yet, gets the welcome page and the storyteller steps first.
   // A parent of another family stays here: storyteller setup would send them on to their own family's
   // setup, away from this invitation, and recording from here brings them back with it shared.
-  if (!voice && !waiting && !fromSetup && !isParent(state, user.id) && !(await cookies()).get(VOICE_SETUP_LATER_COOKIE)) redirect("/voice/setup");
+  if (!voice && !waiting && !fromSetup && !isParent(state, user.id) && !chosenBy((await cookies()).get(VOICE_SETUP_LATER_COOKIE)?.value, user.id)) redirect("/voice/setup");
   return (
     <AdultPage>
       <header className="flex flex-col gap-2">
