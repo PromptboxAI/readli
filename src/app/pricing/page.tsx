@@ -129,7 +129,6 @@ export default async function PricingPage() {
                 </Link>
                 <p className="text-center text-sm text-muted">
                   Monthly or yearly, cancel any time.
-                  Family accounts open soon, and nothing is charged yet.
                 </p>
               </div>
             </article>

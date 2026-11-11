@@ -76,7 +76,7 @@ function Report({ r, test }: { r: FinanceReport; test: boolean }) {
     <>
       {!r.hasRevenueData && (
         <p role="note" className="rounded-2xl bg-lavender/40 px-4 py-3 text-sm">
-          No {test ? "test-mode" : "live"} payments recorded yet, so revenue reads $0. Payments are still switched off; families and costs below are real.
+          No {test ? "test-mode" : "live"} payments recorded yet, so revenue reads $0. Families and costs below are real.
         </p>
       )}
 
