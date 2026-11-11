@@ -35,6 +35,7 @@ const gift: GiftView = {
   places: [place(1, "The Garcia family"), place(2, "Ben and Maya", { voice: "not_shared" })],
   freePlaces: [],
   canChangeFamilies: true,
+  refund: null,
 };
 
 const NOW = new Date("2026-11-20T12:00:00Z");
