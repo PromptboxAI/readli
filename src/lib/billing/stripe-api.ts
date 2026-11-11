@@ -127,7 +127,7 @@ export class StripeApi {
     return this.call("POST", "checkout/sessions", params);
   }
 
-  /** Stripe's hosted page where a parent updates their card, changes slots or cancels. */
+  /** Stripe's hosted billing page, where a parent updates their card or cancels. */
   async createPortalSession(customer: string, returnUrl: string): Promise<{ url: string }> {
     return this.call("POST", "billing_portal/sessions", { customer, return_url: returnUrl });
   }
