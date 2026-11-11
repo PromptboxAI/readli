@@ -42,8 +42,14 @@ describe("header for each account", () => {
   it("never offers My Family just for being signed in", () => {
     const voice = adult({ plan: "none", hadFamily: false });
     expect(primaryAction(voice)).toEqual({ href: "/voice", label: "My Voice" });
-    expect(labels(voice)).toEqual(["Home", "My Voice", "Settings", "Give Readli as a gift", "Help", "Start Readli Family"]);
-    expect(hrefs(voice).Home).toBe("/");
+    expect(labels(voice)).toEqual(["Home", "Settings", "Give Readli as a gift", "Help", "Start Readli Family"]);
+    expect(hrefs(voice).Home).toBe("/voice");
+  });
+
+  it("sends a parent whose family has no plan yet Home to their family", () => {
+    const named = adult({ plan: "none", hadFamily: true }, true);
+    expect(labels(named)).toEqual(["Home", "My Voice", "Settings", "Give Readli as a gift", "Help", "Start Readli Family"]);
+    expect(hrefs(named).Home).toBe("/family");
   });
 
   it("offers Readli Family with no trial: a new family starts at signup, a named one goes to choose a plan", () => {

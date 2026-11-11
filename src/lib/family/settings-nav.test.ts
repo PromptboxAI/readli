@@ -6,7 +6,9 @@ describe("settingsBack", () => {
     expect(settingsBack("/family")).toEqual({ href: "/family", label: "Home" });
     expect(settingsBack("/family/books/peter-rabbit")).toEqual({ href: "/family/books/peter-rabbit", label: "Books" });
     expect(settingsBack("/family/kids")).toEqual({ href: "/family/kids", label: "Family" });
-    expect(settingsBack("/")).toEqual({ href: "/", label: "Home" });
+    expect(settingsBack("/")).toEqual({ href: "/family", label: "Home" });
+    expect(settingsBack("/", "/voice")).toEqual({ href: "/voice", label: "Home" });
+    expect(settingsBack(undefined, "/voice")).toEqual({ href: "/voice", label: "Home" });
     expect(settingsBack("/rewards")).toEqual({ href: "/rewards", label: "Back" });
   });
 

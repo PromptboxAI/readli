@@ -30,6 +30,11 @@ export function familyAccess(plans: Plan[], at = new Date().toISOString()): Fami
   return { plan: "none", hadFamily: plans.length > 0 };
 }
 
+/** Where "Home" goes for a signed-in grown-up: their family, or My Voice for a free storyteller. */
+export function accountHome(nav: Extract<NavState, { kind: "adult" }>): string {
+  return nav.family.plan !== "none" || nav.household ? "/family" : "/voice";
+}
+
 /** The main button: the most useful next place for this account, or none when the account menu already holds it. */
 export function primaryAction(nav: NavState): NavLink | null {
   if (nav.kind === "kids") return { href: "/kids", label: "Readli Kids" };
@@ -41,9 +46,12 @@ export function primaryAction(nav: NavState): NavLink | null {
 /** The account menu, showing only places this account can open. Sign out is added by the menu itself. */
 export function accountLinks(nav: Extract<NavState, { kind: "adult" }>): NavLink[] {
   const links: NavLink[] = [];
-  // A Family account's home is My Family; anyone else gets a way back to the Readli home page.
-  links.push(nav.family.plan !== "none" ? { href: "/family", label: "My Family" } : { href: "/", label: "Home" });
-  links.push({ href: nav.family.plan === "none" ? "/voice" : "/family/my-voice", label: "My Voice" }, { href: "/family/settings", label: "Settings" });
+  // A Family account's home is My Family. A parent whose family has no plan yet goes to their family too.
+  // A free storyteller's home is My Voice, so that one link is their Home (never the marketing page).
+  if (nav.family.plan !== "none") links.push({ href: "/family", label: "My Family" }, { href: "/family/my-voice", label: "My Voice" });
+  else if (nav.household) links.push({ href: "/family", label: "Home" }, { href: "/voice", label: "My Voice" });
+  else links.push({ href: accountHome(nav), label: "Home" });
+  links.push({ href: "/family/settings", label: "Settings" });
   // A paid family reaches its plan and credits straight from the menu; a trial has Choose a plan below instead.
   if (nav.family.plan === "paid") links.push({ href: "/family/settings/plan", label: "Plan & credits" });
   // Every grown-up can give Readli Family to their children's families, wherever they are in the product.

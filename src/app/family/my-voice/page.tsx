@@ -64,7 +64,7 @@ export default async function MyVoicePage() {
         who then choose, child by child, whether their kids can hear it. Being connected on a family tree never shares
         it. You can stop sharing at any time.
       </p>
-      <MyVoiceSharing initial={voices} />
+      <MyVoiceSharing initial={voices} recorded={Boolean(recording && recording.status !== "deleted")} />
     </FamilyShell>
   );
 }

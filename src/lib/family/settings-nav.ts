@@ -27,13 +27,15 @@ const PLACES: [string, string][] = [
 
 /**
  * The way back from Settings to the page that opened it, from the `from` the account menu adds. Only a
- * plain same-site path is used, never another site or Settings itself; anything else goes Home.
+ * plain same-site path is used, never another site or Settings itself; anything else goes Home. Home is
+ * the grown-up's own home (`homeHref`: their family, or /voice for a free storyteller), even when Settings
+ * was opened from the marketing page, so it never drops them back on the public site.
  */
-export function settingsBack(from: string | string[] | undefined | null): { href: string; label: string } {
-  const home = { href: "/family", label: "Home" };
+export function settingsBack(from: string | string[] | undefined | null, homeHref = "/family"): { href: string; label: string } {
+  const home = { href: homeHref, label: "Home" };
   if (typeof from !== "string" || from.length > 200 || !/^\/[A-Za-z0-9/_-]*$/.test(from) || from.startsWith("//")) return home;
   if (from === SETTINGS_HOME || from.startsWith(`${SETTINGS_HOME}/`)) return home;
-  if (from === "/") return { href: "/", label: "Home" };
+  if (from === "/") return home;
   const place = PLACES.find(([p]) => from === p || from.startsWith(`${p}/`));
   return { href: from, label: place ? place[1] : "Back" };
 }

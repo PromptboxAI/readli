@@ -21,7 +21,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   if (page.session?.actor.kind === "child") return <NeedsGrownUp text="Only a grown-up can change settings." />;
   const householdId = settingsHousehold(page);
   return (
-    <SettingsShell current="account" guardian={Boolean(householdId)} back={settingsBack((await searchParams).from)} list={householdId ? await summaries(page, householdId) : undefined}>
+    <SettingsShell current="account" guardian={Boolean(householdId)} back={settingsBack((await searchParams).from, householdId || !page.session?.account ? "/family" : "/voice")} list={householdId ? await summaries(page, householdId) : undefined}>
       <AccountSection state={page.state} />
     </SettingsShell>
   );

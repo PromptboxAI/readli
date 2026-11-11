@@ -57,8 +57,12 @@ function FamilyStatus({ h, onRename }: { h: MyVoiceHousehold; onRename?: (nickna
   );
 }
 
-/** The voice owner's own switch, per family. Turning it off removes the voice from every child at once. */
-export function MyVoiceSharing({ initial, storyteller = false }: { initial: MyVoiceView[]; storyteller?: boolean }) {
+/**
+ * The voice owner's own switch, per family. Turning it off removes the voice from every child at once.
+ * `recorded` is their account recording (shown in the card above): a voice can be recorded before any
+ * family has it, so with no family voice yet this says no family uses it, never that nothing is recorded.
+ */
+export function MyVoiceSharing({ initial, storyteller = false, recorded = false }: { initial: MyVoiceView[]; storyteller?: boolean; recorded?: boolean }) {
   const [voices, setVoices] = useState(initial);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -97,7 +101,16 @@ export function MyVoiceSharing({ initial, storyteller = false }: { initial: MyVo
     return true;
   };
 
-  if (voices.length === 0) return <p className="rounded-3xl bg-surface p-4">You haven&apos;t recorded your voice yet.</p>;
+  if (voices.length === 0)
+    return (
+      <p className="rounded-3xl bg-surface p-4" data-testid="no-families">
+        {!recorded
+          ? "You haven't recorded your voice yet."
+          : storyteller
+            ? "No families use your voice yet. Invite a family, or open a family's invitation link to join them."
+            : "No other families use your voice yet."}
+      </p>
+    );
   // Families that connected in the last two weeks, so a new connection never goes unnoticed.
   const recent = voices.flatMap((v) => v.households.filter((h) => h.shared && h.sharedSince && Date.now() - Date.parse(h.sharedSince) < 14 * 86_400_000));
   return (
