@@ -49,7 +49,7 @@ describe("header for each account", () => {
   it("sends a parent whose family has no plan yet Home to their family", () => {
     const named = adult({ plan: "none", hadFamily: true }, true);
     expect(labels(named)).toEqual(["Home", "My Voice", "Settings", "Give Readli as a gift", "Help", "Start Readli Family"]);
-    expect(hrefs(named).Home).toBe("/family");
+    expect(hrefs(named).Home).toBe("/home");
   });
 
   it("offers Readli Family with no trial: a new family starts at signup, a named one goes to choose a plan", () => {
@@ -66,14 +66,16 @@ describe("header for each account", () => {
   it("gives a trial My Family in the menu, its end date and a way to choose a plan", () => {
     const trial = adult({ plan: "trial", endsAt: "2026-10-27T00:00:00.000Z" });
     expect(primaryAction(trial)).toBeNull();
-    expect(labels(trial)).toEqual(["My Family", "My Voice", "Settings", "Give Readli as a gift", "Help", "Choose a plan"]);
+    expect(labels(trial)).toEqual(["Home", "My Family", "My Voice", "Settings", "Give Readli as a gift", "Help", "Choose a plan"]);
     expect(accountBadge(trial)).toBe("Family trial · ends Oct 26");
   });
 
   it("gives a paid family My Family in the menu with no offers", () => {
     const paid = adult({ plan: "paid", endsAt: null });
     expect(primaryAction(paid)).toBeNull();
-    expect(labels(paid)).toEqual(["My Family", "My Voice", "Settings", "Plan & credits", "Give Readli as a gift", "Help"]);
+    expect(labels(paid)).toEqual(["Home", "My Family", "My Voice", "Settings", "Plan & credits", "Give Readli as a gift", "Help"]);
+    expect(hrefs(paid).Home).toBe("/home");
+    expect(hrefs(paid)["My Family"]).toBe("/family");
     expect(accountBadge(paid)).toBeNull();
   });
 });

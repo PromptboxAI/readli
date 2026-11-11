@@ -131,7 +131,7 @@ export default async function StartPlanPage({ searchParams }: { searchParams: Pr
           </Link>
         )}
         {ctx.parent && (
-          <Link href="/family" className="font-semibold underline underline-offset-4">
+          <Link href="/home" className="font-semibold underline underline-offset-4">
             Not now
           </Link>
         )}

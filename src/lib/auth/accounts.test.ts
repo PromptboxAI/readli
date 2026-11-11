@@ -340,10 +340,10 @@ describe("real family accounts", () => {
 
   it("sign-in only continues to same-site pages", () => {
     expect(safeNext("/family/books")).toBe("/family/books");
-    expect(safeNext("https://evil.example")).toBe("/family");
-    expect(safeNext("//evil.example")).toBe("/family");
-    expect(safeNext("/\\evil.example")).toBe("/family");
-    expect(safeNext(null)).toBe("/family");
+    expect(safeNext("https://evil.example")).toBe("/home");
+    expect(safeNext("//evil.example")).toBe("/home");
+    expect(safeNext("/\\evil.example")).toBe("/home");
+    expect(safeNext(null)).toBe("/home");
   });
 
   it("names a new grown-up from Google, their sign-up name or their email", () => {

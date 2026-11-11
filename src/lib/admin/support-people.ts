@@ -320,7 +320,7 @@ export async function sendSignInEmail(db: SupabaseClient, userId: string, env: N
   const anon = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anon) throw new AdminActionError("Sign-in isn't configured here.");
   const auth = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } }).auth;
-  const sent = await auth.signInWithOtp({ email: data.user.email, options: { shouldCreateUser: false, emailRedirectTo: `${SITE_URL}/auth/callback?next=${encodeURIComponent("/family")}` } });
+  const sent = await auth.signInWithOtp({ email: data.user.email, options: { shouldCreateUser: false, emailRedirectTo: `${SITE_URL}/auth/callback?next=${encodeURIComponent("/home")}` } });
   if (sent.error) {
     throw new AdminActionError(sent.error.status === 429 ? "Supabase is limiting sign-in emails to that address. Try again in a minute." : `The email didn't send: ${sent.error.message}`);
   }

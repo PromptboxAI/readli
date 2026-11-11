@@ -131,8 +131,8 @@ test("Readli Kids saves to the home screen as an app that opens on the bookshelf
 
 test("Back on a kids profile stays on the kids bookshelf instead of returning to parent pages", async ({ page }) => {
   expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
-  await page.goto("/family/kids");
   await page.goto("/family");
+  await page.goto("/home");
   await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
   await expect(page.getByRole("heading", { name: "Hi Maya! Pick a story." })).toBeVisible();
   // Opening the profile replaced /family in history; Back reaches the earlier parent page, which sends the device to its bookshelf.
@@ -146,7 +146,7 @@ test("opening a child's Readli Kids is temporary Kids Mode on this browser, not 
   // The same grown-up on their phone, signed in with the same family.
   const phone = await browser.newContext();
   await phone.addCookies(await context.cookies());
-  await page.goto("/family");
+  await page.goto("/home");
   await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
   await expect(page.getByRole("heading", { name: "Hi Maya! Pick a story." })).toBeVisible();
   const pass = (await context.cookies()).find((c) => c.name === "readli_kids_profile");
@@ -180,7 +180,7 @@ test("opening a child's Readli Kids is temporary Kids Mode on this browser, not 
   // A clearly labelled way out for a grown-up. The preview has no sign-in, so it starts a fresh preview.
   await page.getByRole("button", { name: "Grown-ups", exact: true }).click();
   await page.getByTestId("temporary-kids-exit").getByRole("button", { name: "Grown-ups: start the preview over" }).click();
-  await expect(page).toHaveURL(/\/family$/);
+  await expect(page).toHaveURL(/\/home$/);
   expect((await context.cookies()).map((c) => c.name)).not.toContain("readli_kids_profile");
 });
 
@@ -190,7 +190,7 @@ test("a grown-up leaves temporary Kids Mode with the family PIN and is back in t
   expect((await page.request.post("/api/family/children", { data: { nickname: "Ava" } })).status()).toBe(200);
   // The preview's device registry is shared by every test, so another test may have set the PIN
   // already. When it hasn't, the family home asks for one right above the kids.
-  await page.goto("/family");
+  await page.goto("/home");
   const setPin = page.getByTestId("set-kids-pin");
   if (await setPin.isVisible()) {
     await setPin.getByLabel("New PIN").fill(PIN);
@@ -214,17 +214,17 @@ test("a grown-up leaves temporary Kids Mode with the family PIN and is back in t
 
   await exit.getByLabel("Family PIN").fill(PIN);
   await exit.getByRole("button", { name: "Back to Readli Family" }).click();
-  await expect(page).toHaveURL(/\/family$/);
+  await expect(page).toHaveURL(/\/home$/);
   expect((await context.cookies()).map((c) => c.name)).not.toContain("readli_kids_profile");
   expect((await context.cookies()).map((c) => c.name)).not.toContain("readli_grownup");
-  await page.goto("/family/kids");
+  await page.goto("/family");
   await expect(page.getByTestId("profiles-count")).toHaveText("3 of 6 profiles");
 });
 
 test("a Kids Mode page left open after Kids Mode ended takes the grown-up home instead of a dead end", async ({ page, context }) => {
   expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
   expect((await page.request.put("/api/family/kids-pin", { data: { pin: PIN } })).status()).toBe(200);
-  await page.goto("/family");
+  await page.goto("/home");
   await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
   await expect(page.getByRole("heading", { name: "Hi Maya! Pick a story." })).toBeVisible();
   await page.getByRole("button", { name: "Grown-ups", exact: true }).click();
@@ -269,7 +269,7 @@ test("a kids device can't switch to a grown-up through the session route", async
   const res = await page.request.post("/api/family/session", { data: { as: "adult:sara" } });
   expect(res.status()).toBe(403);
   expect((await res.json()).error.code).toBe("kids_mode");
-  await page.goto("/family");
+  await page.goto("/home");
   await expect(page).toHaveURL(/\/kids$/);
   // A story link with nobody picked goes to "Who's listening?", never to a grown-up page.
   await page.goto("/kids/listen/the-lion-and-the-mouse");

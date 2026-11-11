@@ -40,7 +40,7 @@ export async function startContext(here: string, opts: { plan: boolean }): Promi
   const state = page.state;
   const parent = isParent(state, user.id);
   const home = parent && state ? homeHousehold(state, user.id) : null;
-  if (home && state && activeEntitlement(state, home)) redirect("/family");
+  if (home && state && activeEntitlement(state, home)) redirect("/home");
   if (parent && !opts.plan) redirect("/start/plan");
   const deps = accountVoiceDeps(serverConfig());
   const voice = deps ? await deps.store.findVoice(user.id).catch(() => null) : null;

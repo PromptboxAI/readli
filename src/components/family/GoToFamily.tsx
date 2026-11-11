@@ -7,7 +7,7 @@ import { useEffect } from "react";
 export function GoToFamily({ afterMs = 4000 }: { afterMs?: number }) {
   const router = useRouter();
   useEffect(() => {
-    const t = setTimeout(() => router.replace("/family"), afterMs);
+    const t = setTimeout(() => router.replace("/home"), afterMs);
     return () => clearTimeout(t);
   }, [router, afterMs]);
   return null;

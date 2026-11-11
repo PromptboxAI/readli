@@ -23,7 +23,7 @@ export default async function JoinPage({ searchParams }: { searchParams: Promise
   const user = db ? await currentAdult() : null;
   const invite = db && token ? await inviteForToken(db, token, user?.id ?? null) : null;
   const coParent = invite?.role === "guardian";
-  if (user && invite?.alreadyMember && invite.householdId) redirect(coParent ? "/family" : `/voice/join/${invite.householdId}`);
+  if (user && invite?.alreadyMember && invite.householdId) redirect(coParent ? "/home" : `/voice/join/${invite.householdId}`);
   return (
     <AdultPage>
       <header className="flex flex-col gap-2">

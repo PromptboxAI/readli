@@ -35,7 +35,7 @@ export function FamilyStart(props: {
   const checkout = async () => {
     // Before payments are on, there's nothing to buy: the family still starts, and Plan and billing says why.
     if (!props.paymentsOn) {
-      window.location.assign("/family?start=1");
+      window.location.assign("/home?start=1");
       return;
     }
     await startFamilyCheckout({ billing, cents: billing === "annual" ? props.annualCents : props.monthlyCents, familyName: null, from: "signup" });

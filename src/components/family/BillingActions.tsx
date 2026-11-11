@@ -122,7 +122,7 @@ export function ManagePlan({ paymentsOn }: { paymentsOn: boolean }) {
           void goTo("/api/billing/portal", {}, setError).finally(() => setBusy(false));
         }}
       >
-        Change card, slots or cancel
+        Change or cancel plan
       </button>
     </div>
   );

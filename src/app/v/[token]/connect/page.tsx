@@ -59,7 +59,7 @@ export default async function ConnectInvitationPage({ params, searchParams }: { 
       <AdultPage>
         {header}
         <p className="text-lg">{landing.status === "expired" ? `This invitation has expired. Ask ${name} to send a new one.` : "This invitation isn't available any more."}</p>
-        <Link href="/family" className={`${buttonSecondary} w-fit`}>
+        <Link href="/home" className={`${buttonSecondary} w-fit`}>
           Go to your family
         </Link>
       </AdultPage>

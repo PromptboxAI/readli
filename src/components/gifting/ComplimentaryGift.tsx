@@ -272,7 +272,7 @@ export function ComplimentaryGift({ code, gift, viewer, path = "/claim" }: { cod
               ? `Your paid plan won't bill again until ${longDate(result.paidThrough)}. After that it carries on as before, unless you cancel first.`
               : `Readli Family is on for your family until ${longDate(result.paidThrough)}. No card needed, and nothing renews on its own.`}
         </p>
-        <Link href={result ? (yourName.trim() ? "/family/setup?named=1" : "/family/setup") : "/family"} className={buttonPrimary}>
+        <Link href={result ? (yourName.trim() ? "/family/setup?named=1" : "/family/setup") : "/home"} className={buttonPrimary}>
           {result ? "Set up my family" : "Go to my family"}
         </Link>
       </section>

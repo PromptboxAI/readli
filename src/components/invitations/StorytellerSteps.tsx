@@ -184,7 +184,7 @@ export function StorytellerSteps(p: StepsProps) {
           <button type="button" className={buttonPrimary} disabled={busy || !p.voiceId} onClick={() => run(() => call("/api/family/narrators", "POST", { voiceId: p.voiceId, action: "activate" }))} data-testid="activate-storyteller">
             Activate {p.name}
           </button>
-          <Link href="/family" className="font-semibold underline underline-offset-4">
+          <Link href="/home" className="font-semibold underline underline-offset-4">
             Decide later
           </Link>
         </div>
@@ -217,7 +217,7 @@ export function StorytellerSteps(p: StepsProps) {
       p.kids.length === 0 ? (
         <p>
           Add a child&apos;s profile first.{" "}
-          <Link href="/family/kids" className="font-semibold underline underline-offset-4">
+          <Link href="/family" className="font-semibold underline underline-offset-4">
             Add a child
           </Link>
         </p>

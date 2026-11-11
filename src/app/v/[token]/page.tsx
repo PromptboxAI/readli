@@ -45,7 +45,7 @@ export default async function InvitationPreviewPage({ params }: { params: Promis
       <AdultPage>
         <section className="flex flex-col items-start gap-4 rounded-[var(--radius-panel)] bg-sky/40 p-8" data-testid="invitation-closed">
           <h1 className="font-display text-3xl font-semibold">{text}</h1>
-          <Link href={landing.status === "accepted" ? "/family" : "/"} className={buttonSecondary}>
+          <Link href={landing.status === "accepted" ? "/home" : "/"} className={buttonSecondary}>
             {landing.status === "accepted" ? "Go to your family" : "Visit Readli"}
           </Link>
         </section>

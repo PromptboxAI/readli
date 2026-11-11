@@ -465,7 +465,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     question: "How do I manage or cancel my subscription?",
     status: "published",
     answer: [
-      "In Readli Family, open Settings, then Plan & credits, and choose Change card, slots or cancel. If you cancel, your plan stays active until the end of the period you've paid for and won't renew.",
+      "In Readli Family, open Settings, then Plan & credits, and choose Change or cancel plan. You can update your card there too. If you cancel, your plan stays active until the end of the period you've paid for and won't renew.",
     ],
     keywords: ["cancel", "billing", "payment method", "stop subscription"],
     related: ["cancel-what-happens-to-voice", "family-plan-included"],

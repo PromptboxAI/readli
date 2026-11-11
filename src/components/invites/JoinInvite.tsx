@@ -70,7 +70,7 @@ export function JoinInvite({ token, invite, signedIn, live }: { token: string; i
     const body = await res.json().catch(() => null);
     if (res.ok && body?.householdId) {
       document.cookie = `${JOIN_COOKIE}=; path=/; max-age=0`;
-      return router.push(coParent ? "/family" : `/voice/join/${body.householdId}`);
+      return router.push(coParent ? "/home" : `/voice/join/${body.householdId}`);
     }
     if (body?.error?.code === "already_member") return router.refresh();
     setError(body?.error?.message ?? "That didn't work. Please try again.");

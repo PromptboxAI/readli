@@ -84,7 +84,7 @@ test("printable guides are one clean page each, linked from Help", async ({ page
 
 test("family screens link to the help article that answers them", async ({ page }) => {
   expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
-  await page.goto("/family/kids");
+  await page.goto("/family");
   const link = page.getByTestId("help-link-parents-control-voices");
   await expect(link).toHaveText("How voice permissions work");
   await link.click();

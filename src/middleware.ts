@@ -5,7 +5,7 @@ import { KIDS_COOKIE, kidsModeRoute } from "@/lib/family/kids-mode";
 import { encodeFirstTouch, FIRST_TOUCH_COOKIE, FIRST_TOUCH_DAYS, firstTouchFrom } from "@/lib/marketing/first-touch";
 
 /** Pages and routes that use the Supabase sign-in, so it's kept fresh there. */
-const SIGN_IN_PATHS = ["/family", "/kids", "/login", "/auth", "/api/family", "/api/kids", "/billing", "/admin", "/api/admin", "/api/account", "/api/people"];
+const SIGN_IN_PATHS = ["/home", "/family", "/kids", "/login", "/auth", "/api/family", "/api/kids", "/billing", "/admin", "/api/admin", "/api/account", "/api/people"];
 
 /**
  * Keeps a device in Kids Mode on the child's side (the server checks again on every grown-up route),
@@ -49,7 +49,7 @@ async function route(request: NextRequest): Promise<NextResponse> {
   }
   // A sign-in that can't finish (say Back replayed Google's sign-in page) lands on the homepage with an error.
   // Family takes it from there: back into setup for an unfinished account, or to sign in again.
-  if (path === "/" && request.nextUrl.searchParams.has("error_code")) return NextResponse.redirect(new URL("/family", request.url));
+  if (path === "/" && request.nextUrl.searchParams.has("error_code")) return NextResponse.redirect(new URL("/home", request.url));
   if (!SIGN_IN_PATHS.some((p) => path === p || path.startsWith(`${p}/`))) return NextResponse.next();
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

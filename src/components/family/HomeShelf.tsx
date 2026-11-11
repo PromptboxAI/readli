@@ -217,7 +217,7 @@ export function StorytellersCard({
         <h2 id="storytellers-h" className="font-display text-2xl font-semibold">
           Family storytellers
         </h2>
-        <Link href="/family/kids" className="font-semibold underline underline-offset-4">
+        <Link href="/family" className="font-semibold underline underline-offset-4">
           Go to Family
         </Link>
       </div>
@@ -249,7 +249,7 @@ export function StorytellersCard({
         <div className="flex flex-col items-start gap-2 rounded-2xl bg-sky/40 p-4" data-testid="record-first">
           <p className="font-semibold">Start with your own voice</p>
           <p className="text-sm">Record yours first, so your kids hear you. Then invite grandparents and others to add theirs.</p>
-          <Link href="/voice/record?next=/family" className={parentPrimary}>
+          <Link href="/voice/record?next=/home" className={parentPrimary}>
             Record my voice
           </Link>
         </div>

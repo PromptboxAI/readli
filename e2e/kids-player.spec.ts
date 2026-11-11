@@ -102,7 +102,7 @@ test("a child asks a grown-up for a story, and it waits on Family Home with a wa
   const grownUp = await browser.newContext({ viewport: page.viewportSize() ?? undefined });
   await grownUp.addCookies(parent);
   const home = await grownUp.newPage();
-  await home.goto("/family");
+  await home.goto("/home");
   const request = home.getByTestId("request-thumbelina");
   await expect(request).toContainText("Maya would like Thumbelina");
   await expect(home.getByTestId("prepare-thumbelina")).toHaveAttribute("href", "/family/books/thumbelina");
