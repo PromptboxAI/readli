@@ -21,6 +21,7 @@ import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
 import { recorderProps } from "@/lib/voice/recorder";
 import {
+import { PinStep } from "@/components/onboarding/PinStep";
   STORYTELLER_STEP_LABELS,
   STORYTELLER_STEPS,
   storytellerHref,
@@ -72,20 +73,20 @@ function StepNav({ step, ready, skip = "Skip for now", nextHref }: { step: Story
   const back = storytellerStepBefore(step);
   const next = storytellerStepAfter(step);
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-ink/10 pt-5">
-      {back && (
-        <Link href={storytellerHref(back)} className="font-semibold underline underline-offset-4">
-          Back
-        </Link>
-      )}
-      <div className="ml-auto flex flex-wrap items-center justify-end gap-x-5 gap-y-3">
-        <Link href="/voice/setup/later" className="text-sm text-muted underline underline-offset-4 hover:text-ink">
-          Finish later
-        </Link>
-        <Link href={nextHref ?? storytellerHref(next)} className={ready ? buttonPrimary : buttonSecondary} data-testid="storyteller-next">
+    <div className="flex flex-col gap-4 border-t border-ink/10 pt-5">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+        {back && (
+          <Link href={storytellerHref(back)} className="font-semibold underline underline-offset-4">
+            Back
+          </Link>
+        )}
+        <Link href={nextHref ?? storytellerHref(next)} className={`${ready ? buttonPrimary : buttonSecondary} ml-auto`} data-testid="storyteller-next">
           {ready ? NEXT_LABEL[next] : skip}
         </Link>
       </div>
+      <Link href="/voice/setup/later" className="self-center text-sm text-muted underline underline-offset-4 hover:text-ink">
+        Finish later
+      </Link>
     </div>
   );
 }
@@ -310,6 +311,7 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
 
   return (
     <AdultPage>
+      {!q.step && <PinStep step={step} />}
       <div className="flex flex-col gap-4">
         <p className="text-sm font-bold tracking-wider text-muted uppercase" data-testid="storyteller-progress">
           Getting started · {step === "done" ? "All set" : `Step ${n} of ${STORYTELLER_STEPS.length}`}

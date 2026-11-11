@@ -46,7 +46,8 @@ test("setup's book and listen steps stay in setup, with a small player", async (
   await page.goto("/family/setup?step=book");
   const prep = page.getByTestId("setup-prepare");
   await expect(prep).toContainText("The Lion and the Mouse");
-  await prep.getByTestId("setup-book-next").click();
+  await expect(prep.getByTestId("setup-book-ready")).toBeVisible();
+  await page.getByTestId("setup-next").click();
   await expect(page).toHaveURL(/step=listen/);
   const player = page.getByTestId("setup-mini-player");
   await expect(player.getByRole("button", { name: "Play" })).toBeVisible();

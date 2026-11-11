@@ -30,7 +30,7 @@ import { familyPage, guardianChildren } from "@/lib/family/page-data";
 import { activeEntitlement, activeShare } from "@/lib/family/permissions";
 import { childProfiles, familyParents, homeHousehold, PROVISIONAL_FAMILY_NAME } from "@/lib/family/service";
 import { deviceRegistry, familyStore } from "@/lib/family/session";
-import { listenView, prepareView } from "@/lib/narration/narration";
+import { listenView, prepareView, WELCOME_BOOK, welcomeBookOnUs } from "@/lib/narration/narration";
 import { recorderProps } from "@/lib/voice/recorder";
 import {
   familyInvited,
@@ -49,12 +49,13 @@ import { listInvites } from "@/lib/invites/server";
 import { familyLibrary } from "@/lib/library/discovery";
 import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
+import { PinStep } from "@/components/onboarding/PinStep";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Set up your family | Readli", robots: { index: false } };
 
 /** Setup's one intro book: about a minute long, so it's quick and cheap to hear working. */
-const INTRO_BOOK = "the-lion-and-the-mouse";
+const INTRO_BOOK = WELCOME_BOOK;
 
 /** Where each step's "Next" goes, in words. */
 const NEXT_LABEL: Record<SetupStep, string> = {
@@ -108,27 +109,27 @@ function StepNav({ step, ready, skip = "Skip for now", nextHref, required }: { s
   const backHref = before ? setupHref(before) : step === "voice" ? "/family/setup?step=welcome" : null;
   const next = stepAfter(step);
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-ink/10 pt-5">
-      {backHref && (
-        <Link href={backHref} className="font-semibold underline underline-offset-4">
-          Back
-        </Link>
-      )}
-      <div className="ml-auto flex flex-wrap items-center justify-end gap-x-5 gap-y-3">
-        <Link href="/family/setup/later" className="text-sm text-muted underline underline-offset-4 hover:text-ink">
-          Finish setting up later
-        </Link>
+    <div className="flex flex-col gap-4 border-t border-ink/10 pt-5">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+        {backHref && (
+          <Link href={backHref} className="font-semibold underline underline-offset-4">
+            Back
+          </Link>
+        )}
         {!ready && required ? (
           // A step that can't be skipped: Next waits until it's done.
-          <button type="button" className={`${parentPrimary} cursor-not-allowed opacity-50`} disabled data-testid="setup-next">
+          <button type="button" className={`${parentPrimary} ml-auto cursor-not-allowed opacity-50`} disabled data-testid="setup-next">
             {required}
           </button>
         ) : (
-          <Link href={nextHref ?? setupHref(next)} className={ready ? parentPrimary : parentSecondary} data-testid="setup-next">
+          <Link href={nextHref ?? setupHref(next)} className={`${ready ? parentPrimary : parentSecondary} ml-auto`} data-testid="setup-next">
             {ready ? NEXT_LABEL[next] : skip}
           </Link>
         )}
       </div>
+      <Link href="/family/setup/later" className="self-center text-sm text-muted underline underline-offset-4 hover:text-ink">
+        Finish setting up later
+      </Link>
     </div>
   );
 }
@@ -358,12 +359,16 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
     const intro = lib ? (lib.all.find((b) => b.slug === INTRO_BOOK) ?? [...lib.all].sort((a, b) => a.minutes - b.minutes)[0]) : undefined;
     const prep = intro && mine ? await prepareView(store, actor, home, intro.slug).catch(() => null) : null;
     const introReady = Boolean(prep?.voices.some((v) => v.voiceId === mine?.voiceId && v.availability === "ready"));
+    // A new family's first book is free; once anything has been prepared it's an ordinary book again.
+    const onUs = Boolean(intro && plan && welcomeBookOnUs(state, home, intro.slug));
+    const listenHref = intro && mine ? `${setupHref("listen")}&book=${intro.slug}&voice=${encodeURIComponent(mine.voiceId)}` : undefined;
     body = (
       <>
         <header className="flex flex-col gap-2">
-          <h1 className="font-display text-3xl font-semibold sm:text-4xl">Prepare their first book</h1>
+          <h1 className="font-display text-3xl font-semibold sm:text-4xl">{onUs ? "Prepare their first book, on us" : "Prepare their first book"}</h1>
           <p className="max-w-2xl text-lg">
-            We&apos;ll start with a short one, read in your voice, so you can hear how it works. It goes straight onto your kids&apos; bookshelves. The whole library is in Books whenever you want more.
+            We&apos;ll start with a short one, read in your voice, so you can hear how it works.{onUs ? " This one's free, so it doesn't use any of your credits." : ""} It goes
+            straight onto your kids&apos; bookshelves. The whole library is in Books whenever you want more.
           </p>
         </header>
         {!plan ? (
@@ -378,7 +383,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
         ) : !intro ? (
           <p className="rounded-2xl bg-sunshine/50 p-4">The library is still loading its first books. Try again in a moment.</p>
         ) : prep && mine ? (
-          <SetupPrepareBook key={String(mine.on)} initial={prep} voiceId={mine.voiceId} listenHref={`${setupHref("listen")}&book=${intro.slug}&voice=${encodeURIComponent(mine.voiceId)}`} />
+          <SetupPrepareBook key={String(mine.on)} initial={prep} voiceId={mine.voiceId} onUs={onUs} />
         ) : (
           <p className="rounded-2xl bg-sunshine/50 p-4">
             {recorded ? "Your voice is still being made, usually a few minutes. Refresh this page in a moment to prepare the book." : "Record your voice first, so the book can be read in it."}{" "}
@@ -389,7 +394,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
             )}
           </p>
         )}
-        <StepNav step="book" ready={progress.story || introReady} required="Prepare the book to continue" />
+        <StepNav step="book" ready={progress.story || introReady} required="Prepare the book to continue" nextHref={introReady ? listenHref : undefined} />
       </>
     );
   } else if (step === "listen") {
@@ -561,6 +566,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
         </p>
         <Stepper step={step} done={done} />
       </div>
+      {!q.step && <PinStep step={step} />}
       <div className="flex flex-col gap-6" data-testid={`setup-${step}`}>
         {body}
       </div>
