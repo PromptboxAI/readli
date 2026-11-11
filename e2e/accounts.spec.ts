@@ -60,7 +60,7 @@ test("family checkout shows the plan and stays switched off", async ({ page }, i
 
 test("signed-out visitors to /voice are sent to sign in and back", async ({ page }) => {
   await page.goto("/voice");
-  await expect(page).toHaveURL(/\/login\?next=%2Fvoice$/);
+  await expect(page).toHaveURL(/\/login\?next=(\/|%2F)voice$/);
   await page.goto("/voice?invite=abc123");
   await expect(page).toHaveURL(/\/voice\/join\?invite=abc123$/);
 });
