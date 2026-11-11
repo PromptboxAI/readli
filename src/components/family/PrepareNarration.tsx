@@ -748,11 +748,11 @@ function Confirm({
         You&apos;re never charged more than this; unused credits come back.
       </p>
       <div className="flex flex-wrap gap-2">
-        <button type="button" className={btnPrimary} disabled={busy || quote.credits > balance} onClick={onConfirm}>
-          Prepare now
-        </button>
         <button type="button" className={btnSecondary} onClick={onCancel}>
           Not now
+        </button>
+        <button type="button" className={btnPrimary} disabled={busy || quote.credits > balance} onClick={onConfirm}>
+          Prepare now
         </button>
       </div>
     </div>

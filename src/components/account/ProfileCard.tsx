@@ -154,11 +154,11 @@ export function ProfileCard({ name, email, tint, avatarUrl }: { name: string; em
             <span>This is a photo of me, I&apos;m an adult, and I agree that Readli shows it to the people in my families. No photos of children.</span>
           </label>
           <div className="flex flex-wrap gap-2">
-            <button type="submit" className={buttonSmallPrimary} disabled={busy !== null || !consent}>
-              {busy === "photo" ? "Saving…" : "Save photo"}
-            </button>
             <button type="button" className={buttonSmallQuiet} disabled={busy !== null} onClick={() => setFile(null)}>
               Cancel
+            </button>
+            <button type="submit" className={buttonSmallPrimary} disabled={busy !== null || !consent}>
+              {busy === "photo" ? "Saving…" : "Save photo"}
             </button>
           </div>
         </form>

@@ -119,7 +119,16 @@ export function GiftOpen({ plan, to, from, message, live }: { plan: GiftPlan; to
           {error}
         </p>
       )}
-      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+      {/* The main button sits last (on the right), and on top when the buttons stack on a phone. */}
+      <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center">
+        <button type="button" className={buttonQuiet} onClick={() => setStage("declined")}>
+          No thanks
+        </button>
+        {!live && (
+          <Link href="/login" className={buttonSecondary}>
+            I already have Readli
+          </Link>
+        )}
         {live && !live.signedIn ? (
           <Link href={`/login?next=${encodeURIComponent(`/gift/open?code=${live.code}`)}`} className={buttonPrimary}>
             Sign in to accept my gift
@@ -129,14 +138,6 @@ export function GiftOpen({ plan, to, from, message, live }: { plan: GiftPlan; to
             {busy ? "Opening…" : "Accept my gift"}
           </button>
         )}
-        {!live && (
-          <Link href="/login" className={buttonSecondary}>
-            I already have Readli
-          </Link>
-        )}
-        <button type="button" className={buttonQuiet} onClick={() => setStage("declined")}>
-          No thanks
-        </button>
       </div>
       {plan.kind === "prepaid" && (
         <p className="text-sm text-muted">Already a member? Your gift starts when your current paid month ends, so nothing is wasted.</p>

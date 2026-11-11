@@ -167,11 +167,11 @@ export function InviteStoryteller({
         </p>
       )}
       <div className="flex flex-wrap gap-3">
-        <button type="submit" className={parentPrimary} disabled={!canSend}>
-          {busy ? "Creating invitation…" : "Create invitation"}
-        </button>
         <button type="button" className={parentSecondary} onClick={onClose}>
           Cancel
+        </button>
+        <button type="submit" className={parentPrimary} disabled={!canSend}>
+          {busy ? "Creating invitation…" : "Create invitation"}
         </button>
       </div>
       <p className="text-sm text-muted">

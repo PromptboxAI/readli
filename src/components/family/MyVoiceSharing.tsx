@@ -38,11 +38,11 @@ function FamilyStatus({ h, onRename }: { h: MyVoiceHousehold; onRename?: (nickna
             placeholder="Grandma, Aunt Ange…"
             onChange={(e) => setName(e.target.value)}
           />
-          <button type="button" className="min-h-11 rounded-full bg-ink px-4 font-semibold text-white" disabled={saving} onClick={save}>
-            Save
-          </button>
           <button type="button" className="min-h-11 px-2 font-semibold underline" onClick={() => setEditing(false)}>
             Cancel
+          </button>
+          <button type="button" className="min-h-11 rounded-full bg-ink px-4 font-semibold text-white" disabled={saving} onClick={save}>
+            Save
           </button>
         </li>
       ) : (
