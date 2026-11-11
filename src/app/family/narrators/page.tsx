@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
 import { NarratorSlots } from "@/components/family/NarratorSlots";
+import { billingConfig } from "@/lib/billing/config";
 import { accountDb } from "@/lib/family/account-store";
+import { activeEntitlement } from "@/lib/family/permissions";
 import { familyPage, guardianChildren } from "@/lib/family/page-data";
 import type { FamilyState } from "@/lib/family/model";
 import { familyParents, guardianHousehold, narratorSlots } from "@/lib/family/service";
@@ -40,6 +42,8 @@ export default async function NarratorSlotsPage({ searchParams }: { searchParams
   const parents = await familyParents(store, page.session.actor, householdId);
   // Opened from Settings › Plan & credits, the way back returns there; otherwise to My Family.
   const back = backFrom(params.from, { href: "/family", label: "My Family" });
+  // A paid plan buys and drops extra slots on its Stripe subscription; the sample family adds them for free.
+  const paid = Boolean(page.session.account && billingConfig().mode !== "off" && page.state && activeEntitlement(page.state, householdId)?.source === "subscription");
   return (
     <FamilyShell>
       <PreviewNote />
@@ -54,6 +58,7 @@ export default async function NarratorSlotsPage({ searchParams }: { searchParams
         focus={typeof add === "string" ? add : typeof params.choose === "string" ? params.choose : null}
         openOn={typeof params.choose === "string" ? params.choose : null}
         coParent={{ href: "/family/settings/parents", canInvite: parents.youOwn, ownerName: parents.ownerName }}
+        paidSlots={paid ? { owner: parents.youOwn, ownerName: parents.ownerName } : null}
       />
     </FamilyShell>
   );

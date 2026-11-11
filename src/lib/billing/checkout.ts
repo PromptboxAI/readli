@@ -13,7 +13,7 @@ export const MAX_EXTRA_SLOTS = 4;
 export function checkoutRequest(plan: PlanConfig, entitlement: HouseholdEntitlement | null, item: string, extraSlots: unknown = 0): CheckoutRequest {
   const no = (status: number, code: string, message: string): CheckoutRequest => ({ ok: false, status, code, message });
   const chosen = catalogItem(plan, item);
-  if (!chosen || chosen.id === "extra_slot") return no(400, "bad_item", "Pick Readli Family or a credit pack.");
+  if (!chosen || chosen.id === "extra_slot" || chosen.id === "extra_slot_annual") return no(400, "bad_item", "Pick Readli Family or a credit pack.");
 
   if (chosen.id === "family_monthly" || chosen.id === "family_annual") {
     // A trial or tester plan can upgrade to a paid one; a paid, gifted or donated plan can't buy a second.

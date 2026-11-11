@@ -11,6 +11,7 @@ import type { JoinedCard, NarratorCard, NarratorSlotsView } from "@/lib/family/s
 import { InvitationPill } from "@/components/invitations/InvitationPill";
 import { InviteStoryteller, type CoParentOption, type SavedInvite } from "./InviteStoryteller";
 import { FamilyCircle } from "./FamilyCircle";
+import { PaidSlots } from "./PaidSlots";
 import { RelationshipPicker } from "./RelationshipPicker";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 import { READLI_TIME_ZONE } from "@/lib/time";
@@ -110,6 +111,7 @@ export function NarratorSlots({
   focus = null,
   openOn = null,
   coParent = null,
+  paidSlots = null,
 }: {
   initial: NarratorSlotsView;
   canBuy?: boolean;
@@ -124,6 +126,8 @@ export function NarratorSlots({
   openOn?: string | null;
   /** Where a partner is invited instead, so the invite form can tell the two apart. */
   coParent?: CoParentOption | null;
+  /** A paid family plan: slots are bought and dropped on its subscription, by the parent who manages it. */
+  paidSlots?: { owner: boolean; ownerName: string } | null;
 }) {
   const router = useRouter();
   const [view, setView] = useState(initial);
@@ -703,14 +707,26 @@ export function NarratorSlots({
           {free <= 0 && view.shared.length > 0 && <p className="font-semibold">All your slots are in use. Free one up or add a slot.</p>}
         </section>
 
-        {free <= 0 && (
+        {paidSlots && (
+          <PaidSlots
+            view={view}
+            owner={paidSlots.owner}
+            ownerName={paidSlots.ownerName}
+            onSaved={(next, done) => {
+              setView(next);
+              setMessage(done);
+              router.refresh();
+            }}
+          />
+        )}
+        {free <= 0 && !paidSlots && (
           <section className="flex flex-col gap-3 rounded-panel bg-sky/30 p-5" aria-label="Add a narrator slot">
             <h2 className="font-display text-2xl font-semibold">Need more narrators?</h2>
             <p>
               Add a narrator slot for {price} a month. Storytellers never pay to share their voice, and there&apos;s no charge for more children.
             </p>
             {!canBuy ? (
-              <p className="text-sm text-muted">Extra slots arrive with checkout, which isn&apos;t switched on yet.</p>
+              <p className="text-sm text-muted">Extra slots go with a paid Readli Family plan, added here by the parent who manages it.</p>
             ) : !buying ? (
               <button type="button" className={`${parentSecondary} self-start`} onClick={() => setBuying(true)}>
                 Add a slot
