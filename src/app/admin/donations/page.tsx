@@ -8,6 +8,8 @@ import { EVENT_TYPES, money, ORG_TYPES, STATUS_LABELS, type EventType, type OrgT
 import { listRequests, programStats, type AdminRequest, type RequestFilter } from "@/lib/donations/server";
 import { accountDb } from "@/lib/family/account-store";
 import { adminDate } from "@/lib/admin/time";
+import { RequestRowMenu } from "@/components/donations/RequestRowMenu";
+import { deleteAction, rejectAction } from "./actions";
 
 export const metadata: Metadata = { title: "Readli Gives Back | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -38,6 +40,8 @@ export default async function DonationsAdminPage({ searchParams }: { searchParam
   const params = await searchParams;
   const filter = FILTERS.find((f) => f.id === params.show)?.id ?? "review";
   const q = typeof params.q === "string" ? params.q : "";
+  const ok = typeof params.ok === "string" ? params.ok : "";
+  const err = typeof params.err === "string" ? params.err : "";
   const db = gate.preview ? null : accountDb();
   const [stats, rows, plan] = db ? await Promise.all([programStats(db), listRequests(db, filter, q), effectivePlan(db)]) : [null, [], null];
 
@@ -55,6 +59,16 @@ export default async function DonationsAdminPage({ searchParams }: { searchParam
           the applicant. Every request is reviewed by a person for now; the automatic checks show as flags.
         </p>
       </header>
+      {ok && (
+        <p role="status" className="rounded-2xl bg-mint/40 px-4 py-3">
+          {ok}
+        </p>
+      )}
+      {err && (
+        <p role="alert" className="rounded-2xl bg-coral/30 px-4 py-3">
+          {err}
+        </p>
+      )}
       {!stats || !plan ? (
         <PreviewNote>Requests and numbers show here once sign-in and Supabase are connected.</PreviewNote>
       ) : (
@@ -113,6 +127,9 @@ export default async function DonationsAdminPage({ searchParams }: { searchParam
                           {h}
                         </th>
                       ))}
+                      <th scope="col" className="w-12 px-2 py-2">
+                        <span className="sr-only">Actions</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -138,6 +155,19 @@ export default async function DonationsAdminPage({ searchParams }: { searchParam
                         <td className="px-3 py-2">{r.flags.length ? <span className="rounded-full bg-sunshine/60 px-2 py-0.5 font-semibold">{r.flags.length} to check</span> : "Clear"}</td>
                         <td className="px-3 py-2">{STATUS_LABELS[r.status]}</td>
                         <td className="px-3 py-2">{REDEMPTION[r.redemption]}</td>
+                        <td className="px-2 py-1 text-right">
+                          <RequestRowMenu
+                            id={r.id}
+                            reference={r.reference}
+                            orgName={r.orgName}
+                            canDecline={r.status === "pending" || r.status === "needs_info"}
+                            canDelete={r.status !== "approved" && !r.batchId}
+                            show={filter}
+                            q={q}
+                            declineAction={rejectAction}
+                            deleteAction={deleteAction}
+                          />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
