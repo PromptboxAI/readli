@@ -61,6 +61,7 @@ export const EMAILS: EmailDefinition[] = [
   { id: "S5", name: "Gift ending (to the family)", sequence: "sponsorship", category: "transactional", topic: null },
   { id: "S6", name: "A family asked for more credits (to the sponsor)", sequence: "sponsorship", category: "transactional", topic: null },
   { id: "S7", name: "Gift credit share changing (to the family)", sequence: "sponsorship", category: "transactional", topic: null },
+  { id: "S8", name: "Gift ended early, refunded or disputed (to the family)", sequence: "sponsorship", category: "transactional", topic: null },
   { id: "D1", name: "Readli Gives Back: request received", sequence: "donations", category: "transactional", topic: null },
   { id: "D2", name: "Readli Gives Back: donation approved", sequence: "donations", category: "transactional", topic: null },
   { id: "D3", name: "Readli Gives Back: more information needed", sequence: "donations", category: "transactional", topic: null },

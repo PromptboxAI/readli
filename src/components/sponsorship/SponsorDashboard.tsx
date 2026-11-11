@@ -52,7 +52,7 @@ function names(places: PlaceView[]): string {
 
 function headline(g: GiftView, live: PlaceView[]): { title: string; line: string } {
   const who = names(live);
-  if (g.status === "refunded") return { title: "Your Readli Family gift", line: "This gift was canceled and refunded in full." };
+  if (g.status === "refunded") return { title: "Your Readli Family gift", line: g.startsAt ? "This gift was refunded and has ended." : "This gift was canceled and refunded in full." };
   if (g.status === "ended") return { title: "Your Readli Family gift", line: `Thank you for the stories you gave${who ? ` ${who}` : ""}.` };
   if (g.status === "scheduled") return { title: "Your gift is wrapped and on its way", line: `It arrives ${day(g.deliverAt)}. That morning${who ? ` ${who}` : " your families"} get${live.length === 1 ? "s" : ""} an invitation from you.` };
   const span = g.plan === "annual" ? "a whole year of bedtime stories" : "bedtime stories every month";
@@ -221,7 +221,7 @@ export function SponsorDashboard({ gift }: { gift: GiftView }) {
         {gift.plan === "annual" && gift.status === "active" && gift.paidThrough && (
           <p>Your year ends {lastDay(gift.paidThrough)}. We&apos;ll ask you 30 days before whether to give another year. Nothing renews without you.</p>
         )}
-        {!ended && gift.status !== "canceling" && (
+        {!ended && (gift.status !== "canceling" || gift.refund) && (
           <button type="button" className="self-start font-semibold text-ink/80 underline underline-offset-4 hover:text-ink" onClick={() => setCanceling(true)}>
             Cancel the gift and see refund rules
           </button>
@@ -242,8 +242,8 @@ export function SponsorDashboard({ gift }: { gift: GiftView }) {
         <CancelDialog
           gift={gift}
           onClose={() => setCanceling(false)}
-          onConfirm={async () => {
-            if (await act(`/api/sponsorships/${gift.id}/cancel`, {})) setCanceling(false);
+          onConfirm={async (refund) => {
+            if (await act(`/api/sponsorships/${gift.id}/cancel`, refund ? { refund: true } : {})) setCanceling(false);
           }}
         />
       )}
@@ -535,13 +535,15 @@ function RemoveDialog({ place, gift, onClose, onConfirm }: { place: PlaceView; g
   );
 }
 
-function CancelDialog({ gift, onClose, onConfirm }: { gift: GiftView; onClose: () => void; onConfirm: () => void }) {
+function CancelDialog({ gift, onClose, onConfirm }: { gift: GiftView; onClose: () => void; onConfirm: (refund: boolean) => void }) {
   const [sure, setSure] = useState(false);
   const before = gift.status === "scheduled";
+  const canStop = !before && gift.plan === "monthly" && gift.status !== "canceling";
+  const [refund, setRefund] = useState(!before && !canStop && Boolean(gift.refund));
   const end = gift.paidThrough;
-  if (gift.plan === "annual" && !before) {
+  if (!before && !canStop && !gift.refund) {
     return (
-      <Dialog title="Your year doesn't renew" onClose={onClose}>
+      <Dialog title={gift.plan === "annual" ? "Your year doesn't renew" : "Your gift is already ending"} onClose={onClose}>
         <p>There&apos;s nothing to cancel: your gift ends {end ? lastDay(end) : "at the end of the year"} and nothing will be charged again.</p>
         <p>If something&apos;s wrong and you&apos;d like a refund, please contact us and we&apos;ll help.</p>
         <button type="button" className={`${buttonSecondary} self-start`} onClick={onClose}>
@@ -550,15 +552,40 @@ function CancelDialog({ gift, onClose, onConfirm }: { gift: GiftView; onClose: (
       </Dialog>
     );
   }
+  const refundLine = gift.refund
+    ? gift.plan === "annual"
+      ? `Refund ${dollars(gift.refund.cents)} in full${gift.refund.until ? ` (available until ${lastDay(gift.refund.until)})` : ""}, and end the gift today.`
+      : `Refund this month's ${dollars(gift.refund.cents)}, and end the gift today.`
+    : "";
   return (
-    <Dialog title="Cancel your gift?" onClose={onClose}>
+    <Dialog title={before ? "Cancel your gift?" : "Cancel or refund your gift?"} onClose={onClose}>
       {before ? (
         <p>Your gift hasn&apos;t arrived yet, so you get a full refund of {dollars(gift.priceCents)} and no invitation goes out.</p>
       ) : (
-        <>
-          <p className="font-semibold">Both families keep Readli until {end ? lastDay(end) : "the end of this month"}.</p>
-          <p>Nothing more will be charged. After that, listening pauses unless they choose their own plan. Their children&apos;s profiles, approvals and progress stay with them.</p>
-        </>
+        <div className="flex flex-col gap-2" role="radiogroup" aria-label="How to cancel">
+          {canStop && (
+            <label className="flex items-start gap-2 rounded-2xl bg-ivory p-3">
+              <input type="radio" name="cancel-mode" className="mt-0.5 size-5 shrink-0" checked={!refund} onChange={() => setRefund(false)} />
+              <span>
+                <span className="font-semibold">Stop renewing.</span> Both families keep Readli until {end ? lastDay(end) : "the end of this month"}, and nothing more is charged.
+              </span>
+            </label>
+          )}
+          {gift.refund && (
+            <label className="flex items-start gap-2 rounded-2xl bg-ivory p-3">
+              <input type="radio" name="cancel-mode" className="mt-0.5 size-5 shrink-0" checked={refund} onChange={() => setRefund(true)} />
+              <span>
+                <span className="font-semibold">Refund and end it now.</span> {refundLine}
+              </span>
+            </label>
+          )}
+          <p>
+            {refund
+              ? "Listening pauses today for both families, and we'll email their parents."
+              : "After that, listening pauses unless they choose their own plan."}{" "}
+            Their children&apos;s profiles, approvals and progress stay with them.
+          </p>
+        </div>
       )}
       <label className="flex items-start gap-2 rounded-2xl bg-ivory p-3">
         <input type="checkbox" className="mt-0.5 size-5 shrink-0" checked={sure} onChange={(e) => setSure(e.target.checked)} />I understand.
@@ -567,8 +594,8 @@ function CancelDialog({ gift, onClose, onConfirm }: { gift: GiftView; onClose: (
         <button type="button" className={buttonSecondary} onClick={onClose}>
           Keep the gift
         </button>
-        <button type="button" className={buttonPrimary} disabled={!sure} onClick={onConfirm}>
-          {before ? "Cancel and refund" : "Stop renewing"}
+        <button type="button" className={buttonPrimary} disabled={!sure} onClick={() => onConfirm(refund)}>
+          {before ? "Cancel and refund" : refund ? "Refund and end it now" : "Stop renewing"}
         </button>
       </div>
     </Dialog>

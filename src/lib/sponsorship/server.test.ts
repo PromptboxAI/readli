@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { StripeApi } from "@/lib/billing/stripe-api";
 import { fakeEmailDb } from "@/lib/email/fake-db.test-util";
 import { giveRequest } from "./rules";
-import { applySponsorshipChange, askForCredits, cancelGift, changeDelivery, offerPlace, rebalanceCredits, removeFamily, runSponsorships, startGift, undoRemoval, type SponsorshipContext } from "./server";
+import { applySponsorshipChange, askForCredits, cancelGift, changeDelivery, offerPlace, rebalanceCredits, refundGift, removeFamily, runSponsorships, startGift, undoRemoval, type SponsorshipContext } from "./server";
 
 const SECRET = "test-secret-for-sponsorships-0123456789";
 const BOUGHT = new Date("2026-11-28T15:00:00.000Z");
@@ -19,6 +19,7 @@ function fakeStripe() {
     getPaymentIntent: async (id: string) => (calls.push(["pi", id]), { id, payment_method: "pm_1", customer: "cus_1" }),
     createSubscription: async (p: Row, key: string) => (calls.push(["subscribe", p, key]), { id: "sub_1", status: "trialing" }),
     updateSubscription: async (id: string, p: Row) => (calls.push(["update", id, p]), { id, status: "trialing" }),
+    getSubscription: async (id: string) => (calls.push(["subscription", id]), { id, status: "active", latest_invoice: "in_2" }),
     cancelSubscription: async (id: string) => (calls.push(["cancel", id]), { id, status: "canceled" }),
     refundPayment: async (pi: string, _m: Row, key: string) => (calls.push(["refund", pi, key]), { id: "re_1", status: "succeeded" }),
   };
@@ -178,6 +179,54 @@ describe("canceling", () => {
     expect(outcome.kind).toBe("stop_renewal");
     expect(calls.find((c) => c[0] === "update")).toEqual(["update", "sub_1", { cancel_at_period_end: true }]);
     expect(sp()).toMatchObject({ status: "canceling", ends_at: "2027-01-25T12:00:00.000Z" });
+  });
+});
+
+describe("refunds after delivery", () => {
+  async function joined(over: Row = {}) {
+    const env = await paidGift(over);
+    env.clock.now = new Date("2026-12-25T13:00:00.000Z");
+    await runSponsorships(env.ctx);
+    Object.assign(env.tables.sponsorship_seats!.find((s) => s.seat === 1)!, { status: "active", household_id: "home-m" });
+    env.tables.household_members = [{ household_id: "home-m", user_id: "sarah", role: "guardian", removed_at: null }];
+    return env;
+  }
+
+  it("monthly: refunds the month just paid, ends the gift now and tells the family that joined", async () => {
+    const { ctx, id, sp, calls, tables, synced, clock } = await joined();
+    clock.now = new Date("2027-02-03T10:00:00.000Z");
+    await applySponsorshipChange(ctx, { kind: "renewed", sponsorshipId: id, paidThrough: "2027-02-25T12:00:00.000Z" });
+    const before = tables.email_outbox!.length;
+    expect(await refundGift(ctx, "ruth", id)).toEqual({ cents: 1999 });
+    expect(calls).toContainEqual(["invoice", "in_2"]);
+    expect(calls).toContainEqual(["refund", "pi_from_invoice", `sponsorship-refund-${id}-pi_from_invoice`]);
+    expect(calls).toContainEqual(["cancel", "sub_1"]);
+    expect(sp()).toMatchObject({ status: "refunded", refund_state: "refunded", ends_at: "2027-02-03T10:00:00.000Z" });
+    expect(synced).toContain(id);
+    const added = tables.email_outbox!.slice(before);
+    expect(added.map((e) => [e.email_id, e.recipient_user_id])).toEqual([["S8", "sarah"]]);
+    // The family that never joined can't join a gift that ended.
+    expect(tables.sponsorship_seats!.find((s) => s.seat === 2)!.status).toBe("canceled");
+    await expect(refundGift(ctx, "ruth", id)).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("the year: a full refund for 30 days after it arrives, then support", async () => {
+    const early = await joined({ plan: "annual" });
+    early.clock.now = new Date("2027-01-20T10:00:00.000Z");
+    expect(await refundGift(early.ctx, "ruth", early.id)).toEqual({ cents: 17999 });
+    expect(early.calls).toContainEqual(["refund", "pi_1", `sponsorship-refund-${early.id}-pi_1`]);
+    expect(early.sp().status).toBe("refunded");
+
+    const late = await joined({ plan: "annual" });
+    late.clock.now = new Date("2027-01-25T13:00:00.000Z");
+    await expect(refundGift(late.ctx, "ruth", late.id)).rejects.toMatchObject({ status: 409, code: "not_refundable" });
+    expect(late.calls.some((c) => c[0] === "refund")).toBe(false);
+    expect(late.sp().status).toBe("active");
+  });
+
+  it("only the sponsor can ask", async () => {
+    const { ctx, id } = await joined();
+    await expect(refundGift(ctx, "sarah", id)).rejects.toMatchObject({ status: 404 });
   });
 });
 

@@ -189,5 +189,6 @@ export interface StripeSubscription {
   cancel_at_period_end?: boolean;
   current_period_end?: number;
   trial_end?: number | null;
+  latest_invoice?: string | { id: string } | null;
   items?: { data?: { current_period_end?: number }[] };
 }

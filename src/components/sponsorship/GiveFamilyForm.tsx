@@ -214,8 +214,9 @@ export function GiveFamilyForm({ today, hasVoice, defaultGiverName }: { today: s
         <div className="text-sm">
           <p className="font-semibold">If you stop the gift</p>
           <p>
-            Cancel before it arrives and you get a full refund. After that, the families keep Readli to the end of what you paid for. Their children&apos;s profiles, approvals and progress stay with them, and
-            each family can continue with its own plan.
+            Cancel before it arrives and you get a full refund. After that, the families keep Readli to the end of what you paid for. If you&apos;d rather have your money back, you can refund the
+            current month, or the year within 30 days of it arriving, and the gift ends that day. Either way, their children&apos;s profiles, approvals and progress stay with them, and each family can
+            continue with its own plan.
           </p>
         </div>
       </aside>

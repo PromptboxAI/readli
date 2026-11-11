@@ -32,6 +32,8 @@ export const SPONSORED = {
   /** Year-end notices to the sponsor, and ending notices to the families. */
   sponsorNoticeDays: [30, 7],
   familyNoticeDays: [14, 3],
+  /** After it arrives, a prepaid year can be refunded in full for this many days. */
+  refundDays: 30,
 } as const;
 
 export const LIVE_SEATS: SeatStatus[] = ["invited", "active", "removal_scheduled"];
@@ -224,6 +226,20 @@ export function cancelOutcome(sp: SponsorshipFacts): CancelOutcome {
   if (!["active", "past_due"].includes(sp.status) || !sp.paidThrough) return { kind: "nothing_to_cancel" };
   if (sp.plan === "annual") return { kind: "year_does_not_renew", endsAt: sp.paidThrough };
   return { kind: "stop_renewal", endsAt: sp.paidThrough, lastDay: new Date(sp.paidThrough.getTime() - DAY) };
+}
+
+/**
+ * The refund a sponsor can ask for after the gift arrived, if any. A full refund ends the gift for both
+ * families at once. The year: the whole payment, for 30 days after it arrives. Monthly: the month just
+ * paid, while it's still running. Before delivery, cancelOutcome already refunds everything.
+ */
+export function refundAfterDelivery(sp: SponsorshipFacts, cents: number, now = new Date()): { cents: number; until: Date | null } | null {
+  if (!sp.deliveredAt || !sp.startsAt || !sp.paidThrough || sp.paidThrough <= now) return null;
+  if (sp.plan === "annual") {
+    const until = new Date(sp.startsAt.getTime() + SPONSORED.refundDays * DAY);
+    return sp.status === "active" && now < until ? { cents, until } : null;
+  }
+  return sp.status === "active" || sp.status === "canceling" ? { cents, until: null } : null;
 }
 
 /** The moment a family's gift access ends, if one is known (null: it carries on while the sponsor pays). */

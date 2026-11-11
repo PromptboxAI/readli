@@ -17,6 +17,7 @@ import {
   giftMonth,
   LIVE_SEATS,
   priceCents,
+  refundAfterDelivery,
   removalDate,
   shortDate,
   SPONSORED,
@@ -352,7 +353,52 @@ async function endNow(ctx: SponsorshipContext, sp: Row, status: "ended" | "refun
     await withdrawUnsent(ctx, sp.id as string);
     return;
   }
+  const covered = (await seatsOf(ctx, sp.id as string)).filter((s) => s.household_id && ["active", "removal_scheduled"].includes(s.status as string));
+  await withdrawUnsent(ctx, sp.id as string);
   await sync(ctx, sp.id as string);
+  const from = sp.giver_display_name as string;
+  for (const seat of covered) {
+    await notifyFamily(
+      ctx,
+      seat.household_id as string,
+      `S8:${seat.id}`,
+      {
+        subject: `${from}'s Readli gift has ended`,
+        title: `${from}'s gift has ended`,
+        paragraphs: [
+          `${from}'s Readli Family gift for your family ended today, so listening is paused for now.`,
+          "Nothing is lost. Your children's profiles, approvals, stories and progress are all kept.",
+          `Pick up where you left off with your own plan for $19.99 a month. ${from}'s voice comes back too, as long as ${from} keeps sharing it with you.`,
+        ],
+        cta: "Choose a plan",
+        path: "/family/billing",
+      },
+      "S8",
+    );
+  }
+}
+
+/**
+ * Refunds a gift that already arrived (see refundAfterDelivery) and ends it for both families now.
+ * The year refunds its one payment; monthly refunds the month just paid and stops renewals.
+ */
+export async function refundGift(ctx: SponsorshipContext, sponsorId: string, id: string): Promise<{ cents: number }> {
+  const sp = await sponsorshipFor(ctx, id, sponsorId);
+  const offer = refundAfterDelivery(sponsorshipFacts(sp), Number(sp.price_cents), clock(ctx));
+  if (!offer) throw new SponsorshipError(409, "not_refundable", "This gift can't be refunded here. Please contact us and we'll help.");
+  if (!ctx.stripe) throw new SponsorshipError(503, "payments_off", "Payments are switched off. Please contact support.");
+  let payment = sp.provider_payment_ref as string | null;
+  if (sp.plan === "monthly" && sp.provider_subscription_ref) {
+    const sub = await ctx.stripe.getSubscription(sp.provider_subscription_ref as string);
+    const invoice = typeof sub.latest_invoice === "string" ? sub.latest_invoice : (sub.latest_invoice?.id ?? null);
+    payment = (invoice ? await ctx.stripe.invoicePayment(invoice) : null) ?? payment;
+  }
+  if (!payment) throw new SponsorshipError(409, "not_refundable", "We couldn't find the payment to refund. Please contact us and we'll help.");
+  await ctx.stripe.refundPayment(payment, metadataOf(sp), `sponsorship-refund-${id}-${payment}`);
+  await q(ctx.db.from("sponsorships").update({ cancel_requested_at: clock(ctx).toISOString() }).eq("id", id), "record refund request");
+  await track(ctx.db, "sponsor_canceled", { sponsorship_id: id, plan: sp.plan, outcome: "refund_after_delivery" }, sponsorId);
+  await endNow(ctx, sp, "refunded");
+  return { cents: offer.cents };
 }
 
 async function withdrawUnsent(ctx: SponsorshipContext, id: string): Promise<void> {

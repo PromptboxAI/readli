@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { hashInvitationToken, track } from "@/lib/invitations/server";
 import { DEFAULT_PLAN } from "@/lib/family/plan";
 import { cycleStart } from "@/lib/narration/credits";
-import { accessEnd, chargeSchedule, giftMonth, LIVE_SEATS, type SeatStatus, type SponsorPlan, type SponsorshipStatus } from "./rules";
+import { accessEnd, chargeSchedule, giftMonth, LIVE_SEATS, refundAfterDelivery, type SeatStatus, type SponsorPlan, type SponsorshipStatus } from "./rules";
 import { sponsorshipFacts } from "./server";
 
 /**
@@ -63,7 +63,11 @@ export interface GiftView {
   /** Free places that can be offered to another family. */
   freePlaces: number[];
   canChangeFamilies: boolean;
+  /** A refund the sponsor can still ask for after delivery (it ends the gift now), and until when. */
+  refund: { cents: number; until: string | null } | null;
 }
+
+const refundView = (r: { cents: number; until: Date | null } | null) => (r ? { cents: r.cents, until: r.until?.toISOString() ?? null } : null);
 
 /** The label a place shows (pure). */
 export function placeState(seat: { status: SeatStatus }, delivered: boolean, opened: boolean): PlaceState {
@@ -148,6 +152,7 @@ export async function sponsorGifts(db: SupabaseClient, sponsorId: string, now = 
       places,
       freePlaces: [1, 2].filter((n) => !live.includes(n)),
       canChangeFamilies: offered < 2,
+      refund: refundView(refundAfterDelivery(facts, Number(g.price_cents), now)),
     };
   });
 }
