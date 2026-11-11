@@ -26,9 +26,12 @@ describe("printable certificate", () => {
     const start = text.indexOf("stream\n", text.indexOf("4 0 obj")) + 7;
     const len = Number(/4 0 obj\n<< \/Length (\d+)/.exec(text)![1]);
     const content = inflateSync(pdf.subarray(start, start + len)).toString("latin1");
-    for (const s of ["(ABCD-EFGH-JKMN)", "(Scan to claim your Readli Family membership.)", "(MEB-001)", "No credit card required", "Does not renew automatically", "(A year of Readli Family)"]) {
+    for (const s of ["(ABCD-EFGH-JKMN)", "(MEB-001)", "No credit card required", "Does not renew automatically", "(A year of Readli Family)"]) {
       expect(content).toContain(s);
     }
+    const shown = [...content.matchAll(/\((.*?)\) Tj/g)].map((m) => m[1]).join(" ");
+    expect(shown).toContain("Scan to claim your Readli Family membership.");
+    expect(shown).toContain("What's inside");
     const startxref = Number(/startxref\n(\d+)/.exec(text)![1]);
     expect(text.slice(startxref, startxref + 4)).toBe("xref");
   });
@@ -40,14 +43,26 @@ describe("printable certificate", () => {
     const len = Number(/4 0 obj\n<< \/Length (\d+)/.exec(text)![1]);
     const content = inflateSync(pdf.subarray(start, start + len)).toString("latin1");
     const dark = input.qr.modules.flat().filter(Boolean).length;
-    const drawn = [...content.matchAll(/([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+) re/g)].slice(1).reduce((n, m) => n + Math.round(Number(m[3]) / Number(m[4])), 0);
+    const qr = content.split("% qr\n")[1]!.split("\n")[0]!;
+    const drawn = [...qr.matchAll(/([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+) re/g)].reduce((n, m) => n + Math.round(Number(m[3]) / Number(m[4])), 0);
     expect(drawn).toBe(dark);
+  });
+
+  it("embeds the brand fonts, Readi and the storybook covers", () => {
+    const text = certificatePdf(input).toString("latin1");
+    for (const name of ["Fredoka-SemiBold", "NunitoSans-Regular", "NunitoSans-Bold", "NunitoSans-ExtraBold"]) {
+      expect(text).toMatch(new RegExp(`/BaseFont /[A-Z]{6}\\+${name} `));
+    }
+    expect(text.match(/\/FontFile2 \d+ 0 R/g)).toHaveLength(4);
+    expect(text).toContain("/Mascot ");
+    expect(text.match(/\/DCTDecode/g)).toHaveLength(3);
   });
 
   it("measures and wraps text in the PDF fonts", () => {
     expect(winAnsi("“Hi” · —")).toEqual([0x93, 72, 105, 0x94, 32, 0xb7, 32, 0x97]);
     expect(winAnsi("中")).toEqual([63]);
-    expect(textWidth("AAAA", "F4", 10)).toBe(24);
-    expect(wrap("one two three four five six", "F1", 12, 60).length).toBeGreaterThan(1);
+    expect(textWidth("iiii", "body", 10)).toBeLessThan(textWidth("MMMM", "body", 10));
+    expect(textWidth("AAAA", "heavy", 10, 1)).toBeCloseTo(textWidth("AAAA", "heavy", 10) + 4);
+    expect(wrap("one two three four five six", "body", 12, 60).length).toBeGreaterThan(1);
   });
 });
