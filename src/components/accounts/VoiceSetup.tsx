@@ -101,15 +101,15 @@ export function VoiceSetup() {
             <span className="text-sm">Preview: your sample plays here once voices switch on.</span>
           </div>
           <div className="flex flex-wrap gap-3">
-            <button type="button" className={buttonPrimary} onClick={() => setApproved(true)}>
-              Approve my voice
-            </button>
-            <button type="button" className={buttonSecondary} onClick={() => setStep(2)}>
-              Record again
-            </button>
             <Link href="/voice" className={buttonQuiet}>
               Not now
             </Link>
+            <button type="button" className={buttonSecondary} onClick={() => setStep(2)}>
+              Record again
+            </button>
+            <button type="button" className={buttonPrimary} onClick={() => setApproved(true)}>
+              Approve my voice
+            </button>
           </div>
         </section>
       )}

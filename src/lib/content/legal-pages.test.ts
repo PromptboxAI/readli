@@ -1,6 +1,7 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import { describe, expect, it } from "vitest";
+import { ACCESSIBILITY_INTRO, ACCESSIBILITY_SECTIONS } from "./accessibility";
 import { PRIVACY_INTRO, PRIVACY_SECTIONS } from "./privacy-policy";
 import { TERMS_INTRO, TERMS_SECTIONS } from "./terms";
 
@@ -8,17 +9,18 @@ const text = (intro: string[], sections: { title: string; paragraphs: { lead?: s
   [...intro, ...sections.flatMap((s) => [s.title, ...s.paragraphs.flatMap((p) => [p.lead ?? "", p.text])])].join("\n");
 const terms = text(TERMS_INTRO, TERMS_SECTIONS);
 const privacy = text(PRIVACY_INTRO, PRIVACY_SECTIONS);
+const accessibility = text(ACCESSIBILITY_INTRO, ACCESSIBILITY_SECTIONS);
 
 describe("published legal pages (Kevin, 2026-10-23)", () => {
   it("have no draft placeholders or review notes", () => {
-    for (const doc of [terms, privacy]) {
+    for (const doc of [terms, privacy, accessibility]) {
       expect(doc).not.toMatch(/\[[A-Z][A-Z -]*\]/);
       expect(doc).not.toMatch(/TO BE CONFIRMED|COUNSEL REVIEW|DRAFT|will be documented before launch/i);
     }
   });
 
   it("render without the Draft badge", () => {
-    for (const page of ["terms", "privacy"]) {
+    for (const page of ["terms", "privacy", "accessibility"]) {
       expect(readFileSync(join(__dirname, `../../app/${page}/page.tsx`), "utf8")).not.toMatch(/draftNote/);
     }
   });

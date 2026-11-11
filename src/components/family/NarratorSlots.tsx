@@ -86,11 +86,11 @@ function NameEditor({
       )}
       <RelationshipPicker legend={`${ownName} is your kids'…`} value={label} onChange={setLabel} />
       <div className="flex flex-wrap items-center gap-2">
-        <button type="submit" className={parentSecondary} disabled={busy}>
-          Save
-        </button>
         <button type="button" className="font-display font-semibold underline underline-offset-4" onClick={() => setOpen(false)}>
           Cancel
+        </button>
+        <button type="submit" className={parentSecondary} disabled={busy}>
+          Save
         </button>
       </div>
       <p className="text-sm text-muted">
@@ -477,11 +477,11 @@ export function NarratorSlots({
               ))}
             </ul>
             <div className="flex flex-wrap gap-2">
-              <button type="button" className={parentPrimary} disabled={busy || changed.length === 0} onClick={approveChosen}>
-                {picking.had.length === 0 ? `Approve for ${chosen.length === 1 ? "this child" : "these children"}` : "Save"}
-              </button>
               <button type="button" className={parentSecondary} onClick={() => setPicking(null)}>
                 Not now
+              </button>
+              <button type="button" className={parentPrimary} disabled={busy || changed.length === 0} onClick={approveChosen}>
+                {picking.had.length === 0 ? `Approve for ${chosen.length === 1 ? "this child" : "these children"}` : "Save"}
               </button>
             </div>
           </section>
@@ -739,6 +739,9 @@ export function NarratorSlots({
                   charging you.
                 </p>
                 <div className="flex flex-wrap gap-2">
+                  <button type="button" className={parentSecondary} onClick={() => setBuying(false)}>
+                    Cancel
+                  </button>
                   <button
                     type="button"
                     className={parentPrimary}
@@ -749,9 +752,6 @@ export function NarratorSlots({
                     }}
                   >
                     Confirm slot
-                  </button>
-                  <button type="button" className={parentSecondary} onClick={() => setBuying(false)}>
-                    Cancel
                   </button>
                 </div>
               </div>

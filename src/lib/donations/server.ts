@@ -581,6 +581,42 @@ export async function rejectRequest(ctx: DonationContext, admin: AdminUser, id: 
   await sendToApplicant(ctx, r, "D4", `D4:${id}`, notApprovedEmail(facts(r), linkFor(ctx, id), why));
 }
 
+/**
+ * Deletes a junk or spam request for good: no email goes out. The request's own activity log goes with it,
+ * so the deletion is recorded first in the admin activity log with enough to recognize it later.
+ * A request with an issued certificate can't be deleted; revoke the certificate on the membership page instead.
+ */
+export async function deleteRequest(db: SupabaseClient, admin: AdminUser, id: string, at = new Date()): Promise<{ reference: string }> {
+  const r = await adminRow(db, id);
+  if (r.batch_id || r.status === "approved") throw new AdminActionError("An approved request has a certificate, so it can't be deleted. Revoke the certificate on its membership page instead.");
+  const { error: logError } = await db.from("admin_actions").insert({
+    admin_id: admin.id,
+    admin_email: admin.email,
+    action: "donation_request_deleted",
+    detail: {
+      reference: r.reference,
+      label: `${r.reference as string} · ${(r.org_name as string).slice(0, 80)}`,
+      org_name: r.org_name,
+      event_name: r.event_name,
+      contact_email: r.contact_email,
+      status: r.status,
+      submitted_at: r.created_at,
+      deleted_at: at.toISOString(),
+    },
+  });
+  if (logError) throw new Error(`log donation deletion: ${logError.message}`);
+  const deleted = await q(db.from("donation_requests").delete().eq("id", id).is("batch_id", null).neq("status", "approved").select("id"), "delete donation request");
+  if (!deleted.length) throw new AdminActionError("Someone else just changed this request. Reload to see it.");
+  const files = [r.flyer_path, r.reply_path].filter((f): f is string => typeof f === "string" && f.length > 0);
+  const { data: listed } = await db.storage.from(BUCKET).list(`requests/${id}`);
+  for (const f of listed ?? []) files.push(`requests/${id}/${f.name}`);
+  if (files.length) {
+    const { error } = await db.storage.from(BUCKET).remove([...new Set(files)]);
+    if (error) console.error("remove donation documents failed", error.message);
+  }
+  return { reference: r.reference as string };
+}
+
 export async function askForInfo(ctx: DonationContext, admin: AdminUser, id: string, message: string, at = new Date()): Promise<void> {
   const ask = message.replace(/\r\n/g, "\n").trim().slice(0, 2000);
   if (!ask) throw new AdminActionError("Say what you need from the applicant.");

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
 import { HearStoryShelf } from "@/components/accounts/HearStoryShelf";
 import { welcomeStoryTexts } from "@/lib/content/welcome-stories";
-import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { buttonPrimary, buttonSecondary, stepNext, stepRow } from "@/components/brand/buttons";
 import { AdultPage } from "@/components/invites/AdultPage";
 import { Welcome } from "@/components/onboarding/Welcome";
 import { chosenName } from "@/lib/account/names";
@@ -20,6 +20,7 @@ import { shareKeptVoice } from "@/lib/invites/share-on-keep";
 import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
 import { recorderProps } from "@/lib/voice/recorder";
+import { PinStep } from "@/components/onboarding/PinStep";
 import {
   STORYTELLER_STEP_LABELS,
   STORYTELLER_STEPS,
@@ -72,16 +73,18 @@ function StepNav({ step, ready, skip = "Skip for now", nextHref }: { step: Story
   const back = storytellerStepBefore(step);
   const next = storytellerStepAfter(step);
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-ink/10 pt-5">
-      <Link href={nextHref ?? storytellerHref(next)} className={ready ? buttonPrimary : buttonSecondary} data-testid="storyteller-next">
-        {ready ? NEXT_LABEL[next] : skip}
-      </Link>
-      {back && (
-        <Link href={storytellerHref(back)} className="font-semibold underline underline-offset-4">
-          Back
+    <div className="flex flex-col gap-4 border-t border-ink/10 pt-5">
+      <div className={stepRow}>
+        {back && (
+          <Link href={storytellerHref(back)} className="font-semibold underline underline-offset-4">
+            Back
+          </Link>
+        )}
+        <Link href={nextHref ?? storytellerHref(next)} className={`${ready ? buttonPrimary : buttonSecondary} ${stepNext}`} data-testid="storyteller-next">
+          {ready ? NEXT_LABEL[next] : skip}
         </Link>
-      )}
-      <Link href="/voice/setup/later" className="ml-auto text-sm text-muted underline underline-offset-4 hover:text-ink">
+      </div>
+      <Link href="/voice/setup/later" className="self-center text-sm text-muted underline underline-offset-4 hover:text-ink">
         Finish later
       </Link>
     </div>
@@ -166,21 +169,33 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
 
   let body: React.ReactNode;
   if (step === "voice") {
+    const intro = (
+      <header className="flex flex-col gap-2">
+        <h1 className="font-display text-3xl font-semibold sm:text-4xl">{voice ? "Your voice is recorded" : "First, record your voice"}</h1>
+        <p className="max-w-2xl text-lg">
+          {voice
+            ? "Families you share it with can have any story read in it. You can record again any time from My Voice."
+            : "You'll agree to how your voice is used, then read a short passage aloud in your bedtime-story voice. Reading it takes about one minute, and you only do it once."}
+        </p>
+      </header>
+    );
     body = (
       <>
-        <header className="flex flex-col gap-2">
-          <h1 className="font-display text-3xl font-semibold sm:text-4xl">{voice ? "Your voice is recorded" : "First, record your voice"}</h1>
-          <p className="max-w-2xl text-lg">
-            {voice
-              ? "Families you share it with can have any story read in it. You can record again any time from My Voice."
-              : "You'll agree to how your voice is used, then read a short passage aloud in your bedtime-story voice. Reading it takes about one minute, and you only do it once."}
-          </p>
-        </header>
+        {!recorder && intro}
         {voice ? (
           <Done>{ready ? "Your voice is ready." : "Your voice is being made. It usually takes a minute, so carry on."}</Done>
         ) : recorder ? (
           // Recording, making and keeping the voice all happen right here, so setup never leaves for another page.
-          <AccountVoiceSetup hasVoice={recorder.hasVoice} guestTake={recorder.guestTake} waiting={recorder.waiting} next={storytellerHref("share")} nextLabel="Next: share it with a family" />
+          <AccountVoiceSetup
+            hasVoice={recorder.hasVoice}
+            guestTake={recorder.guestTake}
+            waiting={recorder.waiting}
+            next={storytellerHref("share")}
+            nextLabel="Next: share it with a family"
+            intro={intro}
+            footer={<StepNav step="voice" ready={false} skip="Skip, I'll record later" />}
+            doneFooter={<StepNav step="voice" ready />}
+          />
         ) : (
           <div className="flex flex-col items-start gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10 sm:p-6">
             <ul className="flex list-disc flex-col gap-1 pl-5">
@@ -194,7 +209,7 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
             {waiting && <p className="text-sm text-muted">You recorded your voice but haven&apos;t kept it yet. Listen to it, then tap Keep This Voice.</p>}
           </div>
         )}
-        <StepNav step="voice" ready={Boolean(voice)} skip="Skip, I'll record later" />
+        {!recorder && <StepNav step="voice" ready={Boolean(voice)} skip="Skip, I'll record later" />}
       </>
     );
   } else if (step === "share") {
@@ -282,12 +297,12 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
               : `You can still ${left.join(" and ")}. My Voice has everything you need when you're ready.`}
           </p>
         </header>
-        <div className="flex flex-wrap items-center gap-4 border-t border-ink/10 pt-5">
-          <Link href="/voice/setup/later" className={buttonPrimary} data-testid="storyteller-finish">
-            Go to My Voice
-          </Link>
+        <div className={`${stepRow} border-t border-ink/10 pt-5`}>
           <Link href={storytellerHref("listen")} className={buttonSecondary}>
             Back
+          </Link>
+          <Link href="/voice/setup/later" className={`${buttonPrimary} ${stepNext}`} data-testid="storyteller-finish">
+            Go to My Voice
           </Link>
         </div>
       </>
@@ -296,6 +311,7 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
 
   return (
     <AdultPage>
+      {!q.step && <PinStep step={step} />}
       <div className="flex flex-col gap-4">
         <p className="text-sm font-bold tracking-wider text-muted uppercase" data-testid="storyteller-progress">
           Getting started · {step === "done" ? "All set" : `Step ${n} of ${STORYTELLER_STEPS.length}`}

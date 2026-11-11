@@ -34,6 +34,7 @@ const LABEL: Record<string, string> = {
   email_confirmed: "Marked an email confirmed",
   email_changed: "Changed a sign-in email",
   credits_taken_back: "Took back promotional credits",
+  donation_request_deleted: "Deleted a donation request",
 };
 
 /** A readable line for one action, with the details that matter for it. */

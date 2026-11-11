@@ -83,11 +83,11 @@ export function WelcomeSteps({ showRewards = true }: { showRewards?: boolean }) 
         <>
           <FollowReadliStory headingLevel={1} />
           <div className="flex flex-wrap gap-3">
-            <button type="button" className={buttonPrimary} onClick={() => setStep(3)}>
-              Continue
-            </button>
             <button type="button" className={buttonQuiet} onClick={() => setStep(3)}>
               Skip
+            </button>
+            <button type="button" className={buttonPrimary} onClick={() => setStep(3)}>
+              Continue
             </button>
           </div>
         </>
