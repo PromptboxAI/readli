@@ -295,7 +295,7 @@ export function AccountVoiceSetup({
               ))}
             </ul>
           </div>
-          <button type="button" className={`${buttonPrimary} w-full sm:w-fit`} onClick={() => (demoOffered && useDemo ? chooseGuestTake() : setStep(1))}>
+          <button type="button" className={`${buttonPrimary} w-full sm:w-fit sm:self-end`} onClick={() => (demoOffered && useDemo ? chooseGuestTake() : setStep(1))}>
             {demoOffered && useDemo ? "Create & Hear My Voice" : "Continue to recording"}
           </button>
         </section>

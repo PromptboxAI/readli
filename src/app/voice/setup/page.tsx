@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
 import { HearStoryShelf } from "@/components/accounts/HearStoryShelf";
 import { welcomeStoryTexts } from "@/lib/content/welcome-stories";
-import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { buttonPrimary, buttonSecondary, stepNext, stepRow } from "@/components/brand/buttons";
 import { AdultPage } from "@/components/invites/AdultPage";
 import { Welcome } from "@/components/onboarding/Welcome";
 import { chosenName } from "@/lib/account/names";
@@ -74,13 +74,13 @@ function StepNav({ step, ready, skip = "Skip for now", nextHref }: { step: Story
   const next = storytellerStepAfter(step);
   return (
     <div className="flex flex-col gap-4 border-t border-ink/10 pt-5">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+      <div className={stepRow}>
         {back && (
           <Link href={storytellerHref(back)} className="font-semibold underline underline-offset-4">
             Back
           </Link>
         )}
-        <Link href={nextHref ?? storytellerHref(next)} className={`${ready ? buttonPrimary : buttonSecondary} ml-auto`} data-testid="storyteller-next">
+        <Link href={nextHref ?? storytellerHref(next)} className={`${ready ? buttonPrimary : buttonSecondary} ${stepNext}`} data-testid="storyteller-next">
           {ready ? NEXT_LABEL[next] : skip}
         </Link>
       </div>
@@ -297,11 +297,11 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
               : `You can still ${left.join(" and ")}. My Voice has everything you need when you're ready.`}
           </p>
         </header>
-        <div className="flex flex-wrap items-center gap-4 border-t border-ink/10 pt-5">
+        <div className={`${stepRow} border-t border-ink/10 pt-5`}>
           <Link href={storytellerHref("listen")} className={buttonSecondary}>
             Back
           </Link>
-          <Link href="/voice/setup/later" className={`${buttonPrimary} ml-auto`} data-testid="storyteller-finish">
+          <Link href="/voice/setup/later" className={`${buttonPrimary} ${stepNext}`} data-testid="storyteller-finish">
             Go to My Voice
           </Link>
         </div>

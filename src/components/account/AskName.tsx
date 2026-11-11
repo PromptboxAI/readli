@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
-import { buttonPrimary } from "@/components/brand/buttons";
+import { buttonPrimary, stepNext } from "@/components/brand/buttons";
 
 /**
  * Asks a grown-up what to call them, right where they'd otherwise be greeted by their email address.
@@ -54,7 +54,7 @@ export function AskName({
         {label}
       </label>
       <p className="-mt-1 text-sm">{hint}</p>
-      <div className="flex flex-wrap gap-2">
+      <div className={next ? "flex flex-col gap-3" : "flex flex-wrap gap-2"}>
         <input
           id={`${id}-name`}
           value={name}
@@ -66,9 +66,10 @@ export function AskName({
           autoComplete="name"
           maxLength={60}
           required
-          className="min-h-12 w-full max-w-sm flex-1 rounded-2xl border-[3px] border-ink/20 bg-surface px-4 text-lg focus:border-ink"
+          className={`min-h-12 w-full rounded-2xl ${next ? "" : "max-w-sm flex-1 "} border-[3px] border-ink/20 bg-surface px-4 text-lg focus:border-ink`}
         />
-        <button type="submit" className={buttonPrimary} disabled={busy || !name.trim()}>
+        {/* In a walkthrough the button moves the step forward, so it sits on the right (full width on a phone). */}
+        <button type="submit" className={next ? `${buttonPrimary} ${stepNext}` : buttonPrimary} disabled={busy || !name.trim()}>
           {busy ? "Saving…" : submitLabel}
         </button>
       </div>

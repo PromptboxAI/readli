@@ -5,7 +5,7 @@ import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
 import { HearStoryShelf } from "@/components/accounts/HearStoryShelf";
 import { welcomeStoryTexts } from "@/lib/content/welcome-stories";
 import { Welcome } from "@/components/onboarding/Welcome";
-import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { buttonPrimary, buttonSecondary, stepNext, stepRow } from "@/components/brand/buttons";
 import { AdultPage } from "@/components/invites/AdultPage";
 import { StartStepper } from "@/components/onboarding/StartStepper";
 import { FAMILY_NAME_MAX, startHref, startStep, startStepBefore, type StartStep } from "@/lib/onboarding/start";
@@ -95,9 +95,9 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
               Give your family a name.
             </p>
           )}
-          <div className="flex flex-wrap items-center gap-5 pt-2">
+          <div className={`${stepRow} pt-2`}>
             <Back step="family" />
-            <button type="submit" className={`${buttonPrimary} ml-auto`}>
+            <button type="submit" className={`${buttonPrimary} ${stepNext}`}>
               Next: record your voice
             </button>
           </div>
@@ -118,14 +118,14 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
     );
     // Back on the left; on the right, skip ahead until there's a voice, then Next.
     const nav = (recorded: boolean) => (
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-ink/10 pt-5">
+      <div className={`${stepRow} border-t border-ink/10 pt-5`}>
         <Back step="voice" />
         {recorded ? (
-          <Link href={startHref("listen")} className={`${buttonPrimary} ml-auto`} data-testid="start-next">
+          <Link href={startHref("listen")} className={`${buttonPrimary} ${stepNext}`} data-testid="start-next">
             Next: hear it read a story
           </Link>
         ) : (
-          <Link href={startHref("plan")} className={`${buttonSecondary} ml-auto`} data-testid="start-skip">
+          <Link href={startHref("plan")} className={`${buttonSecondary} ${stepNext}`} data-testid="start-skip">
             Skip, I&apos;ll record later
           </Link>
         )}
@@ -174,9 +174,9 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
             Record my voice
           </Link>
         )}
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-ink/10 pt-5">
+        <div className={`${stepRow} border-t border-ink/10 pt-5`}>
           <Back step="listen" />
-          <Link href={startHref("plan")} className={`${buttonPrimary} ml-auto`} data-testid="start-next">
+          <Link href={startHref("plan")} className={`${buttonPrimary} ${stepNext}`} data-testid="start-next">
             Next: choose your plan
           </Link>
         </div>
