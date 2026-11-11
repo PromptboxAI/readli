@@ -39,7 +39,7 @@ test("the family home leads with the kids, stories and storytellers", async ({ p
   const next = page.getByTestId("next-story-strip");
   await expect(next.getByRole("link", { name: "Browse Books" })).toBeVisible();
   await expect(next).toContainText(/of [\d.,]+ (monthly|trial) credits remaining/);
-  await expect(next.getByRole("link", { name: /How credits work/ })).toHaveAttribute("href", "/family/settings/plan?from=%2Ffamily");
+  await expect(next.getByRole("link", { name: /How credits work/ })).toHaveAttribute("href", "/family/settings/plan?from=%2Fhome");
 
   // Home shows a few books (four on phones, up to nine on wider screens) and the rest on request.
   const shelf = page.getByTestId("shelf-ready");
@@ -140,6 +140,13 @@ test("the Family tab lists the kids and opens Readli Kids from a child's profile
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/family-kids-${info.project.name}.png`, fullPage: true });
   await page.getByRole("button", { name: "Open Readli Kids for Maya" }).click();
+  // The preview's family PIN is shared by every test: when no other test has set it yet, a PIN comes first.
+  const setPin = page.getByTestId("pin-before-kids");
+  await expect(setPin.or(page.getByRole("heading", { name: "Hi Maya! Pick a story." }))).toBeVisible();
+  if (await setPin.isVisible()) {
+    await setPin.getByLabel("New PIN").fill("4821");
+    await setPin.getByRole("button", { name: "Save PIN" }).click();
+  }
   await expect(page).toHaveURL(/\/kids$/);
 });
 
