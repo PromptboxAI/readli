@@ -32,7 +32,7 @@ function rows(plan: PlanConfig): Row[] {
     {
       label: "Gift prices",
       value: `${formatPrice(plan.familyMonthlyPriceCents)} · ${formatPrice(plan.familyMonthlyPriceCents * 3)} · ${formatPrice(plan.familyAnnualPriceCents)}`,
-      note: "One month · three months · a year. Payments off until switched on",
+      note: "One month · three months · a year",
     },
     { label: "Gifted membership entitlements", value: "Same as Readli Family", note: "Narrator slots and monthly credits, for gifts and complimentary memberships alike" },
     { label: "Narrator slot releases per 30 days", value: String(plan.slotReleasesPer30Days), note: "Anti-abuse limit on reassigning slots" },
