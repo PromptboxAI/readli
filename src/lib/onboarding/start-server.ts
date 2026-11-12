@@ -10,7 +10,7 @@ import { isParent } from "@/lib/family/storyteller";
 import { pendingJoinPath } from "@/lib/invites/pending";
 import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
-import { cleanFamilyName, FAMILY_NAME_COOKIE } from "./start";
+import { FAMILY_NAME_COOKIE, familyNameFor } from "./start";
 
 /** Everything the welcome's pages need about the signed-in grown-up, after sending away anyone it isn't for. */
 export interface StartContext {
@@ -46,13 +46,7 @@ export async function startContext(here: string, opts: { plan: boolean }): Promi
   const voice = deps ? await deps.store.findVoice(user.id).catch(() => null) : null;
   const me = state?.adults.find((a) => a.id === user.id);
   const jar = await cookies();
-  const raw = jar.get(FAMILY_NAME_COOKIE)?.value;
-  let typed: string | null = null;
-  try {
-    typed = raw ? cleanFamilyName(decodeURIComponent(raw)) : null;
-  } catch {
-    typed = null;
-  }
+  const typed = familyNameFor(jar.get(FAMILY_NAME_COOKIE)?.value, user.id);
   const startedAs = home && state ? (state.households.find((h) => h.id === home)?.name ?? null) : null;
   // Family signup starts a family with a stand-in name until setup asks for the real one.
   const started = startedAs && startedAs !== PROVISIONAL_FAMILY_NAME ? startedAs : null;
