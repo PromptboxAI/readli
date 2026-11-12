@@ -113,19 +113,24 @@ export function PreviewPicker({
 
   return (
     <section className="flex max-w-3xl flex-col gap-5" data-testid="preview-picker">
-      <p className="text-lg">Your family hears this story first. We picked a favorite to start.</p>
+      <p className="text-lg">Pick the story your family hears first, read in your voice.</p>
       {!all && (
-        <ul className="grid grid-cols-3 gap-3 sm:max-w-md">
+        <ul className="grid grid-cols-3 gap-3 pt-3 sm:max-w-md">
           {shown.map((b) => (
             <li key={b.slug}>
               <button
                 type="button"
                 onClick={() => pick(b)}
                 aria-pressed={book === b.slug}
-                className={`flex w-full flex-col items-center gap-1 rounded-2xl p-1.5 ${book === b.slug ? "bg-surface ring-[3px] ring-coral-deep" : "bg-surface ring-2 ring-ink/10"}`}
+                className={`relative flex w-full flex-col items-center gap-1 rounded-2xl p-1.5 ${book === b.slug ? "bg-surface ring-[3px] ring-coral-deep" : "bg-surface ring-2 ring-ink/10"}`}
               >
+                {b.slug === featured[0] && (
+                  <span className="absolute top-0 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-coral-deep px-2.5 py-0.5 text-xs font-bold whitespace-nowrap text-white" data-testid="recommended-badge">
+                    Recommended
+                  </span>
+                )}
                 {b.coverUrl && <Image src={b.coverUrl} alt="" width={160} height={213} className="aspect-[3/4] w-full rounded-xl object-cover" />}
-                <span className="line-clamp-2 text-center text-sm font-semibold leading-tight">{b.slug === featured[0] ? "Recommended" : b.title}</span>
+                <span className="line-clamp-2 text-center text-sm font-semibold leading-tight">{b.title}</span>
               </button>
             </li>
           ))}
