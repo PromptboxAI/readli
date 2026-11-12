@@ -17,7 +17,7 @@ const desktopLink = "font-display font-medium hover:underline";
 const mobileLink = "min-h-11 rounded-2xl px-3 py-2 font-display hover:bg-ivory";
 const mobileLogin = `${mobileLink} font-bold text-mint-deep`;
 const compactPrimary = `${buttonPrimary} min-h-11 px-4 text-base`;
-const compactLogIn = `${buttonSmall} min-h-12`;
+const compactLogIn = buttonSmall;
 
 /**
  * The public site header. It knows who is visiting before the page is sent, so a signed-in grown-up
