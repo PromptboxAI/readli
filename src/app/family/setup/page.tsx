@@ -27,7 +27,8 @@ import { chosenName } from "@/lib/account/names";
 import { currentAdult } from "@/lib/auth/adult";
 import { accountDb } from "@/lib/family/account-store";
 import { familyPage, guardianChildren } from "@/lib/family/page-data";
-import { activeEntitlement, activeShare } from "@/lib/family/permissions";
+import { activeEntitlement, activeShare, activeSlot } from "@/lib/family/permissions";
+import { adoptCarriedInvitation, carriedStoryteller } from "@/lib/invitations/adopt";
 import { childProfiles, familyParents, homeHousehold, PROVISIONAL_FAMILY_NAME } from "@/lib/family/service";
 import { deviceRegistry, familyStore } from "@/lib/family/session";
 import { listenView, prepareView, WELCOME_BOOK, welcomeBookOnUs } from "@/lib/narration/narration";
@@ -184,6 +185,13 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
     plan = outcome?.status === "done";
   }
   const store = (await familyStore(session))!;
+  // A family that started from a storyteller's invitation: once the plan is on, that storyteller is connected and
+  // becomes the first storyteller, and each child added here can hear them. Connecting changes the family in the
+  // database, so the page loads again to show it.
+  if (session.account && plan && (await adoptCarriedInvitation(store, actor, home, { approveKids: true })) === "reload") {
+    const again = new URLSearchParams(Object.entries(q).filter((e): e is [string, string] => typeof e[1] === "string"));
+    redirect(`/family/setup${again.toString() ? `?${again.toString()}` : ""}`);
+  }
   const familyName = state.households.find((h) => h.id === home)?.name ?? "";
   const named = familyName !== "" && familyName !== PROVISIONAL_FAMILY_NAME;
   const kids = guardianChildren(state, adultId).filter((c) => c.householdId === home);
@@ -208,6 +216,15 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   const hasStory = progress.story || Boolean(storyLib?.all.some((b) => b.narrators.some((n) => n.availability === "ready" || n.availability === "partial")));
   if ((step === "listen" || step === "done") && !hasStory) redirect(setupHref("book"));
   const mine = plan ? myVoiceForKids(state, adultId, home, store.plan) : null;
+  // The storyteller who invited this family, once they hold a slot: setup's first book can be read in their voice
+  // when the parent skipped recording their own.
+  const inviter = plan ? await carriedStoryteller(home) : null;
+  const inviterVoice = inviter ? state.voices.find((v) => v.ownerId === inviter.contributorId && v.deletedAt === null && activeSlot(state, v.id, home, store.plan)) : undefined;
+  const reader: { voiceId: string; on: boolean; name: string | null } | null = mine
+    ? { ...mine, name: null }
+    : inviter && inviterVoice?.status === "ready"
+      ? { voiceId: inviterVoice.id, on: true, name: inviter.name }
+      : null;
   const askMyVoice = Boolean(mine && !mine.on && kids.length > 0);
   const kidNames = kids.map((k) => k.nickname);
   // A few books to try next on the last page, after the one setup prepared.
@@ -296,6 +313,11 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
           <h1 className="font-display text-3xl font-semibold sm:text-4xl">Add your kids</h1>
           <p className="max-w-2xl text-lg">Each child gets their own bookshelf and keeps their own place in every book. A first name or nickname is enough.</p>
         </header>
+        {plan && inviter && inviterVoice && (
+          <p className="rounded-2xl bg-sky/50 p-4" data-testid="setup-inviter-note">
+            {inviter.name} is one of your storytellers, so each child you add here can hear {inviter.name} read. You can change who each child hears any time from Family.
+          </p>
+        )}
         {plan ? <ChildProfiles initial={await childProfiles(store, actor, home)} inSetup /> : opensLater}
         {needsPin && (
           <section className="flex flex-col gap-2" aria-labelledby="pin-h">
@@ -357,17 +379,17 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
     const lib = plan ? await familyLibrary(store, actor, home) : null;
     // One intro book, the quickest to prepare: The Lion and the Mouse when the library has it.
     const intro = lib ? (lib.all.find((b) => b.slug === INTRO_BOOK) ?? [...lib.all].sort((a, b) => a.minutes - b.minutes)[0]) : undefined;
-    const prep = intro && mine ? await prepareView(store, actor, home, intro.slug).catch(() => null) : null;
-    const introReady = Boolean(prep?.voices.some((v) => v.voiceId === mine?.voiceId && v.availability === "ready"));
+    const prep = intro && reader ? await prepareView(store, actor, home, intro.slug).catch(() => null) : null;
+    const introReady = Boolean(prep?.voices.some((v) => v.voiceId === reader?.voiceId && v.availability === "ready"));
     // A new family's first book is free; once anything has been prepared it's an ordinary book again.
     const onUs = Boolean(intro && plan && welcomeBookOnUs(state, home, intro.slug));
-    const listenHref = intro && mine ? `${setupHref("listen")}&book=${intro.slug}&voice=${encodeURIComponent(mine.voiceId)}` : undefined;
+    const listenHref = intro && reader ? `${setupHref("listen")}&book=${intro.slug}&voice=${encodeURIComponent(reader.voiceId)}` : undefined;
     body = (
       <>
         <header className="flex flex-col gap-2">
           <h1 className="font-display text-3xl font-semibold sm:text-4xl">{onUs ? "Prepare their first book, on us" : "Prepare their first book"}</h1>
           <p className="max-w-2xl text-lg">
-            We&apos;ll start with a short one, read in your voice, so you can hear how it works.{onUs ? " This one's free, so it doesn't use any of your credits." : ""} It goes
+            We&apos;ll start with a short one, read in {reader?.name ? `${reader.name}'s` : "your"} voice, so you can hear how it works.{onUs ? " This one's free, so it doesn't use any of your credits." : ""} It goes
             straight onto your kids&apos; bookshelves. The whole library is in Books whenever you want more.
           </p>
         </header>
@@ -382,8 +404,8 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
           </p>
         ) : !intro ? (
           <p className="rounded-2xl bg-sunshine/50 p-4">The library is still loading its first books. Try again in a moment.</p>
-        ) : prep && mine ? (
-          <SetupPrepareBook key={String(mine.on)} initial={prep} voiceId={mine.voiceId} onUs={onUs} />
+        ) : prep && reader ? (
+          <SetupPrepareBook key={String(reader.on)} initial={prep} voiceId={reader.voiceId} onUs={onUs} />
         ) : (
           <p className="rounded-2xl bg-sunshine/50 p-4">
             {recorded ? "Your voice is still being made, usually a few minutes. Refresh this page in a moment to prepare the book." : "Record your voice first, so the book can be read in it."}{" "}
