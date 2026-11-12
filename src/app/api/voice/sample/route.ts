@@ -3,6 +3,8 @@ import { serverConfig } from "@/lib/server/config";
 import { welcomeStoryText } from "@/lib/content/welcome-stories";
 import { fail } from "@/lib/server/http";
 import { AccountVoiceError, accountVoiceDeps, accountVoiceSample } from "@/lib/voice/account-voices";
+import { accountDb } from "@/lib/family/account-store";
+import { markStoryHeard } from "@/lib/voice/home-progress";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -25,6 +27,8 @@ export async function POST(req: Request) {
     if (slug && !story) return fail(404, "no_book", "That story isn't available to hear yet.");
     const text = story ?? undefined;
     const sample = await accountVoiceSample(deps, user.id, { candidate: params.get("candidate") === "1", latest: params.get("latest") === "1", text });
+    // A story heard on a free account's Home ticks "Hear another story" (it counts only once they've opened Home).
+    if (story) await markStoryHeard(accountDb(), user.id);
     return new Response(sample.audio, {
       headers: { "content-type": sample.contentType, "cache-control": "no-store", "x-readli-stand-in": sample.standIn ? "1" : "0" },
     });

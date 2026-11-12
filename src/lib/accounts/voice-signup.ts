@@ -31,9 +31,9 @@ export function voiceSignupBack({ fromTry, cleanUp }: Pick<VoiceSignupFrom, "fro
 /**
  * Someone already signed in skips the form. From the demo they always go on to save that voice (a new
  * account interrupted before saving picks up where it left off; an existing voice keeps working until
- * they keep the new one). Otherwise a grown-up who already has a voice goes to My Voice.
+ * they keep the new one). Otherwise a grown-up who already has a voice goes Home.
  */
 export function signedInVoiceSignup(from: VoiceSignupFrom, hasVoice: boolean): string {
-  if (!from.fromTry && hasVoice) return "/voice";
+  if (!from.fromTry && hasVoice) return "/home";
   return voiceRecordPath(from);
 }

@@ -3,7 +3,6 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AskName } from "@/components/account/AskName";
-import { buttonSecondary } from "@/components/brand/buttons";
 import { AccountVoiceControls } from "@/components/family/AccountVoiceControls";
 import { MyVoiceSharing } from "@/components/family/MyVoiceSharing";
 import { InvitationList } from "@/components/invitations/InvitationList";
@@ -21,17 +20,17 @@ import { invitationContext } from "@/lib/invitations/context";
 import { invitationSettings, listInvitations } from "@/lib/invitations/server";
 import { pendingJoinPath } from "@/lib/invites/pending";
 import { serverConfig } from "@/lib/server/config";
-import { sponsorshipContext } from "@/lib/sponsorship/http";
 import { accountVoiceDeps, voiceModelStatus } from "@/lib/voice/account-voices";
 
 export const metadata: Metadata = { title: "My voice | Readli Voice", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 /**
- * The free storyteller's home: their voice and the families using it. No family setup, children,
- * plans or credits: those belong to each family's own account. Parents manage their voice inside
- * Readli Family instead. Signed-out visitors go to sign in and come back here. Older invitation
- * links (/voice?invite=) go to the join page first, so they keep working signed out.
+ * A free storyteller's voice settings: the recording, the reading model, and which families may use it.
+ * Their Home (/home) is where they hear stories, send them and see how invitations are doing; this page is
+ * "Manage my voice" from there. Parents manage their voice inside Readli Family instead. Signed-out
+ * visitors go to sign in and come back here. Older invitation links (/voice?invite=) go to the join page
+ * first, so they keep working signed out.
  */
 export default async function VoiceHomePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const p = await searchParams;
@@ -66,11 +65,12 @@ export default async function VoiceHomePage({ searchParams }: { searchParams: Pr
   const ctx = invitationContext();
   const invitations = ctx ? await listInvitations(ctx.db, ctx.secret, user.id, await invitationSettings(ctx.db)).catch(() => []) : [];
   const ready = recording?.status === "ready";
-  // Storytellers are often the grandparents who'd give Readli Family, so the gift is offered here while it's on sale.
-  const gifting = Boolean(await sponsorshipContext({ newGifts: true }).catch(() => null));
   return (
     <AdultPage>
       <header className="flex flex-col gap-2">
+        <Link href="/home" className="w-fit font-display font-semibold underline-offset-4 hover:underline">
+          ← Home
+        </Link>
         <Eyebrow>Readli Voice · Free storyteller account</Eyebrow>
         <h1 className="font-display text-4xl font-semibold sm:text-5xl">My Voice</h1>
       </header>
@@ -91,22 +91,6 @@ export default async function VoiceHomePage({ searchParams }: { searchParams: Pr
         <MyVoiceSharing initial={voices} storyteller recorded={Boolean(recording && recording.status !== "deleted")} />
       </section>
       {invitations.length > 0 && <InvitationList items={invitations} />}
-      {gifting && (
-        <section aria-labelledby="gift-h" className="flex flex-col items-start gap-3 rounded-[var(--radius-panel)] bg-coral/15 p-6" data-testid="voice-gift">
-          <h2 id="gift-h" className="font-display text-2xl font-semibold">
-            Give Readli as a gift
-          </h2>
-          <p>Cover Readli Family for up to two families you love. They add their kids and choose who reads; you pay for the plan.</p>
-          <Link href="/gift/family" className={buttonSecondary}>
-            Give a gift
-          </Link>
-        </section>
-      )}
-      <form action="/auth/signout" method="post">
-        <button type="submit" className={buttonSecondary}>
-          Sign out
-        </button>
-      </form>
     </AdultPage>
   );
 }

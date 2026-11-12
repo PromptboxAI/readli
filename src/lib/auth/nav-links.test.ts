@@ -41,9 +41,11 @@ describe("header for each account", () => {
 
   it("never offers My Family just for being signed in", () => {
     const voice = adult({ plan: "none", hadFamily: false });
-    expect(primaryAction(voice)).toEqual({ href: "/voice", label: "My Voice" });
-    expect(labels(voice)).toEqual(["Home", "Settings", "Give Readli as a gift", "Help", "Start Readli Family"]);
-    expect(hrefs(voice).Home).toBe("/voice");
+    expect(primaryAction(voice)).toEqual({ href: "/home", label: "Home" });
+    expect(labels(voice)).toEqual(["Home", "My Voice", "Settings", "Give Readli as a gift", "Help", "Start Readli Family"]);
+    // A free account's Home is Voice Home, with its voice settings on My Voice.
+    expect(hrefs(voice).Home).toBe("/home");
+    expect(hrefs(voice)["My Voice"]).toBe("/voice");
   });
 
   it("sends a parent whose family has no plan yet Home to their family", () => {

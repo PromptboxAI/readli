@@ -22,12 +22,15 @@ export function HearStoryShelf({
   ready,
   texts = {},
   next,
+  scrollTo,
 }: {
   ready: boolean;
   /** What each book reads, for the read-along. */
   texts?: Record<string, string>;
   /** Inside a walkthrough: the way on, repeated right under the player once a story plays, so nobody has to scroll for it. */
   next?: { href: string; label: string };
+  /** The id of the heading to bring back into view when a story is picked; the page's h1 by default. */
+  scrollTo?: string;
 }) {
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -46,9 +49,9 @@ export function HearStoryShelf({
   useEffect(() => {
     if (!asked) return;
     const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const target = document.querySelector("h1") ?? topRef.current;
+    const target = (scrollTo ? document.getElementById(scrollTo) : document.querySelector("h1")) ?? topRef.current;
     target?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
-  }, [asked, loading, playing]);
+  }, [asked, loading, playing, scrollTo]);
 
   const hear = async (book: DemoBook) => {
     setError(null);

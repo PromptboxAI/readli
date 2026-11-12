@@ -46,6 +46,8 @@ import { SETUP_LATER_COOKIE, chosenBy } from "@/lib/family/setup-cookie";
 import { START_CHOSE_VOICE_COOKIE } from "@/lib/onboarding/start";
 import { cookies } from "next/headers";
 import { PRIVATE_ROBOTS } from "@/lib/seo/site";
+import { currentAdult } from "@/lib/auth/adult";
+import { VoiceHome } from "@/components/voice/VoiceHome";
 
 function SignOutButton() {
   return (
@@ -67,6 +69,13 @@ function creditSummary(b: CreditBalance, trial: boolean): { amount: string; rest
     amount: `${n(included)} of ${n(b.allowance)}`,
     rest: `${trial ? "trial" : "monthly"} credits remaining${extra > 0 ? `, plus ${n(extra)} extra` : ""}`,
   };
+}
+
+/** Voice Home for a free Readli Voice account. */
+async function voiceHome(page: Awaited<ReturnType<typeof familyPage>>) {
+  const user = await currentAdult();
+  if (!user) redirect("/login?next=/home");
+  return <VoiceHome user={user} page={page} />;
 }
 
 export const dynamic = "force-dynamic";
@@ -147,14 +156,15 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
     if (pending) redirect(pending);
     const deps = startingFamily || isStorytellerOnly(state, adult.id) ? null : accountVoiceDeps(serverConfig());
     const ownVoice = deps ? await deps.store.findVoice(adult.id).catch(() => null) : null;
-    if (!startingFamily && (isStorytellerOnly(state, adult.id) || ownVoice)) redirect("/voice");
+    // A free Readli Voice account's Home is about its voice and the families hearing it.
+    if (!startingFamily && (isStorytellerOnly(state, adult.id) || ownVoice)) return voiceHome(page);
   }
   const kids = guardianChildren(state, adult.id);
   if (account && !state.members.some((m) => m.adultId === adult.id && m.removedAt === null)) {
     // Someone new, with no family and no voice yet: the welcome walks them through their name, their family's
     // name, their voice and a story read in it, then the plans. Once they chose to stay on free Readli Voice,
-    // My Voice is their home instead.
-    if (!startingFamily && chosenBy((await cookies()).get(START_CHOSE_VOICE_COOKIE)?.value, adult.id)) redirect("/voice");
+    // Voice Home is their home instead.
+    if (!startingFamily && chosenBy((await cookies()).get(START_CHOSE_VOICE_COOKIE)?.value, adult.id)) return voiceHome(page);
     redirect(startingFamily ? "/start/plan" : "/start");
   }
   const isGuardian = state.members.some((m) => m.adultId === adult.id && m.role === "guardian" && m.removedAt === null);

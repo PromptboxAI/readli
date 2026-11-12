@@ -30,7 +30,7 @@ const PLACES: [string, string][] = [
 /**
  * The way back from Settings to the page that opened it, from the `from` the account menu adds. Only a
  * plain same-site path is used, never another site or Settings itself; anything else goes Home. Home is
- * the grown-up's own home (`homeHref`: their family, or /voice for a free storyteller), even when Settings
+ * the grown-up's own home (`homeHref`: /home, their family or a free account's Voice Home), even when Settings
  * was opened from the marketing page, so it never drops them back on the public site.
  */
 export function settingsBack(from: string | string[] | undefined | null, homeHref = "/home"): { href: string; label: string } {
