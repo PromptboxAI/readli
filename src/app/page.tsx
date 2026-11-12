@@ -60,7 +60,7 @@ const siteLd = {
 export default function HomePage() {
   return (
     <>
-      <SiteHeader />
+      <SiteHeader logInUntilHeroScrolled />
       <main>
         <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(siteLd)} />
         <Hero />
