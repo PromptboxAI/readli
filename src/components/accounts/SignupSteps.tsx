@@ -42,7 +42,7 @@ const icon = { width: 24, height: 24, viewBox: "0 0 24 24", fill: "none", stroke
 /** Three short reassurances under the steps. */
 export function SignupReassurance() {
   return (
-    <ul className="grid gap-3 text-lg font-semibold sm:grid-cols-3">
+    <ul className="flex flex-col gap-3 text-lg font-semibold sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-10">
       <li className="flex items-center gap-3">
         <svg aria-hidden="true" {...icon} className="shrink-0 text-mint-deep">
           <rect x="5" y="11" width="14" height="10" rx="2" />
