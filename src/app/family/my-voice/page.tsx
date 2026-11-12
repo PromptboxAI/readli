@@ -13,11 +13,12 @@ import { familyPage } from "@/lib/family/page-data";
 import { myVoices } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
 import { BackLink } from "@/components/family/BackLink";
+import { backFrom } from "@/lib/family/settings-nav";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "My voice | Readli" };
 
-export default async function MyVoicePage() {
+export default async function MyVoicePage({ searchParams }: { searchParams: Promise<{ from?: string }> }) {
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   if (page.session?.actor.kind !== "adult") return <NeedsGrownUp text="Sign in to manage your voice." />;
@@ -34,7 +35,7 @@ export default async function MyVoicePage() {
   return (
     <FamilyShell>
       <PreviewNote />
-      <BackLink href="/family" label="My Family" />
+      <BackLink {...backFrom((await searchParams).from, { href: "/family", label: "My Family" })} />
       <h1 className="font-display text-4xl font-semibold">My voice</h1>
       {model?.canUpgrade && <VoiceModelUpgrade />}
       {user && <AccountVoiceControls voice={recording && { status: recording.status, version: recording.version, updatedAt: recording.updatedAt }} />}

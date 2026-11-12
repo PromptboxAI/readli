@@ -94,7 +94,7 @@ describe("family home", () => {
 
   it("gives your own unshared voice a way to share it, instead of waiting on yourself", () => {
     const own = familyHome(demoFamilyState(), DEMO_HOUSEHOLD_ID, undefined, "lou").storytellers.find((s) => s.voiceId === "voice-lou");
-    expect(own).toMatchObject({ tone: "waiting", detail: "Your voice: share it with your family", href: "/family/my-voice" });
+    expect(own).toMatchObject({ tone: "waiting", detail: "Your voice: share it with your family", href: "/family/my-voice?from=/home" });
     const theirs = familyHome(demoFamilyState(), DEMO_HOUSEHOLD_ID, undefined, "sara").storytellers.find((s) => s.voiceId === "voice-lou");
     expect(theirs).toMatchObject({ detail: "Waiting for their permission to share", href: "/family/narrators" });
   });

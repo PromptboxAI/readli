@@ -419,7 +419,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       if (!activeShare(state, v.id, householdId)) {
         // Only the owner can share a voice, so your own unshared voice gets a way to do it.
         return v.ownerId === viewerId
-          ? { ...card, tone: "waiting" as const, detail: "Your voice: share it with your family", href: "/family/my-voice" }
+          ? { ...card, tone: "waiting" as const, detail: "Your voice: share it with your family", href: "/family/my-voice?from=/home" }
           : { ...card, tone: "waiting" as const, detail: "Waiting for their permission to share" };
       }
       const approved = kids.filter((k) => activeApproval(state, v.id, k.id, plan)).map((k) => k.nickname);

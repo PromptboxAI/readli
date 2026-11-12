@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ReturnLink } from "@/components/brand/ReturnLink";
 import { redirect } from "next/navigation";
 import { FamilyStart } from "@/components/accounts/FamilyStart";
 import { AccountFields } from "@/components/accounts/AccountFields";
@@ -9,6 +10,8 @@ import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage"
 import { BillingChoice } from "@/components/accounts/BillingChoice";
 import { effectivePlan } from "@/lib/billing/price-settings";
 import { accountDb } from "@/lib/family/account-store";
+import { familyPage } from "@/lib/family/page-data";
+import { discardUnstartedFamily } from "@/lib/family/unstarted";
 import { familyCheckoutOpen } from "@/lib/accounts/checkout";
 import { currentAdult } from "@/lib/auth/adult";
 import { navState } from "@/lib/auth/nav-state";
@@ -41,16 +44,22 @@ export default async function FamilySignupPage({
   if (fromTry) carry.set("from", "try");
   if (fromTry && params.cleanup === "1") carry.set("cleanup", "1");
   const canceled = params.checkout === "canceled";
+  // Back from checkout without paying: undo the family started for it, so they aren't left with one that has no plan.
+  if (adult && canceled) {
+    const page = await familyPage();
+    if (page.enabled && page.session?.account) await discardUnstartedFamily(accountDb(), page.state, adult.id);
+  }
   return (
     <AdultPage>
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 text-lg">
         <header className="flex flex-col gap-3">
-          <Link
+          {/* Back to wherever on the site they came from (Pricing, Choose an account...), or to Choose an account. */}
+          <ReturnLink
             href={fromTry ? `/try?resume=1${params.cleanup === "1" ? "&cleanup=1" : ""}` : "/signup"}
             className="flex min-h-11 w-fit items-center font-display text-lg font-semibold underline-offset-4 hover:underline"
           >
             ← Back
-          </Link>
+          </ReturnLink>
           <Eyebrow>Readli Family</Eyebrow>
           <h1 className="font-display text-4xl font-semibold sm:text-5xl">Create your family</h1>
           <p className="text-xl">Two quick steps: choose how to pay, then enter your email. It takes about a minute.</p>
