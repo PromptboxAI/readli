@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { DemoBookShelf } from "@/components/books/DemoBookShelf";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
+import { buttonPrimary } from "@/components/brand/buttons";
 import type { DemoBook } from "@/lib/content/demo-books";
 
 interface Played {
@@ -16,7 +18,17 @@ interface Played {
  * their own saved voice. A story heard once replays from this page without asking again. Like everywhere
  * else in Readli, nothing plays until they tap.
  */
-export function HearStoryShelf({ ready, texts = {} }: { ready: boolean; /** What each book reads, for the read-along. */ texts?: Record<string, string> }) {
+export function HearStoryShelf({
+  ready,
+  texts = {},
+  next,
+}: {
+  ready: boolean;
+  /** What each book reads, for the read-along. */
+  texts?: Record<string, string>;
+  /** Inside a walkthrough: the way on, repeated right under the player once a story plays, so nobody has to scroll for it. */
+  next?: { href: string; label: string };
+}) {
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState<Played | null>(null);
@@ -24,6 +36,7 @@ export function HearStoryShelf({ ready, texts = {} }: { ready: boolean; /** What
   const heard = useRef(new Map<string, Played>());
   const [explored, setExplored] = useState<ReadonlySet<string>>(new Set());
   const topRef = useRef<HTMLDivElement>(null);
+  const shelfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => () => heard.current.forEach((p) => URL.revokeObjectURL(p.url)), []);
 
@@ -82,21 +95,37 @@ export function HearStoryShelf({ ready, texts = {} }: { ready: boolean; /** What
           </div>
         </div>
       )}
+      {playing && !loading && next && (
+        <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-4" data-testid="story-next">
+          <Link href={next.href} className={`${buttonPrimary} w-full sm:w-auto`}>
+            {next.label}
+          </Link>
+          <button
+            type="button"
+            className="min-h-11 font-display font-semibold underline underline-offset-4"
+            onClick={() => shelfRef.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" })}
+          >
+            or pick another story
+          </button>
+        </div>
+      )}
       {error && (
         <p role="alert" className="rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold">
           {error}
         </p>
       )}
-      <DemoBookShelf
-        heading={playing ? "Pick another story" : "Pick a story to hear in your voice"}
-        // The same first story family setup prepares.
-        first="the-lion-and-the-mouse"
-        onHear={(book) => void hear(book)}
-        activeSlug={playing && !loading ? activeSlug : null}
-        busy={loading}
-        explored={explored}
-        disabledReason={ready ? null : "Your voice is still being made. Refresh in a minute."}
-      />
+      <div ref={shelfRef} className="scroll-mt-4">
+        <DemoBookShelf
+          heading={playing ? "Pick another story" : "Pick a story to hear in your voice"}
+          // The same first story family setup prepares.
+          first="the-lion-and-the-mouse"
+          onHear={(book) => void hear(book)}
+          activeSlug={playing && !loading ? activeSlug : null}
+          busy={loading}
+          explored={explored}
+          disabledReason={ready ? null : "Your voice is still being made. Refresh in a minute."}
+        />
+      </div>
     </div>
   );
 }

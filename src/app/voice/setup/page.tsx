@@ -118,7 +118,7 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
   if (!adultId) {
     if (accounts) redirect("/login?next=/voice/setup");
     return (
-      <AdultPage>
+      <AdultPage onboarding>
         <Welcome kind="storyteller" startHref="/voice/record" />
       </AdultPage>
     );
@@ -155,7 +155,7 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
 
   if (step === "welcome") {
     return (
-      <AdultPage>
+      <AdultPage onboarding>
         {invitedBy && (
           <p className="rounded-2xl bg-sunshine/50 px-4 py-3 font-semibold" data-testid="welcome-invited">
             {invitedBy} invited you to read their kids bedtime stories. Here&apos;s how it works.
@@ -315,7 +315,7 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
   }
 
   return (
-    <AdultPage>
+    <AdultPage onboarding>
       {!q.step && <PinStep step={step} />}
       <div className="flex flex-col gap-4">
         <p className="text-sm font-bold tracking-wider text-muted uppercase" data-testid="storyteller-progress">

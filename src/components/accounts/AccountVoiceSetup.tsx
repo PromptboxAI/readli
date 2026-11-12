@@ -54,6 +54,7 @@ export function AccountVoiceSetup({
   intro,
   footer,
   doneFooter,
+  reviewFooter,
 }: {
   hasVoice: boolean;
   next?: string;
@@ -72,8 +73,10 @@ export function AccountVoiceSetup({
   nextLabel?: string;
   /** The step's heading and how-to, shown only until there's a recording: once they're hearing it, "Does this sound like you?" leads. */
   intro?: React.ReactNode;
-  /** The step's Back / Skip row, shown until the voice is kept. */
+  /** The step's Back / Skip row, shown before there's a recording. */
   footer?: React.ReactNode;
+  /** The step's row while hearing the recording (usually just Back): Keep This Voice and Record Again are the way on. */
+  reviewFooter?: React.ReactNode;
   /** The step's Back / Next row once the voice is kept. It replaces the ready card's own button, so there's one way forward. */
   doneFooter?: React.ReactNode;
 }) {
@@ -409,7 +412,8 @@ export function AccountVoiceSetup({
           )}
         </section>
       )}
-      {step === 3 ? doneFooter : step !== 1 && footer}
+      {/* Once there is a recording to hear, skipping it makes no sense: the review gets its own footer, or none. */}
+      {step === 3 ? doneFooter : step === 2 ? reviewFooter : step !== 1 && footer}
     </div>
   );
 }
