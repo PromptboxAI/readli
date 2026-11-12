@@ -20,7 +20,7 @@ export function MobileVisitorAction({ primary, primaryClass, logInClass }: { pri
       return;
     }
     // The sticky header covers the top of the page, so a button tucked under it counts as scrolled away.
-    const observer = new IntersectionObserver(([entry]) => setHeroInView(entry.isIntersecting), { rootMargin: "-72px 0px 0px 0px" });
+    const observer = new IntersectionObserver((entries) => setHeroInView(entries[0]?.isIntersecting ?? false), { rootMargin: "-72px 0px 0px 0px" });
     observer.observe(hero);
     return () => observer.disconnect();
   }, []);
