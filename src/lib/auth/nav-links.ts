@@ -30,28 +30,23 @@ export function familyAccess(plans: Plan[], at = new Date().toISOString()): Fami
   return { plan: "none", hadFamily: plans.length > 0 };
 }
 
-/** Where "Home" goes for a signed-in grown-up: their family, or My Voice for a free storyteller. */
-export function accountHome(nav: Extract<NavState, { kind: "adult" }>): string {
-  return nav.family.plan !== "none" || nav.household ? "/home" : "/voice";
-}
-
 /** The main button: the most useful next place for this account, or none when the account menu already holds it. */
 export function primaryAction(nav: NavState): NavLink | null {
   if (nav.kind === "kids") return { href: "/kids", label: "Readli Kids" };
   if (nav.kind === "visitor") return { href: "/try", label: "Try It Free" };
   // A Family account reaches Home and My Family from the account menu, so the header doesn't repeat it as a button.
-  return nav.family.plan === "none" ? { href: "/voice", label: "My Voice" } : null;
+  // A free account's Home is where its voice gets to the kids, so that's the header's button.
+  return nav.family.plan === "none" ? { href: "/home", label: "Home" } : null;
 }
 
 /** The account menu, showing only places this account can open. Sign out is added by the menu itself. */
 export function accountLinks(nav: Extract<NavState, { kind: "adult" }>): NavLink[] {
   const links: NavLink[] = [];
   // A Family account has Home (/home) and My Family (/family: the kids and their storytellers). A parent
-  // whose family has no plan yet goes Home to their family too. A free storyteller's home is My Voice, so
-  // that one link is their Home (never the marketing page).
+  // whose family has no plan yet goes Home to their family too. A free storyteller's Home is Voice Home, with
+  // My Voice for recording and sharing settings (never the marketing page).
   if (nav.family.plan !== "none") links.push({ href: "/home", label: "Home" }, { href: "/family", label: "My Family" }, { href: "/family/my-voice", label: "My Voice" });
-  else if (nav.household) links.push({ href: "/home", label: "Home" }, { href: "/voice", label: "My Voice" });
-  else links.push({ href: accountHome(nav), label: "Home" });
+  else links.push({ href: "/home", label: "Home" }, { href: "/voice", label: "My Voice" });
   links.push({ href: "/family/settings", label: "Settings" });
   // A paid family reaches its plan and credits straight from the menu; a trial has Choose a plan below instead.
   if (nav.family.plan === "paid") links.push({ href: "/family/settings/plan", label: "Plan & credits" });

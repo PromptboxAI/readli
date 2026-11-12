@@ -23,8 +23,8 @@ describe("Save My Voice Free routes", () => {
     expect(signedInVoiceSignup(demo, false)).toBe("/voice/record?from=try");
     // An existing Readli Voice user from the demo can still save that take; their voice keeps working until they keep it.
     expect(signedInVoiceSignup(demo, true)).toBe("/voice/record?from=try");
-    // Not from the demo, someone with a voice goes to My Voice (a parent's /voice opens Family's My voice).
-    expect(signedInVoiceSignup({ fromTry: false, cleanUp: false, takeKept: false }, true)).toBe("/voice");
+    // Not from the demo, someone with a voice goes Home (Family Home for a parent, Voice Home for a free account).
+    expect(signedInVoiceSignup({ fromTry: false, cleanUp: false, takeKept: false }, true)).toBe("/home");
     expect(signedInVoiceSignup({ fromTry: false, cleanUp: false, takeKept: false }, false)).toBe("/home");
   });
 

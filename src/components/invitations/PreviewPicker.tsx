@@ -30,11 +30,28 @@ const excerpt = (text: string) => (text.length > 140 ? `${text.slice(0, 140).rep
  * and approve. "Choose Another Story" opens every book. The approved clip is what every invitation
  * plays; a new approval replaces it. Approving goes on to the invitation form.
  */
-export function PreviewPicker({ books, featured, approved, draft, sendHref }: { books: PickerBook[]; featured: string[]; approved: Preview | null; draft: Preview | null; sendHref: string }) {
+export function PreviewPicker({
+  books,
+  featured,
+  approved,
+  draft,
+  sendHref,
+  initialBook,
+}: {
+  books: PickerBook[];
+  featured: string[];
+  approved: Preview | null;
+  draft: Preview | null;
+  sendHref: string;
+  /** A story asked for by name (Send on Voice Home), picked first over the draft or approved one. */
+  initialBook?: string;
+}) {
   const router = useRouter();
-  const start = books.find((b) => b.slug === (draft?.book ?? approved?.book ?? featured[0])) ?? books[0];
+  const start = books.find((b) => b.slug === (initialBook ?? draft?.book ?? approved?.book ?? featured[0])) ?? books[0];
   const [book, setBook] = useState<string | null>(start?.slug ?? null);
-  const [passage, setPassage] = useState<string | null>(draft?.passageId ?? approved?.passageId ?? shortest(start));
+  // The draft's or approved passage when it's of the story shown first; otherwise that story's shortest passage.
+  const kept = [draft, approved].find((p) => p && p.book === start?.slug);
+  const [passage, setPassage] = useState<string | null>(initialBook ? (kept?.passageId ?? shortest(start)) : (draft?.passageId ?? approved?.passageId ?? shortest(start)));
   const [all, setAll] = useState(false);
   const [busy, setBusy] = useState<"making" | "approving" | null>(null);
   const [error, setError] = useState("");

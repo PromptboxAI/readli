@@ -57,7 +57,7 @@ export default async function InviteFamilyPage({ searchParams }: { searchParams:
   const header = (myVoice: string, title = "Share Your Voice With Your Family") => (
     <header className="flex flex-col gap-2">
       <Link href={myVoice} className="w-fit font-display font-semibold underline-offset-4 hover:underline">
-        ← My Voice
+        ← {myVoice === "/home" ? "Home" : "My Voice"}
       </Link>
       <h1 className="font-display text-3xl font-semibold sm:text-5xl">{title}</h1>
     </header>
@@ -65,7 +65,7 @@ export default async function InviteFamilyPage({ searchParams }: { searchParams:
   if (!ctx) {
     return (
       <AdultPage wide>
-        {header("/voice")}
+        {header("/home")}
         <PreviewNote>Family invitations need Readli accounts, which aren&apos;t switched on here.</PreviewNote>
       </AdultPage>
     );
@@ -73,7 +73,8 @@ export default async function InviteFamilyPage({ searchParams }: { searchParams:
   const user = await currentAdult();
   if (!user) redirect(`/login?next=${encodeURIComponent(`/voice/invite${typeof p.step === "string" ? `?step=${p.step}` : ""}`)}`);
   const page = await familyPage();
-  const myVoice = page.enabled && page.state && isParent(page.state, user.id) ? "/family/my-voice" : "/voice";
+  // A parent's voice lives in Readli Family; a free account comes back to its Voice Home, which lists invitations.
+  const myVoice = page.enabled && page.state && isParent(page.state, user.id) ? "/family/my-voice" : "/home";
   const state = await contributorState(ctx.db, ctx.deps, user);
   if (state.blocker) {
     return (
@@ -91,13 +92,16 @@ export default async function InviteFamilyPage({ searchParams }: { searchParams:
     );
   }
   const books = pickerBooks();
-  const step = !state.approved || p.step === "story" ? "story" : p.step === "sent" ? "sent" : "send";
+  // ?book= (Send on Voice Home's shelf) starts with that story picked, unless it's already the approved one.
+  const asked = typeof p.book === "string" ? books.find((b) => b.slug === p.book)?.slug : undefined;
+  const pick = asked && asked !== state.approved?.book ? asked : undefined;
+  const step = !state.approved || p.step === "story" || pick ? "story" : p.step === "sent" ? "sent" : "send";
 
   if (step === "story") {
     return (
       <AdultPage wide>
         {header(myVoice)}
-        <PreviewPicker books={books} featured={FEATURED} approved={state.approved} draft={state.draft} sendHref="/voice/invite?step=send" />
+        <PreviewPicker books={books} featured={pick ? [pick, ...FEATURED.filter((s) => s !== pick)] : FEATURED} initialBook={pick} approved={state.approved} draft={state.draft} sendHref="/voice/invite?step=send" />
       </AdultPage>
     );
   }
@@ -129,10 +133,10 @@ export default async function InviteFamilyPage({ searchParams }: { searchParams:
               {skipped === 1 ? "One person wasn't invited" : `${skipped} people weren't invited`}: they&apos;d already been invited, asked not to get invitations, or today&apos;s limit was reached.
             </p>
           )}
-          <p className="text-sm text-muted">My Voice shows when each family opens it and when they connect.</p>
+          <p className="text-sm text-muted">{myVoice === "/home" ? "Home" : "My Voice"} shows when each family opens it and when they connect.</p>
           <div className="flex w-full flex-col gap-3 sm:w-auto">
             <Link href={myVoice} className={buttonPrimary}>
-              Go to My Voice
+              {myVoice === "/home" ? "Go to Home" : "Go to My Voice"}
             </Link>
             <Link href="/voice/invite?step=send" className={buttonSecondary}>
               Invite Another Family
