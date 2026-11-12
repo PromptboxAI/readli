@@ -145,6 +145,11 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
             nextLabel="Next: hear it read a story"
             intro={intro}
             footer={nav(false)}
+            reviewFooter={
+              <div className={`${stepRow} border-t border-ink/10 pt-5`}>
+                <Back step="voice" />
+              </div>
+            }
             doneFooter={nav(true)}
           />
         ) : (
@@ -167,7 +172,7 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
         {ctx.voice !== "none" ? (
           <div className="flex flex-col gap-3" data-testid="start-listen">
             {ctx.voice !== "ready" && <p className="rounded-2xl bg-sunshine/50 p-4">Your voice is still being made, usually a minute. Refresh this page in a moment to play it.</p>}
-            <HearStoryShelf ready={ctx.voice === "ready"} texts={welcomeStoryTexts()} />
+            <HearStoryShelf ready={ctx.voice === "ready"} texts={welcomeStoryTexts()} next={{ href: startHref("plan"), label: "Next: choose your plan" }} />
           </div>
         ) : (
           <Link href={startHref("voice")} className={`${buttonSecondary} self-start`}>
@@ -185,7 +190,7 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
   }
 
   return (
-    <AdultPage>
+    <AdultPage onboarding>
       <StartStepper step={step} done={done} />
       {!q.step && <PinStep step={step} />}
       <div className="flex flex-col gap-6" data-testid={`start-${step}`}>
