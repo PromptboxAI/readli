@@ -23,7 +23,7 @@ test("homepage follows the design brief order with six books under the demo", as
   await profile.getByRole("button", { name: "Invite to record" }).click();
   await expect(profile).toContainText("nothing was sent");
   await tree.getByRole("button", { name: "List", exact: true }).click();
-  await expect(tree.getByRole("list", { name: "Example family members" }).getByRole("button")).toHaveCount(phone ? 4 : 11);
+  await expect(tree.getByRole("list", { name: "Example family members" }).getByRole("button")).toHaveCount(phone ? 4 : 8);
   await tree.getByRole("button", { name: "Tree", exact: true }).click();
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

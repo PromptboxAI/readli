@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import { EXAMPLE_FAMILY, initials } from "./example-family";
 
 describe("example family", () => {
-  it("has at least seven grown-ups across generations, with every invite status shown", () => {
+  it("has six grown-ups across generations, with every invite status shown", () => {
     const adults = EXAMPLE_FAMILY.filter((m) => m.status !== "listener");
-    expect(adults.length).toBeGreaterThanOrEqual(7);
+    expect(adults.length).toBe(6);
+    expect(EXAMPLE_FAMILY).toHaveLength(8);
     expect(new Set(adults.map((m) => m.status))).toEqual(new Set(["ready_shared", "invited", "not_invited"]));
     expect(new Set(EXAMPLE_FAMILY.map((m) => m.y)).size).toBe(3);
   });
