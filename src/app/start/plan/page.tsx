@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { PlanList } from "@/components/accounts/PlanList";
 import { SignupReassurance } from "@/components/accounts/SignupSteps";
 import { buttonSecondary } from "@/components/brand/buttons";
@@ -15,6 +16,9 @@ import { formatPrice } from "@/lib/family/plan";
 import { publicLibrary } from "@/lib/library/public";
 import { startHref } from "@/lib/onboarding/start";
 import { startContext } from "@/lib/onboarding/start-server";
+import { accountDb } from "@/lib/family/account-store";
+import { familyPage } from "@/lib/family/page-data";
+import { discardUnstartedFamily } from "@/lib/family/unstarted";
 
 export const metadata: Metadata = {
   title: "Choose your plan | Readli",
@@ -34,6 +38,14 @@ const VOICE_LEAVES_OUT = ["Your own kids' profiles and bookshelves", "Preparing 
 export default async function StartPlanPage({ searchParams }: { searchParams: Promise<{ checkout?: string }> }) {
   const q = await searchParams;
   const ctx = await startContext("/start/plan", { plan: true });
+  if (ctx.parent) {
+    // Back from checkout without paying: the family started for it is undone, so they're a plain free account
+    // again with both choices in front of them, not a family with no plan.
+    const page = await familyPage();
+    if (page.enabled && page.session?.account && (await discardUnstartedFamily(accountDb(), page.state, ctx.userId))) {
+      redirect(q.checkout === "canceled" ? "/start/plan?checkout=canceled" : "/start/plan");
+    }
+  }
   const P = await pricing();
   const stories = storiesPerMonth(P.monthlyCredits, publicLibrary(), P.charactersPerCredit);
   const paymentsOn = familyCheckoutOpen() && billingConfig().mode !== "off";

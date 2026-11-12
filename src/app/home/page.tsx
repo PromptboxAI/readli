@@ -37,6 +37,7 @@ import { serverConfig } from "@/lib/server/config";
 import { creditBalance, displayCredits, type CreditBalance } from "@/lib/narration/credits";
 import { newThisWeekFor } from "@/lib/email/bedtime";
 import { accountDb } from "@/lib/family/account-store";
+import { discardUnstartedFamily } from "@/lib/family/unstarted";
 import { listInvites } from "@/lib/invites/server";
 import { settingsLink } from "@/lib/family/settings-nav";
 import { unreadCount } from "@/lib/family/activity";
@@ -164,6 +165,9 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   const pastPlans = home && !hasPlan ? state.entitlements.filter((e) => e.householdId === home && e.source !== "trial") : [];
   const lapsed = isGuardian && pastPlans.length > 0;
   const endedAt = pastPlans.map((e) => e.endsAt).filter((d): d is string => d !== null && d <= new Date().toISOString()).sort().at(-1) ?? null;
+  // A family started only for a checkout they backed out of is undone, so they're a plain free account again
+  // and choose on the plans page, rather than landing in a family portal with no plan.
+  if (account && isGuardian && !hasPlan && (await discardUnstartedFamily(accountDb(), state, adult.id))) redirect("/start/plan");
   // Family signup continues to choosing a plan, so nobody lands on an empty portal with no way to check out.
   if (startingFamily && isGuardian && !hasPlan) redirect("/start/plan");
   // An invitation carried through signup or checkout: offer the next step until a child can listen.
@@ -436,7 +440,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
           <h2 id="my-voice-h" className="font-display text-2xl font-semibold">Your voice</h2>
           <p>Your voice is private until you share it. You decide which families can use it, and you can record it again at any time.</p>
           <div className="flex flex-wrap gap-2">
-            <Link href="/family/my-voice" className={parentSecondary}>
+            <Link href="/family/my-voice?from=/home" className={parentSecondary}>
               My voice
             </Link>
             {account && (

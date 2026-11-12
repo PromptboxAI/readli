@@ -127,6 +127,14 @@ export class StripeApi {
     return this.call("POST", "checkout/sessions", params);
   }
 
+  /** Closes every Checkout still open for a household, so nobody can pay for it after it's gone. */
+  async expireOpenCheckouts(householdId: string): Promise<number> {
+    const list = await this.call<{ data?: { id: string; client_reference_id?: string | null }[] }>("GET", "checkout/sessions", { status: "open", limit: "100" });
+    const open = (list.data ?? []).filter((s) => s.client_reference_id === householdId);
+    for (const session of open) await this.call("POST", `checkout/sessions/${encodeURIComponent(session.id)}/expire`);
+    return open.length;
+  }
+
   /** Stripe's hosted billing page, where a parent updates their card or cancels. */
   async createPortalSession(customer: string, returnUrl: string): Promise<{ url: string }> {
     return this.call("POST", "billing_portal/sessions", { customer, return_url: returnUrl });

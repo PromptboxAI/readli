@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { ReturnLink } from "@/components/brand/ReturnLink";
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { AccountFields } from "@/components/accounts/AccountFields";
@@ -53,9 +53,9 @@ export default async function VoiceSignupPage({ searchParams }: { searchParams: 
   return (
     <AdultPage wide>
       <header className="flex flex-col gap-2">
-        <Link href={voiceSignupBack(from)} className="w-fit font-display font-semibold underline-offset-4 hover:underline">
+        <ReturnLink href={voiceSignupBack(from)} className="w-fit font-display font-semibold underline-offset-4 hover:underline">
           ← Back
-        </Link>
+        </ReturnLink>
         <Eyebrow>Readli Voice · Free</Eyebrow>
       </header>
       {!accounts && <PreviewNote>Readli Voice accounts are coming soon, so nothing here is saved yet.</PreviewNote>}
