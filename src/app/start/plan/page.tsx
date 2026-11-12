@@ -11,7 +11,7 @@ import { ACCOUNT_TYPES } from "@/lib/accounts/accounts";
 import { familyCheckoutOpen } from "@/lib/accounts/checkout";
 import { billingConfig } from "@/lib/billing/config";
 import { storiesPerMonth } from "@/lib/content/credits-explained";
-import { pricing } from "@/lib/content/pricing";
+import { annualSavingsPercent, pricing } from "@/lib/content/pricing";
 import { formatPrice } from "@/lib/family/plan";
 import { publicLibrary } from "@/lib/library/public";
 import { startHref } from "@/lib/onboarding/start";
@@ -101,6 +101,12 @@ export default async function StartPlanPage({ searchParams }: { searchParams: Pr
             <h2 id="plan-family" className="font-display text-3xl font-semibold">
               Readli Family
             </h2>
+            <p data-testid="start-plan-price" className="font-display text-2xl font-semibold">
+              {formatPrice(P.familyMonthlyCents)} a month
+            </p>
+            <p className="text-muted">
+              or {formatPrice(P.familyAnnualCents)} a year{annualSavingsPercent(P) > 0 ? `, about ${annualSavingsPercent(P)}% less than monthly` : ""}
+            </p>
             <p className="text-lg">Everything your kids need to hear bedtime stories in family voices.</p>
           </div>
           <PlanList items={includes} className="text-lg" />
