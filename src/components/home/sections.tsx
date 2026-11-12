@@ -42,7 +42,7 @@ export function Hero() {
             close, even when you&apos;re miles apart.
           </p>
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
-            <Link href="/try" className={buttonPrimary}>
+            <Link href="/try" className={buttonPrimary} data-hero-cta>
               Try Your Voice Free
             </Link>
             <Link href="/#how-it-works" className={buttonSecondary}>

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/brand/Wordmark";
-import { buttonPrimary } from "@/components/brand/buttons";
+import { buttonPrimary, buttonSmall } from "@/components/brand/buttons";
 import { AccountMenu } from "@/components/home/AccountMenu";
 import { MobileMenu } from "@/components/home/MobileMenu";
+import { MobileVisitorAction } from "@/components/home/MobileVisitorAction";
 import { accountBadge, accountInitials, accountLinks, navState, primaryAction, type NavLink } from "@/lib/auth/nav-state";
 
 const NAV: NavLink[] = [
@@ -16,12 +17,15 @@ const desktopLink = "font-display font-medium hover:underline";
 const mobileLink = "min-h-11 rounded-2xl px-3 py-2 font-display hover:bg-ivory";
 const mobileLogin = `${mobileLink} font-bold text-mint-deep`;
 const compactPrimary = `${buttonPrimary} min-h-11 px-4 text-base`;
+const compactLogIn = `${buttonSmall} min-h-12`;
 
 /**
  * The public site header. It knows who is visiting before the page is sent, so a signed-in grown-up
  * never sees the visitor buttons first. A kids device gets no account menu or sign-out.
+ * logInUntilHeroScrolled: the page's hero has its own sign-up button (marked data-hero-cta), so on phones a
+ * visitor sees Log in in the header until that button scrolls away.
  */
-export async function SiteHeader({ hidePrimary = false }: { hidePrimary?: boolean } = {}) {
+export async function SiteHeader({ hidePrimary = false, logInUntilHeroScrolled = false }: { hidePrimary?: boolean; logInUntilHeroScrolled?: boolean } = {}) {
   const nav = await navState();
   const primary = hidePrimary ? null : primaryAction(nav);
   const account =
@@ -49,10 +53,14 @@ export async function SiteHeader({ hidePrimary = false }: { hidePrimary?: boolea
           {account && <AccountMenu {...account} />}
         </nav>
         <div className="flex items-center gap-2 md:hidden">
-          {primary && (
-            <Link href={primary.href} className={compactPrimary}>
-              {primary.label}
-            </Link>
+          {primary && nav.kind === "visitor" && logInUntilHeroScrolled ? (
+            <MobileVisitorAction primary={primary} primaryClass={compactPrimary} logInClass={compactLogIn} />
+          ) : (
+            primary && (
+              <Link href={primary.href} className={compactPrimary}>
+                {primary.label}
+              </Link>
+            )
           )}
           {account ? (
             <AccountMenu {...account} compact />
