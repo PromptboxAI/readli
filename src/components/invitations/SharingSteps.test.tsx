@@ -40,10 +40,10 @@ afterEach(() => {
 });
 
 describe("choosing the story families hear", () => {
-  it("makes the recommended book's shortest passage on arrival, then approves and goes on to the form", async () => {
+  it("makes the first book's shortest passage on arrival, then approves and goes on to the form", async () => {
     const { rerender } = render(<PreviewPicker books={books} featured={featured} approved={null} draft={null} sendHref="/voice/invite?step=send" />);
     await waitFor(() => expect(posted[0]).toEqual({ url: "/api/invitations/preview", body: { passageId: "winnie-the-pooh-2" } }));
-    expect(screen.getAllByRole("button", { pressed: true })[0]!.textContent).toBe("Recommended");
+    expect(screen.getAllByRole("button", { pressed: true })[0]!.textContent).toBe("Winnie-the-Pooh");
     expect(screen.queryByText("Read this one instead")).toBeNull();
     rerender(<PreviewPicker books={books} featured={featured} approved={null} draft={{ id: "d1", book: "winnie-the-pooh", passageId: "winnie-the-pooh-2" }} sendHref="/voice/invite?step=send" />);
     expect(screen.getByRole("button", { name: "Play Hear yourself read Winnie-the-Pooh" })).toBeTruthy();
