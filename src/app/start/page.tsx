@@ -145,6 +145,11 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
             nextLabel="Next: hear it read a story"
             intro={intro}
             footer={nav(false)}
+            reviewFooter={
+              <div className={`${stepRow} border-t border-ink/10 pt-5`}>
+                <Back step="voice" />
+              </div>
+            }
             doneFooter={nav(true)}
           />
         ) : (
@@ -185,7 +190,7 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
   }
 
   return (
-    <AdultPage>
+    <AdultPage onboarding>
       <StartStepper step={step} done={done} />
       {!q.step && <PinStep step={step} />}
       <div className="flex flex-col gap-6" data-testid={`start-${step}`}>

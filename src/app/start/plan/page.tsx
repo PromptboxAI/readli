@@ -59,7 +59,7 @@ export default async function StartPlanPage({ searchParams }: { searchParams: Pr
     "Cancel any time",
   ];
   return (
-    <AdultPage wide>
+    <AdultPage wide onboarding>
       {!ctx.parent && (
         <StartStepper
           step="plan"

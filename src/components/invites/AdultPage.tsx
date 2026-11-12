@@ -7,10 +7,11 @@ import { SiteFooter } from "@/components/home/sections";
  * which a grown-up with no family plan yet would otherwise see, so claiming a Family gift never looks
  * like signing up for Readli Voice (Kevin, 2026-11-03).
  */
-export function AdultPage({ children, wide = false, gift = false }: { children: React.ReactNode; wide?: boolean; gift?: boolean }) {
+/** `onboarding`: a signup walkthrough, so the header's main button (My Voice) doesn't pull them out of it. */
+export function AdultPage({ children, wide = false, gift = false, onboarding = false }: { children: React.ReactNode; wide?: boolean; gift?: boolean; onboarding?: boolean }) {
   return (
     <>
-      <SiteHeader hidePrimary={gift} />
+      <SiteHeader hidePrimary={gift || onboarding} />
       <main className={`mx-auto flex w-full flex-col gap-10 px-4 py-10 sm:px-6 sm:py-14 ${wide ? "max-w-6xl" : "max-w-4xl"}`}>
         {children}
       </main>
