@@ -37,12 +37,12 @@ const ICONS: Record<SettingsSection, React.ReactNode> = {
   ),
 };
 
-const TITLES: Record<SettingsSection, string> = { account: "Account", parents: "Parents", plan: "Plan & credits", "kids-mode": "Kids Mode" };
+const TITLES: Record<SettingsSection, string> = { account: "Account", parents: "Grown-ups", plan: "Plan & credits", "kids-mode": "Kids Mode" };
 
 /**
  * Settings: the grown-up's account, the family's parents, its plan and credits, and Kids Mode, in one
  * place. Desktop keeps the sections in a rail beside the page; phones get a list of sections and a way
- * back to it. Only a family's parents see Parents, Plan & credits and Kids Mode.
+ * back to it. Only a family's parents see Grown-ups, Plan & credits and Kids Mode.
  *
  * A section opened from somewhere else (such as Books' "Credits and history") gets `back`, so its way
  * back on every screen size returns to that page rather than the Settings list (Kevin, 2026-11-03).

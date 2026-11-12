@@ -21,7 +21,7 @@ const field = "min-h-12 w-full rounded-2xl border-[3px] border-ink/20 bg-surface
 const card = "flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10";
 
 /**
- * Settings → Parents. Everyone who parents this family, and (for the parent who manages the plan) a way
+ * Settings → Grown-ups. Everyone who parents this family, and (for the parent who manages the plan) a way
  * to invite a co-parent. A co-parent signs in as themselves and gets every parent's controls except
  * billing. The owner can remove a co-parent, and a co-parent can leave.
  */
@@ -98,7 +98,7 @@ export function FamilyParents({ view, initialInvites, live, inSetup = false }: {
       {/* Setup asks only for the invitation; the list of parents and what they can do live in Settings. */}
       <section className={inSetup ? "hidden" : "flex flex-col gap-3"} aria-labelledby={`${id}-list`}>
         <h2 id={`${id}-list`} className="font-display text-2xl font-semibold">
-          Parents in {view.familyName}
+          Grown-ups in {view.familyName}
         </h2>
         <ul className="divide-y-2 divide-ink/5 rounded-3xl bg-surface ring-2 ring-ink/10">
           {view.parents.map((p) => {

@@ -5,7 +5,7 @@ export const SETTINGS_HOME = "/family/settings";
 
 export const SETTINGS_SECTIONS: { id: SettingsSection; label: string; href: string; guardianOnly: boolean }[] = [
   { id: "account", label: "Account", href: SETTINGS_HOME, guardianOnly: false },
-  { id: "parents", label: "Parents", href: `${SETTINGS_HOME}/parents`, guardianOnly: true },
+  { id: "parents", label: "Grown-ups", href: `${SETTINGS_HOME}/parents`, guardianOnly: true },
   { id: "plan", label: "Plan & credits", href: `${SETTINGS_HOME}/plan`, guardianOnly: true },
   { id: "kids-mode", label: "Kids Mode", href: `${SETTINGS_HOME}/kids-mode`, guardianOnly: true },
 ];
@@ -45,7 +45,7 @@ export function settingsBack(from: string | string[] | undefined | null, homeHre
 /** Settings pages a family page can be opened from, so its way back returns there. */
 const SETTINGS_PLACES: [string, string][] = [
   [`${SETTINGS_HOME}/plan`, "Plan & credits"],
-  [`${SETTINGS_HOME}/parents`, "Parents"],
+  [`${SETTINGS_HOME}/parents`, "Grown-ups"],
   [`${SETTINGS_HOME}/kids-mode`, "Kids Mode"],
   [SETTINGS_HOME, "Settings"],
 ];

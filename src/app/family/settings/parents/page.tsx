@@ -9,9 +9,9 @@ import { familyStore } from "@/lib/family/session";
 import { listInvites } from "@/lib/invites/server";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Parents | Readli", robots: { index: false } };
+export const metadata: Metadata = { title: "Grown-ups | Readli", robots: { index: false } };
 
-const NOT_GUARDIAN = "Only a parent or guardian can see your family's parents.";
+const NOT_GUARDIAN = "Only a parent or guardian can see your family's grown-ups.";
 
 /**
  * The family's parents. The parent who manages the plan invites a co-parent here: they get every
