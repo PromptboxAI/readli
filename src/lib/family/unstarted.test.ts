@@ -20,11 +20,11 @@ describe("a family started only for checkout", () => {
 
   it("isn't a family that has had a plan, kids, or anyone else in it", () => {
     const paid = started();
-    paid.entitlements.push({ ...demoFamilyState().entitlements[0], householdId: "h-new" });
+    paid.entitlements.push({ id: "plan-old", householdId: "h-new", source: "subscription", status: "canceled", extraNarratorSlots: 0, extraStreams: 0, startsAt: at, endsAt: at });
     expect(unstartedFamily(paid, "kev")).toBeNull();
 
     const kids = started();
-    kids.children.push({ ...demoFamilyState().children[0], householdId: "h-new" });
+    kids.children.push({ id: "ivy", householdId: "h-new", nickname: "Ivy", tint: "bg-sky", guardianIds: ["kev"], deletedAt: null });
     expect(unstartedFamily(kids, "kev")).toBeNull();
 
     const shared = started();
