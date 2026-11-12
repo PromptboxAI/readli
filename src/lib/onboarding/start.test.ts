@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanFamilyName, startHref, startStep, startStepAfter, startStepBefore } from "./start";
+import { cleanFamilyName, familyNameCookie, familyNameFor, startHref, startStep, startStepAfter, startStepBefore } from "./start";
 
 describe("startStep", () => {
   it("starts someone new on their name, then picks up where they left off", () => {
@@ -32,5 +32,18 @@ describe("cleanFamilyName", () => {
     expect(cleanFamilyName("x".repeat(80))).toHaveLength(60);
     expect(cleanFamilyName("   ")).toBeNull();
     expect(cleanFamilyName(null)).toBeNull();
+  });
+});
+
+describe("familyNameFor", () => {
+  it("reads back the name only for the account that typed it", () => {
+    const raw = familyNameCookie("user-a", "The Godfrey Family");
+    expect(familyNameFor(raw, "user-a")).toBe("The Godfrey Family");
+    expect(familyNameFor(raw, "user-b")).toBeNull();
+  });
+
+  it("ignores an empty cookie and one from before names were tied to an account", () => {
+    expect(familyNameFor(undefined, "user-a")).toBeNull();
+    expect(familyNameFor(encodeURIComponent("The Godfreys"), "user-a")).toBeNull();
   });
 });

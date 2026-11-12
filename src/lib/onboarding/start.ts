@@ -54,6 +54,26 @@ export function startStepBefore(step: StartStep): StartStep | null {
   return i <= 0 ? null : START_STEPS[i - 1]!;
 }
 
+/**
+ * The family-name cookie holds the account's id with the name, so the name belongs to the account that typed
+ * it, not the browser: someone else signing up on the same browser starts at the beginning.
+ */
+export function familyNameCookie(userId: string, name: string): string {
+  return `${userId}:${encodeURIComponent(name)}`;
+}
+
+/** The family name this account typed, from the cookie, or null when there is none or another account typed it. */
+export function familyNameFor(raw: string | undefined, userId: string): string | null {
+  if (!raw) return null;
+  const prefix = `${userId}:`;
+  if (!raw.startsWith(prefix)) return null;
+  try {
+    return cleanFamilyName(decodeURIComponent(raw.slice(prefix.length)));
+  } catch {
+    return null;
+  }
+}
+
 /** A family name from the form or the cookie: trimmed, one line, at most 60 characters, or null. */
 export function cleanFamilyName(value: unknown): string | null {
   if (typeof value !== "string") return null;

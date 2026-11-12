@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { FAMILY_NAME_COOKIE } from "@/lib/onboarding/start";
+import { FAMILY_NAME_COOKIE, familyNameFor } from "@/lib/onboarding/start";
 import { redirect } from "next/navigation";
 import { parentPrimary, parentSecondary, stepNext, stepRow } from "@/components/brand/buttons";
 import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
@@ -200,7 +200,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   // A family that hasn't started yet sees the welcome page first: what Readli is, then "Let's get started!".
   // Someone who came through the signup welcome (/start) already saw it, named themselves and heard their voice:
   // they carry on from the first step still to do, never the welcome again.
-  const throughStart = q.from === "start" || Boolean((await cookies()).get(FAMILY_NAME_COOKIE));
+  const throughStart = q.from === "start" || Boolean(familyNameFor((await cookies()).get(FAMILY_NAME_COOKIE)?.value, adultId));
   const welcome = q.step === "welcome" || (!q.step && !throughStart && !voice && kids.length === 0 && !progress.story);
   const step = setupStep(q.step, progress);
   // The first story can't be skipped: Listen and the last page wait until one is prepared (or being prepared).
