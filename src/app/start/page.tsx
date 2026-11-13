@@ -11,7 +11,7 @@ import { StartStepper } from "@/components/onboarding/StartStepper";
 import { FAMILY_NAME_MAX, startHref, startStep, startStepBefore, type StartStep } from "@/lib/onboarding/start";
 import { startContext } from "@/lib/onboarding/start-server";
 import { recorderProps } from "@/lib/voice/recorder";
-import { StepInUrl } from "@/components/onboarding/StepInUrl";
+import { withStep } from "@/lib/onboarding/step-url";
 
 export const metadata: Metadata = {
   title: "Welcome | Readli",
@@ -55,6 +55,8 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
     voice: ctx.voice !== "none",
   });
   if (step === "plan") redirect(startHref("plan"));
+  // A step the page picked by itself goes into the address, so a refresh after finishing it stays on it.
+  if (q.step !== step) redirect(withStep("/start", q, step));
   const done = {
     name: Boolean(ctx.name),
     family: Boolean(ctx.familyName),
@@ -192,7 +194,6 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
   return (
     <AdultPage onboarding>
       <StartStepper step={step} done={done} />
-      {!q.step && <StepInUrl step={step} />}
       <div className="flex flex-col gap-6" data-testid={`start-${step}`}>
         {body}
       </div>

@@ -48,7 +48,7 @@ import { listInvites } from "@/lib/invites/server";
 import { familyLibrary } from "@/lib/library/discovery";
 import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
-import { StepInUrl } from "@/components/onboarding/StepInUrl";
+import { withStep } from "@/lib/onboarding/step-url";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Set up your family | Readli", robots: { index: false } };
@@ -238,6 +238,9 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
       </FamilyShell>
     );
   }
+
+  // A step the page picked by itself goes into the address, so a refresh after adding a child stays on it.
+  if (q.step !== step) redirect(withStep("/family/setup", q, step));
 
   const recorder = step === "voice" && !recorded && session.account ? await recorderProps(adultId) : null;
   // The family PIN isn't asked for in setup: opening a child's Readli Kids asks for it the first time. The last page says so.
@@ -563,7 +566,6 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
         </p>
         <Stepper step={step} done={done} />
       </div>
-      {!q.step && <StepInUrl step={step} />}
       <div className="flex flex-col gap-6" data-testid={`setup-${step}`}>
         {body}
       </div>

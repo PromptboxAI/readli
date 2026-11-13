@@ -20,7 +20,7 @@ import { shareKeptVoice } from "@/lib/invites/share-on-keep";
 import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
 import { recorderProps } from "@/lib/voice/recorder";
-import { StepInUrl } from "@/components/onboarding/StepInUrl";
+import { withStep } from "@/lib/onboarding/step-url";
 import {
   STORYTELLER_STEP_LABELS,
   STORYTELLER_STEPS,
@@ -165,6 +165,9 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
       </AdultPage>
     );
   }
+
+  // A step the page picked by itself goes into the address, so a refresh after finishing it stays on it.
+  if (q.step !== step) redirect(withStep("/voice/setup", q, step));
 
   const done = { voice: Boolean(voice), share: shared || invitations.length > 0, listen: false };
   const n = (STORYTELLER_STEPS as readonly string[]).indexOf(step) + 1;
@@ -316,7 +319,6 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
 
   return (
     <AdultPage onboarding>
-      {!q.step && <StepInUrl step={step} />}
       <div className="flex flex-col gap-4">
         <p className="text-sm font-bold tracking-wider text-muted uppercase" data-testid="storyteller-progress">
           Getting started · {step === "done" ? "All set" : `Step ${n} of ${STORYTELLER_STEPS.length}`}
