@@ -10,7 +10,7 @@ function adminDb() {
   return { db: { auth: { admin: { updateUserById } } } as never, updateUserById };
 }
 
-const env = { NEXT_PUBLIC_SUPABASE_URL: "https://x.supabase.co", NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon" } as NodeJS.ProcessEnv;
+const env = { NEXT_PUBLIC_SUPABASE_URL: "https://x.supabase.co", NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon" } as unknown as NodeJS.ProcessEnv;
 
 describe("quick signup", () => {
   it("accepts real-looking emails only", () => {
