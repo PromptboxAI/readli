@@ -58,6 +58,7 @@ test("Readli is described the same way in the meta description, on /company and 
   const homeLd = (await page.locator('script[type="application/ld+json"]').allTextContents()).join("");
   expect(homeLd).toContain('"@type":"WebSite"');
   expect(homeLd).toContain('"alternateName":["Readli.ai","Readli AI"]');
+  expect(homeLd).toContain("https://www.crunchbase.com/organization/readli");
   expect(homeLd).toContain('"founder":[{"@type":"Person","name":"Kevin Godfrey"');
   await page.goto("/company");
   await expect(page.locator("main")).toContainText(long);
