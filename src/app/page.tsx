@@ -11,9 +11,9 @@ import {
   SiteFooter,
   TryYourVoice,
 } from "@/components/home/sections";
-import { COMPANY } from "@/lib/content/company";
+import { COMPANY, FOUNDERS } from "@/lib/content/company";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
-import { SITE_DESCRIPTION, SITE_LONG_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
+import { SITE_ALTERNATE_NAMES, SITE_DESCRIPTION, SITE_LONG_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
 
 export const metadata: Metadata = publicPageMetadata({
   title: "Readli: Every Book. Every Voice.",
@@ -28,6 +28,7 @@ const siteLd = {
       "@type": "Organization",
       "@id": `${SITE_URL}/#organization`,
       name: SITE_NAME,
+      alternateName: SITE_ALTERNATE_NAMES,
       legalName: COMPANY.legalName,
       email: COMPANY.email,
       address: {
@@ -43,11 +44,13 @@ const siteLd = {
       slogan: SITE_TAGLINE,
       description: SITE_LONG_DESCRIPTION,
       sameAs: SOCIAL_ACCOUNTS.map((a) => a.url),
+      founder: FOUNDERS.map((f) => ({ "@type": "Person", name: f.name, jobTitle: f.title })),
     },
     {
       "@type": "WebSite",
       "@id": `${SITE_URL}/#website`,
       name: SITE_NAME,
+      alternateName: SITE_ALTERNATE_NAMES,
       url: SITE_URL,
       description: SITE_DESCRIPTION,
       publisher: { "@id": `${SITE_URL}/#organization` },

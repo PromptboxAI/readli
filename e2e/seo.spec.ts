@@ -54,6 +54,11 @@ test("Readli is described the same way in the meta description, on /company and 
   await page.goto("/");
   await expect(page.locator("footer")).not.toContainText(short);
   await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", short);
+  // Google's site-name system reads the WebSite name and its alternate spellings.
+  const homeLd = (await page.locator('script[type="application/ld+json"]').allTextContents()).join("");
+  expect(homeLd).toContain('"@type":"WebSite"');
+  expect(homeLd).toContain('"alternateName":["Readli.ai","Readli AI"]');
+  expect(homeLd).toContain('"founder":[{"@type":"Person","name":"Kevin Godfrey"');
   await page.goto("/company");
   await expect(page.locator("main")).toContainText(long);
   const llms = await (await request.get("/llms.txt")).text();

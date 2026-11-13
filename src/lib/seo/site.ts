@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://readli.ai").replace(/\/$/, "");
 
 export const SITE_NAME = "Readli";
+/** Other ways people write the name. Google's site-name system reads these from the WebSite structured data. */
+export const SITE_ALTERNATE_NAMES = ["Readli.ai", "Readli AI"];
 export const SITE_TAGLINE = "Every Book. Every Voice.";
 /** Kevin's approved short description (2026-10-27): page descriptions and share cards. */
 export const SITE_DESCRIPTION = "Readli reads classic children's books aloud in the voices of the people your kids love.";
