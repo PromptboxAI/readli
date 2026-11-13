@@ -11,7 +11,7 @@ import { StartStepper } from "@/components/onboarding/StartStepper";
 import { FAMILY_NAME_MAX, startHref, startStep, startStepBefore, type StartStep } from "@/lib/onboarding/start";
 import { startContext } from "@/lib/onboarding/start-server";
 import { recorderProps } from "@/lib/voice/recorder";
-import { PinStep } from "@/components/onboarding/PinStep";
+import { StepInUrl } from "@/components/onboarding/StepInUrl";
 
 export const metadata: Metadata = {
   title: "Welcome | Readli",
@@ -192,7 +192,7 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
   return (
     <AdultPage onboarding>
       <StartStepper step={step} done={done} />
-      {!q.step && <PinStep step={step} />}
+      {!q.step && <StepInUrl step={step} />}
       <div className="flex flex-col gap-6" data-testid={`start-${step}`}>
         {body}
       </div>

@@ -7,7 +7,6 @@ import { redirect } from "next/navigation";
 import { parentPrimary, parentSecondary, stepNext, stepRow } from "@/components/brand/buttons";
 import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
 import { CheckoutDone } from "@/components/family/BillingActions";
-import { SetKidsPin } from "@/components/family/SetKidsPin";
 import { SessionButton } from "@/components/family/SessionButton";
 import { CATALOG } from "@/lib/library/catalog";
 import { NAMED_COOKIE } from "@/lib/family/setup-cookie";
@@ -49,7 +48,7 @@ import { listInvites } from "@/lib/invites/server";
 import { familyLibrary } from "@/lib/library/discovery";
 import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
-import { PinStep } from "@/components/onboarding/PinStep";
+import { StepInUrl } from "@/components/onboarding/StepInUrl";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Set up your family | Readli", robots: { index: false } };
@@ -241,8 +240,9 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   }
 
   const recorder = step === "voice" && !recorded && session.account ? await recorderProps(adultId) : null;
-  const pinRegistry = step === "kids" && kids.length > 0 ? deviceRegistry(Boolean(session.account)) : null;
-  const needsPin = Boolean(pinRegistry && !(await pinRegistry.pinHash(home).catch(() => "unknown")));
+  // The family PIN isn't asked for in setup: opening a child's Readli Kids asks for it the first time. The last page says so.
+  const pinRegistry = step === "done" && kids.length > 0 ? deviceRegistry(Boolean(session.account)) : null;
+  const pinToSet = Boolean(pinRegistry && !(await pinRegistry.pinHash(home).catch(() => "unknown")));
 
   let body: React.ReactNode;
   if (step === "voice") {
@@ -297,15 +297,6 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
           <p className="max-w-2xl text-lg">Each child gets their own bookshelf and keeps their own place in every book. A first name or nickname is enough.</p>
         </header>
         {plan ? <ChildProfiles initial={await childProfiles(store, actor, home)} inSetup /> : opensLater}
-        {needsPin && (
-          <section className="flex flex-col gap-2" aria-labelledby="pin-h">
-            <h2 id="pin-h" className="font-display text-2xl font-semibold">
-              Set your family PIN
-            </h2>
-            <p className="text-muted">Your kids&apos; space is locked so little fingers stay in it. You&apos;ll use this 4-digit PIN to get back to Readli Family.</p>
-            <SetKidsPin intro="Choose 4 digits you'll remember. Kids won't see it." />
-          </section>
-        )}
         <StepNav step="kids" ready={kids.length > 0} />
       </>
     );
@@ -494,6 +485,12 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
                 It&apos;s story time
               </h2>
               <p>Open Readli Kids on this device, or on your child&apos;s tablet, and their books are waiting on their bookshelf.</p>
+              {pinToSet && (
+                <p className="text-muted" data-testid="setup-pin-note">
+                  The first time, you&apos;ll choose a 4-digit family PIN. Readli Kids stays locked so little fingers can&apos;t wander out, and the PIN is how you get back
+                  to Readli Family.
+                </p>
+              )}
               <div className="flex flex-wrap gap-3">
                 {kids.map((k) => (
                   <SessionButton key={k.id} as={`child:${k.id}`} next="/kids" className={parentPrimary}>
@@ -566,7 +563,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
         </p>
         <Stepper step={step} done={done} />
       </div>
-      {!q.step && <PinStep step={step} />}
+      {!q.step && <StepInUrl step={step} />}
       <div className="flex flex-col gap-6" data-testid={`setup-${step}`}>
         {body}
       </div>

@@ -20,7 +20,7 @@ import { shareKeptVoice } from "@/lib/invites/share-on-keep";
 import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
 import { recorderProps } from "@/lib/voice/recorder";
-import { PinStep } from "@/components/onboarding/PinStep";
+import { StepInUrl } from "@/components/onboarding/StepInUrl";
 import {
   STORYTELLER_STEP_LABELS,
   STORYTELLER_STEPS,
@@ -316,7 +316,7 @@ export default async function StorytellerSetupPage({ searchParams }: { searchPar
 
   return (
     <AdultPage onboarding>
-      {!q.step && <PinStep step={step} />}
+      {!q.step && <StepInUrl step={step} />}
       <div className="flex flex-col gap-4">
         <p className="text-sm font-bold tracking-wider text-muted uppercase" data-testid="storyteller-progress">
           Getting started · {step === "done" ? "All set" : `Step ${n} of ${STORYTELLER_STEPS.length}`}
