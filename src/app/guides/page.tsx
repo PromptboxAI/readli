@@ -3,6 +3,7 @@ import Link from "next/link";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
+import { COMPARISON_NAMES, COMPARISON_SLUGS, comparisonHref } from "@/lib/content/comparisons";
 import { GUIDES, GUIDE_AUTHOR, guideHref } from "@/lib/guides/guides";
 import { SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
 
@@ -46,6 +47,25 @@ export default function GuidesPage() {
             </li>
           ))}
         </ul>
+        <section aria-labelledby="compare-heading" className="flex flex-col gap-2" data-testid="guide-comparisons">
+          <h2 id="compare-heading" className="font-display text-2xl font-semibold">
+            Comparing bedtime story apps?
+          </h2>
+          <ul className="flex flex-col gap-1">
+            {COMPARISON_SLUGS.map((slug) => (
+              <li key={slug}>
+                <Link href={comparisonHref(slug)} className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4">
+                  Readli or {COMPARISON_NAMES[slug]}?
+                </Link>
+              </li>
+            ))}
+            <li>
+              <Link href="/vs" className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4">
+                How Readli compares with other options
+              </Link>
+            </li>
+          </ul>
+        </section>
         <Link href="/try" className={`${buttonPrimary} w-full sm:w-auto sm:self-start`}>
           Hear a story in your voice, free
         </Link>
