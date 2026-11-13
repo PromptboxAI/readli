@@ -1,3 +1,4 @@
+import { COMPARISON_NAMES, COMPARISON_SLUGS, comparisonHref } from "@/lib/content/comparisons";
 import { GUIDES, guideHref } from "@/lib/guides/guides";
 import { HELP_CATEGORIES } from "@/lib/help/articles";
 import { articleHref, articlesIn, visibleArticles } from "@/lib/help/search";
@@ -23,6 +24,7 @@ export function publicPages(): PublicPage[] {
     { path: "/readli-kids", title: "Readli Kids", priority: 0.8, changeFrequency: "monthly" },
     { path: "/guides", title: "Stories & Guides", priority: 0.7, changeFrequency: "weekly" },
     { path: "/books", title: "The Readli Library", priority: 0.9, changeFrequency: "weekly" },
+    { path: "/vs", title: "How Readli compares", priority: 0.7, changeFrequency: "monthly" },
     { path: "/parents/safety", title: "Family privacy & safety", priority: 0.7, changeFrequency: "monthly" },
     { path: "/help", title: "Help Center", priority: 0.7, changeFrequency: "weekly" },
     { path: "/help/recording-tips", title: "Tips for a better voice recording", priority: 0.5, changeFrequency: "monthly" },
@@ -32,6 +34,7 @@ export function publicPages(): PublicPage[] {
     { path: "/terms", title: "Terms of Service", priority: 0.3, changeFrequency: "yearly" },
     { path: "/accessibility", title: "Accessibility Statement", priority: 0.3, changeFrequency: "yearly" },
   ];
+  for (const slug of COMPARISON_SLUGS) pages.push({ path: comparisonHref(slug), title: `Readli or ${COMPARISON_NAMES[slug]}?`, priority: 0.7, changeFrequency: "monthly" });
   for (const g of GUIDES) pages.push({ path: guideHref(g), title: g.title, priority: 0.7, changeFrequency: "monthly" });
   for (const b of publicLibrary()) {
     pages.push({ path: bookPath(b.slug), title: `${b.title} by ${b.author}`, priority: b.comingSoon ? 0.5 : 0.8, changeFrequency: "monthly" });

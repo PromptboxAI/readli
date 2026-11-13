@@ -384,6 +384,7 @@ const FOOTER_GROUPS: { title: string; links: { href: string; label: string }[] }
       { href: "/books", label: "Library" },
       { href: "/pricing", label: "Pricing" },
       { href: "/guides", label: "Guides" },
+      { href: "/vs", label: "Compare" },
     ],
   },
   {
