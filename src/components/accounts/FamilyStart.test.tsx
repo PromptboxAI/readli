@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const auth = { signInWithOtp: vi.fn(async () => ({ error: null })), verifyOtp: vi.fn(), signInWithOAuth: vi.fn() };
 vi.mock("@supabase/ssr", () => ({ createBrowserClient: () => ({ auth }) }));
 const trackMeta = vi.fn();
-vi.mock("@/lib/marketing/meta-pixel", () => ({ trackMeta: (...a: unknown[]) => trackMeta(...a), rememberCheckout: vi.fn(), newMetaEventId: () => null }));
+vi.mock("@/lib/marketing/meta-pixel", () => ({ trackMeta: (...a: unknown[]) => trackMeta(...a), trackMetaCustom: vi.fn(), rememberCheckout: vi.fn(), newMetaEventId: () => null }));
 
 import { FamilyStart } from "./FamilyStart";
 
