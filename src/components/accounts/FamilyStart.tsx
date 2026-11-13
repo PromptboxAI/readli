@@ -7,9 +7,25 @@ import { buttonPrimary } from "@/components/brand/buttons";
 import { PlanIncludes, StepHeading } from "@/components/accounts/SignupSteps";
 import { startFamilyCheckout } from "@/lib/accounts/family-checkout";
 
+/** Quick signup: a new email is signed straight in; one that already has an account gets the code. */
+async function quickSignup(email: string, opts: { news: boolean; tz: string | undefined }): Promise<"signed_in" | "existing"> {
+  const res = await fetch("/api/signup/family", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email, news: opts.news, tz: opts.tz }),
+  }).catch(() => null);
+  if (!res) throw new Error("We couldn't reach Readli just now. Please try again.");
+  const json = (await res.json().catch(() => ({}))) as { signedIn?: boolean; existing?: boolean; error?: { message?: string } };
+  if (res.ok && json.signedIn) return "signed_in";
+  if (res.ok && json.existing) return "existing";
+  throw new Error(json.error?.message ?? "We couldn't set up your account just now. Please try again.");
+}
+
 /**
- * Family signup: choose monthly or yearly with the real price, sign in with the emailed code on this
- * page (or carry on, already signed in), then straight to that plan's Stripe checkout. The family is
+ * Family signup: choose monthly or yearly with the real price, enter an email (or carry on, already
+ * signed in), then straight to that plan's Stripe checkout. A new email needs no code: the account is
+ * made on the spot and its email confirmed after payment. An email that already has an account signs in
+ * with the emailed code first. The family is
  * started with a stand-in name so checkout has a household to bill; setup asks for the name once paid.
  * Someone who already has a free Readli Voice account signs in as themselves, so the family is theirs
  * and their voice and its permissions stay as they are.
@@ -101,8 +117,8 @@ export function FamilyStart(props: {
           </>
         ) : (
           <>
-            <p>We&apos;ll email you a 6-digit code to type in here. Then you go straight to secure checkout. Already have a Readli account? Use the same email.</p>
-            <LoginForm next={next} askMarketing signup="Readli Family" submitLabel="Email me my code" onSignedIn={checkout} />
+            <p>Enter your email and you go straight to secure checkout. Already have a Readli account? Use the same email and we&apos;ll send you a code first.</p>
+            <LoginForm next={next} askMarketing signup="Readli Family" submitLabel="Continue to checkout" onSignedIn={checkout} quickStart={quickSignup} />
           </>
         )}
       </section>

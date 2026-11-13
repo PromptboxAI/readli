@@ -7,6 +7,8 @@ import { redirect } from "next/navigation";
 import { parentPrimary, parentSecondary, stepNext, stepRow } from "@/components/brand/buttons";
 import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
 import { CheckoutDone } from "@/components/family/BillingActions";
+import { ConfirmEmailNote } from "@/components/accounts/ConfirmEmailNote";
+import { confirmAfterCheckout } from "@/lib/auth/confirm-after-checkout";
 import { SessionButton } from "@/components/family/SessionButton";
 import { CATALOG } from "@/lib/library/catalog";
 import { NAMED_COOKIE } from "@/lib/family/setup-cookie";
@@ -183,6 +185,8 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
     const outcome = await confirmCheckout(db, (id) => stripe.getCheckoutSession(id), q.session_id, home).catch(() => null);
     plan = outcome?.status === "done";
   }
+  // Paid with an email that skipped the code: confirm it now.
+  const confirmEmail = plan && q.checkout === "success" && session.account ? await confirmAfterCheckout().catch(() => null) : null;
   const store = (await familyStore(session))!;
   // A family that started from a storyteller's invitation: once the plan is on, that storyteller is connected and
   // becomes the first storyteller, and each child added here can hear them. Connecting changes the family in the
@@ -249,6 +253,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
     return (
       <FamilyShell>
         {q.checkout === "success" && <CheckoutDone sessionId={q.session_id} />}
+        {confirmEmail && <ConfirmEmailNote email={confirmEmail} />}
         {paying && <PlanStarting waiting="Thank you! Your plan starts as soon as the payment goes through, usually within a minute. Have a look around while you wait." />}
         {!plan && !paying && <NoPlan />}
         <Welcome kind="family" startHref={setupHref("voice")} name={myName?.split(" ")[0]} askName={session.account && !((q.named === "1" || namedOnGift) && myName) ? (myName ?? "") : undefined} />
@@ -581,6 +586,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
       {/* Your voice reads to your kids as soon as both exist, without a separate button. */}
       {askMyVoice && <SetupUseMyVoice />}
       {q.checkout === "success" && <CheckoutDone sessionId={q.session_id} />}
+        {confirmEmail && <ConfirmEmailNote email={confirmEmail} />}
       {paying && <PlanStarting waiting="Thank you! Your plan starts as soon as the payment goes through, usually within a minute. You can record your voice while you wait." />}
       <div className="flex flex-col gap-4">
         <p className="text-sm font-bold tracking-wider text-muted uppercase" data-testid="setup-progress">
