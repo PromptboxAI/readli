@@ -13,10 +13,11 @@ import {
 } from "@/components/home/sections";
 import { COMPANY, FOUNDERS } from "@/lib/content/company";
 import { BRAND_PROFILES, SOCIAL_ACCOUNTS } from "@/lib/content/social";
-import { SITE_ALTERNATE_NAMES, SITE_DESCRIPTION, SITE_LONG_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
+import { SITE_ALTERNATE_NAMES, SITE_DESCRIPTION, SITE_LONG_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, absoluteUrl, jsonLd, publicPageMetadata, webPageNode } from "@/lib/seo/site";
+import { PAGE_TITLES } from "@/lib/seo/titles";
 
 export const metadata: Metadata = publicPageMetadata({
-  title: "Readli: Every Book. Every Voice.",
+  title: PAGE_TITLES.home,
   description: SITE_DESCRIPTION,
   path: "/",
 });
@@ -55,6 +56,7 @@ const siteLd = {
       description: SITE_DESCRIPTION,
       publisher: { "@id": `${SITE_URL}/#organization` },
     },
+    webPageNode({ path: "/", title: PAGE_TITLES.home, description: SITE_DESCRIPTION }),
   ],
 };
 

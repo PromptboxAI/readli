@@ -5,9 +5,11 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { publicPageMetadata } from "@/lib/seo/site";
+import { PAGE_TITLES } from "@/lib/seo/titles";
+import { PageLd } from "@/components/seo/PageLd";
 
 export const metadata: Metadata = publicPageMetadata({
-  title: "Family privacy & safety | Readli",
+  title: PAGE_TITLES.parentsSafety,
   description: "How family voices stay private and how parents choose which storytellers each child can hear.",
   path: "/parents/safety",
 });
@@ -51,6 +53,7 @@ export default function ParentsSafetyPage() {
     <>
       <SiteHeader />
       <main className="mx-auto flex max-w-4xl flex-col gap-10 px-4 py-14 sm:px-6">
+        <PageLd path="/parents/safety" title={PAGE_TITLES.parentsSafety} description={metadata.description} />
         <header className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-8">
           <ReadiMascot size={120} decorative className="shrink-0" />
           <div className="flex flex-col gap-3">

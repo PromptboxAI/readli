@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("Readli Gives Back explains the donation and checks the request form", async ({ page }) => {
   await page.goto("/donations");
-  await expect(page).toHaveTitle("Donation Requests for School Raffles & Charity Auctions | Readli");
+  await expect(page).toHaveTitle("Donation Requests for School Raffles & Auctions | Readli");
   await expect(page.getByRole("heading", { level: 1, name: "Helping Good Causes Tell Great Stories." })).toBeVisible();
   // Plan facts come from the live plan settings, never a number typed into the page.
   const pkg = page.getByTestId("donation-package");

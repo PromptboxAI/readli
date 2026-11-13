@@ -9,9 +9,11 @@ import { SamplePlayer } from "@/components/home/SamplePlayer";
 import { SiteFooter } from "@/components/home/sections";
 import { FOUNDERS } from "@/lib/content/company";
 import { publicPageMetadata } from "@/lib/seo/site";
+import { PAGE_TITLES } from "@/lib/seo/titles";
+import { PageLd } from "@/components/seo/PageLd";
 
 export const metadata: Metadata = publicPageMetadata({
-  title: "Read bedtime stories to your grandkids, in your own voice | Readli",
+  title: PAGE_TITLES.grandparents,
   description:
     "Record about a minute of your voice and Readli reads classic storybooks to your grandchildren in it, wherever they live. Free for grandparents, with no card or subscription.",
   path: "/grandparents",
@@ -189,6 +191,7 @@ export default function GrandparentsPage() {
         </div>
       </header>
       <main className="flex flex-col text-lg">
+        <PageLd path="/grandparents" title={PAGE_TITLES.grandparents} description={metadata.description} />
         <section aria-labelledby="gp-heading" className="relative overflow-hidden bg-ivory">
           <div
             aria-hidden="true"

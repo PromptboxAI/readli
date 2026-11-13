@@ -8,9 +8,11 @@ import {
   PRIVACY_SECTIONS,
 } from "@/lib/content/privacy-policy";
 import { publicPageMetadata } from "@/lib/seo/site";
+import { PAGE_TITLES } from "@/lib/seo/titles";
+import { PageLd } from "@/components/seo/PageLd";
 
 export const metadata: Metadata = publicPageMetadata({
-  title: "Privacy Policy | Readli",
+  title: PAGE_TITLES.privacy,
   description: "How Readli collects, uses, shares and protects family, child and voice information.",
   path: "/privacy",
 });
@@ -19,6 +21,7 @@ export default function PrivacyPage() {
   return (
     <>
       <SiteHeader />
+      <PageLd path="/privacy" title={PAGE_TITLES.privacy} description={metadata.description} />
       <PolicyDocument
         title="Privacy Policy"
         effectiveDate={PRIVACY_EFFECTIVE_DATE}

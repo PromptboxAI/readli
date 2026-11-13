@@ -63,3 +63,42 @@ export function publicPageMetadata({
     twitter: { card: "summary_large_image", title, description, ...(images ? { images: images.map((i) => i.url) } : {}) },
   };
 }
+
+/** The share image every page falls back to (src/app/opengraph-image.tsx). */
+export const DEFAULT_PAGE_IMAGE = "/opengraph-image";
+
+/**
+ * The schema.org node for one public page (SEO audit g_structured_data): its headline is the page's
+ * title as rendered, and it points at the site and the organization described on the home page.
+ */
+export function webPageNode({
+  path,
+  title,
+  description,
+  type = "WebPage",
+  image,
+  extra,
+}: {
+  path: string;
+  title: string;
+  description?: string | null;
+  type?: "WebPage" | "CollectionPage" | "AboutPage" | "FAQPage" | "ItemPage";
+  image?: string;
+  extra?: Record<string, unknown>;
+}): Record<string, unknown> {
+  const url = absoluteUrl(path);
+  return {
+    "@type": type,
+    "@id": `${url}#webpage`,
+    url,
+    name: title,
+    headline: title,
+    ...(description ? { description } : {}),
+    mainEntityOfPage: url,
+    image: absoluteUrl(image ?? DEFAULT_PAGE_IMAGE),
+    inLanguage: "en",
+    isPartOf: { "@id": `${SITE_URL}/#website` },
+    publisher: { "@id": `${SITE_URL}/#organization` },
+    ...extra,
+  };
+}

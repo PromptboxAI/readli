@@ -7,9 +7,11 @@ import { HELP_CATEGORIES } from "@/lib/help/articles";
 import { getCategory, searchHelp } from "@/lib/help/search";
 import { publicPageMetadata } from "@/lib/seo/site";
 import { HANDOUTS } from "@/lib/help/handouts";
+import { PAGE_TITLES } from "@/lib/seo/titles";
+import { PageLd } from "@/components/seo/PageLd";
 
 export const metadata: Metadata = publicPageMetadata({
-  title: "Help Center | Readli",
+  title: PAGE_TITLES.help,
   description: "Find answers about family stories, voices, subscriptions, privacy and more.",
   path: "/help",
 });
@@ -23,6 +25,7 @@ export default async function HelpPage({ searchParams }: { searchParams: Promise
     <>
       <SiteHeader />
       <main className="flex flex-col">
+        <PageLd path="/help" title={PAGE_TITLES.help} description={metadata.description} />
         <section className="bg-mint/45 px-4 py-14 sm:px-6">
           <div className="mx-auto flex max-w-3xl flex-col items-center gap-4 text-center">
             <span aria-hidden className="grid h-16 w-16 place-items-center rounded-2xl bg-surface shadow-sm">

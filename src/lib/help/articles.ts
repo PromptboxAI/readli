@@ -24,6 +24,8 @@ export type HelpArticle = {
   slug: string;
   category: string;
   question: string;
+  /** A shorter page title for search, when the question is too long for one (over about 45 characters). */
+  seoTitle?: string;
   /** Short paragraphs. */
   answer: string[];
   status: HelpStatus;
@@ -63,6 +65,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "readli-family-voice-kids",
     category: "getting-started",
     question: "What's the difference between Readli Family, Readli Voice, and Readli Kids?",
+    seoTitle: "Readli Family, Voice and Kids: what's the difference?",
     status: "published",
     answer: [
       "Readli Family is the paid household plan. Parents manage the library, their children's profiles and which storytellers each child can hear.",
@@ -357,6 +360,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "not-enough-credits",
     category: "books-and-listening",
     question: "What happens when a book requires more narration credits than I have?",
+    seoTitle: "Not enough narration credits for a book?",
     status: "published",
     answer: [
       "Readli tells you how many credits the whole book needs before anything starts. If you don't have enough, you can prepare a single chapter (in books with chapters) or a shorter story instead, or wait for next month's credits.",

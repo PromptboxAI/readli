@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
-import { SITE_URL, absoluteUrl, jsonLd } from "@/lib/seo/site";
+import { absoluteUrl, jsonLd, webPageNode } from "@/lib/seo/site";
 
 export interface ExplainerSection {
   heading: string;
@@ -25,6 +25,7 @@ export function ExplainerPage({
   path,
   eyebrow,
   title,
+  metaTitle,
   intro,
   steps,
   sections,
@@ -36,6 +37,8 @@ export function ExplainerPage({
   path: string;
   eyebrow: string;
   title: string;
+  /** The page's <title>, which the WebPage headline repeats. */
+  metaTitle: string;
   intro: string;
   steps?: { title: string; body: string }[];
   sections: ExplainerSection[];
@@ -47,15 +50,7 @@ export function ExplainerPage({
   const pageLd = {
     "@context": "https://schema.org",
     "@graph": [
-      {
-        "@type": "WebPage",
-        "@id": absoluteUrl(path),
-        url: absoluteUrl(path),
-        name: title,
-        description: intro,
-        isPartOf: { "@id": `${SITE_URL}/#website` },
-        publisher: { "@id": `${SITE_URL}/#organization` },
-      },
+      webPageNode({ path, title: metaTitle, description: intro }),
       {
         "@type": "BreadcrumbList",
         itemListElement: [
