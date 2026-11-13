@@ -10,7 +10,8 @@ import { jsonBody, withFamily } from "@/lib/family/http";
 import { activeEntitlement } from "@/lib/family/permissions";
 import { guardianHousehold, isPlanOwner } from "@/lib/family/service";
 import { requireFullSignIn } from "@/lib/family/session";
-import { track } from "@/lib/invitations/server";
+import { carriedInvitationToken, invitationContext } from "@/lib/invitations/context";
+import { landingFor, track } from "@/lib/invitations/server";
 import { fail } from "@/lib/server/http";
 import { attributionFrom, attributionMetadata, eventIdFrom, sendCapiEvent } from "@/lib/server/meta-capi";
 
@@ -34,6 +35,18 @@ async function acceptedInvitation(db: SupabaseClient, householdId: string, id: u
   return (data?.id as string | undefined) ?? null;
 }
 
+/**
+ * The invitation this browser carried in from a storyteller's invitation page, while it's still open: a new
+ * signup goes through the welcome and checks out before the storyteller is connected (setup connects them once
+ * the plan is on), so the payment is still credited to the invitation that brought the family in.
+ */
+async function carriedOpenInvitation(): Promise<string | null> {
+  const token = await carriedInvitationToken();
+  const ctx = token ? invitationContext() : null;
+  const landing = token && ctx ? await landingFor(ctx.db, ctx.secret, token).catch(() => null) : null;
+  return landing && (landing.status === "pending" || landing.status === "opened") ? landing.id : null;
+}
+
 export async function POST(req: Request) {
   const config = billingConfig();
   if (config.mode === "off") return fail(404, "not_found", "Not found.");
@@ -54,7 +67,7 @@ export async function POST(req: Request) {
     const { data: saved } = await db.from("billing_customers").select("customer_ref, livemode").eq("household_id", householdId).maybeSingle();
     const customerRef = customerForMode(saved, config.mode);
     const origin = new URL(req.url).origin;
-    const invitationId = request.mode === "subscription" ? await acceptedInvitation(db, householdId, body.invitationId) : null;
+    const invitationId = request.mode === "subscription" ? ((await acceptedInvitation(db, householdId, body.invitationId)) ?? (await carriedOpenInvitation())) : null;
     const metadata = {
       household_id: householdId,
       adult_id: actor.adultId,

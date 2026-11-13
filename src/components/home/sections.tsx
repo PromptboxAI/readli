@@ -2,12 +2,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { DemoBookShelf } from "@/components/books/DemoBookShelf";
 import { SocialIcon } from "@/components/brand/SocialIcon";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { FamilyTree } from "@/components/home/FamilyTree";
 import { HeroBedtimeScene } from "@/components/home/HeroBedtimeScene";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
-import { COMPANY, COMPANY_ADDRESS } from "@/lib/content/company";
+import { COMPANY } from "@/lib/content/company";
 import { MORE_BOOKS_ON_PHONES, NEW_BOOKS } from "@/lib/library/catalog";
 import { bookPath } from "@/lib/library/paths";
 
@@ -371,56 +372,89 @@ export function FinalCta() {
   );
 }
 
+/**
+ * The site footer: brand and social on the left, links grouped into columns. No street address here; it
+ * lives on /company, in the Privacy Policy and in the Terms (Kevin, 2026-11-13).
+ */
+const FOOTER_GROUPS: { title: string; links: { href: string; label: string }[] }[] = [
+  {
+    title: "Product",
+    links: [
+      { href: "/how-it-works", label: "How it works" },
+      { href: "/books", label: "Library" },
+      { href: "/pricing", label: "Pricing" },
+      { href: "/guides", label: "Guides" },
+      { href: "/vs", label: "Compare" },
+    ],
+  },
+  {
+    title: "About",
+    links: [
+      { href: "/company", label: "Company" },
+      { href: "/donations", label: "Readli Gives Back" },
+      { href: "/help", label: "Help" },
+    ],
+  },
+  {
+    title: "Legal & safety",
+    links: [
+      { href: "/privacy", label: "Privacy" },
+      { href: "/terms", label: "Terms" },
+      { href: "/accessibility", label: "Accessibility" },
+      { href: "/parents/safety", label: "Parent Safety" },
+      { href: "/privacy/choices", label: "Do Not Sell or Share My Personal Information" },
+    ],
+  },
+];
+
 export function SiteFooter() {
-  const links = [
-    { href: "/how-it-works", label: "How it works" },
-    { href: "/books", label: "Library" },
-    { href: "/guides", label: "Guides" },
-    { href: "/company", label: "Company" },
-    { href: "/donations", label: "Readli Gives Back" },
-    { href: "/pricing", label: "Pricing" },
-    { href: "/privacy", label: "Privacy" },
-    { href: "/terms", label: "Terms" },
-    { href: "/help", label: "Help" },
-    { href: "/accessibility", label: "Accessibility" },
-    { href: "/parents/safety", label: "Parent Safety" },
-    { href: "/privacy/choices", label: "Do Not Sell or Share My Personal Information" },
-  ];
   return (
-    <footer className="bg-ivory">
-      <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-8 text-sm sm:px-6">
-        <ul aria-label="Readli on social media" className="flex w-full max-w-sm justify-between sm:w-fit sm:max-w-none sm:gap-3">
-          {SOCIAL_ACCOUNTS.map((a) => (
-            <li key={a.platform}>
-              <a
-                href={a.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`Readli on ${a.name} (opens in a new tab)`}
-                className="grid size-9 place-items-center rounded-full text-ink transition-transform sm:size-10 hover:-translate-y-0.5 hover:text-coral-deep"
-              >
-                <SocialIcon platform={a.platform} className="size-6" />
-              </a>
-            </li>
-          ))}
-        </ul>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-col gap-1">
-            <p>© {new Date().getFullYear()} Readli. Every Book. Every Voice.</p>
-            <p className="text-muted" data-testid="footer-company">
-              {COMPANY.legalName} · {COMPANY_ADDRESS} ·{" "}
-              <a href={`mailto:${COMPANY.email}`} className="underline-offset-4 hover:underline">
-                {COMPANY.email}
-              </a>
-            </p>
-          </div>
-          <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
-            {links.map((l) => (
-              <Link key={l.href} href={l.href} className="underline-offset-4 hover:underline">
-                {l.label}
-              </Link>
+    <footer className="border-t border-ink/10 bg-ivory">
+      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-10 px-4 pb-8 pt-12 text-sm sm:px-6 md:grid-cols-[1.6fr_repeat(3,1fr)] md:gap-8">
+        <div className="col-span-2 flex flex-col gap-4 md:col-span-1">
+          <Wordmark />
+          <p className="max-w-xs text-muted">Every Book. Every Voice.</p>
+          <ul aria-label="Readli on social media" className="-ml-2 flex max-w-sm flex-wrap">
+            {SOCIAL_ACCOUNTS.map((a) => (
+              <li key={a.platform}>
+                <a
+                  href={a.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Readli on ${a.name} (opens in a new tab)`}
+                  className="grid size-10 place-items-center rounded-full text-ink transition-transform hover:-translate-y-0.5 hover:text-coral-deep"
+                >
+                  <SocialIcon platform={a.platform} className="size-5" />
+                </a>
+              </li>
             ))}
-          </nav>
+          </ul>
+        </div>
+        <nav aria-label="Footer" className="contents">
+          {FOOTER_GROUPS.map((g) => (
+            <div key={g.title} className="flex flex-col gap-3">
+              <h2 className="font-display text-base font-semibold">{g.title}</h2>
+              <ul className="flex flex-col gap-2.5">
+                {g.links.map((l) => (
+                  <li key={l.href}>
+                    <Link href={l.href} className="text-ink/80 underline-offset-4 hover:text-ink hover:underline">
+                      {l.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </nav>
+      </div>
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="flex flex-col gap-2 border-t border-ink/10 py-5 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+          <p data-testid="footer-company">
+            © {new Date().getFullYear()} {COMPANY.legalName}
+          </p>
+          <a href={`mailto:${COMPANY.email}`} className="w-fit underline-offset-4 hover:underline">
+            {COMPANY.email}
+          </a>
         </div>
       </div>
     </footer>
