@@ -72,6 +72,7 @@ export function StorytellerSteps(p: StepsProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [cycle, setCycle] = useState(p.checkout.billing);
+  const [childName, setChildName] = useState("");
   const tried = useRef(false);
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -215,12 +216,32 @@ export function StorytellerSteps(p: StepsProps) {
     note: anyChild || p.active ? undefined : `Opens after you activate ${p.name}.`,
     body:
       p.kids.length === 0 ? (
-        <p>
-          Add a child&apos;s profile first.{" "}
-          <Link href="/family" className="font-semibold underline underline-offset-4">
-            Add a child
-          </Link>
-        </p>
+        // Added right here, so the steps carry on instead of leaving for Kids profiles.
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const nickname = childName.trim();
+            if (nickname) void run(() => call("/api/family/children", "POST", { nickname })).then(() => setChildName(""));
+          }}
+          data-testid="steps-add-child"
+        >
+          <label htmlFor="steps-child-name" className="font-semibold">
+            Add your first child. A first name or nickname is enough.
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <input
+              id="steps-child-name"
+              value={childName}
+              onChange={(e) => setChildName(e.target.value)}
+              maxLength={30}
+              className="min-h-12 flex-1 rounded-full border-[3px] border-ink bg-surface px-4 text-lg"
+            />
+            <button type="submit" className={buttonPrimary} disabled={busy || !childName.trim()}>
+              Add child
+            </button>
+          </div>
+        </form>
       ) : (
         <>
           <p className="text-sm">Every switch starts off. Nobody hears {p.name} until you turn them on, and you can change this any time.</p>
