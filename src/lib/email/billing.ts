@@ -14,7 +14,8 @@ import { READLI_TIME_ZONE } from "@/lib/time";
  * off in /admin until it's tested (Kevin, 2026-10-24, point 12). The Stripe ones read events the
  * billing webhook already stores in payment_events, so nothing in billing changes. Credit amounts are
  * always the live balance from the credits ledger (point 5). Stripe keeps its own receipts and
- * card emails; its trial-ending reminder is turned off so T1 is the only one (point 4).
+ * card emails (refund emails come from Link under Managed Payments); its trial-ending reminder is turned
+ * off so T1 is the only one (point 4). B4 and B5 confirm a cancel and the end of a plan in Readli's voice.
  */
 
 type Row = Record<string, unknown>;
@@ -348,6 +349,101 @@ export async function abandonedCheckout(ctx: BillingContext): Promise<QueuedEmai
   return out;
 }
 
+const isSponsorship = (sub: Obj) => (sub.metadata as Obj | undefined)?.readli_kind === "sponsorship";
+
+/** The day a plan set to cancel stops: Stripe's cancel_at, else the end of the paid (or trial) period. */
+const lastDay = (sub: Obj): string | null => iso(sub.cancel_at) ?? iso(sub.current_period_end) ?? iso(items(sub)[0]?.current_period_end) ?? iso(sub.trial_end);
+
+/**
+ * B4: a family turns off renewal (in the Stripe portal), sent off the newest state Stripe sent in the
+ * last two days, so a cancel that was turned back on again sends nothing. Once per subscription and end date.
+ */
+export async function cancellationConfirmed(ctx: BillingContext): Promise<QueuedEmail[]> {
+  if (!ctx.enabled.has("B4")) return [];
+  const latest = await latestSubscriptions(ctx.db, ctx.now, 2);
+  const due: { subId: string; householdId: string; endsAt: string; trial: boolean }[] = [];
+  for (const [subId, sub] of latest) {
+    const householdId = str((sub.metadata as Obj | undefined)?.household_id);
+    if (!householdId || isSponsorship(sub)) continue;
+    if (!["active", "trialing", "past_due"].includes(String(sub.status))) continue;
+    if (sub.cancel_at_period_end !== true && typeof sub.cancel_at !== "number") continue;
+    const endsAt = lastDay(sub);
+    if (!endsAt || new Date(endsAt).getTime() <= ctx.now.getTime()) continue;
+    due.push({ subId, householdId, endsAt, trial: sub.status === "trialing" });
+  }
+  const homes = await owners(ctx.db, due.map((d) => d.householdId));
+  return due.flatMap((d) => {
+    const owner = homes.get(d.householdId);
+    if (!owner) return [];
+    return [
+      {
+        emailId: "B4",
+        dedupeKey: `B4:${d.subId}:${d.endsAt.slice(0, 10)}`,
+        to: { userId: owner.userId },
+        householdId: d.householdId,
+        message: billingMessage(ctx, owner.userId, owner.name, {
+          subject: `Your Readli plan is canceled. Your last day is ${day(d.endsAt)}`,
+          title: "Your plan is canceled",
+          paragraphs: [
+            d.trial
+              ? `We've canceled your Readli Family trial, and you won't be charged. You can keep enjoying everything until ${day(d.endsAt)}.`
+              : `We've canceled your Readli Family plan, and you won't be charged again. You can keep enjoying everything until ${day(d.endsAt)}.`,
+            "Every story you've made stays on your shelf.",
+            "Changed your mind? Turn your plan back on in Billing any time before then and nothing changes.",
+          ],
+          cta: "Keep my plan",
+          path: "/family/billing",
+        }),
+      },
+    ];
+  });
+}
+
+/** B5: Stripe ended a family's plan, unless the family already has another plan running. Once per subscription. */
+export async function planEnded(ctx: BillingContext): Promise<QueuedEmail[]> {
+  if (!ctx.enabled.has("B5")) return [];
+  const ended = (await events(ctx.db, ["customer.subscription.deleted"], ago(ctx.now, 2 * DAY))).filter((e) => !isSponsorship(e.object));
+  const due = ended.flatMap((e) => {
+    const subId = str(e.object.id);
+    const householdId = str((e.object.metadata as Obj | undefined)?.household_id);
+    return subId && householdId ? [{ subId, householdId, endedAt: iso(e.object.ended_at) ?? e.receivedAt, reason: str((e.object.cancellation_details as Obj | undefined)?.reason) }] : [];
+  });
+  if (!due.length) return [];
+  const homes = await owners(ctx.db, [...new Set(due.map((d) => d.householdId))]);
+  const plans = await q(
+    ctx.db.from("household_entitlements").select("household_id, provider_subscription_ref, ends_at").in("household_id", due.map((d) => d.householdId)).eq("source", "subscription").eq("status", "active"),
+    "read plans",
+  );
+  const out: QueuedEmail[] = [];
+  for (const d of due) {
+    const owner = homes.get(d.householdId);
+    if (!owner) continue;
+    const other = plans.some((p) => p.household_id === d.householdId && p.provider_subscription_ref !== d.subId && (!p.ends_at || (p.ends_at as string) > ctx.now.toISOString()));
+    if (other) continue;
+    const unpaid = d.reason === "payment_failed";
+    out.push({
+      emailId: "B5",
+      dedupeKey: `B5:${d.subId}`,
+      to: { userId: owner.userId },
+      householdId: d.householdId,
+      message: billingMessage(ctx, owner.userId, owner.name, {
+        subject: "Your Readli plan has ended",
+        title: "Your Readli Family plan has ended",
+        paragraphs: [
+          unpaid
+            ? `We couldn't take payment for your Readli Family plan, so it ended on ${day(d.endedAt)}. We're sorry to see it go this way.`
+            : `Your Readli Family plan ended on ${day(d.endedAt)}. Thank you for every bedtime story you shared with us.`,
+          "Every story you've made stays on your shelf.",
+          unpaid ? "You can start your plan again in Billing whenever you're ready, with a card that works." : "Whenever you'd like the stories to keep coming, you can start your plan again in Billing.",
+        ],
+        cta: "Start my plan again",
+        path: "/family/billing",
+      }),
+    });
+  }
+  return out;
+}
+
 /** Queues every switched-on billing email now due. */
 export async function queueBillingEmails(ctx: BillingContext): Promise<{ queued: number; errors: string[] }> {
   const errors: string[] = [];
@@ -357,6 +453,8 @@ export async function queueBillingEmails(ctx: BillingContext): Promise<{ queued:
     ["T2", trialCreditsLow],
     ["B1", yearlyRenewal],
     ["B2", giftEnding],
+    ["B4", cancellationConfirmed],
+    ["B5", planEnded],
     ["K1", abandonedCheckout],
   ] as const) {
     try {
