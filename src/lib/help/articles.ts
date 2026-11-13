@@ -512,7 +512,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     status: "published",
     answer: [
       "Yes. Every family voice is private by default. Recording a voice, joining a family circle or being invited doesn't share it with anyone. Private family voices are never made public.",
-      "Your voice is made by ElevenLabs, the voice company Readli works with, and is only used to read stories for the families you choose. Readli never uses your recordings or your voice to train AI, and never sells or licenses them.",
+      "Your voice is made by the voice company Readli works with, which we name on our family privacy & safety page, and is only used to read stories for the families you choose. Readli never uses your recordings or your voice to train AI, and never sells or licenses them.",
       "Read more about [family privacy & safety](/parents/safety) or our [Privacy Policy](/privacy).",
     ],
     keywords: ["private", "public", "secure", "who can hear"],
@@ -570,7 +570,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     question: "How do I request deletion of personal data?",
     status: "published",
     answer: [
-      "To delete everything, open Account settings and choose Delete my account. It happens straight away: Readli deletes your voice at ElevenLabs, every recording you made, every story read in your voice in any family, and then your account.",
+      "To delete everything, open Account settings and choose Delete my account. It happens straight away: Readli deletes your voice at our voice company, every recording you made, every story read in your voice in any family, and then your account.",
       "To delete just your voice or a child's profile, email admin@readli.ai from the address on your account. We may need to confirm it's you, or that you're the child's parent or guardian, before we act. A voice is deleted within 48 hours of confirming it's you, and we email you to say what was deleted.",
       "Our [Privacy Policy](/privacy) explains what we keep and for how long.",
     ],
