@@ -409,11 +409,11 @@ const FOOTER_GROUPS: { title: string; links: { href: string; label: string }[] }
 export function SiteFooter() {
   return (
     <footer className="border-t border-ink/10 bg-ivory">
-      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-10 px-4 pb-8 pt-12 text-sm sm:px-6 md:grid-cols-[1.3fr_repeat(3,1fr)] md:gap-8">
+      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-10 px-4 pb-8 pt-12 text-sm sm:px-6 md:grid-cols-[1.6fr_repeat(3,1fr)] md:gap-8">
         <div className="col-span-2 flex flex-col gap-4 md:col-span-1">
           <Wordmark />
           <p className="max-w-xs text-muted">Every Book. Every Voice.</p>
-          <ul aria-label="Readli on social media" className="-ml-2 flex max-w-sm flex-wrap gap-1">
+          <ul aria-label="Readli on social media" className="-ml-2 flex max-w-sm flex-wrap">
             {SOCIAL_ACCOUNTS.map((a) => (
               <li key={a.platform}>
                 <a
@@ -446,13 +446,15 @@ export function SiteFooter() {
           ))}
         </nav>
       </div>
-      <div className="mx-auto flex max-w-6xl flex-col gap-2 border-t border-ink/10 px-4 py-5 text-sm text-muted sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p data-testid="footer-company">
-          © {new Date().getFullYear()} {COMPANY.legalName}
-        </p>
-        <a href={`mailto:${COMPANY.email}`} className="w-fit underline-offset-4 hover:underline">
-          {COMPANY.email}
-        </a>
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="flex flex-col gap-2 border-t border-ink/10 py-5 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+          <p data-testid="footer-company">
+            © {new Date().getFullYear()} {COMPANY.legalName}
+          </p>
+          <a href={`mailto:${COMPANY.email}`} className="w-fit underline-offset-4 hover:underline">
+            {COMPANY.email}
+          </a>
+        </div>
       </div>
     </footer>
   );
