@@ -14,6 +14,8 @@ import { SamplePlayer } from "@/components/home/SamplePlayer";
 import { bookPath, publicSlug, slugFromPublic } from "@/lib/library/paths";
 import { type PublicBook, publicBook, publicLibrary } from "@/lib/library/public";
 import { absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
+import { bookTitle } from "@/lib/seo/titles";
+import { PageLd } from "@/components/seo/PageLd";
 
 export function generateStaticParams() {
   return publicLibrary().flatMap((b) => [...new Set([b.slug, publicSlug(b.slug)])].map((slug) => ({ slug })));
@@ -23,7 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const book = publicBook(slugFromPublic((await params).slug));
   if (!book) return {};
   return publicPageMetadata({
-    title: `${book.title} by ${book.author} | Readli Library`,
+    title: bookTitle(book),
     description: bookDescription(book),
     path: bookPath(book.slug),
     type: "book",
@@ -65,8 +67,8 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
   const opening = bookOpening(book.slug);
   const sample = opening.length > 0 ? bookSampleSrc(book.slug) : null;
   const bookLd = {
-    "@context": "https://schema.org",
     "@type": "Book",
+    "@id": `${absoluteUrl(bookPath(book.slug))}#book`,
     name: book.title,
     description: bookDescription(book),
     author: { "@type": "Person", name: book.author },
@@ -88,7 +90,15 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
     <>
       <SiteHeader />
       <main className="mx-auto grid max-w-5xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(bookLd)} />
+        <PageLd
+          path={bookPath(book.slug)}
+          title={bookTitle(book)}
+          description={bookDescription(book)}
+          type="ItemPage"
+          image={book.coverUrl ?? undefined}
+          extra={{ mainEntity: { "@id": bookLd["@id"] } }}
+          graph={[bookLd]}
+        />
         <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(breadcrumbLd)} />
         {book.coverUrl ? (
           <Image src={book.coverUrl} alt="" width={450} height={600} priority className="aspect-[3/4] w-full max-w-sm rounded-3xl object-cover" />

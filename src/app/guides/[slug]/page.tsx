@@ -9,6 +9,7 @@ import { SiteFooter } from "@/components/home/sections";
 import { FOUNDERS } from "@/lib/content/company";
 import { GUIDES, GUIDE_AUTHOR, getGuide, guideHref } from "@/lib/guides/guides";
 import { SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
+import { guideTitle } from "@/lib/seo/titles";
 
 export const dynamicParams = false;
 
@@ -21,7 +22,7 @@ type Params = Promise<{ slug: string }>;
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const g = getGuide((await params).slug);
   if (!g) return {};
-  const meta = publicPageMetadata({ title: `${g.title} | Readli`, description: g.description, path: guideHref(g), type: "article" });
+  const meta = publicPageMetadata({ title: guideTitle(g), description: g.description, path: guideHref(g), type: "article" });
   return {
     ...meta,
     authors: [{ name: GUIDE_AUTHOR.name, url: absoluteUrl(GUIDE_AUTHOR.url) }],

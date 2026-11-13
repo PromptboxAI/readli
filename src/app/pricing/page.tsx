@@ -11,15 +11,21 @@ import { bookPath } from "@/lib/library/paths";
 import { publicLibrary } from "@/lib/library/public";
 import { formatPrice as dollars } from "@/lib/family/plan";
 import { SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
+import { PAGE_TITLES } from "@/lib/seo/titles";
+import { PageLd } from "@/components/seo/PageLd";
 
 /** Built from the saved prices, so search results never show a price the page no longer does. */
 export async function generateMetadata(): Promise<Metadata> {
   const P = await pricing();
   return publicPageMetadata({
-    title: "Pricing | Readli",
-    description: `Readli Family is ${dollars(P.familyMonthlyCents)} a month with ${P.includedNarratorSlots} family storytellers and ${P.monthlyCredits} narration credits. Readli Voice is always free.`,
+    title: PAGE_TITLES.pricing,
+    description: pricingDescription(P),
     path: "/pricing",
   });
+}
+
+function pricingDescription(P: Pricing): string {
+  return `Readli Family is ${dollars(P.familyMonthlyCents)} a month with ${P.includedNarratorSlots} family storytellers and ${P.monthlyCredits} narration credits. Readli Voice is always free.`;
 }
 
 /** The plans as schema.org offers, matching the prices shown on the page. */
@@ -89,6 +95,7 @@ export default async function PricingPage() {
     <>
       <SiteHeader />
       <main className="flex flex-col">
+        <PageLd path="/pricing" title={PAGE_TITLES.pricing} description={pricingDescription(P)} />
         <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(pricingLd(P))} />
         <section aria-labelledby="pricing-heading" className="bg-sunshine/35 px-4 pb-10 pt-12 sm:px-6 sm:pt-16">
           <div className="mx-auto flex max-w-3xl flex-col items-center gap-3 text-center">

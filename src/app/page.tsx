@@ -11,12 +11,13 @@ import {
   SiteFooter,
   TryYourVoice,
 } from "@/components/home/sections";
-import { COMPANY } from "@/lib/content/company";
-import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
-import { SITE_DESCRIPTION, SITE_LONG_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
+import { COMPANY, FOUNDERS } from "@/lib/content/company";
+import { BRAND_PROFILES, SOCIAL_ACCOUNTS } from "@/lib/content/social";
+import { SITE_ALTERNATE_NAMES, SITE_DESCRIPTION, SITE_LONG_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, absoluteUrl, jsonLd, publicPageMetadata, webPageNode } from "@/lib/seo/site";
+import { PAGE_TITLES } from "@/lib/seo/titles";
 
 export const metadata: Metadata = publicPageMetadata({
-  title: "Readli: Every Book. Every Voice.",
+  title: PAGE_TITLES.home,
   description: SITE_DESCRIPTION,
   path: "/",
 });
@@ -28,6 +29,7 @@ const siteLd = {
       "@type": "Organization",
       "@id": `${SITE_URL}/#organization`,
       name: SITE_NAME,
+      alternateName: SITE_ALTERNATE_NAMES,
       legalName: COMPANY.legalName,
       email: COMPANY.email,
       address: {
@@ -42,16 +44,19 @@ const siteLd = {
       logo: absoluteUrl("/icon.png"),
       slogan: SITE_TAGLINE,
       description: SITE_LONG_DESCRIPTION,
-      sameAs: SOCIAL_ACCOUNTS.map((a) => a.url),
+      sameAs: [...SOCIAL_ACCOUNTS.map((a) => a.url), ...BRAND_PROFILES],
+      founder: FOUNDERS.map((f) => ({ "@type": "Person", name: f.name, jobTitle: f.title })),
     },
     {
       "@type": "WebSite",
       "@id": `${SITE_URL}/#website`,
       name: SITE_NAME,
+      alternateName: SITE_ALTERNATE_NAMES,
       url: SITE_URL,
       description: SITE_DESCRIPTION,
       publisher: { "@id": `${SITE_URL}/#organization` },
     },
+    webPageNode({ path: "/", title: PAGE_TITLES.home, description: SITE_DESCRIPTION }),
   ],
 };
 
