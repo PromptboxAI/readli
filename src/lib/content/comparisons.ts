@@ -13,7 +13,6 @@ export interface ReadliFacts {
   readyBooks: number;
   monthly: string;
   annual: string;
-  trialDays: number;
   maxChildProfiles: number;
   giftHouseholds: number;
 }
@@ -68,7 +67,7 @@ export function readliStrengths(f: ReadliFacts): { title: string; body: string }
 }
 
 function readliPriceAnswer(f: ReadliFacts): string {
-  return `Readli Family is ${f.monthly} a month or ${f.annual} a year for the whole household, with a ${f.trialDays}-day free trial for new families. Anyone who records their voice uses Readli free.`;
+  return `Readli Family is ${f.monthly} a month or ${f.annual} a year for the whole household, and you can cancel any time. Anyone who records their voice uses Readli free.`;
 }
 
 const APPROVAL_FAQ: ComparisonFaq = {
@@ -125,7 +124,7 @@ export function comparisons(f: ReadliFacts): Comparison[] {
         },
         {
           topic: "How you pay",
-          readli: `On the web, monthly or yearly, with a ${f.trialDays}-day free trial for new families.`,
+          readli: "On the web, monthly or yearly. Cancel any time.",
           them: "Through the App Store or Google Play, across three plans.",
         },
         {
@@ -209,7 +208,7 @@ export function comparisons(f: ReadliFacts): Comparison[] {
         },
         {
           topic: "How you pay",
-          readli: `One family plan, monthly or yearly, with a ${f.trialDays}-day free trial for new families.`,
+          readli: "One family plan, monthly or yearly. Cancel any time.",
           them: "Four plans with monthly story allowances.",
         },
       ],
@@ -283,7 +282,7 @@ export function comparisons(f: ReadliFacts): Comparison[] {
         },
         {
           topic: "How you pay",
-          readli: `One family plan, monthly or yearly, with a ${f.trialDays}-day free trial for new families.`,
+          readli: "One family plan, monthly or yearly. Cancel any time.",
           them: "You buy the player and the cards you want.",
         },
       ],

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { publicPages } from "@/lib/seo/pages";
 import { COMPARISON_NAMES, COMPARISON_SLUGS, OTHER_OPTIONS, comparisonHref, comparisons, readliStrengths, type ReadliFacts } from "./comparisons";
 
-const FACTS: ReadliFacts = { readyBooks: 77, monthly: "$19.99", annual: "$179.99", trialDays: 14, maxChildProfiles: 6, giftHouseholds: 2 };
+const FACTS: ReadliFacts = { readyBooks: 77, monthly: "$19.99", annual: "$179.99", maxChildProfiles: 6, giftHouseholds: 2 };
 const all = comparisons(FACTS);
 
 describe("comparison pages", () => {
@@ -39,6 +39,14 @@ describe("comparison pages", () => {
   it("doesn't promise in-app voice deletion or encryption at rest", () => {
     const text = JSON.stringify([all, readliStrengths(FACTS), OTHER_OPTIONS]).toLowerCase();
     expect(text).not.toMatch(/at rest|delete your voice in the app|delete it yourself/);
+  });
+
+  it("doesn't offer Readli a free trial, which production doesn't run yet", () => {
+    for (const c of all) {
+      for (const r of c.rows) expect(r.readli.toLowerCase()).not.toContain("trial");
+      for (const f of c.faqs) expect(f.a.toLowerCase()).not.toMatch(/readli[^.]*trial/);
+    }
+    for (const s of readliStrengths(FACTS)) expect(s.body.toLowerCase()).not.toContain("trial");
   });
 
   it("puts the hub and every comparison in the sitemap", () => {
