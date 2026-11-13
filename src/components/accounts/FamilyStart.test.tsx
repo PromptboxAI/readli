@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@supabase/ssr", () => ({ createBrowserClient: () => ({ auth: {} }) }));
+const auth = { signInWithOtp: vi.fn(async () => ({ error: null })), verifyOtp: vi.fn(), signInWithOAuth: vi.fn() };
+vi.mock("@supabase/ssr", () => ({ createBrowserClient: () => ({ auth }) }));
 const trackMeta = vi.fn();
 vi.mock("@/lib/marketing/meta-pixel", () => ({ trackMeta: (...a: unknown[]) => trackMeta(...a), rememberCheckout: vi.fn(), newMetaEventId: () => null }));
 
@@ -9,14 +10,17 @@ import { FamilyStart } from "./FamilyStart";
 
 const assign = vi.fn();
 let calls: { url: string; body: unknown }[] = [];
+let signup: Record<string, unknown> = { signedIn: true };
 const props = { monthlyCents: 1999, annualCents: 17999, monthlyCredits: 40, initial: "monthly" as const, paymentsOn: true, autoStart: false, carry: "from=try" };
 
 beforeEach(() => {
   calls = [];
+  signup = { signedIn: true };
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
       calls.push({ url, body: init?.body ? JSON.parse(String(init.body)) : null });
+      if (url === "/api/signup/family") return new Response(JSON.stringify(signup), { status: 200 });
       const json = url === "/api/billing/checkout" ? { url: "https://checkout.stripe.com/c/test_123" } : { householdId: "h1" };
       return new Response(JSON.stringify(json), { status: url === "/api/billing/checkout" ? 200 : 201 });
     }),
@@ -45,10 +49,37 @@ describe("FamilyStart", () => {
     expect(trackMeta).toHaveBeenCalledWith("InitiateCheckout", { value: 179.99, currency: "USD", content_name: "family_annual" }, null);
   });
 
-  it("asks for the emailed code when signed out, before any checkout", () => {
+  it("takes a new email straight to checkout, with no code", async () => {
     render(<FamilyStart {...props} signedInAs={null} />);
-    expect(screen.getByRole("button", { name: "Email me my code" })).toBeTruthy();
     expect(screen.queryByTestId("family-checkout")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: " New@Example.com " } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue to checkout" }));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith("https://checkout.stripe.com/c/test_123"));
+    expect(calls.map((c) => c.url)).toEqual(["/api/signup/family", "/api/family/household", "/api/billing/checkout"]);
+    expect(calls[0]!.body).toMatchObject({ email: "New@Example.com", news: false });
+    expect(auth.signInWithOtp).not.toHaveBeenCalled();
+  });
+
+  it("asks for the emailed code when the email already has an account, before any checkout", async () => {
+    signup = { existing: true };
+    render(<FamilyStart {...props} signedInAs={null} />);
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "kevin@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue to checkout" }));
+    await screen.findByTestId("code-step");
+    expect(screen.getByRole("status").textContent).toMatch(/already have a Readli account/);
+    expect(auth.signInWithOtp).toHaveBeenCalledTimes(1);
+    expect(calls.map((c) => c.url)).toEqual(["/api/signup/family"]);
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it("shows why when the account can't be made", async () => {
+    signup = { error: { message: "Too many tries. Please wait a few minutes and try again." } };
+    vi.mocked(fetch).mockImplementationOnce(async () => new Response(JSON.stringify(signup), { status: 429 }));
+    render(<FamilyStart {...props} signedInAs={null} />);
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "kevin@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue to checkout" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/Too many tries/);
+    expect(auth.signInWithOtp).not.toHaveBeenCalled();
   });
 
   it("goes on to checkout by itself when back from Google with a plan chosen", async () => {

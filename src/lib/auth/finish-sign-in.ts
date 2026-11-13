@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { after, type NextResponse } from "next/server";
+import { markEmailConfirmed } from "@/lib/auth/quick-signup";
 import { recordEmailSignup } from "@/lib/email/signup";
+import { accountDb } from "@/lib/family/account-store";
 import { GROWNUP_COOKIE, PIN_RESUMED_COOKIE } from "@/lib/family/grownup-stash";
 import { KIDS_COOKIE } from "@/lib/family/kids-mode";
 import { currentDevice } from "@/lib/family/session";
@@ -10,9 +12,15 @@ import { attributionFrom, sendCapiEvent } from "@/lib/server/meta-capi";
  * What every sign-in does once Supabase has a session, whether it came from an email link, Google or a
  * code typed on the page: save the signup details (news opt-in and time zone ride in `url`'s query), send
  * a new account's CompleteRegistration to Meta, and end Kids Mode on this device, since signing in again
- * is how a grown-up leaves it.
+ * is how a grown-up leaves it. A sign-in that proves the email (code, link or Google) also confirms an
+ * account made by quick signup; quick signup itself passes confirmsEmail: false.
  */
-export async function finishSignIn(supabase: SupabaseClient, req: Request, url: URL, next: string): Promise<void> {
+export async function finishSignIn(supabase: SupabaseClient, req: Request, url: URL, next: string, opts: { confirmsEmail?: boolean } = {}): Promise<void> {
+  if (opts.confirmsEmail !== false) {
+    const db = accountDb();
+    const { data } = await supabase.auth.getUser();
+    if (db && data.user) await markEmailConfirmed(db, data.user).catch((err) => console.error("confirm email failed", err));
+  }
   const signup = await recordEmailSignup(supabase, url, next).catch((err) => {
     console.error("save email signup failed", err);
     return null;
