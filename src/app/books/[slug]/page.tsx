@@ -12,6 +12,7 @@ import { bookOpening } from "@/lib/library/opening";
 import { BOOK_SAMPLE_NARRATOR, bookSampleSrc } from "@/lib/library/samples";
 import { SamplePlayer } from "@/components/home/SamplePlayer";
 import { bookPath, publicSlug, slugFromPublic } from "@/lib/library/paths";
+import { coverAlt } from "@/lib/library/cover-alt";
 import { type PublicBook, publicBook, publicLibrary } from "@/lib/library/public";
 import { absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
 
@@ -91,7 +92,7 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
         <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(bookLd)} />
         <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(breadcrumbLd)} />
         {book.coverUrl ? (
-          <Image src={book.coverUrl} alt="" width={450} height={600} priority className="aspect-[3/4] w-full max-w-sm rounded-3xl object-cover" />
+          <Image src={book.coverUrl} alt={coverAlt(book)} width={450} height={600} priority className="aspect-[3/4] w-full max-w-sm rounded-3xl object-cover" />
         ) : (
           <div className={`flex aspect-[3/4] w-full max-w-sm items-center justify-center rounded-3xl p-6 text-center font-display text-3xl font-semibold ${book.tint}`}>
             {book.title}

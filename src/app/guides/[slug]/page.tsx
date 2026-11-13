@@ -75,7 +75,7 @@ export default async function GuidePage({ params }: { params: Params }) {
           <header className="flex flex-col gap-4">
             <h1 className="font-display text-4xl font-semibold leading-[1.08] sm:text-5xl">{guide.title}</h1>
             <div className="flex items-center gap-3" data-testid="guide-byline">
-              {founder?.photo && <Image src={founder.photo} alt="" width={48} height={48} className="size-12 rounded-full object-cover" />}
+              {founder?.photo && <Image src={founder.photo} alt={founder.name} width={48} height={48} className="size-12 rounded-full object-cover" />}
               <p className="text-sm">
                 By{" "}
                 <Link href={GUIDE_AUTHOR.url} className="font-semibold underline underline-offset-4">

@@ -9,6 +9,7 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
 import { COMPANY, COMPANY_ADDRESS } from "@/lib/content/company";
 import { MORE_BOOKS_ON_PHONES, NEW_BOOKS } from "@/lib/library/catalog";
+import { coverAlt } from "@/lib/library/cover-alt";
 import { bookPath } from "@/lib/library/paths";
 
 const GRANDPA = "/family-voices/grandpa.webp";
@@ -56,6 +57,10 @@ export function Hero() {
             </svg>
             Free to try. No signup needed.
           </p>
+          {/* Answers the "just read to them yourself" objection (site audit, 2026-11). */}
+          <p className="max-w-[33rem] font-display text-[17px] font-semibold text-plum sm:text-lg" data-testid="hero-absence-line">
+            Not a replacement for storytime. For the nights you can&apos;t be there.
+          </p>
         </div>
         <HeroPlayerScene />
       </div>
@@ -75,7 +80,7 @@ function HeroPlayerScene() {
         <HeroBedtimeScene className="block h-[250px] w-full lg:h-auto" />
       </div>
       <div className="absolute right-[18px] top-0 hidden items-center gap-2.5 rounded-[18px] bg-surface py-2.5 pl-2.5 pr-3.5 text-left shadow-[0_14px_30px_-12px_rgba(40,53,72,0.35)] ring-1 ring-ink/5 lg:flex">
-        <Image src={GRANDPA} alt="" width={36} height={36} className="rounded-full" />
+        <Image src={GRANDPA} alt="Grandpa, a smiling grandfather" width={36} height={36} className="rounded-full" />
         <span>
           <span className="block text-xs font-bold text-muted">Grandpa added a new story</span>
           <span className="block font-display text-[15px] font-semibold">Ready for tonight</span>
@@ -88,7 +93,7 @@ function HeroPlayerScene() {
         <div className="flex gap-3.5">
           <Image
             src="/covers/the-velveteen-rabbit.webp"
-            alt=""
+            alt={coverAlt({ title: "The Velveteen Rabbit", author: "Margery Williams" })}
             width={78}
             height={104}
             className="h-auto w-16 rounded-l-[4px] rounded-r-[10px] shadow-[3px_4px_0_rgba(40,53,72,0.16)] lg:w-[78px]"
@@ -104,7 +109,7 @@ function HeroPlayerScene() {
         </div>
         <div className="mt-3.5 flex items-center gap-2.5 rounded-[22px] bg-plum py-2 pl-2 pr-2.5 text-white">
           <span className="flex items-center gap-2.5 rounded-full bg-white/10 py-1 pl-1 pr-4">
-            <Image src={GRANDPA} alt="" width={44} height={44} className="rounded-full" />
+            <Image src={GRANDPA} alt="Grandpa, the storyteller reading tonight" width={44} height={44} className="rounded-full" />
             <span>
               <span className="block text-[11px] text-white/80">Read by</span>
               <span className="block font-display text-lg font-semibold leading-tight">Grandpa</span>
@@ -307,7 +312,7 @@ export function KidsShelf() {
                 <Link href={bookPath(book.slug)} className="block rounded-xl transition-transform hover:-translate-y-1">
                   <Image
                     src={book.coverUrl}
-                    alt={book.title}
+                    alt={coverAlt(book)}
                     width={600}
                     height={800}
                     sizes="128px"
