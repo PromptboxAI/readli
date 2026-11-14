@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { START_STEP_LABELS, START_STEPS, startHref, type StartStep } from "@/lib/onboarding/start";
 
-/** The welcome's progress: five short steps, each a link back, with the ones done ticked. */
+/** The welcome's progress: five short steps, each a link back, with the ones done ticked. A step passed by without doing it stays grey, so it doesn't look done. */
 export function StartStepper({ step, done }: { step: StartStep; done: Partial<Record<StartStep, boolean>> }) {
   const at = START_STEPS.indexOf(step);
   return (
@@ -18,7 +18,7 @@ export function StartStepper({ step, done }: { step: StartStep; done: Partial<Re
               <li key={s} className="min-w-0">
                 <Link href={startHref(s)} aria-current={current ? "step" : undefined} className="flex flex-col gap-1.5 rounded-xl p-1 text-sm hover:bg-ink/5">
                   <span
-                    className={`rounded-full ${current ? "h-3" : "h-2"} ${ok ? "bg-mint" : current ? "bg-coral-deep" : i < at ? "bg-mint/60" : "bg-ink/15"}`}
+                    className={`rounded-full ${current ? "h-3" : "h-2"} ${ok ? "bg-mint" : current ? "bg-coral-deep" : "bg-ink/15"}`}
                     aria-hidden="true"
                   />
                   <span className={`truncate ${current ? "font-semibold" : "text-muted"}`}>
