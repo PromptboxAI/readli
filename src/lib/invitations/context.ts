@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { accountDb } from "@/lib/family/account-store";
 import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
+import { DEFAULT_MODEL } from "@/lib/voice/elevenlabs";
 import { invitationMailer, type Mailer } from "./email";
 import { INVITE_COOKIE, invitationSecret, type PreviewDeps } from "./server";
 
@@ -23,7 +24,7 @@ export function invitationContext(): InvitationContext | null {
     db,
     secret,
     mailer: invitationMailer(),
-    deps: { provider: voices.provider, findVoice: (id) => voices.store.findVoice(id) },
+    deps: { provider: voices.provider, findVoice: (id) => voices.store.findVoice(id), defaultModel: voices.newVoiceModel ?? DEFAULT_MODEL },
   };
 }
 

@@ -5,6 +5,9 @@ import { MemoryMailer } from "./email";
 import {
   acceptInvitation,
   approvePreview,
+  currentPreviewAudioUrl,
+  ownPreviewAudioUrl,
+  previewConfigTag,
   emailHash,
   generatePreview,
   PREVIEWS_PER_HOUR,
@@ -149,6 +152,46 @@ describe("family invitations on the server", () => {
     await expect(generatePreview(db, deps(said), "u1", "made-up")).rejects.toMatchObject({ code: "bad_passage" });
   });
 
+  it("read the preview with the model the voice reads stories with, and tag the clip with it", async () => {
+    const models: (string | undefined)[] = [];
+    const d: PreviewDeps = {
+      ...deps(),
+      defaultModel: "eleven_v4",
+      findVoice: async () => ({ ...voice, modelId: "eleven_multilingual_v2" }),
+      provider: { ...deps().provider, synthesize: async ({ modelId }) => (models.push(modelId), { audio: new ArrayBuffer(8), contentType: "audio/mpeg", standIn: false }) },
+    };
+    const { db, tables } = fakeDb({ voice_invitation_settings: [settings()] });
+    await generatePreview(db, d, "u1", "winnie-the-pooh-1");
+    expect(models).toEqual(["eleven_multilingual_v2"]);
+    expect(tables.voice_previews![0]!.storage_key).toContain(`.${previewConfigTag("eleven_multilingual_v2")}.mp3`);
+    await generatePreview(db, { ...d, findVoice: async () => voice }, "u1", "winnie-the-pooh-1");
+    expect(models[1]).toBe("eleven_v4");
+  });
+
+  it("read an older preview again with the voice's own model before it plays, keeping the approval", async () => {
+    const said: string[] = [];
+    const d = { ...deps(said), defaultModel: "eleven_v4" };
+    const row = { id: "p1", owner_id: "u1", voice_version: 2, approved_at: "2026-10-01", retired_at: null, book_slug: "winnie-the-pooh", passage_id: "winnie-the-pooh-1", storage_key: "u1/old.mp3" };
+    const { db, tables, storage } = fakeDb({ voice_previews: [row] });
+    const url = await currentPreviewAudioUrl(db, d, tables.voice_previews![0]!);
+    const fresh = tables.voice_previews![0]!.storage_key as string;
+    expect(fresh).toContain(`.${previewConfigTag("eleven_v4")}.mp3`);
+    expect(url).toBe(`https://signed/${fresh}`);
+    expect(tables.voice_previews![0]!.approved_at).toBe("2026-10-01");
+    expect(said[0]).toMatch(/^Here is Edward Bear/);
+    expect(storage.map((s) => s.op)).toEqual(["upload", "remove"]);
+    expect(storage[1]!.keys).toEqual(["u1/old.mp3"]);
+    expect(await ownPreviewAudioUrl(db, d, "u1", "p1")).toBe(`https://signed/${fresh}`);
+    expect(said).toHaveLength(1);
+  });
+
+  it("play the stored clip when reading it again fails", async () => {
+    const d: PreviewDeps = { ...deps(), defaultModel: "eleven_v4", provider: { ...deps().provider, synthesize: async () => Promise.reject(new Error("quota")) } };
+    const row = { id: "p1", owner_id: "u1", voice_version: 2, approved_at: "2026-10-01", retired_at: null, passage_id: "winnie-the-pooh-1", storage_key: "u1/old.mp3" };
+    const { db } = fakeDb({ voice_previews: [row] });
+    expect(await currentPreviewAudioUrl(db, d, row)).toBe("https://signed/u1/old.mp3");
+  });
+
   it("approve a draft, replacing the old preview and deleting its audio", async () => {
     const { db, tables, storage } = fakeDb({
       voice_previews: [
@@ -269,10 +312,10 @@ describe("family invitations on the server", () => {
       adult_profiles: [{ user_id: "u1", display_name: "June" }],
     });
     expect(await giftPreview(db, code)).toEqual({ giverName: "June", book: { title: "Winnie-the-Pooh", coverUrl: expect.any(String) } });
-    expect(await playGiftPreview(db, code)).toBe("https://signed/u1/p1.mp3");
+    expect(await playGiftPreview(db, deps(), code)).toBe("https://signed/u1/p1.mp3");
     expect(tables.analytics_events!.map((e) => e.name)).toEqual(["gift_preview_played"]);
     tables.gifts![0]!.status = "cancelled";
-    expect(await playGiftPreview(db, code)).toBeNull();
+    expect(await playGiftPreview(db, deps(), code)).toBeNull();
     expect(await giftPreview(db, "nonsense")).toBeNull();
   });
 
@@ -285,7 +328,7 @@ describe("family invitations on the server", () => {
       adult_profiles: [{ user_id: "admin", display_name: "Daddy" }],
     });
     expect(await giftPreview(db, code)).toBeNull();
-    expect(await playGiftPreview(db, code)).toBeNull();
+    expect(await playGiftPreview(db, deps(), code)).toBeNull();
     expect(tables.analytics_events ?? []).toEqual([]);
   });
 });

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   return withContributor(async (ctx, user) => {
-    const url = await ownPreviewAudioUrl(ctx.db, user.id, id);
+    const url = await ownPreviewAudioUrl(ctx.db, ctx.deps, user.id, id);
     return url ? NextResponse.json({ url }, { headers: { "cache-control": "no-store" } }) : fail(404, "no_preview", "That preview isn't available any more.");
   });
 }

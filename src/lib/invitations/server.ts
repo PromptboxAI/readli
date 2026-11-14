@@ -5,6 +5,7 @@ import { normalizeGiftCode } from "@/lib/gifting/codes";
 import { hashGiftCode } from "@/lib/gifting/codes.server";
 import { findCatalogBook } from "@/lib/library/catalog";
 import { ProviderRefCipher } from "@/lib/server/provider-ref";
+import { voiceSettings } from "@/lib/voice/elevenlabs";
 import type { VoiceProvider } from "@/lib/voice/provider";
 import { connectedEmail, emailCoverUrl, invitationEmail, type Mailer } from "./email";
 import {
@@ -135,11 +136,33 @@ export interface ContributorVoice {
   status: string;
   version: number;
   providerVoiceId: string | null;
+  /** The reading model this voice narrates stories with; null means the default model. */
+  modelId?: string | null;
 }
 
 export interface PreviewDeps {
   provider: VoiceProvider;
   findVoice(ownerId: string): Promise<ContributorVoice | null>;
+  /** The model a voice with no saved model reads with, the same default narration uses. */
+  defaultModel?: string;
+}
+
+/** The model a contributor's voice reads stories with, so their preview sounds like their stories. */
+function readingModel(deps: PreviewDeps, voice: ContributorVoice): string | undefined {
+  return voice.modelId ?? deps.defaultModel ?? undefined;
+}
+
+/**
+ * A short fingerprint of how a preview was read (model and voice settings), kept in its storage key.
+ * A preview whose fingerprint no longer matches the voice's stories is read again before it plays.
+ */
+export function previewConfigTag(modelId: string | undefined): string {
+  const config = { modelId: modelId ?? "default", outputFormat: "mp3_44100_128", voiceSettings: modelId ? voiceSettings(modelId) : null };
+  return `c${createHash("sha256").update(JSON.stringify(config)).digest("hex").slice(0, 10)}`;
+}
+
+function previewKey(userId: string, modelId: string | undefined): string {
+  return `${userId}/${randomUUID()}.${previewConfigTag(modelId)}.mp3`;
 }
 
 export interface PreviewView {
@@ -225,8 +248,9 @@ export async function generatePreview(db: SupabaseClient, deps: PreviewDeps, use
   if ((await previewsLastHour(db, userId, now)) >= PREVIEWS_PER_HOUR) {
     throw new InvitationError(429, "generation_limit", "You've made a lot of previews in the last hour. Try again a little later.");
   }
-  const audio = await deps.provider.synthesize({ voiceId: voice.providerVoiceId, text: passage.text });
-  const key = `${userId}/${randomUUID()}.mp3`;
+  const modelId = readingModel(deps, voice);
+  const audio = await deps.provider.synthesize({ voiceId: voice.providerVoiceId, text: passage.text, modelId });
+  const key = previewKey(userId, modelId);
   const { error } = await db.storage.from(PREVIEWS_BUCKET).upload(key, new Blob([audio.audio], { type: audio.contentType }), { contentType: audio.contentType, upsert: false });
   if (error) throw new Error(`upload preview: ${error.message}`);
   const old = await q(db.from("voice_previews").select("id, storage_key").eq("owner_id", userId).is("approved_at", null).is("retired_at", null), "read drafts");
@@ -279,10 +303,47 @@ export async function previewAudioUrl(db: SupabaseClient, storageKey: string, se
   return data.signedUrl;
 }
 
+/**
+ * A link to a stored preview, first reading the same passage again if the clip was made with a
+ * different model or settings than the voice's stories (older previews were read with the server's
+ * default model, not the voice's own). Same voice, same passage, so the approval still stands.
+ * If the new read fails, the existing clip plays.
+ */
+export async function currentPreviewAudioUrl(db: SupabaseClient, deps: PreviewDeps, preview: Row): Promise<string> {
+  const key = preview.storage_key as string;
+  try {
+    const owner = preview.owner_id as string;
+    const voice = await deps.findVoice(owner);
+    const passage = findPassage(preview.passage_id as string);
+    if (voice?.providerVoiceId && voice.status === "ready" && Number(preview.voice_version) === voice.version && passage) {
+      const modelId = readingModel(deps, voice);
+      if (!key.includes(`.${previewConfigTag(modelId)}.`)) {
+        const audio = await deps.provider.synthesize({ voiceId: voice.providerVoiceId, text: passage.text, modelId });
+        const fresh = previewKey(owner, modelId);
+        const { error } = await db.storage.from(PREVIEWS_BUCKET).upload(fresh, new Blob([audio.audio], { type: audio.contentType }), { contentType: audio.contentType, upsert: false });
+        if (error) throw new Error(`upload preview: ${error.message}`);
+        const swapped = await q(
+          db.from("voice_previews").update({ storage_key: fresh, content_type: audio.contentType }).eq("id", preview.id as string).eq("storage_key", key).is("retired_at", null).select("id"),
+          "refresh preview",
+        );
+        if (swapped.length) {
+          await removeStored(db, [key]);
+          console.info(JSON.stringify({ event: "invite_preview_refreshed", preview: preview.id, model: audio.modelId ?? modelId ?? "default" }));
+          return previewAudioUrl(db, fresh);
+        }
+        await removeStored(db, [fresh]);
+      }
+    }
+  } catch (err) {
+    console.error("refresh preview failed; playing the stored clip", err);
+  }
+  return previewAudioUrl(db, key);
+}
+
 /** The owner hearing their own draft or approved preview. */
-export async function ownPreviewAudioUrl(db: SupabaseClient, userId: string, previewId: string): Promise<string | null> {
-  const [row] = await q(db.from("voice_previews").select("storage_key").eq("id", previewId).eq("owner_id", userId).is("retired_at", null).limit(1), "read preview");
-  return row ? previewAudioUrl(db, row.storage_key as string) : null;
+export async function ownPreviewAudioUrl(db: SupabaseClient, deps: PreviewDeps, userId: string, previewId: string): Promise<string | null> {
+  const [row] = await q(db.from("voice_previews").select("*").eq("id", previewId).eq("owner_id", userId).is("retired_at", null).limit(1), "read preview");
+  return row ? currentPreviewAudioUrl(db, deps, row) : null;
 }
 
 /** The contributor's current approved preview, if it still matches their voice. Gift emails reuse it too. */
@@ -584,7 +645,7 @@ export async function recipientEvent(db: SupabaseClient, token: string, event: s
 }
 
 /** A person pressed play: the strongest sign of a human. Returns a short-lived audio link. */
-export async function playPreview(db: SupabaseClient, token: string, now = new Date()): Promise<string | null> {
+export async function playPreview(db: SupabaseClient, deps: PreviewDeps, token: string, now = new Date()): Promise<string | null> {
   const inv = await invitationByToken(db, token);
   if (!inv || !usable(invitationStatus(inv as never, now))) return null;
   const preview = await approvedPreviewFor(db, inv.contributor_id as string);
@@ -592,7 +653,7 @@ export async function playPreview(db: SupabaseClient, token: string, now = new D
   const at = now.toISOString();
   await q(db.from("voice_invitations").update({ played_at: at, opened_at: (inv.opened_at as string | null) ?? at }).eq("id", inv.id as string), "mark played");
   await track(db, "invite_audio_played", { invitation_id: inv.id, contributor_id: inv.contributor_id, book: preview.book_slug });
-  return previewAudioUrl(db, preview.storage_key as string);
+  return currentPreviewAudioUrl(db, deps, preview);
 }
 
 export type InvitationResponse = "decline" | "unsubscribe" | "report";
@@ -733,10 +794,10 @@ export async function giftPreview(db: SupabaseClient, code: string): Promise<Gif
 }
 
 /** The gift's recipient pressed play: a short-lived link to the giver's approved preview. */
-export async function playGiftPreview(db: SupabaseClient, code: string): Promise<string | null> {
+export async function playGiftPreview(db: SupabaseClient, deps: PreviewDeps, code: string): Promise<string | null> {
   const gift = await giftGiver(db, code);
   const preview = gift ? await approvedPreviewFor(db, gift.giverId) : null;
   if (!gift || !preview) return null;
   await track(db, "gift_preview_played", { gift_id: gift.id, contributor_id: gift.giverId, book: preview.book_slug });
-  return previewAudioUrl(db, preview.storage_key as string);
+  return currentPreviewAudioUrl(db, deps, preview);
 }

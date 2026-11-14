@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
 /** A gift's recipient pressed play on the giver's voice preview: { code }. */
 export async function POST(req: Request) {
   const { code } = await jsonBody(req);
-  return withRecipient(req, async ({ db }) => {
-    const url = await playGiftPreview(db, String(code ?? ""));
+  return withRecipient(req, async ({ db, deps }) => {
+    const url = await playGiftPreview(db, deps, String(code ?? ""));
     return url ? NextResponse.json({ url }, { headers: { "cache-control": "no-store" } }) : fail(404, "not_found", "This preview isn't available any more.");
   });
 }
