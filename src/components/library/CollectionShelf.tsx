@@ -31,7 +31,9 @@ export function CollectionShelf({ books }: { books: PublicBook[] }) {
             ) : (
               <span className={`flex aspect-[3/4] w-full items-center justify-center rounded-xl p-3 text-center font-display text-lg font-semibold ${b.tint}`}>{b.title}</span>
             )}
-            <span className="font-display text-lg leading-snug font-semibold group-hover:underline">{b.title}</span>
+            <span lang={b.language} className="font-display text-lg leading-snug font-semibold group-hover:underline">
+              {b.title}
+            </span>
             <span className="text-sm text-muted">
               {b.author} · {b.comingSoon ? "Coming soon" : readingTime(b)}
             </span>

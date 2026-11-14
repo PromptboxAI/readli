@@ -1,5 +1,5 @@
 import { CATALOG, NEW_BOOKS, MORE_BOOKS_ON_PHONES, findCatalogBook } from "@/lib/library/catalog";
-import { THE_END } from "@/lib/content/the-end";
+import { isClosingSentence } from "@/lib/content/the-end";
 import { bookMinutes, listenable, listenableAt, narrationFor } from "@/lib/narration/narration";
 import { bookText } from "@/lib/narration/text";
 import type { Adult, FamilyState } from "./model";
@@ -164,7 +164,7 @@ function person(adult: Adult | undefined): HomePerson {
 
 /** A child's saved place on its last sentence (or the one before a closing "The End.") means they reached the end. */
 export function finished(sentences: readonly { text: string }[], sentence: number): boolean {
-  const last = sentences.at(-1)?.text === THE_END ? sentences.length - 2 : sentences.length - 1;
+  const last = isClosingSentence(sentences.at(-1)?.text) ? sentences.length - 2 : sentences.length - 1;
   return sentence >= last;
 }
 
