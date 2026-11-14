@@ -5,7 +5,7 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { CREDIT_EXAMPLE_SLUGS, bookCredits, monthsOfCredits, storiesPerMonth } from "@/lib/content/credits-explained";
-import { annualSavingsPercent, monthlyTotalCents, perNightCents, pricing, type Pricing } from "@/lib/content/pricing";
+import { annualMonthlyCents, annualSavingsPercent, monthlyTotalCents, perNightCents, pricing, type Pricing } from "@/lib/content/pricing";
 import { SPONSORED } from "@/lib/sponsorship/rules";
 import { bookPath } from "@/lib/library/paths";
 import { publicLibrary } from "@/lib/library/public";
@@ -122,12 +122,16 @@ export default async function PricingPage() {
                   {dollars(P.familyMonthlyCents)}
                   <span className="text-lg font-normal text-muted">/month</span>
                 </p>
-                <p className="text-muted">
+                {/* Yearly shown as a monthly figure too, so the two prices compare at a glance (SleepyTale review, 2026-11). */}
+                <p className="text-lg" data-testid="plan-family-annual">
                   or{" "}
-                  <Link href="/signup/family?billing=annual" className="font-semibold text-ink underline underline-offset-4">
-                    {dollars(P.familyAnnualCents)}/year
+                  <Link href="/signup/family?billing=annual" className="font-display font-semibold text-ink underline underline-offset-4">
+                    {dollars(annualMonthlyCents(P))}/month billed yearly
                   </Link>
-                  , about {annualSavingsPercent(P)}% less than paying monthly
+                  <span className="text-muted">
+                    {" "}
+                    ({dollars(P.familyAnnualCents)}/year{annualSavingsPercent(P) > 0 ? `, save ${annualSavingsPercent(P)}%` : ""})
+                  </span>
                 </p>
                 <p className="mt-1 font-semibold text-coral-deep" data-testid="plan-family-per-night">
                   About {perNight.monthly} cents a night for the whole family, or {perNight.annual} cents with yearly billing.
@@ -342,9 +346,14 @@ export default async function PricingPage() {
               ))}
             </ul>
             <div className="flex flex-col items-center gap-2 text-center">
-              <Link href="/gift/family" className={buttonPrimary}>
-                Give a gift
-              </Link>
+              <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
+                <Link href="/gift/family" className={`${buttonPrimary} w-full sm:w-auto`}>
+                  Give a gift
+                </Link>
+                <Link href="/gifts" className={`${buttonSecondary} w-full sm:w-auto`}>
+                  How gifts work
+                </Link>
+              </div>
               <p className="text-sm text-muted">Families are never charged for your gift. When it ends, each family chooses whether to keep going.</p>
             </div>
           </div>

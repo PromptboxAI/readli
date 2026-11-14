@@ -31,7 +31,7 @@ test("family invitations land on the join page, never the preview signup form", 
 
 test("the yearly link on the pricing page opens signup with yearly picked", async ({ page }) => {
   await page.goto("/pricing");
-  await page.getByRole("link", { name: "$179.99/year" }).click();
+  await page.getByRole("link", { name: "$15.00/month billed yearly" }).click();
   await expect(page).toHaveURL(/\/signup\/family\?billing=annual$/);
   await expect(page.getByLabel("Yearly")).toBeChecked();
   await expect(page.getByTestId("family-price")).toContainText("$179.99");
