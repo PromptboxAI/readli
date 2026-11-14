@@ -383,7 +383,9 @@ const FOOTER_GROUPS: { title: string; links: { href: string; label: string }[] }
     links: [
       { href: "/how-it-works", label: "How it works" },
       { href: "/books", label: "Library" },
+      { href: "/bedtime-stories", label: "Bedtime stories" },
       { href: "/pricing", label: "Pricing" },
+      { href: "/gifts", label: "Gifts" },
       { href: "/guides", label: "Guides" },
       { href: "/vs", label: "Compare" },
     ],

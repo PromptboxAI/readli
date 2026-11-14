@@ -11,6 +11,7 @@ import { planConfig } from "@/lib/family/plan";
 import { bookOpening } from "@/lib/library/opening";
 import { BOOK_SAMPLE_NARRATOR, bookSampleSrc } from "@/lib/library/samples";
 import { SamplePlayer } from "@/components/home/SamplePlayer";
+import { collectionHref, collectionsFor } from "@/lib/library/collections";
 import { bookPath, publicSlug, slugFromPublic } from "@/lib/library/paths";
 import { coverAlt } from "@/lib/library/cover-alt";
 import { type PublicBook, publicBook, publicLibrary } from "@/lib/library/public";
@@ -158,6 +159,19 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
                   Try your voice free
                 </Link>
               </div>
+              {collectionsFor(book).length > 0 && (
+                <p data-testid="public-collections">
+                  In{" "}
+                  {collectionsFor(book).map((c, i, all) => (
+                    <span key={c.slug}>
+                      {i > 0 && (i === all.length - 1 ? " and " : ", ")}
+                      <Link href={collectionHref(c)} className="font-semibold underline underline-offset-4">
+                        {c.name}
+                      </Link>
+                    </span>
+                  ))}
+                </p>
+              )}
               <p className="text-sm text-muted">Preparing a story needs a Readli Family account, a family member&apos;s shared voice and enough Readli credits. You&apos;ll see the exact cost before anything is made.</p>
             </>
           )}
