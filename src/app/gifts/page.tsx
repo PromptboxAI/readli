@@ -8,14 +8,15 @@ import { SamplePlayer } from "@/components/home/SamplePlayer";
 import { GiftBoxArt } from "@/components/invites/illustrations";
 import { formatPrice as dollars } from "@/lib/family/plan";
 import { giftSeason } from "@/lib/gifting/season";
-import { SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
+import { jsonLd, publicPageMetadata, webPageNode } from "@/lib/seo/site";
 import { sponsorshipContext } from "@/lib/sponsorship/http";
 import { SPONSORED } from "@/lib/sponsorship/rules";
+import { PAGE_TITLES } from "@/lib/seo/titles";
 
 const TITLE = "Give the gift of your voice at bedtime";
 const DESCRIPTION = `Give Readli Family to up to ${SPONSORED.households} families you love, and your grandkids hear classic storybooks read in your own voice. A year is ${dollars(SPONSORED.annualCents)}, paid once.`;
 
-export const metadata: Metadata = publicPageMetadata({ title: `${TITLE} | Readli gifts`, description: DESCRIPTION, path: "/gifts" });
+export const metadata: Metadata = publicPageMetadata({ title: PAGE_TITLES.gifts, description: DESCRIPTION, path: "/gifts" });
 
 // Whether gifts are on sale, and the season, are checked per request.
 export const dynamic = "force-dynamic";
@@ -116,15 +117,7 @@ export default async function GiftsPage() {
   const ld = {
     "@context": "https://schema.org",
     "@graph": [
-      {
-        "@type": "WebPage",
-        "@id": absoluteUrl("/gifts"),
-        url: absoluteUrl("/gifts"),
-        name: TITLE,
-        description: DESCRIPTION,
-        isPartOf: { "@id": `${SITE_URL}/#website` },
-        publisher: { "@id": `${SITE_URL}/#organization` },
-      },
+      webPageNode({ path: "/gifts", title: PAGE_TITLES.gifts, description: DESCRIPTION }),
       {
         "@type": "FAQPage",
         mainEntity: FAQS.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),

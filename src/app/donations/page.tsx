@@ -9,10 +9,11 @@ import { SiteFooter } from "@/components/home/sections";
 import { effectivePlan } from "@/lib/billing/price-settings";
 import { money } from "@/lib/donations/program";
 import { accountDb } from "@/lib/family/account-store";
-import { SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
+import { jsonLd, publicPageMetadata, webPageNode } from "@/lib/seo/site";
+import { PAGE_TITLES } from "@/lib/seo/titles";
 
 export const metadata: Metadata = publicPageMetadata({
-  title: "Donation Requests for School Raffles & Charity Auctions | Readli",
+  title: PAGE_TITLES.donations,
   description:
     "Request a complimentary 12-month Readli Family membership for your school's raffle, PTA fundraiser, silent auction, tricky tray, or nonprofit event. Available nationwide.",
   path: "/donations",
@@ -112,14 +113,7 @@ export default async function DonationsPage() {
   const ld = {
     "@context": "https://schema.org",
     "@graph": [
-      {
-        "@type": "WebPage",
-        "@id": absoluteUrl("/donations"),
-        url: absoluteUrl("/donations"),
-        name: "Readli Gives Back: donation requests for school raffles and charity auctions",
-        isPartOf: { "@id": `${SITE_URL}/#website` },
-        publisher: { "@id": `${SITE_URL}/#organization` },
-      },
+      webPageNode({ path: "/donations", title: PAGE_TITLES.donations, description: metadata.description }),
       {
         "@type": "FAQPage",
         mainEntity: FAQS.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),

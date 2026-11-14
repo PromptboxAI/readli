@@ -12,6 +12,8 @@ export interface GuideSection {
 export interface Guide {
   slug: string;
   title: string;
+  /** A shorter page title for search, when the title is too long for one (over about 50 characters). */
+  seoTitle?: string;
   /** About 150 characters: the search snippet and the card text on /guides. */
   description: string;
   /** ISO dates. Bump `updated` whenever the text changes. */
@@ -282,6 +284,7 @@ export const GUIDES: readonly Guide[] = [
   {
     slug: "gift-for-long-distance-grandparents",
     title: "A gift for long-distance grandparents: stories in their voice",
+    seoTitle: "A gift for long-distance grandparents",
     description: "Looking for a meaningful gift when grandparents and grandkids live far apart? Give bedtime stories read in a grandparent's own voice.",
     published: "2026-11-14",
     updated: "2026-11-14",

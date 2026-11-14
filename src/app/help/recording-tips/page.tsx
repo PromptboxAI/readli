@@ -5,9 +5,11 @@ import { SiteFooter } from "@/components/home/sections";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { RecordingTipsContent } from "@/components/teleprompter/RecordingTips";
 import { publicPageMetadata } from "@/lib/seo/site";
+import { PAGE_TITLES } from "@/lib/seo/titles";
+import { PageLd } from "@/components/seo/PageLd";
 
 export const metadata: Metadata = publicPageMetadata({
-  title: "Tips for a better voice recording | Readli Help Center",
+  title: PAGE_TITLES.recordingTips,
   description: "How to record a Readli voice that sounds like you: about 1 to 2 minutes, your natural storytime voice, a quiet room and a steady mic.",
   path: "/help/recording-tips",
 });
@@ -22,6 +24,7 @@ export default async function RecordingTipsPage({ searchParams }: { searchParams
     <>
       <SiteHeader />
       <main className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-12 sm:px-6">
+        <PageLd path="/help/recording-tips" title={PAGE_TITLES.recordingTips} description={metadata.description} />
         <RecordingTipsContent asPage />
         <Link href={back.href} className={`${buttonPrimary} w-fit`}>
           {back.label}

@@ -11,7 +11,8 @@ import { COLLECTIONS, collectionBooks, collectionHref, getCollection } from "@/l
 import { bookPath } from "@/lib/library/paths";
 import { publicLibrary } from "@/lib/library/public";
 import { BOOK_SAMPLE_NARRATOR, bookSampleSrc } from "@/lib/library/samples";
-import { SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
+import { absoluteUrl, jsonLd, publicPageMetadata, webPageNode } from "@/lib/seo/site";
+import { collectionTitle } from "@/lib/seo/titles";
 
 export const dynamicParams = false;
 
@@ -24,7 +25,7 @@ type Params = Promise<{ slug: string }>;
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const c = getCollection((await params).slug);
   if (!c) return {};
-  return publicPageMetadata({ title: `${c.title} | Readli`, description: c.description, path: collectionHref(c) });
+  return publicPageMetadata({ title: collectionTitle(c), description: c.description, path: collectionHref(c) });
 }
 
 /**
@@ -38,25 +39,22 @@ export default async function CollectionPage({ params }: { params: Params }) {
   const featured = books.find((b) => b.slug === c.featured) ?? books[0];
   const sample = featured ? bookSampleSrc(featured.slug) : null;
   const others = COLLECTIONS.filter((o) => o.slug !== c.slug);
-  const url = absoluteUrl(collectionHref(c));
   const ld = {
     "@context": "https://schema.org",
     "@graph": [
-      {
-        "@type": "CollectionPage",
-        "@id": url,
-        url,
-        name: c.title,
+      webPageNode({
+        path: collectionHref(c),
+        title: collectionTitle(c),
         description: c.description,
-        inLanguage: "en",
-        isPartOf: { "@id": `${SITE_URL}/#website` },
-        publisher: { "@id": `${SITE_URL}/#organization` },
-        mainEntity: {
-          "@type": "ItemList",
-          numberOfItems: books.length,
-          itemListElement: books.map((b, i) => ({ "@type": "ListItem", position: i + 1, url: absoluteUrl(bookPath(b.slug)), name: b.title })),
+        type: "CollectionPage",
+        extra: {
+          mainEntity: {
+            "@type": "ItemList",
+            numberOfItems: books.length,
+            itemListElement: books.map((b, i) => ({ "@type": "ListItem", position: i + 1, url: absoluteUrl(bookPath(b.slug)), name: b.title })),
+          },
         },
-      },
+      }),
       {
         "@type": "BreadcrumbList",
         itemListElement: [

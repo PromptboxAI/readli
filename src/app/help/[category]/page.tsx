@@ -5,8 +5,10 @@ import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { ArticleList, Breadcrumbs, CategoryIcon, SearchBox, StillNeedHelp } from "@/components/help/HelpParts";
 import { HELP_CATEGORIES } from "@/lib/help/articles";
-import { articlesIn, getCategory } from "@/lib/help/search";
-import { publicPageMetadata } from "@/lib/seo/site";
+import { articleHref, articlesIn, getCategory } from "@/lib/help/search";
+import { absoluteUrl, publicPageMetadata } from "@/lib/seo/site";
+import { helpCategoryTitle } from "@/lib/seo/titles";
+import { PageLd } from "@/components/seo/PageLd";
 
 export const dynamicParams = false;
 
@@ -21,7 +23,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   if (!c) return {};
   return {
     ...publicPageMetadata({
-      title: `${c.title} | Readli Help Center`,
+      title: helpCategoryTitle(c),
       description: `${c.blurb}. Answers from the Readli Help Center.`,
       path: `/help/${c.slug}`,
     }),
@@ -39,6 +41,13 @@ export default async function HelpCategoryPage({ params }: { params: Params }) {
     <>
       <SiteHeader />
       <main className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-12 sm:px-6">
+        <PageLd
+          path={`/help/${category.slug}`}
+          title={helpCategoryTitle(category)}
+          description={`${category.blurb}. Answers from the Readli Help Center.`}
+          type="CollectionPage"
+          extra={{ hasPart: articles.map((a) => ({ "@type": "WebPage", name: a.question, url: absoluteUrl(articleHref(a)) })) }}
+        />
         <Breadcrumbs items={[{ href: "/help", label: "Help Center" }, { label: category.title }]} />
         <header className="flex items-center gap-4">
           <CategoryIcon icon={category.icon} tint={category.tint} size="h-16 w-16" />

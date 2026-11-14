@@ -5,6 +5,9 @@ import { SiteFooter } from "@/components/home/sections";
 import { ArticleList, Breadcrumbs, DraftBadge, HelpText, StillNeedHelp, plainAnswer } from "@/components/help/HelpParts";
 import { articleHref, getArticle, getCategory, relatedArticles, visibleArticles } from "@/lib/help/search";
 import { absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
+import { helpArticleTitle } from "@/lib/seo/titles";
+import type { HelpArticle } from "@/lib/help/articles";
+import { PageLd } from "@/components/seo/PageLd";
 
 // Drafts are left out of the static params, so they 404 on the production site.
 export const dynamicParams = false;
@@ -19,16 +22,21 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { category, slug } = await params;
   const a = getArticle(category, slug);
   if (!a) return {};
-  const text = plainAnswer(a);
   return {
     ...publicPageMetadata({
-      title: `${a.question} | Readli Help Center`,
-      description: text.length > 155 ? `${text.slice(0, 152).trimEnd()}…` : text,
+      title: helpArticleTitle(a),
+      description: articleDescription(a),
       path: articleHref(a),
       type: "article",
     }),
     robots: a.status === "draft" ? { index: false } : undefined,
   };
+}
+
+/** The search snippet: the plain answer, cut to about 155 characters. */
+function articleDescription(a: HelpArticle): string {
+  const text = plainAnswer(a);
+  return text.length > 155 ? `${text.slice(0, 152).trimEnd()}…` : text;
 }
 
 export default async function HelpArticlePage({ params }: { params: Params }) {
@@ -52,6 +60,15 @@ export default async function HelpArticlePage({ params }: { params: Params }) {
     <>
       <SiteHeader />
       <main className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-12 sm:px-6">
+        <PageLd
+          path={articleHref(article)}
+          title={helpArticleTitle(article)}
+          description={articleDescription(article)}
+          type="FAQPage"
+          extra={{
+            mainEntity: [{ "@type": "Question", name: article.question, acceptedAnswer: { "@type": "Answer", text: plainAnswer(article) } }],
+          }}
+        />
         <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(breadcrumbLd)} />
         <Breadcrumbs
           items={[

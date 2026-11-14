@@ -3,13 +3,14 @@ import Link from "next/link";
 import { ExplainerPage } from "@/components/marketing/ExplainerPage";
 import { pricing } from "@/lib/content/pricing";
 import { publicPageMetadata } from "@/lib/seo/site";
+import { PAGE_TITLES } from "@/lib/seo/titles";
 
 const TITLE = "Readli Kids";
 const INTRO =
   "Readli Kids is where children listen. Each child has their own bookshelf and hears only the storytellers a parent has approved for them.";
 
 export const metadata: Metadata = publicPageMetadata({
-  title: "Readli Kids: a safe listening space for children | Readli",
+  title: PAGE_TITLES.readliKids,
   description: INTRO,
   path: "/readli-kids",
 });
@@ -21,6 +22,7 @@ export default async function ReadliKidsPage() {
   const P = await pricing();
   return (
     <ExplainerPage
+      metaTitle={PAGE_TITLES.readliKids}
       path="/readli-kids"
       eyebrow="For children"
       title={TITLE}

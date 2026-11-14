@@ -5,13 +5,14 @@ import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { readliFacts } from "@/lib/content/comparison-facts";
 import { COMPARISONS_CHECKED, OTHER_OPTIONS, comparisonHref, comparisons, readliStrengths } from "@/lib/content/comparisons";
-import { SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
+import { absoluteUrl, jsonLd, publicPageMetadata, webPageNode } from "@/lib/seo/site";
+import { PAGE_TITLES } from "@/lib/seo/titles";
 
 const TITLE = "How Readli compares";
 const DESCRIPTION =
   "How Readli compares with Lullify, StoryBee, Yoto and other ways families do bedtime stories: real family voices, classic books and parent approval.";
 
-export const metadata: Metadata = publicPageMetadata({ title: "Readli alternatives and comparisons | Readli", description: DESCRIPTION, path: "/vs" });
+export const metadata: Metadata = publicPageMetadata({ title: PAGE_TITLES.vs, description: DESCRIPTION, path: "/vs" });
 
 // Quotes the library size and saved prices, so it renders per request.
 export const dynamic = "force-dynamic";
@@ -23,13 +24,13 @@ export default async function CompareHub() {
   const all = comparisons(facts);
   const ld = {
     "@context": "https://schema.org",
-    "@type": "CollectionPage",
-    "@id": absoluteUrl("/vs"),
-    url: absoluteUrl("/vs"),
-    name: TITLE,
-    description: DESCRIPTION,
-    isPartOf: { "@id": `${SITE_URL}/#website` },
-    hasPart: all.map((c) => ({ "@type": "WebPage", name: `Readli or ${c.name}?`, url: absoluteUrl(comparisonHref(c.slug)) })),
+    ...webPageNode({
+      path: "/vs",
+      title: PAGE_TITLES.vs,
+      description: DESCRIPTION,
+      type: "CollectionPage",
+      extra: { hasPart: all.map((c) => ({ "@type": "WebPage", name: `Readli or ${c.name}?`, url: absoluteUrl(comparisonHref(c.slug)) })) },
+    }),
   };
   return (
     <>

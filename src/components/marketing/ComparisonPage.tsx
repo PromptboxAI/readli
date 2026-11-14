@@ -4,7 +4,8 @@ import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { COMPANY } from "@/lib/content/company";
 import { COMPARISONS_CHECKED, comparisonHref, readliStrengths, type Comparison, type ReadliFacts } from "@/lib/content/comparisons";
-import { SITE_URL, absoluteUrl, jsonLd } from "@/lib/seo/site";
+import { absoluteUrl, jsonLd, webPageNode } from "@/lib/seo/site";
+import { comparisonTitle } from "@/lib/seo/titles";
 
 const TINTS = ["bg-sunshine/60", "bg-mint", "bg-sky/60", "bg-lavender/70"];
 
@@ -19,15 +20,7 @@ export function ComparisonPage({ c, facts, others }: { c: Comparison; facts: Rea
   const ld = {
     "@context": "https://schema.org",
     "@graph": [
-      {
-        "@type": "WebPage",
-        "@id": absoluteUrl(path),
-        url: absoluteUrl(path),
-        name: title,
-        description: c.metaDescription,
-        isPartOf: { "@id": `${SITE_URL}/#website` },
-        publisher: { "@id": `${SITE_URL}/#organization` },
-      },
+      webPageNode({ path, title: comparisonTitle(c), description: c.metaDescription }),
       {
         "@type": "BreadcrumbList",
         itemListElement: [

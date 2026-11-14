@@ -4,6 +4,7 @@ import { ComparisonPage } from "@/components/marketing/ComparisonPage";
 import { readliFacts } from "@/lib/content/comparison-facts";
 import { comparisonHref, comparisons } from "@/lib/content/comparisons";
 import { publicPageMetadata } from "@/lib/seo/site";
+import { comparisonTitle } from "@/lib/seo/titles";
 
 // Quotes the prices an admin saved, so it renders per request.
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const slug = (await params).slug;
   const c = comparisons(await readliFacts()).find((x) => x.slug === slug);
   if (!c) return {};
-  return publicPageMetadata({ title: `Readli or ${c.name}? How they compare | Readli`, description: c.metaDescription, path: comparisonHref(c.slug) });
+  return publicPageMetadata({ title: comparisonTitle(c), description: c.metaDescription, path: comparisonHref(c.slug) });
 }
 
 export default async function ComparisonRoute({ params }: { params: Params }) {

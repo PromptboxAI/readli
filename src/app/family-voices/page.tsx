@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { ExplainerPage } from "@/components/marketing/ExplainerPage";
 import { publicPageMetadata } from "@/lib/seo/site";
+import { PAGE_TITLES } from "@/lib/seo/titles";
 
 const TITLE = "Family Voices";
 const INTRO =
   "A family voice is a parent, grandparent or loved one's own voice, recorded once so Readli can read storybooks aloud in it. It stays private, and the person who recorded it stays in charge.";
 
 export const metadata: Metadata = publicPageMetadata({
-  title: "Family Voices: storybooks read in a loved one's voice | Readli",
+  title: PAGE_TITLES.familyVoices,
   description: INTRO,
   path: "/family-voices",
 });
@@ -15,6 +16,7 @@ export const metadata: Metadata = publicPageMetadata({
 export default function FamilyVoicesPage() {
   return (
     <ExplainerPage
+      metaTitle={PAGE_TITLES.familyVoices}
       path="/family-voices"
       eyebrow="For storytellers"
       title={TITLE}

@@ -5,9 +5,11 @@ import { TeleprompterRecorder } from "@/components/teleprompter/TeleprompterReco
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
 import { currentGuest, effectiveMode, guestDemoDeps } from "@/lib/server/guest-demo";
 import { publicPageMetadata } from "@/lib/seo/site";
+import { PAGE_TITLES } from "@/lib/seo/titles";
+import { PageLd } from "@/components/seo/PageLd";
 
 export const metadata: Metadata = publicPageMetadata({
-  title: "Hear a story in your voice, free | Readli",
+  title: PAGE_TITLES.try,
   description: "Record about a minute of your natural storytime voice and hear a classic storybook read aloud the way only you can. Free to try.",
   path: "/try",
 });
@@ -31,6 +33,7 @@ export default async function TryPage({ searchParams }: { searchParams: Promise<
         </Link>
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-6 sm:px-6">
+        <PageLd path="/try" title={PAGE_TITLES.try} description={metadata.description} />
         <TeleprompterRecorder script={DEMO_SCRIPT} resumeCleanUp={resumeCleanUp} />
       </main>
     </div>

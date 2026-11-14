@@ -1,0 +1,20 @@
+name: IndexNow
+
+# After Vercel finishes a production deploy, tell IndexNow search engines which pages changed.
+on:
+  deployment_status:
+  workflow_dispatch:
+
+jobs:
+  ping:
+    if: github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha || github.sha }}
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/indexnow.mjs ${{ github.event_name == 'workflow_dispatch' && '--all' || '' }}

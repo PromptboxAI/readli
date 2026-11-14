@@ -3,12 +3,13 @@ import { ExplainerPage } from "@/components/marketing/ExplainerPage";
 import { pricing } from "@/lib/content/pricing";
 import { publicLibrary } from "@/lib/library/public";
 import { publicPageMetadata } from "@/lib/seo/site";
+import { PAGE_TITLES } from "@/lib/seo/titles";
 
 const TITLE = "How Readli works";
 const INTRO =
   "Readli reads classic children's books aloud in the voices of the people your kids love. Here's how a family goes from one short recording to a whole shelf of stories.";
 
-export const metadata: Metadata = publicPageMetadata({ title: `${TITLE} | Readli`, description: INTRO, path: "/how-it-works" });
+export const metadata: Metadata = publicPageMetadata({ title: PAGE_TITLES.howItWorks, description: INTRO, path: "/how-it-works" });
 
 // Shows the plan limits an admin saved, so it renders per request.
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ export default async function HowItWorksPage() {
   const upcoming = books.length - ready;
   return (
     <ExplainerPage
+      metaTitle={PAGE_TITLES.howItWorks}
       path="/how-it-works"
       eyebrow="How it works"
       title={TITLE}

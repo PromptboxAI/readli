@@ -7,9 +7,11 @@ import { SocialIcon } from "@/components/brand/SocialIcon";
 import { COMPANY, COMPANY_ADDRESS, FOUNDERS } from "@/lib/content/company";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
 import { SITE_LONG_DESCRIPTION, publicPageMetadata } from "@/lib/seo/site";
+import { PAGE_TITLES } from "@/lib/seo/titles";
+import { PageLd } from "@/components/seo/PageLd";
 
 export const metadata: Metadata = publicPageMetadata({
-  title: "Company | Readli",
+  title: PAGE_TITLES.company,
   description: `About Readli, made by ${COMPANY.legalName} in ${COMPANY.city}, ${COMPANY.region}: who we are, how to reach us, and our official accounts.`,
   path: "/company",
 });
@@ -27,6 +29,7 @@ export default function CompanyPage() {
     <>
       <SiteHeader />
       <main className="mx-auto flex max-w-4xl flex-col gap-12 px-4 py-14 sm:px-6">
+        <PageLd path="/company" title={PAGE_TITLES.company} description={metadata.description} type="AboutPage" />
         <section aria-labelledby="about-heading" className="flex flex-col gap-4">
           <p className="font-display text-lg font-semibold text-coral-deep">Every Book. Every Voice.</p>
           <h1 id="about-heading" className="font-display text-4xl font-semibold sm:text-5xl">

@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://readli.ai").replace(/\/$/, "");
 
 export const SITE_NAME = "Readli";
+/** Other ways people write the name. Google's site-name system reads these from the WebSite structured data. */
+export const SITE_ALTERNATE_NAMES = ["Readli.ai", "Readli AI"];
 export const SITE_TAGLINE = "Every Book. Every Voice.";
 /** Kevin's approved short description (2026-10-27): page descriptions and share cards. */
 export const SITE_DESCRIPTION = "Readli reads classic children's books aloud in the voices of the people your kids love.";
@@ -59,5 +61,44 @@ export function publicPageMetadata({
     alternates: { canonical: path },
     openGraph: { ...baseOpenGraph, type: type ?? baseOpenGraph.type, title, description, url: path, ...(images ? { images } : {}) } as Metadata["openGraph"],
     twitter: { card: "summary_large_image", title, description, ...(images ? { images: images.map((i) => i.url) } : {}) },
+  };
+}
+
+/** The share image every page falls back to (src/app/opengraph-image.tsx). */
+export const DEFAULT_PAGE_IMAGE = "/opengraph-image";
+
+/**
+ * The schema.org node for one public page (SEO audit g_structured_data): its headline is the page's
+ * title as rendered, and it points at the site and the organization described on the home page.
+ */
+export function webPageNode({
+  path,
+  title,
+  description,
+  type = "WebPage",
+  image,
+  extra,
+}: {
+  path: string;
+  title: string;
+  description?: string | null;
+  type?: "WebPage" | "CollectionPage" | "AboutPage" | "FAQPage" | "ItemPage";
+  image?: string;
+  extra?: Record<string, unknown>;
+}): Record<string, unknown> {
+  const url = absoluteUrl(path);
+  return {
+    "@type": type,
+    "@id": `${url}#webpage`,
+    url,
+    name: title,
+    headline: title,
+    ...(description ? { description } : {}),
+    mainEntityOfPage: url,
+    image: absoluteUrl(image ?? DEFAULT_PAGE_IMAGE),
+    inLanguage: "en",
+    isPartOf: { "@id": `${SITE_URL}/#website` },
+    publisher: { "@id": `${SITE_URL}/#organization` },
+    ...extra,
   };
 }

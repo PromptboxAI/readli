@@ -6,13 +6,14 @@ import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { COLLECTIONS, collectionBooks, collectionHref } from "@/lib/library/collections";
 import { publicLibrary } from "@/lib/library/public";
-import { SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
+import { absoluteUrl, jsonLd, publicPageMetadata, webPageNode } from "@/lib/seo/site";
+import { PAGE_TITLES } from "@/lib/seo/titles";
 
 const TITLE = "Classic bedtime stories for kids";
 const DESCRIPTION =
   "Classic bedtime stories by author, length and season: fairy tales, Beatrix Potter, Aesop's fables, poems and chapter books, read aloud in your family's own voices.";
 
-export const metadata: Metadata = publicPageMetadata({ title: `${TITLE} | Readli`, description: DESCRIPTION, path: "/bedtime-stories" });
+export const metadata: Metadata = publicPageMetadata({ title: PAGE_TITLES.bedtimeStories, description: DESCRIPTION, path: "/bedtime-stories" });
 
 /** The collections index: every bedtime story collection, with a few covers from each. */
 export default function BedtimeStoriesPage() {
@@ -20,13 +21,13 @@ export default function BedtimeStoriesPage() {
   const ready = library.filter((b) => !b.comingSoon).length;
   const ld = {
     "@context": "https://schema.org",
-    "@type": "CollectionPage",
-    "@id": absoluteUrl("/bedtime-stories"),
-    url: absoluteUrl("/bedtime-stories"),
-    name: TITLE,
-    description: DESCRIPTION,
-    isPartOf: { "@id": `${SITE_URL}/#website` },
-    hasPart: COLLECTIONS.map((c) => ({ "@type": "CollectionPage", name: c.title, url: absoluteUrl(collectionHref(c)) })),
+    ...webPageNode({
+      path: "/bedtime-stories",
+      title: PAGE_TITLES.bedtimeStories,
+      description: DESCRIPTION,
+      type: "CollectionPage",
+      extra: { hasPart: COLLECTIONS.map((c) => ({ "@type": "CollectionPage", name: c.title, url: absoluteUrl(collectionHref(c)) })) },
+    }),
   };
   return (
     <>

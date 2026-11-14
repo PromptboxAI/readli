@@ -21,6 +21,7 @@ test("the sitemap is well-formed XML that a search engine can read", async ({ pa
       error: doc.querySelector("parsererror")?.textContent ?? null,
       root: doc.documentElement.localName,
       locs: [...doc.getElementsByTagName("loc")].map((l) => l.textContent ?? ""),
+      lastmods: [...doc.getElementsByTagName("lastmod")].map((l) => l.textContent ?? ""),
     };
   }, xml);
   expect(parsed.error).toBeNull();
@@ -28,13 +29,25 @@ test("the sitemap is well-formed XML that a search engine can read", async ({ pa
   expect(parsed.locs).toContain(`${SITE}/`);
   expect(parsed.locs).toContain(`${SITE}/books`);
   expect(new Set(parsed.locs).size).toBe(parsed.locs.length);
+  // Every page carries the date its content last changed (src/lib/seo/content-dates.json).
+  expect(parsed.lastmods).toHaveLength(parsed.locs.length);
+  for (const d of parsed.lastmods) expect(d).toMatch(/^\d{4}-\d{2}-\d{2}/);
 
+  const titles: string[] = [];
   // Every listed page must exist, so the sitemap never sends Google to a 404 or a redirect.
   for (const loc of parsed.locs) {
     expect(loc.startsWith(`${SITE}/`), loc).toBe(true);
     const listed = await request.get(loc.slice(SITE.length) || "/", { maxRedirects: 0 });
     expect(listed.status(), loc).toBe(200);
+    // Each page has its own 30-60 character title and a JSON-LD headline (SEO audit c_title, g_structured_data).
+    const html = await listed.text();
+    const title = (html.match(/<title>([^<]*)<\/title>/)?.[1] ?? "").replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"');
+    expect(title.length, `${loc}: "${title}"`).toBeGreaterThanOrEqual(30);
+    expect(title.length, `${loc}: "${title}"`).toBeLessThanOrEqual(60);
+    titles.push(title);
+    expect(html, loc).toContain('"headline":');
   }
+  expect(titles.filter((t, i) => titles.indexOf(t) !== i)).toEqual([]);
 });
 
 test("robots.txt allows the site and points to the sitemap", async ({ request }) => {
@@ -54,6 +67,12 @@ test("Readli is described the same way in the meta description, on /company and 
   await page.goto("/");
   await expect(page.locator("footer")).not.toContainText(short);
   await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", short);
+  // Google's site-name system reads the WebSite name and its alternate spellings.
+  const homeLd = (await page.locator('script[type="application/ld+json"]').allTextContents()).join("");
+  expect(homeLd).toContain('"@type":"WebSite"');
+  expect(homeLd).toContain('"alternateName":["Readli.ai","Readli AI"]');
+  expect(homeLd).toContain("https://www.crunchbase.com/organization/readli");
+  expect(homeLd).toContain('"founder":[{"@type":"Person","name":"Kevin Godfrey"');
   await page.goto("/company");
   await expect(page.locator("main")).toContainText(long);
   const llms = await (await request.get("/llms.txt")).text();
