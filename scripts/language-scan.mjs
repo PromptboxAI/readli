@@ -1,10 +1,10 @@
 // Scans book texts for outdated or now-offensive language, and for lines the narration model misreads
 // (shouted capitals, quiet-voice cues, repeated one-word sounds), and prints each flagged passage.
 // Usage: node scripts/language-scan.mjs [book.json ...]   (no arguments: every book in src/lib/library/texts)
-// A book file is { chapters: [{ title, text }] }. Exits 1 when any "change" finding is printed.
+// A book file is { chapters: [{ title, text }], language? }, with language "es" for the Spanish shelf. Exits 1 when any "change" finding is printed.
 import { readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
-import { scanChapters } from "../src/lib/content/language-check.ts";
+import { scanChapters, termsFor } from "../src/lib/content/language-check.ts";
 import { NARRATION_ADVICE, scanNarration } from "../src/lib/content/narration-check.ts";
 
 const dir = "src/lib/library/texts";
@@ -14,9 +14,9 @@ const files = process.argv.slice(2).length
 
 let mustChange = 0;
 for (const file of files) {
-  const { chapters } = JSON.parse(readFileSync(file, "utf8"));
-  const findings = scanChapters(chapters);
-  const narration = scanNarration(chapters);
+  const { chapters, language = "en" } = JSON.parse(readFileSync(file, "utf8"));
+  const findings = scanChapters(chapters, termsFor(language));
+  const narration = scanNarration(chapters, language);
   if (!findings.length && !narration.length) continue;
   console.log(`\n## ${basename(file, ".json")} (${findings.length + narration.length})`);
   for (const f of findings) {

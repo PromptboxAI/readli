@@ -76,6 +76,40 @@ export const LANGUAGE_TERMS: readonly LanguageTerm[] = [
   { id: "profanity", pattern: w("damn(?:ed|s|ation)?|goddamn\\w*|bastards?|bitch(?:es)?|bugger(?:s|ed)?|bloody|arse|shit\\w*|fuck\\w*|piss(?:ed)?|crap"), category: "profanity", level: "review", why: "Swearing (bitch and bastard are fine only in their literal sense).", suggest: "drop it or soften it" },
 ];
 
+/** Whole words in any alphabet: JavaScript's \\b treats accented letters as word breaks. */
+const u = (body: string) => new RegExp(`(?<!\\p{L})(?:${body})(?!\\p{L})`, "giu");
+
+/**
+ * The same check for the Spanish story shelf (2026-11). Spanish has its own traps for families across
+ * Spain and Latin America: "coger" (to take, but vulgar in much of Latin America), colour words that
+ * can name people, and dated words for disability. Most are "review": the old sense is usually fine.
+ */
+export const SPANISH_LANGUAGE_TERMS: readonly LanguageTerm[] = [
+  { id: "es-coger", pattern: u("cog(?:er|e|es|en|ió|ieron|ía|ían|iendo|ido|ida|erle|erla|erlo|iéndole|iéndola|ióle|ióla)|coj(?:o|a|as|an)"), category: "sexual", level: "change", why: "Means to take in Spain, but is vulgar in much of Latin America.", suggest: "tomar, agarrar, recoger" },
+  { id: "es-concha", pattern: u("conchas?"), category: "sexual", level: "review", why: "A shell, but vulgar slang in parts of South America.", suggest: "caracola, nácar" },
+  { id: "es-polla", pattern: u("pollas?"), category: "sexual", level: "review", why: "A young hen, but vulgar slang in Spain.", suggest: "gallinita, pollita" },
+  { id: "es-marica", pattern: u("maric(?:a|as|ón|ones)"), category: "sexual", level: "change", why: "Anti-gay slur.", suggest: "remove or rewrite the passage" },
+  { id: "es-puta", pattern: u("put(?:a|as|o|os)|ramera?s?"), category: "sexual", level: "change", why: "Sexual insult.", suggest: "remove or rewrite the passage" },
+
+  { id: "es-negro", pattern: u("negr(?:o|a|os|as|ito|ita|itos|itas)"), category: "racial", level: "review", why: "Fine as a colour; check it is not naming a person.", suggest: "the person's name, or rewrite" },
+  { id: "es-moro", pattern: u("mor(?:o|os|isca|iscas|isco|iscos)"), category: "racial", level: "review", why: "Old stories use it for Muslims or North Africans, often as villains.", suggest: "rewrite the passage" },
+  { id: "es-indio", pattern: u("indi(?:o|os)"), category: "racial", level: "review", why: "Often a stereotype of Indigenous people in old books.", suggest: "check the sense; rewrite if it is a stereotype" },
+  { id: "es-chino", pattern: u("chin(?:o|a|os|as)"), category: "racial", level: "review", why: "Check it is a nationality, not a nickname.", suggest: "the person's name or nationality" },
+  { id: "es-gitano", pattern: u("gitan(?:o|a|os|as)|mulat(?:o|a|os|as)|zamb(?:o|a|os|as)"), category: "racial", level: "change", why: "Outdated or hurtful name for a people.", suggest: "a respectful name, or rewrite" },
+  { id: "es-salvaje", pattern: u("salvajes?"), category: "racial", level: "review", why: "Old books use it for non-European peoples (fine for animals and plants).", suggest: "fiero, silvestre" },
+  { id: "es-esclavo", pattern: u("esclav(?:o|a|os|as|itud)"), category: "racial", level: "review", why: "Check the context.", suggest: "criados, ayudantes" },
+
+  { id: "es-idiota", pattern: u("idiotas?|imbéciles?|subnormal(?:es)?|retrasad(?:o|a|os|as)|mongólic(?:o|a|os|as)|cretin(?:o|a|os|as)|estúpid(?:o|a|os|as)"), category: "disability", level: "review", why: "Insults that began as words about disability.", suggest: "tontito, bobo, distraído" },
+  { id: "es-cojo", pattern: u("tullid(?:o|a|os|as)|lisiad(?:o|a|os|as)|enan(?:o|a|os|as)|jorobad(?:o|a|os|as|ita|ito)"), category: "disability", level: "review", why: "Dated words for disabled people.", suggest: "describe what the person does, or use the name" },
+
+  { id: "es-profanity", pattern: u("coño|jod(?:er|ido|ida|idos|idas)|mierda|carajo|cabr(?:ón|ones)|hostias?|gilipollas|pendej(?:o|a|os|as)"), category: "profanity", level: "review", why: "Swearing.", suggest: "drop it or soften it" },
+];
+
+/** The term list for a book's language. */
+export function termsFor(language: "en" | "es" = "en"): readonly LanguageTerm[] {
+  return language === "es" ? SPANISH_LANGUAGE_TERMS : LANGUAGE_TERMS;
+}
+
 export interface LanguageFinding {
   term: LanguageTerm;
   /** The words matched, as written. */

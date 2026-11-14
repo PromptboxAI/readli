@@ -1,7 +1,7 @@
 import { CATALOG, type CatalogBook } from "@/lib/library/catalog";
 import type { Actor, ChildBookProgress, FamilyState } from "@/lib/family/model";
 import { narratorsFor, type FamilyStore, type NarratorView } from "@/lib/family/service";
-import { THE_END } from "@/lib/content/the-end";
+import { isClosingSentence } from "@/lib/content/the-end";
 import { kidsReadiness } from "@/lib/narration/narration";
 import { bookText } from "@/lib/narration/text";
 import { isNewlyPrepared } from "@/lib/family/newest";
@@ -31,7 +31,7 @@ export const NEWEST_SHOWN = 5;
 
 /** A saved place on the last sentence, or the one before a closing "The End.", means the child reached the end. */
 export function reachedEnd(sentences: readonly { text: string }[], sentence: number): boolean {
-  const last = sentences.at(-1)?.text === THE_END ? sentences.length - 2 : sentences.length - 1;
+  const last = isClosingSentence(sentences.at(-1)?.text) ? sentences.length - 2 : sentences.length - 1;
   return sentence >= last;
 }
 
