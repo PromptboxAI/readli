@@ -57,10 +57,6 @@ export function Hero() {
             </svg>
             Free to try. No signup needed.
           </p>
-          {/* Answers the "just read to them yourself" objection (site audit, 2026-11). */}
-          <p className="max-w-[33rem] font-display text-[17px] font-semibold text-plum sm:text-lg" data-testid="hero-absence-line">
-            Not a replacement for storytime. For the nights you can&apos;t be there.
-          </p>
         </div>
         <HeroPlayerScene />
       </div>
