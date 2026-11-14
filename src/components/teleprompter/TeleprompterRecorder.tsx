@@ -545,7 +545,7 @@ function ConsentStep({
           checked={state.consent.processing}
           onChange={(e) => dispatch({ type: "set_consent", field: "processing", value: e.target.checked })}
         />
-        <span>I agree that Readli may process this recording with its voice provider to create my private preview.</span>
+        <span>I agree that Readli may send this recording to ElevenLabs, its voice provider, to create my private preview.</span>
       </label>
       <button type="submit" className={buttonPrimary} disabled={!ready}>
         Continue to recording

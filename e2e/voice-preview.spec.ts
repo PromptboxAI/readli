@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("a finished take becomes a voice and reads four stories, with free replays", async ({ page }, info) => {
   await page.goto("/try");
   await page.getByLabel(/18 or older/).check();
-  await page.getByLabel(/may process this recording/).check();
+  await page.getByLabel(/send this recording to ElevenLabs/).check();
   await page.getByRole("button", { name: "Continue to recording" }).click();
 
   await page.getByRole("button", { name: "Start recording" }).click();
