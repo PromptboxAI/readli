@@ -176,9 +176,10 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   const pastPlans = home && !hasPlan ? state.entitlements.filter((e) => e.householdId === home && e.source !== "trial") : [];
   const lapsed = isGuardian && pastPlans.length > 0;
   const endedAt = pastPlans.map((e) => e.endsAt).filter((d): d is string => d !== null && d <= new Date().toISOString()).sort().at(-1) ?? null;
-  // A family started only for a checkout they backed out of is undone, so they're a plain free account again
-  // and choose on the plans page, rather than landing in a family portal with no plan.
-  if (account && isGuardian && !hasPlan && (await discardUnstartedFamily(accountDb(), state, adult.id))) redirect("/start/plan");
+  // A family started only for a checkout they backed out of is undone, so they're a plain free account again.
+  // They pick up the welcome at the first step they haven't done (the plans only when they came to buy), rather
+  // than landing in a family portal with no plan, or on the plans with their name, family and voice skipped.
+  if (account && isGuardian && !hasPlan && (await discardUnstartedFamily(accountDb(), state, adult.id))) redirect(startingFamily ? "/start/plan" : "/start");
   // Family signup continues to choosing a plan, so nobody lands on an empty portal with no way to check out.
   if (startingFamily && isGuardian && !hasPlan) redirect("/start/plan");
   // A family that started from a storyteller's invitation takes that storyteller in as its first storyteller.
