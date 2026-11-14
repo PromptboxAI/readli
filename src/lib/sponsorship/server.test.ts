@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { StripeApi } from "@/lib/billing/stripe-api";
 import { fakeEmailDb } from "@/lib/email/fake-db.test-util";
 import { giveRequest } from "./rules";
-import { applySponsorshipChange, askForCredits, cancelGift, changeDelivery, offerPlace, rebalanceCredits, removeFamily, runSponsorships, startGift, undoRemoval, type SponsorshipContext } from "./server";
+import { applySponsorshipChange, askForCredits, cancelGift, changeDelivery, offerPlace, rebalanceCredits, removeFamily, resendInvitation, runSponsorships, startGift, undoRemoval, type SponsorshipContext } from "./server";
 
 const SECRET = "test-secret-for-sponsorships-0123456789";
 const BOUGHT = new Date("2026-11-28T15:00:00.000Z");
@@ -86,6 +86,12 @@ describe("buying a gift", () => {
     expect(tables.consent_receipts![0]).toMatchObject({ user_id: "ruth", purpose: "sponsored_voice_share" });
     // Addresses are kept encrypted, never in the clear.
     expect(JSON.stringify(tables.sponsorship_invitations)).not.toContain("m@example.com");
+  });
+
+  it("one family gets all 40 credits", async () => {
+    const { ctx, tables } = setup();
+    await startGift(ctx, { id: "ruth", email: "ruth@example.com" }, give({ recipients: [{ name: "Michael and Sarah", email: "m@example.com", shareVoice: true }] }));
+    expect(tables.sponsorship_seats!.map((s) => [s.seat, s.credit_share])).toEqual([[1, 40]]);
   });
 
   it("the year saves no card, so it can't renew", async () => {
@@ -279,6 +285,43 @@ describe("families and credits", () => {
     // Two changes already in this year: a third is refused.
     for (const s of tables.sponsorship_seats!) if (s.seat === 2) Object.assign(s, { status: "canceled", created_at: "2027-01-05T00:00:00.000Z" });
     await expect(offerPlace(ctx, "ruth", id, 2, { name: "X", email: "x@example.com", shareVoice: false })).rejects.toMatchObject({ code: "too_many_changes" });
+  });
+
+  it("a family that had the whole gift keeps it to the end of the month when a second family is offered a place, and hears first", async () => {
+    const { ctx, id, tables, clock } = await delivered();
+    clock.now = new Date("2027-01-10T00:00:00.000Z");
+    await removeFamily(ctx, "ruth", id, 2, true);
+    // The family that stays gets the whole gift straight away, since the other never joined.
+    expect(tables.sponsorship_seats!.find((s) => s.seat === 1)).toMatchObject({ credit_share: 40, next_credit_share: null });
+
+    await offerPlace(ctx, "ruth", id, 2, { name: "Lee family", email: "lee@example.com", shareVoice: false });
+    expect(tables.sponsorship_seats!.find((s) => s.seat === 1)).toMatchObject({ credit_share: 40, next_credit_share: 20, next_credits_from: "2027-01-25T12:00:00.000Z" });
+    expect(tables.sponsorship_seats!.find((s) => s.seat === 2 && s.status === "invited")).toMatchObject({ credit_share: 20 });
+    const notice = tables.email_outbox!.find((e) => e.email_id === "S7")!;
+    expect(notice).toMatchObject({ recipient_user_id: "sarah", household_id: "home-m" });
+    expect(notice.body).toContain("Another family is joining this gift");
+    expect(notice.body).toContain("your family has 20 story credits a month");
+  });
+
+  it("when a joined family leaves, the other gets the whole gift from the day they go, and undoing it takes that back", async () => {
+    const { ctx, id, tables, clock } = await delivered();
+    const two = tables.sponsorship_seats!.find((s) => s.seat === 2)!;
+    Object.assign(two, { status: "active", household_id: "home-a" });
+    clock.now = new Date("2027-01-10T00:00:00.000Z");
+    await removeFamily(ctx, "ruth", id, 2, true);
+    expect(tables.sponsorship_seats!.find((s) => s.seat === 1)).toMatchObject({ credit_share: 20, next_credit_share: 40, next_credits_from: "2027-01-25T12:00:00.000Z" });
+    await undoRemoval(ctx, "ruth", id, 2);
+    expect(tables.sponsorship_seats!.find((s) => s.seat === 1)).toMatchObject({ credit_share: 20, next_credit_share: null, next_credits_from: null });
+  });
+
+  it("the sponsor can send a family's invitation again, but not too often", async () => {
+    const { ctx, id, tables, clock } = await delivered();
+    await expect(resendInvitation(ctx, "ruth", id, 1)).rejects.toMatchObject({ code: "already_joined" });
+    await expect(resendInvitation(ctx, "ruth", id, 2)).rejects.toMatchObject({ code: "resend_soon" });
+    clock.now = new Date("2026-12-25T13:30:00.000Z");
+    await resendInvitation(ctx, "ruth", id, 2);
+    expect(tables.email_outbox!.filter((e) => e.email_id === "S1")).toHaveLength(3);
+    await expect(resendInvitation(ctx, "ruth", id, 2)).rejects.toMatchObject({ code: "resend_soon" });
   });
 
   it("a new credit split starts next gift month and leaves this month alone", async () => {

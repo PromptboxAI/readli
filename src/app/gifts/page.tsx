@@ -67,7 +67,7 @@ const EACH_FAMILY_GETS = [
   "Your voice, without using one of their storyteller slots",
   "Room for one more storyteller of their own",
   "Up to 6 child profiles, each with their own bookshelf",
-  `A share of ${SPONSORED.monthlyCredits} narration credits a month for new stories (${SPONSORED.startingShare} each to start)`,
+  `${SPONSORED.monthlyCredits} narration credits a month for new stories, all for one family or ${SPONSORED.startingShare} each for two`,
   "The whole Readli library of classic stories",
 ];
 

@@ -75,7 +75,7 @@ function GiftCard({ gift, ends }: { gift: HouseholdGift; ends: string | null }) 
         {lastDay ? ` to ${lastDay}.` : `, for as long as ${from} keeps it going.`}
       </p>
       <p>
-        {gift.creditShare} story credits a month: your share of {from}&apos;s 40.
+        {gift.creditShare >= 40 ? `40 story credits a month from ${from}'s gift.` : <>{gift.creditShare} story credits a month: your share of {from}&apos;s 40.</>}
         {gift.nextShare !== null && gift.nextFrom && gift.nextShare !== gift.creditShare ? ` From ${day(gift.nextFrom)}, ${gift.nextShare} a month.` : ""}
       </p>
       <p className="text-sm">Only your family&apos;s parents can change who each child hears. {from} sees whether their voice is approved, never your children&apos;s names or books.</p>

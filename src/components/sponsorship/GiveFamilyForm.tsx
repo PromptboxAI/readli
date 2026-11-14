@@ -195,7 +195,9 @@ export function GiveFamilyForm({ today, hasVoice, defaultGiverName }: { today: s
         </div>
         <p className="text-sm">
           <span className="font-semibold">Story credits. </span>
-          Your gift includes 40 story credits a month, shared between your {families.length === 1 ? "families" : "two families"}: 20 each to start. You can change the split for future months. You&apos;ll see how many each family uses, never which stories.
+          {families.length === 1
+            ? "Your gift includes 40 story credits a month, and one family gets all 40. If you add a second family later, the credits are shared."
+            : "Your gift includes 40 story credits a month, shared between your two families: 20 each to start. You can change the split for future months."} You&apos;ll see how many each family uses, never which stories.
         </p>
         {sharesVoice && (
           <label className="flex items-start gap-2 rounded-2xl bg-ivory p-3 text-sm">

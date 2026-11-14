@@ -62,7 +62,7 @@ export default async function GiveFamilyPage({ searchParams }: { searchParams: P
         <p role="status" className="flex items-center gap-3 rounded-2xl bg-mint/40 px-4 py-3">
           <GiftBoxArt open className="w-12 shrink-0" />
           <span>
-            <span className="font-display text-lg font-semibold">Thank you, your gift is on its way!</span> It shows here as soon as the payment goes through, usually within a minute.
+            <span className="font-display text-lg font-semibold">Thank you, your gift is on its way!</span>
           </span>
         </p>
       )}
