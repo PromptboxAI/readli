@@ -157,6 +157,12 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
                   Try your voice free
                 </Link>
               </div>
+              <p className="text-muted" data-testid="public-family-voice">
+                Hear {book.title} read by Grandma, Grandpa or you, in your own voices.{" "}
+                <Link href="/guides/bedtime-stories-in-grandmas-voice" className="font-semibold text-ink underline underline-offset-4">
+                  How it works
+                </Link>
+              </p>
               <p className="text-sm text-muted">Preparing a story needs a Readli Family account, a family member&apos;s shared voice and enough Readli credits. You&apos;ll see the exact cost before anything is made.</p>
             </>
           )}

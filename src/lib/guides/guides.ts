@@ -176,7 +176,7 @@ export const GUIDES: readonly Guide[] = [
     title: "Keeping family voices safe: what parents should ask",
     description: "Before you share a family voice with any app, ask who owns it, who can hear it and what it can say. Here's a parent's checklist and how Readli answers it.",
     published: "2026-10-29",
-    updated: "2026-10-29",
+    updated: "2026-11-14",
     readMinutes: 4,
     intro:
       "A recorded voice is personal. Before you or a grandparent shares one with any app, it's worth asking a few plain questions. Here's the checklist I'd want answered for my own family, with Readli's answers.",
@@ -214,7 +214,7 @@ export const GUIDES: readonly Guide[] = [
       {
         heading: "Is the voice used for anything else?",
         paragraphs: [
-          "Readli does not use family voice recordings or child-profile information for advertising. The [Privacy Policy](/privacy) sets out exactly what is collected and why, and [Family privacy & safety](/parents/safety) summarizes it in plain language.",
+          "Family voices are made by ElevenLabs, Readli's voice provider, and they are never used to train AI or sold to anyone. Readli does not use family voice recordings or child-profile information for advertising. The [Privacy Policy](/privacy) sets out exactly what is collected and why, and [Family privacy & safety](/parents/safety) summarizes it in plain language.",
         ],
       },
     ],
@@ -222,6 +222,170 @@ export const GUIDES: readonly Guide[] = [
       { href: "/parents/safety", label: "Family privacy & safety" },
       { href: "/help/privacy-and-child-safety/are-family-voices-private", label: "Are family voices private?" },
       { href: "/help/privacy-and-child-safety/voice-used-without-permission", label: "Can someone use my voice without permission?" },
+    ],
+  },
+  {
+    slug: "bedtime-stories-in-grandmas-voice",
+    title: "How to get bedtime stories read in Grandma's voice",
+    description: "A parent's step-by-step guide to having Grandma or Grandpa read your kids' bedtime stories in their own voice, even when they live far away.",
+    published: "2026-11-14",
+    updated: "2026-11-14",
+    readMinutes: 4,
+    intro:
+      "Most kids have one voice they ask for at bedtime that isn't Mom's or Dad's. Often it's Grandma's. Here's how to set things up so your children can hear their grandparents read a storybook any night of the week, without anyone needing to be on a video call.",
+    sections: [
+      {
+        heading: "Invite Grandma from Readli Family",
+        paragraphs: [
+          "From Family Home, send Grandma an invitation by email. She gets a link from you and records from her own phone, tablet or computer, wherever she lives. There's nothing to install. See [can I invite grandparents who live elsewhere?](/help/getting-started/invite-relatives-elsewhere)",
+        ],
+      },
+      {
+        heading: "She reads for about a minute",
+        paragraphs: [
+          "A short story scrolls on her screen, and she reads it aloud the way she would at bedtime. About a minute is enough. A few moments later she hears a classic story read in her own voice, so she knows how it sounds before anything is shared.",
+          "If she'd like a few pointers first, send her [how to record your voice for bedtime stories](/guides/record-your-voice-for-bedtime-stories). A quiet bedroom and her normal reading voice make the biggest difference.",
+        ],
+      },
+      {
+        heading: "It's free for her",
+        paragraphs: [
+          "Grandparents never pay to record or share their voice, however many of their children's families they share with. The family that listens has the Readli Family plan. See [does Grandpa need to pay?](/help/voices-and-sharing/grandpa-pay-to-share)",
+        ],
+      },
+      {
+        heading: "Two approvals, then she's on the bookshelf",
+        paragraphs: [
+          "Grandma's voice belongs to her, so she chooses to share it with your family. Then you switch it on for each child who should hear it. Every newly shared voice starts switched off, so nothing reaches your kids until you say so.",
+        ],
+      },
+      {
+        heading: "Pick a book and press play",
+        paragraphs: [
+          "Choose a book from the [Readli library](/books), from The Velveteen Rabbit and Peter Rabbit to chapter books like Winnie-the-Pooh, and prepare it in Grandma's voice. It appears on the bookshelf of every child you approved, with the words highlighted as she reads.",
+          "At bedtime, the [sleep timer](/help/books-and-listening/sleep-timer-and-speed) can stop the story after 15, 30 or 45 minutes, or at the end of a chapter. Going somewhere without signal? [Download the story](/help/books-and-listening/listen-offline) first and it plays offline.",
+        ],
+      },
+      {
+        heading: "What Grandma's voice can't do",
+        paragraphs: [
+          "A Readli voice only reads the storybooks in the Readli library. Nobody can type their own words for it to say, it's never made public, and it's never used to train AI. [Family privacy & safety](/parents/safety) explains exactly how it's made, kept and deleted.",
+        ],
+      },
+    ],
+    related: [
+      { href: "/grandparents", label: "Readli for grandparents" },
+      { href: "/guides/grandparents-bedtime-stories-from-far-away", label: "How grandparents can read bedtime stories from far away" },
+      { href: "/help/voices-and-sharing/who-controls-my-voice", label: "Who controls my recorded voice?" },
+    ],
+  },
+  {
+    slug: "gift-for-long-distance-grandparents",
+    title: "A gift for long-distance grandparents: stories in their voice",
+    description: "Looking for a meaningful gift when grandparents and grandkids live far apart? Give bedtime stories read in a grandparent's own voice.",
+    published: "2026-11-14",
+    updated: "2026-11-14",
+    readMinutes: 4,
+    intro:
+      "When grandparents live a plane ride away, the hardest thing to give is time together. A bedtime story in Grandpa's voice, playing in his grandkids' room every night, comes close. Here's how to give it, whether you're the grandparent or the parent.",
+    sections: [
+      {
+        heading: "Why it lands",
+        paragraphs: [
+          "Most gifts for grandparents are things. This one is a habit: the grandkids hear Grandma or Grandpa read a storybook at bedtime, again and again, long after the wrapping paper is gone. And because the books are classics like Peter Rabbit and Winnie-the-Pooh, they're often the same stories the grandparents read to their own children.",
+        ],
+      },
+      {
+        heading: "If you're the grandparent",
+        paragraphs: [
+          "Start by recording your voice. You read a short story aloud for about a minute, and you can [try it free](/try) before you make an account. Recording and sharing your voice is always free.",
+          "Then give the stories too. A [Readli gift](/pricing#gift-heading) covers Readli Family for up to two of your children's families, either a whole year paid once (it never renews on its own) or month to month. The families never enter a card. When you give it, tick Share my voice and your voice goes along with the gift.",
+          "You can schedule the gift for Christmas or another date, and add your own message.",
+        ],
+      },
+      {
+        heading: "If you're the parent",
+        paragraphs: [
+          "The gift for Grandma is the invitation. From Readli Family, invite her to record, and she reads for about a minute from her own phone or computer. It costs her nothing. Then send her a photo or a video of the kids listening to her read. See [how to get bedtime stories read in Grandma's voice](/guides/bedtime-stories-in-grandmas-voice).",
+        ],
+      },
+      {
+        heading: "Make the unwrapping special",
+        paragraphs: [
+          "Readli emails the gift with your name and message, and the family opens it from the link in that email. Some grandparents like to pair it with a printed copy of the first book they'll be reading, so the kids can turn the pages while they listen.",
+        ],
+      },
+      {
+        heading: "Parents stay in charge",
+        paragraphs: [
+          "Giving Readli never gives the giver access to the family's account, children or other voices. The parents add their children and decide which storytellers each child can hear, grandparents included. See [how gift memberships work](/help/billing-credits-and-gifts/gift-memberships).",
+        ],
+      },
+    ],
+    related: [
+      { href: "/pricing#gift-heading", label: "Give Readli as a gift" },
+      { href: "/grandparents", label: "Readli for grandparents" },
+      { href: "/help/billing-credits-and-gifts/redeem-a-gift", label: "How do I redeem a gift?" },
+    ],
+  },
+  {
+    slug: "choosing-a-voice-cloning-bedtime-story-app",
+    title: "Choosing a bedtime story app that reads in your voice",
+    description: "Voice cloning bedtime story apps compared on what matters: who owns the voice, what it can say, the stories it reads and what you really pay.",
+    published: "2026-11-14",
+    updated: "2026-11-14",
+    readMinutes: 5,
+    intro:
+      "There are now lots of apps that can read your child a story in a parent's or grandparent's voice. They differ a lot once you look past the demo. Here are the questions I'd ask before giving any of them a family voice, and how Readli answers each one.",
+    sections: [
+      {
+        heading: "What will it read: made-up stories or real books?",
+        paragraphs: [
+          "Many voice apps are AI story generators: you type an idea and the app writes a new story. That's fun, but every story is new to you too, so most reviewers suggest reading each one before your child hears it.",
+          "Readli reads real books instead: classic children's stories like The Velveteen Rabbit, The Tale of Peter Rabbit and Winnie-the-Pooh, word for word from a reviewed edition. You know exactly what your child will hear. Browse the [Readli library](/books).",
+        ],
+      },
+      {
+        heading: "Who owns the voice, and who can use it?",
+        paragraphs: [
+          "Ask whether the person who recorded the voice controls it, or whoever pays for the account. At Readli the storyteller owns their voice: only they can share it, they choose which families may use it, and a parent then approves it for each child. See [keeping family voices safe](/guides/keeping-family-voices-safe).",
+        ],
+      },
+      {
+        heading: "Can the voice be made to say anything?",
+        paragraphs: [
+          "If an app lets you type any text for a cloned voice to speak, it can put words in a loved one's mouth. A Readli voice only reads the storybooks in the Readli library. Nobody can type in their own words for it.",
+        ],
+      },
+      {
+        heading: "Where does the voice go, and is it used to train AI?",
+        paragraphs: [
+          "A good app names its voice provider, says whether recordings train AI, and tells you how deletion works. Readli's voices are made by ElevenLabs, they're never used to train AI, and deleting your account deletes your voice, recordings and every story read in your voice. [Family privacy & safety](/parents/safety) has the details.",
+        ],
+      },
+      {
+        heading: "Is the whole family included?",
+        paragraphs: [
+          "Bedtime is better with more than one storyteller. Check whether grandparents, aunts and uncles have to pay to record, and whether one plan covers every child. With Readli, recording and sharing a voice is always free for every storyteller, including grandparents in other households, and one Readli Family plan gives each of your children their own profile.",
+        ],
+      },
+      {
+        heading: "Does it work at bedtime, not just in the demo?",
+        paragraphs: [
+          "Look for the things you'll use every night: a [sleep timer](/help/books-and-listening/sleep-timer-and-speed), [offline downloads](/help/books-and-listening/listen-offline) for trips, a kids' bookshelf that little hands can't wander out of, and words highlighted as the story is read. Readli has all four.",
+        ],
+      },
+      {
+        heading: "Try before you decide",
+        paragraphs: [
+          "You can [hear a story in your own voice for free](/try), with no account or email. The recording is deleted within 24 hours unless you choose to keep it. For side-by-side comparisons with other apps, see [how Readli compares](/vs).",
+        ],
+      },
+    ],
+    related: [
+      { href: "/vs", label: "How Readli compares" },
+      { href: "/parents/safety", label: "Family privacy & safety" },
+      { href: "/guides/what-is-a-personalized-audiobook", label: "What is a personalized audiobook?" },
     ],
   },
 ];
