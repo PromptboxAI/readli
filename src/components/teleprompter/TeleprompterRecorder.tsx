@@ -551,7 +551,7 @@ function ConsentStep({
         Continue to recording
       </button>
       <p className="text-sm text-muted">
-        No account or email needed. <Link href="/privacy" className="underline">How we handle voice recordings</Link>
+        No account or email needed. <Link href="/parents/safety#your-voice-heading" className="underline">How we handle voice recordings</Link>
       </p>
     </form>
   );
