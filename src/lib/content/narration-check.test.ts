@@ -46,7 +46,7 @@ describe("narration scanner", () => {
   // A new or edited book fails here until the lines are rewritten (node scripts/language-scan.mjs <book.json>
   // prints them) or recorded above with why they stay.
   it.each(CATALOG.map((b) => [b.slug, b] as const))("%s has no lines the narrator would misread", (slug, book) => {
-    expect(countByIssue(scanNarration(book.chapters))).toEqual(NARRATION_REVIEW[slug] ?? {});
+    expect(countByIssue(scanNarration(book.chapters, book.language))).toEqual(NARRATION_REVIEW[slug] ?? {});
   });
 
   it("only reviews books in the catalog", () => {

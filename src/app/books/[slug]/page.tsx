@@ -50,7 +50,8 @@ function bookDescription(book: PublicBook): string {
   if (book.comingSoon) return `${book.title} by ${book.author}${published}. Coming soon to the Readli library, read aloud in your family's own voices.`;
   const length = book.minutes < 1 ? "Under a minute" : `About ${Math.round(book.minutes)} minutes`;
   const chapters = book.chapters.length > 1 ? ` in ${book.chapters.length} chapters` : "";
-  return `${book.title} by ${book.author}${published}. ${length} read aloud${chapters}. Hear it in the voices of the people your kids love with Readli.`;
+  const spanish = book.language === "es" ? " in Spanish" : "";
+  return `${book.title} by ${book.author}${published}. ${length} read aloud${spanish}${chapters}. Hear it in the voices of the people your kids love with Readli.`;
 }
 
 /**
@@ -75,7 +76,7 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
     ...(book.firstPublished ? { datePublished: String(book.firstPublished) } : {}),
     ...(book.coverUrl ? { image: absoluteUrl(book.coverUrl) } : {}),
     url: absoluteUrl(bookPath(book.slug)),
-    inLanguage: "en",
+    inLanguage: book.language,
     audience: { "@type": "PeopleAudience", audienceType: "Children" },
   };
   const breadcrumbLd = {
@@ -103,7 +104,9 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
           <Link href="/books" className="w-fit font-display font-semibold underline-offset-4 hover:underline">
             ← The Readli Library
           </Link>
-          <h1 className="font-display text-4xl font-semibold">{book.title}</h1>
+          <h1 lang={book.language} className="font-display text-4xl font-semibold">
+            {book.title}
+          </h1>
           <p className="text-lg text-muted">
             {book.author}
             {book.firstPublished ? `, ${book.firstPublished}` : ""}
@@ -111,6 +114,14 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
           <p>
             {book.comingSoon ? `About ${Math.round(book.minutes)} minutes when read aloud.` : book.minutes < 1 ? "Under a minute to read aloud." : `About ${Math.round(book.minutes)} minutes to read aloud.`}
           </p>
+          {book.language === "es" && (
+            <p className="w-fit rounded-full bg-sunshine/50 px-3 py-1 font-semibold" data-testid="public-language">
+              Read aloud in Spanish.{" "}
+              <Link href="/bedtime-stories/cuentos-en-espanol" className="underline underline-offset-4">
+                More cuentos en español
+              </Link>
+            </p>
+          )}
           {!book.comingSoon && creditLine(book) && (
             <p className="text-muted" data-testid="public-credits">
               {creditLine(book)}{" "}
@@ -132,7 +143,7 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
                   </h2>
                   {sample && <SamplePlayer src={sample} title="Listen to how it starts" narrator={BOOK_SAMPLE_NARRATOR} length={null} />}
                   {opening.map((p, i) => (
-                    <p key={i} className="text-lg leading-relaxed whitespace-pre-line">
+                    <p key={i} lang={book.language} className="text-lg leading-relaxed whitespace-pre-line">
                       {p}
                     </p>
                   ))}
@@ -144,7 +155,7 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
                   <h2 id="chapters-h" className="font-display text-2xl font-semibold">
                     Chapters
                   </h2>
-                  <ol className="list-decimal pl-6">
+                  <ol lang={book.language} className="list-decimal pl-6">
                     {book.chapters.map((c) => (
                       <li key={c}>{c}</li>
                     ))}

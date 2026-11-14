@@ -19,7 +19,7 @@ import {
 import { estimateSeconds, modelCost } from "./costs";
 import { creditBalance, creditsFor, creditUnits, draw, spendableLots, type CreditBalance } from "./credits";
 import { CATALOG, findCatalogBook } from "@/lib/library/catalog";
-import { THE_END } from "@/lib/content/the-end";
+import { isClosingSentence } from "@/lib/content/the-end";
 import { revisionInfo } from "@/lib/library/revisions";
 import { mapPosition, spokenForm } from "./positions";
 import { bookCharacters, bookText, bookTextAt, type BookText, withoutTheEnd } from "./text";
@@ -129,7 +129,7 @@ export interface LibraryStatus {
  */
 function unpreparedEnd(segs: Map<string, NarrationSegment>, state: FamilyState, text: BookText): string | null {
   const end = text.sentences.at(-1);
-  if (end?.text !== THE_END) return null;
+  if (!end || !isClosingSentence(end.text)) return null;
   const stored = (id: string) => {
     const seg = segs.get(id);
     return seg?.status === "ready" && Boolean(seg.storageKey);
