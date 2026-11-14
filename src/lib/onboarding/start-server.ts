@@ -35,9 +35,11 @@ export async function startContext(here: string, opts: { plan: boolean }): Promi
   if (!familyAccountsEnabled()) redirect("/signup");
   const user = await currentAdult();
   if (!user) redirect(`/login?next=${encodeURIComponent(here)}`);
-  const page = await familyPage();
+  // Their voice is looked up alongside the family, not after it, so each welcome step waits on one less trip to the database.
+  const deps = accountVoiceDeps(serverConfig());
+  const voiceLookup = deps ? deps.store.findVoice(user.id).catch(() => null) : Promise.resolve(null);
+  const [page, pending] = await Promise.all([familyPage(), pendingJoinPath(user.id)]);
   if (!page.enabled || !page.session || page.session.actor.kind !== "adult") redirect(`/login?next=${encodeURIComponent(here)}`);
-  const pending = await pendingJoinPath(user.id);
   if (pending) redirect(pending);
   const state = page.state;
   const parent = isParent(state, user.id);
@@ -50,8 +52,7 @@ export async function startContext(here: string, opts: { plan: boolean }): Promi
     if (page.session.account && (await discardUnstartedFamily(db, state, user.id))) redirect(here);
     redirect("/start/plan");
   }
-  const deps = accountVoiceDeps(serverConfig());
-  const voice = deps ? await deps.store.findVoice(user.id).catch(() => null) : null;
+  const voice = await voiceLookup;
   const me = state?.adults.find((a) => a.id === user.id);
   const jar = await cookies();
   const typed = familyNameFor(jar.get(FAMILY_NAME_COOKIE)?.value, user.id);
