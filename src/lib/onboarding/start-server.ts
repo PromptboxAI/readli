@@ -2,10 +2,12 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { chosenName } from "@/lib/account/names";
 import { currentAdult } from "@/lib/auth/adult";
+import { accountDb } from "@/lib/family/account-store";
 import { familyPage } from "@/lib/family/page-data";
 import { activeEntitlement } from "@/lib/family/permissions";
 import { homeHousehold, PROVISIONAL_FAMILY_NAME } from "@/lib/family/service";
 import { familyAccountsEnabled } from "@/lib/family/session";
+import { discardUnstartedFamily } from "@/lib/family/unstarted";
 import { isParent } from "@/lib/family/storyteller";
 import { pendingJoinPath } from "@/lib/invites/pending";
 import { serverConfig } from "@/lib/server/config";
@@ -41,7 +43,13 @@ export async function startContext(here: string, opts: { plan: boolean }): Promi
   const parent = isParent(state, user.id);
   const home = parent && state ? homeHousehold(state, user.id) : null;
   if (home && state && activeEntitlement(state, home)) redirect("/home");
-  if (parent && !opts.plan) redirect("/start/plan");
+  if (parent && !opts.plan) {
+    // A family started only for a checkout they backed out of is undone, so the welcome carries on from the first
+    // step they haven't done. A real family with no plan yet only needs the plans.
+    const db = accountDb();
+    if (page.session.account && (await discardUnstartedFamily(db, state, user.id))) redirect(here);
+    redirect("/start/plan");
+  }
   const deps = accountVoiceDeps(serverConfig());
   const voice = deps ? await deps.store.findVoice(user.id).catch(() => null) : null;
   const me = state?.adults.find((a) => a.id === user.id);
