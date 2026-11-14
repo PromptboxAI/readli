@@ -36,6 +36,11 @@ export const SPONSORED = {
 
 export const LIVE_SEATS: SeatStatus[] = ["invited", "active", "removal_scheduled"];
 
+/** Each family's monthly share when a gift is bought: all 40 for one family, 20 each for two. */
+export function startingShares(families: number): number {
+  return families <= 1 ? SPONSORED.monthlyCredits : SPONSORED.startingShare;
+}
+
 export function priceCents(plan: SponsorPlan): number {
   return plan === "annual" ? SPONSORED.annualCents : SPONSORED.monthlyCents;
 }

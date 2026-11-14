@@ -21,6 +21,7 @@ import {
   shortDate,
   SPONSORED,
   SponsorshipError,
+  startingShares,
   zonedTime,
   type CancelOutcome,
   type GiveRequest,
@@ -49,6 +50,11 @@ export interface SponsorshipContext {
   base: string;
   livemode: boolean;
   now?: () => Date;
+  /**
+   * Sends queued emails straight away instead of waiting for the hourly email run. Used for the family's
+   * invitation, which they're waiting on; a failure leaves it queued for that run.
+   */
+  sendNow?: (ids: string[]) => Promise<unknown>;
 }
 
 export const SPONSOR_HOME = "/gift/family";
@@ -164,7 +170,9 @@ export async function startGift(ctx: SponsorshipContext, sponsor: { id: string; 
     "save gift",
   );
   const id = sp.id as string;
-  for (const [i, r] of gift.recipients.entries()) await addPlace(ctx, id, i + 1, r, new Date(schedule.accessStarts.getTime() + SPONSORED.invitationDays * 86_400_000));
+  // One family gets the whole gift; two start with an even split.
+  const share = startingShares(gift.recipients.length);
+  for (const [i, r] of gift.recipients.entries()) await addPlace(ctx, id, i + 1, r, new Date(schedule.accessStarts.getTime() + SPONSORED.invitationDays * 86_400_000), share);
 
   const { data: earlier } = await ctx.db.from("sponsorships").select("provider_customer_ref").eq("sponsor_id", sponsor.id).not("provider_customer_ref", "is", null).limit(1);
   const customer = (earlier as Row[] | null)?.[0]?.provider_customer_ref as string | undefined;
@@ -390,10 +398,11 @@ async function deliver(ctx: SponsorshipContext, sp: Row): Promise<boolean> {
   await track(ctx.db, "sponsor_gift_delivered", { sponsorship_id: sp.id, plan: sp.plan, families: seats.length, late_minutes: Math.round((now.getTime() - deliverAt.getTime()) / 60_000) });
   await notifySponsor(ctx, sp, "S2", `S2:${sp.id}`, {
     subject: "Your Readli gift has been delivered",
-    title: "Your gift is on its way to bedtime",
+    title: "Your gift has arrived",
     paragraphs: [
-      `${seats.map((s) => s.recipient_name as string).join(" and ")} just received your Readli Family gift.`,
-      "We'll let you know as soon as they join. Thank you for giving the gift of stories!",
+      `We just emailed ${seats.map((s) => s.recipient_name as string).join(" and ")} an invitation to open your Readli Family gift.`,
+      `We'll let you know as soon as they join and start listening. If it doesn't turn up for them, you can send it again from your gift page.`,
+      "Thank you for giving the gift of stories!",
     ],
     cta: "See your gift",
   });
@@ -435,7 +444,10 @@ async function sendInvitation(ctx: SponsorshipContext, sp: Row, seat: Row): Prom
       preferencesUrl: `${ctx.base}/email/preferences`,
     }),
   };
-  await queueEmails(ctx.db, ctx.secret, [email], now);
+  const ids = await queueEmails(ctx.db, ctx.secret, [email], now);
+  if (ctx.sendNow && ids.length) {
+    await ctx.sendNow(ids).catch((err) => console.error("gift invitation: send now failed, the hourly run will retry", err instanceof Error ? err.message : err));
+  }
 }
 
 async function notifySponsor(ctx: SponsorshipContext, sp: Row, emailId: string, dedupeKey: string, m: { subject: string; title: string; paragraphs: string[]; cta: string }): Promise<void> {
@@ -561,6 +573,25 @@ async function rollShares(ctx: SponsorshipContext, id: string, now: Date): Promi
   }
 }
 
+/** Tells a family (once it has joined) that its monthly share from the gift changes on `from`. */
+async function shareNotice(ctx: SponsorshipContext, sp: Row, seat: Row, share: number, from: Date, why?: string): Promise<void> {
+  if (!seat.household_id) return;
+  const giver = sp.giver_display_name as string;
+  await notifyFamily(
+    ctx,
+    seat.household_id as string,
+    `S7:${seat.id}:${from.toISOString().slice(0, 10)}:${share}`,
+    {
+      subject: `Your story credits from ${giver}'s gift from ${shortDate(from)}`,
+      title: `From ${shortDate(from)}, your family has ${share} story credits a month from ${giver}'s gift`,
+      paragraphs: [...(why ? [why] : []), "This month stays as it is. Credits you bought yourselves aren't affected."],
+      cta: "See your credits",
+      path: "/family/settings/plan",
+    },
+    "S7",
+  );
+}
+
 const DAY_MS = 86_400_000;
 const within = (end: Date, days: number, now: Date) => end.getTime() - now.getTime() <= days * DAY_MS && end.getTime() > now.getTime();
 
@@ -655,6 +686,43 @@ export async function changeDelivery(ctx: SponsorshipContext, sponsorId: string,
   return deliverAt;
 }
 
+/**
+ * When a family leaves, the one that stays gets the whole gift: straight away if the leaving family
+ * never joined (`from` null), otherwise from the day the leaving family's access ends.
+ */
+async function wholeGiftTo(ctx: SponsorshipContext, sp: Row, leaving: Row, from: Date | null): Promise<void> {
+  const stays = (await seatsOf(ctx, sp.id as string)).filter((s) => s.id !== leaving.id && (s.status === "active" || s.status === "invited"));
+  if (stays.length !== 1) return;
+  const seat = stays[0]!;
+  const whole = SPONSORED.monthlyCredits;
+  if (Number(seat.next_credit_share ?? seat.credit_share ?? 0) >= whole) return;
+  if (!from) {
+    await q(ctx.db.from("sponsorship_seats").update({ credit_share: whole, next_credit_share: null, next_credits_from: null }).eq("id", seat.id as string), "give the whole gift");
+    if (sp.delivered_at) await sync(ctx, sp.id as string);
+    return;
+  }
+  await q(ctx.db.from("sponsorship_seats").update({ next_credit_share: whole, next_credits_from: from.toISOString() }).eq("id", seat.id as string), "give the whole gift");
+  await shareNotice(ctx, sp, seat, whole, from, "Good news: your family gets the whole gift's story credits.");
+}
+
+/**
+ * Sends a family's invitation again with a fresh link, for a family that hasn't joined yet. At most
+ * once every 10 minutes and 5 times in all, so it can't be used to flood someone's inbox.
+ */
+export async function resendInvitation(ctx: SponsorshipContext, sponsorId: string, id: string, seatNumber: number): Promise<void> {
+  const sp = await sponsorshipFor(ctx, id, sponsorId);
+  if (!["active", "past_due", "canceling"].includes(sp.status as string) || !sp.delivered_at) throw new SponsorshipError(409, "not_delivered", "The invitation goes out on the delivery day.");
+  const seat = placeOf(await seatsOf(ctx, id), seatNumber);
+  if (!seat || seat.status !== "invited") throw new SponsorshipError(409, "already_joined", "That family has already joined.");
+  const inv = (await q(ctx.db.from("sponsorship_invitations").select("sent_at, sent_count").eq("seat_id", seat.id as string).is("revoked_at", null).is("accepted_at", null), "read invitation"))[0];
+  if (!inv) throw new SponsorshipError(409, "no_invitation", "That invitation can't be sent again.");
+  const now = clock(ctx);
+  if (Number(inv.sent_count ?? 0) >= 5) throw new SponsorshipError(429, "resend_limit", "That invitation has been sent 5 times. Please check the email address with the family.");
+  if (inv.sent_at && now.getTime() - Date.parse(inv.sent_at as string) < 10 * 60_000) throw new SponsorshipError(429, "resend_soon", "It was just sent. Please give it a few minutes to arrive.");
+  await sendInvitation(ctx, sp, seat);
+  await track(ctx.db, "sponsor_invitation_resent", { sponsorship_id: id, seat: seatNumber }, sponsorId);
+}
+
 const placeOf = (seats: Row[], seat: number) => seats.find((s) => s.seat === seat && LIVE_SEATS.includes(s.status as SeatStatus));
 
 /**
@@ -672,6 +740,7 @@ export async function removeFamily(ctx: SponsorshipContext, sponsorId: string, i
   if (seat.status === "invited") {
     await q(ctx.db.from("sponsorship_invitations").update({ revoked_at: now.toISOString() }).eq("seat_id", seat.id as string).is("accepted_at", null), "withdraw invitation");
     await q(ctx.db.from("sponsorship_seats").update({ status: "canceled", removal_requested_at: now.toISOString(), access_until: now.toISOString() }).eq("id", seat.id as string), "withdraw place");
+    await wholeGiftTo(ctx, sp, seat, null);
     await track(ctx.db, "sponsor_family_removed", { sponsorship_id: id, seat: seatNumber, joined: false }, sponsorId);
     return { accessUntil: now };
   }
@@ -679,6 +748,7 @@ export async function removeFamily(ctx: SponsorshipContext, sponsorId: string, i
     ctx.db.from("sponsorship_seats").update({ status: "removal_scheduled", removal_requested_at: now.toISOString(), access_until: until.toISOString() }).eq("id", seat.id as string).eq("status", "active"),
     "schedule removal",
   );
+  await wholeGiftTo(ctx, sp, seat, until);
   await sync(ctx, id);
   await track(ctx.db, "sponsor_family_removed", { sponsorship_id: id, seat: seatNumber, joined: true, household_id: seat.household_id }, sponsorId);
   if (seat.household_id) {
@@ -705,6 +775,11 @@ export async function undoRemoval(ctx: SponsorshipContext, sponsorId: string, id
     throw new SponsorshipError(409, "nothing_to_undo", "There's no removal to undo.");
   }
   await q(ctx.db.from("sponsorship_seats").update({ status: "active", removal_requested_at: null, access_until: null }).eq("id", seat.id as string), "undo removal");
+  // The other family's move to the whole gift was only because this one was leaving.
+  const stays = (await seatsOf(ctx, id)).find((s) => s.id !== seat.id && (s.status === "active" || s.status === "invited"));
+  if (stays && Number(stays.next_credit_share) === SPONSORED.monthlyCredits && stays.next_credits_from === seat.access_until) {
+    await q(ctx.db.from("sponsorship_seats").update({ next_credit_share: null, next_credits_from: null }).eq("id", stays.id as string), "keep the split");
+  }
   await sync(ctx, id);
   await track(ctx.db, "sponsor_removal_undone", { sponsorship_id: id, seat: seatNumber }, sponsorId);
 }
@@ -720,10 +795,20 @@ export async function offerPlace(ctx: SponsorshipContext, sponsorId: string, id:
   const offered = seats.map((s) => new Date(s.created_at as string)).filter((d) => d.getTime() > delivered);
   if (!canOfferPlace(offered, clock(ctx))) throw new SponsorshipError(409, "too_many_changes", `You can change families up to ${SPONSORED.placeChangesPerYear} times in 12 months.`);
   if (recipient.shareVoice && !sp.consent_receipt_id) throw new SponsorshipError(400, "consent_required", "Please agree to share your voice with this family.");
-  const other = seats.filter((s) => LIVE_SEATS.includes(s.status as SeatStatus)).reduce((n, s) => n + Number(s.next_credit_share ?? s.credit_share ?? 0), 0);
-  const share = Math.max(SPONSORED.minShare, Math.min(SPONSORED.startingShare, SPONSORED.monthlyCredits - other));
   const now = clock(ctx);
+  await rollShares(ctx, id, now);
+  // The new family starts with an even share right away. A family that had the whole gift keeps it to
+  // the end of this gift month and hears before it changes, so nothing is taken from them mid-month.
+  const share = SPONSORED.startingShare;
+  const from = giftMonth(sponsorshipFacts(sp).startsAt ?? now, now).end;
+  for (const s of (await seatsOf(ctx, id)).filter((x) => x.status === "invited" || x.status === "active")) {
+    const keep = SPONSORED.monthlyCredits - share;
+    if (Number(s.next_credit_share ?? s.credit_share ?? 0) <= keep) continue;
+    await q(ctx.db.from("sponsorship_seats").update({ next_credit_share: keep, next_credits_from: from.toISOString() }).eq("id", s.id as string), "make room for a family");
+    await shareNotice(ctx, sp, s, keep, from, "Another family is joining this gift, so the stories are being shared between you.");
+  }
   const { seatId } = await addPlace(ctx, id, seatNumber, recipient, new Date(now.getTime() + SPONSORED.invitationDays * 86_400_000), share);
+  await sync(ctx, id);
   await sendInvitation(ctx, sp, { id: seatId, recipient_name: recipient.name });
   await track(ctx.db, "sponsor_place_offered", { sponsorship_id: id, seat: seatNumber, shares_voice: recipient.shareVoice }, sponsorId);
 }
@@ -742,22 +827,7 @@ export async function rebalanceCredits(ctx: SponsorshipContext, sponsorId: strin
     const values = from ? { next_credit_share: share, next_credits_from: from.toISOString() } : { credit_share: share };
     await q(ctx.db.from("sponsorship_seats").update(values).eq("id", s.id as string), "save credit split");
     // The family hears before the month it changes in.
-    if (from && s.household_id && share !== Number(s.credit_share)) {
-      const giver = sp.giver_display_name as string;
-      await notifyFamily(
-        ctx,
-        s.household_id as string,
-        `S7:${s.id}:${from.toISOString().slice(0, 10)}:${share}`,
-        {
-          subject: `Your story credits from ${giver}'s gift from ${shortDate(from)}`,
-          title: `From ${shortDate(from)}, your family has ${share} story credits a month from ${giver}'s gift`,
-          paragraphs: ["This month stays as it is. Credits you bought yourselves aren't affected."],
-          cta: "See your credits",
-          path: "/family/settings/plan",
-        },
-        "S7",
-      );
-    }
+    if (from && share !== Number(s.credit_share)) await shareNotice(ctx, sp, s, share, from);
   }
   if (facts.deliveredAt) await sync(ctx, id);
   await track(ctx.db, "sponsor_credits_rebalanced", { sponsorship_id: id, shares: split }, sponsorId);

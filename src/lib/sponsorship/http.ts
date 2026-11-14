@@ -2,6 +2,7 @@ import { currentAdult } from "@/lib/auth/adult";
 import type { SignedInUser } from "@/lib/auth/supabase";
 import { billingConfig } from "@/lib/billing/config";
 import { StripeApi } from "@/lib/billing/stripe-api";
+import { deliverEmails } from "@/lib/email/send";
 import { accountDb } from "@/lib/family/account-store";
 import { invitationSecret } from "@/lib/invitations/server";
 import { SITE_URL } from "@/lib/seo/site";
@@ -20,7 +21,7 @@ export async function sponsorshipContext(opts: { newGifts?: boolean } = {}): Pro
   const secret = invitationSecret();
   if (config.mode === "off" || !db || !secret) return null;
   if (opts.newGifts && !(await sponsoredFamilyOn(db))) return null;
-  return { db, stripe: new StripeApi(config), secret, base: SITE_URL, livemode: config.mode === "live" };
+  return { db, stripe: new StripeApi(config), secret, base: SITE_URL, livemode: config.mode === "live", sendNow: (ids) => deliverEmails(db, ids) };
 }
 
 export async function withSponsorship(run: (ctx: SponsorshipContext, user: SignedInUser) => Promise<Response>, opts: { newGifts?: boolean } = {}): Promise<Response> {

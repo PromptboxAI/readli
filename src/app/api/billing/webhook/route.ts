@@ -4,6 +4,7 @@ import { billingConfig } from "@/lib/billing/config";
 import { billingChange, cancellationChange, invitationBilling } from "@/lib/billing/events";
 import { revenueRows } from "@/lib/billing/revenue";
 import { verifyStripeSignature } from "@/lib/billing/stripe-signature";
+import { deliverEmails } from "@/lib/email/send";
 import { accountDb } from "@/lib/family/account-store";
 import { invitationSecret, recordInvitationBilling } from "@/lib/invitations/server";
 import { fail } from "@/lib/server/http";
@@ -70,7 +71,7 @@ export async function POST(req: Request) {
     if (isSponsorshipEvent(event) || event.type === "charge.dispute.created") {
       const secret = invitationSecret();
       if (!secret) throw new Error("sponsorship events need the invitation secret");
-      await applySponsorshipChange({ db, stripe: new StripeApi(config), secret, base: SITE_URL, livemode: event.livemode }, sponsorshipChange(event));
+      await applySponsorshipChange({ db, stripe: new StripeApi(config), secret, base: SITE_URL, livemode: event.livemode, sendNow: (ids) => deliverEmails(db, ids) }, sponsorshipChange(event));
     } else {
       await applyBillingChange(db, billingChange(event), event.livemode);
     }

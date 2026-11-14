@@ -146,7 +146,7 @@ export function SponsorDashboard({ gift }: { gift: GiftView }) {
                 </li>
                 {gift.startsAt && gift.paidThrough ? (
                   <li className="rounded-full bg-surface/90 px-4 py-2 shadow-sm">
-                    {gift.plan === "annual" ? `${day(gift.startsAt).replace(/, \d{4}$/, "")} to ${lastDay(gift.endsAt ?? gift.paidThrough)}` : `Since ${day(gift.startsAt)}`}
+                    {gift.plan === "annual" ? `${day(gift.startsAt)} to ${lastDay(gift.endsAt ?? gift.paidThrough)}` : `Since ${day(gift.startsAt)}`}
                   </li>
                 ) : (
                   gift.status === "scheduled" && <li className="rounded-full bg-surface/90 px-4 py-2 shadow-sm">Arrives {day(gift.deliverAt)}</li>
@@ -195,7 +195,7 @@ export function SponsorDashboard({ gift }: { gift: GiftView }) {
           {[1, 2].map((seat) => {
             const p = gift.places.find((x) => x.seat === seat && x.state !== "ended") ?? gift.places.find((x) => x.seat === seat);
             return p && p.state !== "ended" ? (
-              <FamilyCard key={seat} place={p} gift={gift} onRemove={() => setRemoving(p)} onUndo={() => act(`/api/sponsorships/${gift.id}/places/${seat}`, { action: "undo" })} />
+              <FamilyCard key={seat} place={p} gift={gift} onRemove={() => setRemoving(p)} onUndo={() => act(`/api/sponsorships/${gift.id}/places/${seat}`, { action: "undo" })} onResend={() => act(`/api/sponsorships/${gift.id}/places/${seat}`, { action: "resend" })} />
             ) : (
               <FreePlace key={seat} seat={seat} gift={gift} previous={p ?? null} onOffer={(body) => act(`/api/sponsorships/${gift.id}/places/${seat}`, { action: "offer", ...body })} />
             );
@@ -275,7 +275,8 @@ function Journey({ place, gift }: { place: PlaceView; gift: GiftView }) {
   );
 }
 
-function FamilyCard({ place, gift, onRemove, onUndo }: { place: PlaceView; gift: GiftView; onRemove: () => void; onUndo: () => void }) {
+function FamilyCard({ place, gift, onRemove, onUndo, onResend }: { place: PlaceView; gift: GiftView; onRemove: () => void; onUndo: () => void; onResend: () => Promise<boolean> }) {
+  const [resent, setResent] = useState(false);
   const s = STATE[place.state];
   const t = tone(place.seat);
   const used = Math.min(place.usedThisMonth, place.creditShare);
@@ -302,6 +303,20 @@ function FamilyCard({ place, gift, onRemove, onUndo }: { place: PlaceView; gift:
       <div className="flex flex-1 flex-col gap-4 p-5">
         <Journey place={place} gift={gift} />
         {nudge && <p className="text-base">{nudge}</p>}
+        {(place.state === "invited" || place.state === "opened") && (
+          <p className="text-sm">
+            {resent ? (
+              <span role="status">Sent again. It should arrive in a minute or two.</span>
+            ) : (
+              <>
+                Not there?{" "}
+                <button type="button" className="font-semibold underline underline-offset-4" onClick={async () => setResent(await onResend())}>
+                  Send the invitation again
+                </button>
+              </>
+            )}
+          </p>
+        )}
         <div className="flex flex-col gap-3 rounded-2xl bg-ivory p-4 text-sm">
           <div className="flex items-center gap-2">
             <MicIcon />
@@ -424,10 +439,12 @@ function CreditSplit({ gift, places, onSave }: { gift: GiftView; places: PlaceVi
     <section className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-surface p-5 shadow-[0_18px_40px_-28px_rgba(40,53,72,0.5)] ring-2 ring-ink/10 sm:p-6" aria-labelledby={`split-${gift.id}`}>
       <div className="flex flex-col gap-1">
         <h3 id={`split-${gift.id}`} className="font-display text-2xl font-semibold">
-          Share out the stories
+          Share the stories
         </h3>
         <p>
-          Your gift brings {SPONSORED.monthlyCredits} story credits a month. Each family starts with 20. If one family listens more, move credits their way in steps of 5 for the next gift month; this month stays as it is.
+          {two
+            ? `Your gift brings ${SPONSORED.monthlyCredits} story credits a month. If one family listens more, move credits their way in steps of 5 for the next gift month; this month stays as it is.`
+            : `Your gift brings ${SPONSORED.monthlyCredits} story credits a month, and while it goes to one family they get all of them. If you offer the second place to another family, they start with ${SPONSORED.startingShare} and this family moves to ${SPONSORED.monthlyCredits - SPONSORED.startingShare} from the next gift month. We let them know first.`}
         </p>
       </div>
       <div className="flex h-4 overflow-hidden rounded-full bg-ink/10" role="presentation">
@@ -442,12 +459,15 @@ function CreditSplit({ gift, places, onSave }: { gift: GiftView; places: PlaceVi
             <span className="break-words">{p.name}</span>
           </span>
           <span className="flex items-center gap-2">
-            <button type="button" aria-label={`5 fewer credits for ${p.name}`} className="grid size-11 place-items-center rounded-full border-[3px] border-ink font-display text-xl disabled:opacity-40" disabled={shares[p.seat]! - 5 < SPONSORED.minShare} onClick={() => move(p.seat, -5)}>
+            {two && (
+              <button type="button" aria-label={`5 fewer credits for ${p.name}`} className="grid size-11 place-items-center rounded-full border-[3px] border-ink font-display text-xl disabled:opacity-40" disabled={shares[p.seat]! - 5 < SPONSORED.minShare} onClick={() => move(p.seat, -5)}>
               −
-            </button>
+              </button>
+            )}
             <output aria-live="polite" aria-label={`Credits for ${p.name}`} className="w-24 text-center font-display text-lg">
               {shares[p.seat]} credits
             </output>
+            {two && (
             <button
               type="button"
               aria-label={`5 more credits for ${p.name}`}
@@ -457,6 +477,7 @@ function CreditSplit({ gift, places, onSave }: { gift: GiftView; places: PlaceVi
             >
               +
             </button>
+            )}
           </span>
         </div>
       ))}
