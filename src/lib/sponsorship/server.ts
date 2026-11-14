@@ -398,10 +398,11 @@ async function deliver(ctx: SponsorshipContext, sp: Row): Promise<boolean> {
   await track(ctx.db, "sponsor_gift_delivered", { sponsorship_id: sp.id, plan: sp.plan, families: seats.length, late_minutes: Math.round((now.getTime() - deliverAt.getTime()) / 60_000) });
   await notifySponsor(ctx, sp, "S2", `S2:${sp.id}`, {
     subject: "Your Readli gift has been delivered",
-    title: "Your gift is on its way to bedtime",
+    title: "Your gift has arrived",
     paragraphs: [
-      `${seats.map((s) => s.recipient_name as string).join(" and ")} just received your Readli Family gift.`,
-      "We'll let you know as soon as they join. Thank you for giving the gift of stories!",
+      `We just emailed ${seats.map((s) => s.recipient_name as string).join(" and ")} an invitation to open your Readli Family gift.`,
+      `We'll let you know as soon as they join and start listening. If it doesn't turn up for them, you can send it again from your gift page.`,
+      "Thank you for giving the gift of stories!",
     ],
     cta: "See your gift",
   });
