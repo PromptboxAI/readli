@@ -44,7 +44,7 @@ test("the homepage shows where families can listen, each linking to its help ans
 test("bedtime story collections list their books, play a sample and link back from the library", async ({ page }) => {
   await page.goto("/bedtime-stories");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Classic bedtime stories for kids");
-  await expect(page.getByTestId("collection-list").getByRole("listitem")).toHaveCount(10);
+  await expect(page.getByTestId("collection-list").getByRole("listitem")).toHaveCount(9);
 
   await page.getByTestId("collection-list").getByRole("link", { name: /^Beatrix Potter/ }).click();
   await expect(page).toHaveURL(/\/bedtime-stories\/beatrix-potter$/);
@@ -63,23 +63,4 @@ test("bedtime story collections list their books, play a sample and link back fr
   await expect(page.getByTestId("library-collections").getByRole("link", { name: "Classic fairy tales" })).toHaveAttribute("href", "/bedtime-stories/fairy-tales");
   await page.goto("/books/the-tale-of-peter-rabbit");
   await expect(page.getByTestId("public-collections").getByRole("link", { name: "Beatrix Potter" })).toHaveAttribute("href", "/bedtime-stories/beatrix-potter");
-});
-
-test("Spanish stories have their own shelf and are marked as Spanish", async ({ page }) => {
-  await page.goto("/bedtime-stories/cuentos-en-espanol");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bedtime stories in Spanish: cuentos para dormir");
-  await expect(page.getByTestId("collection-books").getByRole("link")).toHaveCount(3);
-  await expect(page.getByTestId("collection-books").getByRole("link", { name: /Ratón Pérez/ })).toHaveAttribute("href", "/books/raton-perez");
-  await noSidewaysScroll(page);
-
-  await page.goto("/books/raton-perez");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveAttribute("lang", "es");
-  await expect(page.getByTestId("public-language")).toContainText("Read aloud in Spanish.");
-  await expect(page.getByTestId("public-opening")).toContainText("Entre la muerte del rey que rabió");
-  const ld = (await page.locator('script[type="application/ld+json"]').allTextContents()).join("");
-  expect(ld).toContain('"inLanguage":"es"');
-
-  await page.goto("/books");
-  await page.getByRole("searchbox").fill("spanish");
-  await expect(page.getByTestId("language-badge")).toHaveCount(3);
 });

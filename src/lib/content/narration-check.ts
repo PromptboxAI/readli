@@ -27,9 +27,9 @@ export interface NarrationFinding {
 }
 
 // The same split as sentencesOf in ./sentences.ts, which the player uses.
-const sentencesOf = (text: string, language: "en" | "es" = "en") =>
+const sentencesOf = (text: string) =>
   text
-    .split(language === "es" ? /(?<=[.!?…][”"’»]?)\s+(?=[¿¡“"«—A-ZÁÉÍÓÚÑÜ])/ : /(?<!\b(?:Mr|Mrs|Ms|Dr|St)\.)(?<=[.!?][”"’]?)\s+(?=[“"A-Z])/)
+    .split(/(?<!\b(?:Mr|Mrs|Ms|Dr|St)\.)(?<=[.!?][”"’]?)\s+(?=[“"A-Z])/)
     .map((s) => s.trim())
     .filter(Boolean);
 
@@ -41,10 +41,10 @@ const letters = (s: string) => s.toLowerCase().replace(/[^\p{L}]/gu, "");
 const wordCount = (s: string) => (s.match(/[\p{L}'’-]+/gu) ?? []).length;
 
 /** Every sentence in a book's chapters that the narration model is likely to misread, in reading order. */
-export function scanNarration(chapters: readonly { title: string; text: string }[], language: "en" | "es" = "en"): NarrationFinding[] {
+export function scanNarration(chapters: readonly { title: string; text: string }[]): NarrationFinding[] {
   const findings: NarrationFinding[] = [];
   chapters.forEach((c, i) => {
-    const sentences = sentencesOf(c.text, language);
+    const sentences = sentencesOf(c.text);
     sentences.forEach((s, j) => {
       const flag = (issue: NarrationIssue) => findings.push({ issue, chapter: i + 1, chapterTitle: c.title, sentence: s.replace(/\s+/g, " ") });
       if ((s.match(CAPS) ?? []).some((w) => !ROMAN.test(w))) flag("shouting");
@@ -63,4 +63,3 @@ export function countByIssue(findings: readonly NarrationFinding[]): Partial<Rec
   for (const f of findings) counts[f.issue] = (counts[f.issue] ?? 0) + 1;
   return counts;
 }
-

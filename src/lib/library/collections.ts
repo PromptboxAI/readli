@@ -51,7 +51,7 @@ export const COLLECTIONS: readonly Collection[] = [
       { q: "How long is a short bedtime story?", a: "Every story on this page takes five minutes or less to read aloud at a calm bedtime pace. Several take under two minutes." },
       { q: "Can my child hear the same short story in different voices?", a: "Yes. Prepare it once in each storyteller's voice, and your child can switch between approved storytellers without losing their place." },
     ],
-    includes: (b) => !b.comingSoon && b.minutes <= 5 && b.language === "en",
+    includes: (b) => !b.comingSoon && b.minutes <= 5,
     tint: "bg-sunshine/60",
   },
   {
@@ -254,33 +254,8 @@ export const COLLECTIONS: readonly Collection[] = [
       { q: "What are good first chapter books to read aloud?", a: "Winnie-the-Pooh, The House at Pooh Corner and Raggedy Ann Stories are good first chapter books, because each chapter is its own adventure." },
       { q: "Do I have to prepare a whole chapter book at once?", a: "No. You can prepare one chapter at a time, so you only spend narration credits on the chapters you're about to read." },
     ],
-    includes: (b) => b.chapters.length >= 5 && b.minutes >= 40 && b.language === "en",
+    includes: (b) => b.chapters.length >= 5 && b.minutes >= 40,
     tint: "bg-mint",
-  },
-  {
-    slug: "cuentos-en-espanol",
-    name: "Cuentos en español",
-    title: "Bedtime stories in Spanish: cuentos para dormir",
-    description: "Ratón Pérez, José Martí's Los zapaticos de rosa and Samaniego's fables: classic Spanish children's stories, read aloud in Spanish in your family's own voices.",
-    intro: [
-      "These are the stories generations of children in Spain and Latin America grew up with, read in Spanish. Ratón Pérez is the original tale of the little mouse who collects children's teeth, written by Luis Coloma for the boy king Alfonso XIII. Cuentos de La Edad de Oro gathers the gentlest pieces from José Martí's magazine for the children of the Americas, including Los zapaticos de rosa and La muñeca negra. Fábulas de Samaniego has twelve of Félix María Samaniego's verse fables, from La cigarra y la hormiga to La lechera.",
-      "Readli reads every word in Spanish, in the voice of the person who recorded it, and each story ends with Fin.",
-    ],
-    featured: "raton-perez",
-    more: {
-      heading: "For families who share more than one language",
-      paragraphs: [
-        "A grandparent far away can read Ratón Pérez to a grandchild the night a tooth falls out, in the language they spoke as a child. A child learning Spanish at school can hear Martí's poems read slowly by someone they love.",
-        "Like every book in the library, these are the real public-domain texts. Old spellings are updated, and a few lines are changed for young children, just as they are in our English books.",
-      ],
-    },
-    faqs: [
-      { q: "Is the Readli app in Spanish?", a: "Not yet. The app and website are in English, and these stories are read aloud in Spanish." },
-      { q: "Who is Ratón Pérez?", a: "Ratón Pérez is the mouse who takes a child's lost tooth from under the pillow and leaves a gift, much like the Tooth Fairy. Luis Coloma wrote his story in 1894." },
-      { q: "Are these stories good for children learning Spanish?", a: "Yes. Samaniego's fables are short and rhyme, and Los zapaticos de rosa is one of the best-known children's poems in Spanish. Hearing them in a familiar voice makes them easier to follow." },
-    ],
-    includes: (b) => b.language === "es",
-    tint: "bg-sunshine/45",
   },
 ];
 

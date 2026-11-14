@@ -1,4 +1,3 @@
-import type { StoryLanguage } from "@/lib/content/the-end";
 import { planConfig } from "@/lib/family/plan";
 import { bookMinutes } from "@/lib/narration/narration";
 import { bookCharacters, bookText } from "@/lib/narration/text";
@@ -17,7 +16,6 @@ export interface PublicBook {
   characters: number | null;
   chapters: string[];
   comingSoon: boolean;
-  language: StoryLanguage;
 }
 
 function catalogBook(slug: string): PublicBook | null {
@@ -35,7 +33,6 @@ function catalogBook(slug: string): PublicBook | null {
     characters: bookCharacters(text),
     chapters: b.chapters.map((c) => c.title),
     comingSoon: false,
-    language: b.language ?? "en",
   };
 }
 
@@ -44,7 +41,7 @@ export function publicLibrary(): PublicBook[] {
   const ready = CATALOG.map((b) => catalogBook(b.slug)).filter((b): b is PublicBook => b !== null);
   ready.sort((a, b) => a.minutes - b.minutes);
   const soon = UPCOMING_BOOKS.map(
-    (b): PublicBook => ({ ...b, tint: "bg-sunshine", minutes: b.approxMinutes, characters: null, chapters: [], comingSoon: true, language: "en" }),
+    (b): PublicBook => ({ ...b, tint: "bg-sunshine", minutes: b.approxMinutes, characters: null, chapters: [], comingSoon: true }),
   );
   return [...ready, ...soon];
 }

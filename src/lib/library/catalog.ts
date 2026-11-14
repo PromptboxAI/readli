@@ -1,5 +1,4 @@
 import { coverSrc, DEMO_BOOKS } from "@/lib/content/demo-books";
-import type { StoryLanguage } from "@/lib/content/the-end";
 import { READLI_FABLES } from "./fables";
 import { LIBRARY_TEXTS } from "./texts";
 
@@ -18,8 +17,6 @@ export interface CatalogBook {
   tint: string;
   edition: string;
   chapters: { title: string; text: string }[];
-  /** The story's language; English when not set (Spanish story shelf, 2026-11). */
-  language?: StoryLanguage;
 }
 
 /**
@@ -113,10 +110,6 @@ const ADDED: readonly UpcomingBook[] = [
   { slug: "the-reluctant-dragon", title: "The Reluctant Dragon", author: "Kenneth Grahame", firstPublished: 1898, approxMinutes: 47 },
   { slug: "the-adventures-of-peter-cottontail", title: "The Adventures of Peter Cottontail", author: "Thornton W. Burgess", firstPublished: 1914, approxMinutes: 82 },
   { slug: "the-secret-garden", title: "The Secret Garden", author: "Frances Hodgson Burnett", firstPublished: 1911, approxMinutes: 426 },
-  // Spanish story shelf (2026-11): public-domain Spanish stories that family voices read in Spanish.
-  { slug: "raton-perez", title: "Ratón Pérez", author: "Luis Coloma", firstPublished: 1894, approxMinutes: 22 },
-  { slug: "cuentos-de-la-edad-de-oro", title: "Cuentos de La Edad de Oro", author: "José Martí", firstPublished: 1889, approxMinutes: 33 },
-  { slug: "fabulas-de-samaniego", title: "Fábulas de Samaniego", author: "Félix María Samaniego", firstPublished: 1781, approxMinutes: 11 },
 ].map((b) => ({ ...b, coverUrl: `/covers/${b.slug}.webp` }));
 
 export const CATALOG: readonly CatalogBook[] = [

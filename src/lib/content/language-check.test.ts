@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CATALOG } from "@/lib/library/catalog";
-import { countByTerm, LANGUAGE_TERMS, scanChapters, SPANISH_LANGUAGE_TERMS, termsFor } from "./language-check";
+import { countByTerm, LANGUAGE_TERMS, scanChapters } from "./language-check";
 import { LANGUAGE_REVIEW } from "./language-review";
 
 const scan = (text: string) => scanChapters([{ title: "", text }]).map((f) => f.term.id);
@@ -25,26 +25,15 @@ describe("outdated-language scanner", () => {
   });
 
   it("gives every term a reason and a replacement", () => {
-    for (const terms of [LANGUAGE_TERMS, SPANISH_LANGUAGE_TERMS]) {
-      for (const t of terms) expect(t.why && t.suggest && t.pattern.flags.includes("g")).toBeTruthy();
-      expect(new Set(terms.map((t) => t.id)).size).toBe(terms.length);
-    }
-  });
-
-  it("scans Spanish books with Spanish terms, whole words only", () => {
-    const es = (text: string) => scanChapters([{ title: "", text }], termsFor("es")).map((f) => f.term.id);
-    expect(es("La madre cogió un clavel y lo recogió después.")).toEqual(["es-coger"]);
-    expect(es("Abrió su negro pico; la negrura de la noche.")).toEqual(["es-negro"]);
-    expect(es("Era un idiota, dijo, y el moro se fue.")).toEqual(["es-idiota", "es-moro"]);
-    expect(es("La morada del ratón, con su chinchilla.")).toEqual([]);
-    expect(termsFor("en")).toBe(LANGUAGE_TERMS);
+    for (const t of LANGUAGE_TERMS) expect(t.why && t.suggest && t.pattern.flags.includes("g")).toBeTruthy();
+    expect(new Set(LANGUAGE_TERMS.map((t) => t.id)).size).toBe(LANGUAGE_TERMS.length);
   });
 
   // Kevin, 2026-10-22: every book is scanned before it joins the library. A new or edited book with
   // a flagged word fails here until the passages are reviewed (node scripts/language-scan.mjs <book.json>)
   // and recorded in language-review.ts.
   it.each(CATALOG.map((b) => [b.slug, b] as const))("%s matches its language review", (slug, book) => {
-    const findings = scanChapters([{ title: book.title, text: "" }, ...book.chapters], termsFor(book.language));
+    const findings = scanChapters([{ title: book.title, text: "" }, ...book.chapters]);
     const reviewed = Object.fromEntries(Object.entries(LANGUAGE_REVIEW[slug] ?? {}).map(([id, r]) => [id, r.count]));
     const unreviewed = findings.filter((f) => !(f.term.id in reviewed)).map((f) => `${f.match}: ${f.passage}`);
     expect(unreviewed, `unreviewed language in ${slug}`).toEqual([]);

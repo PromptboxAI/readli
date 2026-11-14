@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { findCatalogBook } from "@/lib/library/catalog";
 import { sentencesOf } from "@/lib/content/sentences";
-import { closingFor, isClosingSentence, saysTheEnd, type StoryLanguage } from "@/lib/content/the-end";
+import { saysTheEnd, THE_END } from "@/lib/content/the-end";
 import { revisionSnapshot } from "@/lib/library/revisions";
 
 /**
@@ -33,11 +33,7 @@ export function bookText(slug: string): BookText | null {
   if (!current.has(slug)) {
     const book = findCatalogBook(slug);
     const revision = book ? createHash("sha256").update(book.chapters.map((c) => c.text).join("\n\n")).digest("hex").slice(0, 12) : "";
-    const language = book?.language ?? "en";
-    current.set(
-      slug,
-      book ? build(slug, book.title, book.edition, revision, book.chapters.map((c) => ({ title: c.title, sentences: sentencesOf(c.text, language) })), language) : null,
-    );
+    current.set(slug, book ? build(slug, book.title, book.edition, revision, book.chapters.map((c) => ({ title: c.title, sentences: sentencesOf(c.text) }))) : null);
   }
   return current.get(slug)!;
 }
@@ -50,10 +46,10 @@ export function bookTextAt(slug: string, revision: string): BookText | null {
   const today = bookText(slug);
   if (today?.revision === revision) return today;
   const snap = revisionSnapshot(slug, revision);
-  return snap ? build(slug, snap.title, snap.edition, snap.revision, snap.chapters, findCatalogBook(slug)?.language ?? "en") : null;
+  return snap ? build(slug, snap.title, snap.edition, snap.revision, snap.chapters) : null;
 }
 
-function build(slug: string, title: string, edition: string, revision: string, parts: { title: string; sentences: string[] }[], language: StoryLanguage = "en"): BookText {
+function build(slug: string, title: string, edition: string, revision: string, parts: { title: string; sentences: string[] }[]): BookText {
   const sentences: CanonicalSentence[] = [];
   const chapters: BookText["chapters"] = [];
   parts.forEach((c, i) => {
@@ -69,7 +65,7 @@ function build(slug: string, title: string, edition: string, revision: string, p
   if (!saysTheEnd(sentences.at(-1)?.text ?? "")) {
     const ordinal = sentences.length;
     const id = `${slug}.${revision}.${ordinal}`;
-    sentences.push({ id, ordinal, chapter: chapters.length, text: closingFor(language) });
+    sentences.push({ id, ordinal, chapter: chapters.length, text: THE_END });
     chapters.at(-1)?.sentenceIds.push(id);
   }
   return { slug, title, edition, revision, sentences, chapters };
@@ -78,7 +74,7 @@ function build(slug: string, title: string, edition: string, revision: string, p
 /** The book without its closing "The End.", for audio prepared before that sentence was added. */
 export function withoutTheEnd(text: BookText): BookText {
   const end = text.sentences.at(-1);
-  if (!end || !isClosingSentence(end.text)) return text;
+  if (end?.text !== THE_END) return text;
   return {
     ...text,
     sentences: text.sentences.slice(0, -1),

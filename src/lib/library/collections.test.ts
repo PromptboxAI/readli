@@ -12,23 +12,10 @@ describe("bedtime story collections", () => {
     for (const c of COLLECTIONS) expect(collectionBooks(c, library).length, c.slug).toBeGreaterThanOrEqual(3);
   });
 
-  // Spanish samples need ElevenLabs (scripts/book-samples.mjs); until Ratón Pérez's is recorded its page
-  // simply shows no sample box. Remove it from this list once public/samples/books/raton-perez.mp3 exists.
-  const SAMPLE_PENDING = new Set(["raton-perez"]);
-
   it("feature a book that is in the collection and has a recorded sample", () => {
     for (const c of COLLECTIONS) {
       expect(collectionBooks(c, library).some((b) => b.slug === c.featured), c.slug).toBe(true);
-      const recorded = existsSync(join(process.cwd(), "public", "samples", "books", `${c.featured}.mp3`));
-      expect(recorded, c.featured).toBe(!SAMPLE_PENDING.has(c.featured));
-    }
-  });
-
-  it("gather the Spanish books on their own shelf, out of the English ones", () => {
-    const spanish = library.filter((b) => b.language === "es").map((b) => b.slug);
-    expect(spanish.sort()).toEqual(["cuentos-de-la-edad-de-oro", "fabulas-de-samaniego", "raton-perez"]);
-    for (const b of library.filter((b) => b.language === "es")) {
-      expect(collectionsFor(b).map((c) => c.slug), b.slug).toEqual(["cuentos-en-espanol"]);
+      expect(existsSync(join(process.cwd(), "public", "samples", "books", `${c.featured}.mp3`)), c.featured).toBe(true);
     }
   });
 

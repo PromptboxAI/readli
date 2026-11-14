@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { CATALOG } from "@/lib/library/catalog";
-import { closingFor, isTheEnd, saysTheEnd, THE_END } from "@/lib/content/the-end";
+import { isTheEnd, saysTheEnd, THE_END } from "@/lib/content/the-end";
 import { bookText, withoutTheEnd } from "./text";
 
 describe("every story closes with The End", () => {
@@ -9,18 +9,12 @@ describe("every story closes with The End", () => {
     for (const book of CATALOG) {
       const text = bookText(book.slug)!;
       const last = text.sentences.at(-1)!;
-      expect(last.text, book.slug).toBe(closingFor(book.language));
+      expect(last.text, book.slug).toBe(THE_END);
       expect(text.sentences.filter((s) => saysTheEnd(s.text)), book.slug).toHaveLength(1);
       expect(last.chapter).toBe(text.chapters.length);
       expect(text.chapters.at(-1)!.sentenceIds.at(-1)).toBe(last.id);
       expect(isTheEnd(text.sentences.map((s) => s.text), text.sentences.length - 1)).toBe(true);
     }
-  });
-
-  it("closes Spanish stories with Fin.", () => {
-    const es = CATALOG.filter((b) => b.language === "es");
-    expect(es.length).toBeGreaterThan(0);
-    for (const book of es) expect(bookText(book.slug)!.sentences.at(-1)!.text).toBe("Fin.");
   });
 
   it("keeps the revision, so sentence ids and prepared audio are unchanged", () => {

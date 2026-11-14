@@ -9,11 +9,4 @@
  */
 export type LanguageDecision = "kept";
 
-export const LANGUAGE_REVIEW: Record<string, Record<string, { count: number; decision: LanguageDecision }>> = {
-  // Spanish story shelf (2026-11), for Kevin to confirm: "negro" is only ever a colour here (a crow's beak,
-  // grapes, and Piedad's beloved black doll, whom she loves "porque no te quieren"), and "concha" is
-  // tortoiseshell and mother-of-pearl.
-  "raton-perez": { "es-concha": { count: 1, decision: "kept" } },
-  "cuentos-de-la-edad-de-oro": { "es-negro": { count: 3, decision: "kept" }, "es-concha": { count: 1, decision: "kept" } },
-  "fabulas-de-samaniego": { "es-negro": { count: 2, decision: "kept" } },
-};
+export const LANGUAGE_REVIEW: Record<string, Record<string, { count: number; decision: LanguageDecision }>> = {};

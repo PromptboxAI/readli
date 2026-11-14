@@ -55,20 +55,13 @@ export function LibrarySearch({ books }: { books: PublicBook[] }) {
                     {b.title}
                   </span>
                 )}
-                <span lang={b.language} className="font-display text-lg font-semibold leading-tight">
-                  {b.title}
-                </span>
+                <span className="font-display text-lg font-semibold leading-tight">{b.title}</span>
                 <span className="text-sm text-muted">{b.author}</span>
                 <span className="mt-auto text-sm">
                   {length(b)}
                   {b.chapters.length > 1 ? ` · ${b.chapters.length} chapters` : ""}
                 </span>
                 {b.comingSoon && <span className="self-start rounded-full bg-ink/10 px-2 py-0.5 text-xs font-bold">Coming soon</span>}
-                {b.language === "es" && (
-                  <span className="self-start rounded-full bg-sunshine/60 px-2 py-0.5 text-xs font-bold" lang="es" data-testid="language-badge">
-                    Español
-                  </span>
-                )}
               </Link>
             </li>
           ))}

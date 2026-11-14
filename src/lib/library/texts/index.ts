@@ -53,18 +53,6 @@
  * Disobedience; The Real Mother Goose keeps 66 gentle rhymes; and The Secret Garden's India passages no longer
  * use "native", "blacks" or "heathen", Mary stamps and shouts rather than hitting, the cholera is told gently,
  * wench is lass, Colin "can't walk" rather than being called a cripple, and Jem Fettleworth is lazy, not violent.
- * Spanish story shelf, 2026-11: three Spanish books, each JSON carrying "language": "es", with old spelling
- * modernised (á, ó, fué) and abbreviations spelled out (S. M. is Su Majestad). Their edits, kept on re-import:
- * Ratón Pérez leaves out the dedication, the mock chronicle of Bermudo and doña Goto, Cain's "stinking" tooth,
- * the hint of a bad marriage, Elvira's song about the "gatita morisca" and Adolfo's poker; the old woman by the
- * stove is an anciana, not feísima; Gilito's neighbours are poor and cold rather than dying of misery; and the
- * footnoted shop and omnibus are named in the text. Cuentos de La Edad de Oro keeps Martí's gentlest pieces
- * (Bebé y el señor don Pomposo, Los zapaticos de rosa, Cada uno a su oficio, Dos milagros, La muñeca negra):
- * Bebé's curls no longer recall princes murdered in the Tower, Raúl looks ready to cry rather than to die,
- * Piedad's flower is squashed, not killed, she asks to be forgiven rather than smacked, and the story she
- * skips is about a girl who turned into a flower, not a "jorobadita". Samaniego's fables are twelve without a
- * death (Miauragato hunts the mice tenaciously, not bloodily). "Coger" is tomar, agarrar or cortar throughout,
- * because it is vulgar in much of Latin America, even in Martí's "La madre tomó un clavel".
  */
 import type { CatalogBook } from "../catalog";
 import AChildsGardenOfVerses from "./a-childs-garden-of-verses.json";
@@ -143,13 +131,8 @@ import UncleWiggilysThanksgiving from "./uncle-wiggilys-thanksgiving.json";
 import WhenWeWereVeryYoung from "./when-we-were-very-young.json";
 import WinnieThePooh from "./winnie-the-pooh.json";
 import WynkenBlynkenAndNod from "./wynken-blynken-and-nod.json";
-import CuentosDeLaEdadDeOro from "./cuentos-de-la-edad-de-oro.json";
-import FabulasDeSamaniego from "./fabulas-de-samaniego.json";
-import RatonPerez from "./raton-perez.json";
 
-type LibraryText = Pick<CatalogBook, "edition" | "chapters" | "language">;
-
-export const LIBRARY_TEXTS: Record<string, LibraryText | undefined> = {
+export const LIBRARY_TEXTS: Record<string, Pick<CatalogBook, "edition" | "chapters"> | undefined> = {
   "a-childs-garden-of-verses": AChildsGardenOfVerses,
   "alices-adventures-in-wonderland": AlicesAdventuresInWonderland,
   "beauty-and-the-beast": BeautyAndTheBeast,
@@ -226,8 +209,4 @@ export const LIBRARY_TEXTS: Record<string, LibraryText | undefined> = {
   "when-we-were-very-young": WhenWeWereVeryYoung,
   "winnie-the-pooh": WinnieThePooh,
   "wynken-blynken-and-nod": WynkenBlynkenAndNod,
-  // Spanish story shelf (2026-11). JSON imports type "language" as a string, so these are cast.
-  "raton-perez": RatonPerez as LibraryText,
-  "cuentos-de-la-edad-de-oro": CuentosDeLaEdadDeOro as LibraryText,
-  "fabulas-de-samaniego": FabulasDeSamaniego as LibraryText,
 };
