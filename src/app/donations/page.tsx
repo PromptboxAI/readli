@@ -78,7 +78,7 @@ function HeroArt() {
       </div>
       {NARRATORS.map((n) => (
         <div key={n.name} className={`absolute items-center gap-2 rounded-full bg-surface/95 py-1 pr-3.5 pl-1 shadow-lg ${n.place}`}>
-          <Image src={`/family-voices/${n.avatar}.webp`} alt="" width={48} height={48} className="size-10 rounded-full sm:size-12" />
+          <Image src={`/family-voices/${n.avatar}.webp`} alt={`${n.name}, a family storyteller`} width={48} height={48} className="size-10 rounded-full sm:size-12" />
           <span className="font-display text-sm font-semibold sm:text-base">{n.name}</span>
         </div>
       ))}

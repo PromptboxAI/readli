@@ -32,11 +32,11 @@ function Toggle({ approval }: { approval: Approval }) {
   );
 }
 
-function Avatar({ name, size, className = "" }: { name: string; size: number; className?: string }) {
+function Avatar({ name, alt, size, className = "" }: { name: string; alt: string; size: number; className?: string }) {
   return (
     <Image
       src={`/family-voices/${name}.webp`}
-      alt=""
+      alt={alt}
       width={size}
       height={size}
       className={`shrink-0 rounded-full ring-4 ring-surface ${className}`}
@@ -71,7 +71,7 @@ function VoicePermissionsIllustration() {
             <p className="mt-1 text-sm text-muted sm:text-base">Choose who can read stories to this child.</p>
           </div>
           <span className="relative shrink-0">
-            <Avatar name="milly" size={96} className="size-16 sm:size-24" />
+            <Avatar name="milly" alt="Milly, a young child" size={96} className="size-16 sm:size-24" />
             <svg aria-hidden="true" viewBox="0 0 24 24" className="absolute -right-3 -top-2 size-6 text-sunshine">
               <path d="M6 4 9 9 M16 2 15 8 M22 10 17 12" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
             </svg>
@@ -80,7 +80,7 @@ function VoicePermissionsIllustration() {
         <ul className="mt-4 flex flex-col gap-2.5 sm:gap-3">
           {STORYTELLERS.map((s) => (
             <li key={s.name} className={`flex items-center gap-3 rounded-2xl p-2.5 sm:gap-4 sm:p-3 ${s.row}`}>
-              <Avatar name={s.avatar} size={64} className="size-12 sm:size-16" />
+              <Avatar name={s.avatar} alt={`${s.name}, a family storyteller`} size={64} className="size-12 sm:size-16" />
               <div className="min-w-0 flex-1">
                 <p className="font-display text-lg font-semibold leading-tight">{s.name}</p>
                 <p className="text-sm text-ink/75">{s.status}</p>

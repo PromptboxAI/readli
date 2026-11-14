@@ -5,7 +5,7 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { CREDIT_EXAMPLE_SLUGS, bookCredits, monthsOfCredits, storiesPerMonth } from "@/lib/content/credits-explained";
-import { annualSavingsPercent, monthlyTotalCents, pricing, type Pricing } from "@/lib/content/pricing";
+import { annualSavingsPercent, monthlyTotalCents, perNightCents, pricing, type Pricing } from "@/lib/content/pricing";
 import { SPONSORED } from "@/lib/sponsorship/rules";
 import { bookPath } from "@/lib/library/paths";
 import { publicLibrary } from "@/lib/library/public";
@@ -84,6 +84,7 @@ export default async function PricingPage() {
   const P = await pricing();
   const library = publicLibrary();
   const stories = storiesPerMonth(P.monthlyCredits, library, P.charactersPerCredit);
+  const perNight = perNightCents(P);
   const examples = CREDIT_EXAMPLE_SLUGS.map((slug) => library.find((b) => b.slug === slug && b.characters !== null)).filter((b) => b !== undefined);
   return (
     <>
@@ -104,8 +105,15 @@ export default async function PricingPage() {
             <article
               aria-labelledby="plan-family"
               data-testid="plan-family"
-              className="flex flex-col gap-4 rounded-[var(--radius-panel)] border-[3px] border-ink bg-surface p-6 shadow-[6px_8px_0_rgba(40,53,72,0.15)] sm:p-8"
+              className="relative flex flex-col gap-4 rounded-[var(--radius-panel)] border-[5px] border-coral-deep bg-surface p-6 pt-8 shadow-[8px_10px_0_rgba(40,53,72,0.2)] sm:p-8 sm:pt-10"
             >
+              {/* Marked as the recommended plan (site audit, 2026-11). */}
+              <p
+                className="absolute -top-4 left-6 rounded-full border-[3px] border-ink bg-sunshine px-4 py-1 font-display text-sm font-semibold uppercase tracking-[0.08em] sm:left-8"
+                data-testid="plan-family-badge"
+              >
+                Most popular
+              </p>
               <div className="flex flex-col gap-1">
                 <h2 id="plan-family" className="font-display text-3xl font-semibold">
                   Readli Family
@@ -120,6 +128,9 @@ export default async function PricingPage() {
                     {dollars(P.familyAnnualCents)}/year
                   </Link>
                   , about {annualSavingsPercent(P)}% less than paying monthly
+                </p>
+                <p className="mt-1 font-semibold text-coral-deep" data-testid="plan-family-per-night">
+                  About {perNight.monthly} cents a night for the whole family, or {perNight.annual} cents with yearly billing.
                 </p>
               </div>
               <PlanList items={familyHighlights(P, stories)} />
