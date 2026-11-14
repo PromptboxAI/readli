@@ -1386,5 +1386,41 @@
    "sentences": 5552,
    "correction": true
   }
+ ],
+ "raton-perez": [
+  {
+   "slug": "raton-perez",
+   "revision": "7aecb2be7ea4",
+   "edition": "gutenberg-36558",
+   "firstSeen": "2026-11-14T16:21:54+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 121
+  }
+ ],
+ "cuentos-de-la-edad-de-oro": [
+  {
+   "slug": "cuentos-de-la-edad-de-oro",
+   "revision": "29bf831581be",
+   "edition": "gutenberg-19898",
+   "firstSeen": "2026-11-14T16:21:54+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 226
+  }
+ ],
+ "fabulas-de-samaniego": [
+  {
+   "slug": "fabulas-de-samaniego",
+   "revision": "aa3f36f0702e",
+   "edition": "gutenberg-55206",
+   "firstSeen": "2026-11-14T16:21:54+00:00",
+   "lastSeen": null,
+   "published": true,
+   "current": true,
+   "sentences": 92
+  }
  ]
 }
