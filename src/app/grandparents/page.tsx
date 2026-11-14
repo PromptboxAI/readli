@@ -279,6 +279,12 @@ export default function GrandparentsPage() {
                 family keeps its own library and its own choices.
               </p>
               <p className="text-xl leading-relaxed font-semibold">It&apos;s free for you, however many families you share with.</p>
+              <p className="text-lg">
+                Want to give them the stories too?{" "}
+                <Link href="/guides/gift-for-long-distance-grandparents" className="font-semibold underline underline-offset-4" data-testid="grandparents-gift">
+                  Give Readli as a gift
+                </Link>
+              </p>
             </div>
             <OneVoiceManyHomes />
           </div>
