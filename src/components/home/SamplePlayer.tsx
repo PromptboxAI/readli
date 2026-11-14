@@ -2,11 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 
-/** Kevin's own Readli voice reading page 1, trimmed from his screen recording (2026-10-23). */
-export const SAMPLE_SRC = "/samples/grandpa-kevin-billy-goats-gruff.mp3";
+/**
+ * Kevin's Readli voice reading the opening of Billy Goats Gruff: the book sample ElevenLabs made
+ * straight from his voice (scripts/book-samples.mjs). It replaced a clip cut from a screen recording,
+ * which had been compressed twice and boosted until it clipped.
+ */
+export const SAMPLE_SRC = "/samples/books/the-three-billy-goats-gruff.mp3";
 
 /**
- * Play button for a real Readli sample: by default Grandpa Kevin reading page 1 of Billy Goats Gruff
+ * Play button for a real Readli sample: by default Grandpa Kevin reading the opening of Billy Goats Gruff
  * (homepage journey and /grandparents); book pages pass their own opening and narrator.
  */
 export function SamplePlayer({
@@ -14,7 +18,7 @@ export function SamplePlayer({
   large = false,
   src = SAMPLE_SRC,
   narrator = "Grandpa Kevin",
-  length = "0:29",
+  length = "0:20",
 }: {
   title?: string;
   large?: boolean;
