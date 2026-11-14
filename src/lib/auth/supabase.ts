@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 /**
  * Real sign-in (email link and Google) through Supabase Auth. It is on wherever the public Supabase
@@ -54,12 +55,16 @@ export function isPaused(user: { banned_until?: string | null }, at = new Date()
 }
 
 /** The signed-in grown-up, verified with Supabase Auth, or null. */
-export async function currentUser(): Promise<SignedInUser | null> {
+/**
+ * The signed-in user, checked with Supabase Auth once per request: the page, the header and the family
+ * session all ask, and each ask was otherwise its own round trip to Supabase.
+ */
+export const currentUser = cache(async (): Promise<SignedInUser | null> => {
   if (!authConfigured()) return null;
   const { data, error } = await (await supabaseServer()).auth.getUser();
   if (error || !data.user || isPaused(data.user)) return null;
   return { id: data.user.id, email: data.user.email ?? null, name: displayName(data.user), named: givenName(data.user) !== null };
-}
+});
 
 /** Only same-site paths may follow sign-in, so a link can't bounce someone to another site. */
 export function safeNext(value: string | null | undefined, fallback = "/home"): string {

@@ -50,8 +50,11 @@ export function cleanDisplayName(value: unknown): string {
 /** Renames the grown-up everywhere their name shows: their family profile and their sign-in. */
 export async function updateDisplayName(db: SupabaseClient, userId: string, value: unknown): Promise<string> {
   const name = cleanDisplayName(value);
-  await run(db.from("adult_profiles").upsert({ user_id: userId, display_name: name }, { onConflict: "user_id" }), "save name");
-  const { error } = await db.auth.admin.updateUserById(userId, { user_metadata: { full_name: name } });
+  // Both at once: they don't depend on each other, and in onboarding the next step waits on this save.
+  const [, { error }] = await Promise.all([
+    run(db.from("adult_profiles").upsert({ user_id: userId, display_name: name }, { onConflict: "user_id" }), "save name"),
+    db.auth.admin.updateUserById(userId, { user_metadata: { full_name: name } }),
+  ]);
   if (error) throw new Error(`save sign-in name: ${error.message}`);
   return name;
 }

@@ -96,11 +96,13 @@ export class AccountFamilyStore implements FamilyStore {
   async read(): Promise<FamilyState> {
     if (this.state) return this.state;
     const me = this.user.id;
-    await this.q(
-      this.db.from("adult_profiles").upsert({ user_id: me, display_name: this.user.name }, { onConflict: "user_id", ignoreDuplicates: true }),
-      "save adult profile",
-    );
-    const mine = await this.q(this.db.from("household_members").select("household_id").eq("user_id", me), "read memberships");
+    const [, mine] = await Promise.all([
+      this.q(
+        this.db.from("adult_profiles").upsert({ user_id: me, display_name: this.user.name }, { onConflict: "user_id", ignoreDuplicates: true }),
+        "save adult profile",
+      ),
+      this.q(this.db.from("household_members").select("household_id").eq("user_id", me), "read memberships"),
+    ]);
     const homeIds = [...new Set(mine.map((m) => m.household_id as string))];
     const state = emptyFamilyState();
 
