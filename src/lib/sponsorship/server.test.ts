@@ -150,6 +150,16 @@ describe("delivery", () => {
     expect(sp()).toMatchObject({ status: "active", starts_at: BOUGHT.toISOString(), paid_through: "2026-12-28T15:00:00.000Z" });
   });
 
+  it("sends the families' invitations straight away instead of waiting for the hourly email run", async () => {
+    const env = setup();
+    const sent: string[][] = [];
+    env.ctx.sendNow = async (ids) => sent.push(ids);
+    const { sponsorshipId } = await startGift(env.ctx, { id: "ruth", email: "ruth@example.com" }, give({ deliverOn: "now" }));
+    await applySponsorshipChange(env.ctx, { kind: "paid", sponsorshipId, customerRef: "cus_1", paymentRef: "pi_1" });
+    const invites = env.tables.email_outbox!.filter((e) => e.email_id === "S1").map((e) => e.id);
+    expect(sent.flat().sort()).toEqual(invites.sort());
+  });
+
   it("moving the day before delivery moves the first renewal too", async () => {
     const { ctx, id, calls } = await paidGift();
     await changeDelivery(ctx, "ruth", id, "2026-12-24", "America/New_York");

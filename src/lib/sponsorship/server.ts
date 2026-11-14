@@ -50,6 +50,11 @@ export interface SponsorshipContext {
   base: string;
   livemode: boolean;
   now?: () => Date;
+  /**
+   * Sends queued emails straight away instead of waiting for the hourly email run. Used for the family's
+   * invitation, which they're waiting on; a failure leaves it queued for that run.
+   */
+  sendNow?: (ids: string[]) => Promise<unknown>;
 }
 
 export const SPONSOR_HOME = "/gift/family";
@@ -438,7 +443,10 @@ async function sendInvitation(ctx: SponsorshipContext, sp: Row, seat: Row): Prom
       preferencesUrl: `${ctx.base}/email/preferences`,
     }),
   };
-  await queueEmails(ctx.db, ctx.secret, [email], now);
+  const ids = await queueEmails(ctx.db, ctx.secret, [email], now);
+  if (ctx.sendNow && ids.length) {
+    await ctx.sendNow(ids).catch((err) => console.error("gift invitation: send now failed, the hourly run will retry", err instanceof Error ? err.message : err));
+  }
 }
 
 async function notifySponsor(ctx: SponsorshipContext, sp: Row, emailId: string, dedupeKey: string, m: { subject: string; title: string; paragraphs: string[]; cta: string }): Promise<void> {
