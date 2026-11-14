@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { abandonedCheckout, giftEnding, queueBillingEmails, trialCreditsLow, trialEnding, yearlyRenewal, type BillingContext } from "./billing";
+import { abandonedCheckout, cancellationConfirmed, giftEnding, planEnded, queueBillingEmails, trialCreditsLow, trialEnding, yearlyRenewal, type BillingContext } from "./billing";
 import { fakeEmailDb } from "./fake-db.test-util";
 
 const NOW = new Date("2026-10-24T15:00:00Z");
@@ -95,6 +95,52 @@ describe("B2 gift ending", () => {
     expect(await giftEnding(setup({ gifts: [gift({ plan_id: "sponsored_monthly" })] }, ["B2"]).ctx)).toEqual([]);
     const own = { household_entitlements: [{ id: "e2", household_id: "h1", source: "subscription", status: "active", ends_at: null }] };
     expect(await giftEnding(setup({ gifts: [gift()], ...own }, ["B2"]).ctx)).toEqual([]);
+  });
+});
+
+describe("B4 cancellation confirmed", () => {
+  const canceling = (over: Record<string, unknown> = {}) => sub({ status: "active", cancel_at_period_end: true, current_period_end: sec("2026-11-20T15:00:00Z"), ...over });
+  it("confirms the cancel with the last day", async () => {
+    const { ctx } = setup({ payment_events: [event("customer.subscription.updated", canceling())] }, ["B4"]);
+    const [email] = await cancellationConfirmed(ctx);
+    expect(email!.dedupeKey).toBe("B4:sub_1:2026-11-20");
+    expect(email!.message.subject).toBe("Your Readli plan is canceled. Your last day is November 20, 2026");
+    expect(email!.message.text).toContain("won't be charged again");
+    expect(email!.message.text).toContain("/family/billing");
+  });
+  it("tells a canceled trial it won't be charged", async () => {
+    const { ctx } = setup({ payment_events: [event("customer.subscription.updated", sub({ cancel_at_period_end: true }))] }, ["B4"]);
+    const [email] = await cancellationConfirmed(ctx);
+    expect(email!.message.text).toContain("canceled your Readli Family trial");
+    expect(email!.message.text).toContain("October 27, 2026");
+  });
+  it("skips a cancel turned back off, a plan not canceling and a sponsor's gift", async () => {
+    const undone = [event("customer.subscription.updated", canceling(), hoursAgo(5)), event("customer.subscription.updated", canceling({ cancel_at_period_end: false }))];
+    expect(await cancellationConfirmed(setup({ payment_events: undone }, ["B4"]).ctx)).toEqual([]);
+    expect(await cancellationConfirmed(setup({ payment_events: [event("customer.subscription.updated", sub({ status: "active" }))] }, ["B4"]).ctx)).toEqual([]);
+    const gift = canceling({ metadata: { household_id: "h1", readli_kind: "sponsorship" } });
+    expect(await cancellationConfirmed(setup({ payment_events: [event("customer.subscription.updated", gift)] }, ["B4"]).ctx)).toEqual([]);
+  });
+});
+
+describe("B5 plan ended", () => {
+  const deleted = (over: Record<string, unknown> = {}) => event("customer.subscription.deleted", sub({ status: "canceled", ended_at: sec("2026-10-24T12:00:00Z"), ...over }));
+  it("tells the family their plan ended, once", async () => {
+    const { ctx } = setup({ payment_events: [deleted()] }, ["B5"]);
+    const [email] = await planEnded(ctx);
+    expect(email!.dedupeKey).toBe("B5:sub_1");
+    expect(email!.message.subject).toBe("Your Readli plan has ended");
+    expect(email!.message.text).toContain("ended on October 24, 2026");
+    await queueBillingEmails(ctx);
+    expect((await queueBillingEmails(ctx)).queued).toBe(0);
+  });
+  it("says so when a failed payment ended it", async () => {
+    const [email] = await planEnded(setup({ payment_events: [deleted({ cancellation_details: { reason: "payment_failed" } })] }, ["B5"]).ctx);
+    expect(email!.message.text).toContain("couldn't take payment");
+  });
+  it("skips a family that already has another plan running", async () => {
+    const plan = { household_entitlements: [{ id: "e4", household_id: "h1", source: "subscription", status: "active", provider_subscription_ref: "sub_2", ends_at: null }] };
+    expect(await planEnded(setup({ payment_events: [deleted()], ...plan }, ["B5"]).ctx)).toEqual([]);
   });
 });
 

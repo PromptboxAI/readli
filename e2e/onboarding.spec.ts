@@ -78,3 +78,26 @@ test("finishing setup ends on a page that says what to do next", async ({ page }
   await noOverflow(page);
   await page.screenshot({ path: "test-results/setup-done.png", fullPage: true });
 });
+
+test("adding a first child keeps setup on the Kids step, with no PIN to set there", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  for (const kid of ["maya", "leo"]) expect((await page.request.delete(`/api/family/children/${kid}`)).status(), kid).toBe(200);
+  // Arriving without ?step= (as from checkout), setup picks the first step still to do and writes it into the address.
+  await page.goto("/family/setup?from=start");
+  await expect(page.getByTestId("setup-kids")).toBeVisible();
+  await expect(page).toHaveURL(/step=kids/);
+  await page.getByLabel("Add a child").fill("Henry");
+  await page.getByRole("button", { name: "Add profile" }).click();
+  await expect(page.getByText("Henry is added.")).toBeVisible();
+  await expect(page.getByTestId("setup-next")).toHaveText("Next: invite your family");
+  // The page refreshes once the child is in: it stays on Kids rather than skipping ahead to Book.
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByTestId("setup-kids")).toBeVisible();
+  await expect(page.getByTestId("setup-book")).toHaveCount(0);
+  await expect(page.getByTestId("set-kids-pin")).toHaveCount(0);
+  await page.getByTestId("setup-next").click();
+  await expect(page.getByTestId("setup-family")).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByTestId("setup-family")).toBeVisible();
+  await noOverflow(page);
+});

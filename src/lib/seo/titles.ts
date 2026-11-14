@@ -23,6 +23,9 @@ export const PAGE_TITLES = {
   try: "Hear a story in your voice, free | Readli",
   grandparents: "Bedtime stories for grandkids, in your voice | Readli",
   pricing: "Pricing: Readli Family plan and free Readli Voice",
+  gifts: "Give the gift of your voice at bedtime | Readli gifts",
+  bedtimeStories: "Classic bedtime stories for kids | Readli",
+  vs: "Readli alternatives and comparisons | Readli",
   howItWorks: "How Readli works: storybooks in family voices",
   familyVoices: "Family Voices: storybooks in a loved one's voice | Readli",
   readliKids: "Readli Kids: a safe listening space for children | Readli",
@@ -50,8 +53,9 @@ export function bookTitle(b: { title: string; author: string }): string {
   ]);
 }
 
-export function guideTitle(g: { title: string }): string {
-  return fitTitle([`${g.title} | Readli`, g.title]);
+export function guideTitle(g: { title: string; seoTitle?: string }): string {
+  const t = g.seoTitle ?? g.title;
+  return fitTitle([`${t} | Readli`, t]);
 }
 
 export function helpCategoryTitle(c: { title: string }): string {
@@ -61,4 +65,12 @@ export function helpCategoryTitle(c: { title: string }): string {
 export function helpArticleTitle(a: { question: string; seoTitle?: string }): string {
   const q = a.seoTitle ?? a.question;
   return fitTitle([`${q} | Readli Help Center`, `${q} | Readli Help`, `${q} | Readli`, q]);
+}
+
+export function collectionTitle(c: { title: string }): string {
+  return fitTitle([`${c.title} | Readli`, `${c.title} | Readli bedtime stories`, c.title]);
+}
+
+export function comparisonTitle(c: { name: string }): string {
+  return fitTitle([`Readli or ${c.name}? How they compare | Readli`, `Readli or ${c.name}? How they compare`, `Readli vs ${c.name} | Readli`, `Readli vs ${c.name}`]);
 }

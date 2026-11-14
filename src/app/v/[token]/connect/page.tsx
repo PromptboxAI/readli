@@ -19,9 +19,9 @@ export const metadata: Metadata = { title: "Add a storyteller | Readli", robots:
 export const dynamic = "force-dynamic";
 
 /**
- * From an invitation: sign in, then one guided sequence. Connect the storyteller (starting a family if
- * needed), start Readli Family, give them a storyteller slot, choose each child, prepare the book.
- * Checkout returns here, so the invitation survives sign-in, Stripe and the webhook.
+ * From an invitation, for a family that already has Readli Family: connect the storyteller, give them a
+ * storyteller slot, choose each child, prepare the book. Anyone without a plan yet goes to the new-signup
+ * welcome (/start) instead, which carries the invitation through checkout into setup.
  */
 export default async function ConnectInvitationPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { token } = await params;
@@ -85,8 +85,12 @@ export default async function ConnectInvitationPage({ params, searchParams }: { 
       </AdultPage>
     );
   }
-  const P = await pricing();
   const hasPlan = Boolean(householdId && activeEntitlement(state, householdId));
+  // A grown-up without Readli Family yet goes through the same welcome as every new signup (name, family,
+  // voice, plan). The invitation's cookie comes with them: once the plan starts, setup connects the storyteller
+  // and gives them the family's first storyteller slot, and the kids are added inside setup.
+  if (!hasPlan && q.checkout !== "success") redirect("/start");
+  const P = await pricing();
   const slots = householdId ? await narratorSlots(store, actor, householdId) : null;
   const kids = householdId ? guardianChildren(state, actor.adultId).filter((c) => c.householdId === householdId) : [];
   return (

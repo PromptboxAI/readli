@@ -49,6 +49,8 @@ export const EMAILS: EmailDefinition[] = [
   { id: "B1", name: "Yearly or prepaid renewal notice", sequence: "billing", category: "transactional", topic: null },
   { id: "B2", name: "Gift ending (to the recipient)", sequence: "billing", category: "transactional", topic: null },
   { id: "B3", name: "Price change notice", sequence: "billing", category: "transactional", topic: null },
+  { id: "B4", name: "Plan canceled, with the last day", sequence: "billing", category: "transactional", topic: null },
+  { id: "B5", name: "Plan ended", sequence: "billing", category: "transactional", topic: null },
   { id: "K1", name: "Abandoned checkout", sequence: "checkout", category: "commercial", topic: "marketing" },
   { id: "K2", name: "Abandoned gift checkout", sequence: "checkout", category: "commercial", topic: "marketing" },
   { id: "FB1", name: "How are bedtimes going?", sequence: "feedback", category: "relationship", topic: "feedback_requests" },

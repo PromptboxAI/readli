@@ -113,7 +113,7 @@ export default async function InviteFamilyPage({ searchParams }: { searchParams:
     const skipped = Number(p.skipped) || 0;
     return (
       <AdultPage>
-        <section className="flex max-w-xl flex-col items-center gap-4 text-center" data-testid="invite-sent" aria-live="polite">
+        <section className="mx-auto my-auto flex w-full max-w-xl flex-col items-center gap-4 text-center" data-testid="invite-sent" aria-live="polite">
           <ReadiMascot size={110} decorative />
           <h1 className="font-display text-3xl font-semibold sm:text-4xl">{recent.length === 1 ? "Your invitation is on its way" : "Your invitations are on their way"}</h1>
           {approvedBook && <p className="text-lg">They&apos;ll hear {approvedBook.title} read in your voice.</p>}

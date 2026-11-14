@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useId, useMemo, useState } from "react";
 import { bookPath } from "@/lib/library/paths";
+import { coverAlt } from "@/lib/library/cover-alt";
 import type { PublicBook } from "@/lib/library/public";
 import { matchesSearch } from "@/lib/library/search";
 
@@ -48,7 +49,7 @@ export function LibrarySearch({ books }: { books: PublicBook[] }) {
                 data-testid={`public-book-${b.slug}`}
               >
                 {b.coverUrl ? (
-                  <Image src={b.coverUrl} alt="" width={240} height={320} className="aspect-[3/4] w-full rounded-2xl object-cover" />
+                  <Image src={b.coverUrl} alt={coverAlt(b)} width={240} height={320} className="aspect-[3/4] w-full rounded-2xl object-cover" />
                 ) : (
                   <span className={`flex aspect-[3/4] w-full items-center justify-center rounded-2xl p-3 text-center font-display text-xl font-semibold ${b.tint}`}>
                     {b.title}

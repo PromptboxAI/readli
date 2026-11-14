@@ -24,7 +24,8 @@ import { familyCheckoutOpen } from "@/lib/accounts/checkout";
 import type { FamilyState } from "@/lib/family/model";
 import { familyPage, guardianChildren } from "@/lib/family/page-data";
 import { activeEntitlement, childProfileLimit, countedSlots, narratorSlotCount } from "@/lib/family/permissions";
-import { deviceRegistry, familyPreviewEnabled, TEMPORARY_KIDS_HOURS } from "@/lib/family/session";
+import { deviceRegistry, familyPreviewEnabled, familyStore, TEMPORARY_KIDS_HOURS } from "@/lib/family/session";
+import { adoptCarriedInvitation } from "@/lib/invitations/adopt";
 import { chosenName } from "@/lib/account/names";
 import { authConfigured } from "@/lib/auth/supabase";
 import { carriedInvitationToken, invitationContext } from "@/lib/invitations/context";
@@ -175,11 +176,17 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   const pastPlans = home && !hasPlan ? state.entitlements.filter((e) => e.householdId === home && e.source !== "trial") : [];
   const lapsed = isGuardian && pastPlans.length > 0;
   const endedAt = pastPlans.map((e) => e.endsAt).filter((d): d is string => d !== null && d <= new Date().toISOString()).sort().at(-1) ?? null;
-  // A family started only for a checkout they backed out of is undone, so they're a plain free account again
-  // and choose on the plans page, rather than landing in a family portal with no plan.
-  if (account && isGuardian && !hasPlan && (await discardUnstartedFamily(accountDb(), state, adult.id))) redirect("/start/plan");
+  // A family started only for a checkout they backed out of is undone, so they're a plain free account again.
+  // They pick up the welcome at the first step they haven't done (the plans only when they came to buy), rather
+  // than landing in a family portal with no plan, or on the plans with their name, family and voice skipped.
+  if (account && isGuardian && !hasPlan && (await discardUnstartedFamily(accountDb(), state, adult.id))) redirect(startingFamily ? "/start/plan" : "/start");
   // Family signup continues to choosing a plan, so nobody lands on an empty portal with no way to check out.
   if (startingFamily && isGuardian && !hasPlan) redirect("/start/plan");
+  // A family that started from a storyteller's invitation takes that storyteller in as its first storyteller.
+  if (account && isGuardian && home && hasPlan && session) {
+    const store = await familyStore(session);
+    if (store && (await adoptCarriedInvitation(store, session.actor, home)) === "reload") redirect("/home");
+  }
   // An invitation carried through signup or checkout: offer the next step until a child can listen.
   const carried = account && isGuardian && home ? await carriedInvitationToken() : null;
   const inviteCtx = carried ? invitationContext() : null;

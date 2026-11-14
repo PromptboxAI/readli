@@ -10,13 +10,13 @@ import { SiteFooter } from "@/components/home/sections";
 /** `onboarding`: a signup walkthrough, so the header's main button (My Voice) doesn't pull them out of it. */
 export function AdultPage({ children, wide = false, gift = false, onboarding = false }: { children: React.ReactNode; wide?: boolean; gift?: boolean; onboarding?: boolean }) {
   return (
-    <>
+    <div className="flex min-h-dvh flex-col">
       <SiteHeader hidePrimary={gift || onboarding} />
-      <main className={`mx-auto flex w-full flex-col gap-10 px-4 py-10 sm:px-6 sm:py-14 ${wide ? "max-w-6xl" : "max-w-4xl"}`}>
+      <main className={`mx-auto flex w-full flex-1 flex-col gap-10 px-4 py-10 sm:px-6 sm:py-14 ${wide ? "max-w-6xl" : "max-w-4xl"}`}>
         {children}
       </main>
       <SiteFooter />
-    </>
+    </div>
   );
 }
 

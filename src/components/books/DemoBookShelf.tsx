@@ -1,13 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { coverSrc, DEMO_BOOKS, isPassagePlayable, type DemoBook } from "@/lib/content/demo-books";
+import { coverAlt } from "@/lib/library/cover-alt";
 
 function Cover({ book }: { book: DemoBook }) {
-  // Original Readli artwork; the title is printed on the cover, so the heading below carries the name.
+  // Original Readli artwork, described for search engines and screen readers (site audit, 2026-11).
   return (
     <Image
       src={coverSrc(book)}
-      alt=""
+      alt={coverAlt(book)}
       width={600}
       height={800}
       sizes="(min-width: 1024px) 260px, (min-width: 768px) 30vw, 45vw"

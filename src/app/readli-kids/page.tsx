@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ExplainerPage } from "@/components/marketing/ExplainerPage";
 import { pricing } from "@/lib/content/pricing";
 import { publicPageMetadata } from "@/lib/seo/site";
@@ -45,6 +46,19 @@ export default async function ReadliKidsPage() {
           body: <p>Children can switch between their approved storytellers, and the story carries on from the same sentence. Listening again is always free.</p>,
         },
         {
+          heading: "Bedtime, wherever it happens",
+          tint: "bg-coral/25",
+          body: (
+            <p>
+              Set the sleep timer, lock the screen, play in the car or download a story for the plane. Read-along lights up each sentence for early
+              readers.{" "}
+              <Link href="/help/books-and-listening/listen-offline" className="font-semibold underline underline-offset-4">
+                Listening without internet
+              </Link>
+            </p>
+          ),
+        },
+        {
           heading: "Stays on the child's side",
           tint: "bg-lavender/70",
           body: <p>Once a parent opens a child&apos;s bookshelf on a device, that device stays in Readli Kids. The parent area and the rest of the website stay out of reach until a grown-up signs in.</p>,
@@ -56,6 +70,9 @@ export default async function ReadliKidsPage() {
         "Storytellers approved per child",
         "Switching voices without losing your place",
         "Kids Mode that keeps a device on the child's side",
+        "A sleep timer, and Listen or Read-along modes",
+        "Downloads for listening without internet",
+        "Lock-screen, car and speaker controls",
       ]}
       comingSoon={["More books, added regularly"]}
       related={[

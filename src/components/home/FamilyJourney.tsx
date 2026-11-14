@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SamplePlayer } from "@/components/home/SamplePlayer";
+import { coverAlt } from "@/lib/library/cover-alt";
 
 /**
  * Guided journey (designer brief, 2026-10-23): one Readli Family story in five steps that visitors
@@ -30,7 +31,7 @@ function Initials({ name, tint, size = "size-10 text-base" }: { name: string; ti
 }
 
 function Grandpa({ size = "size-10" }: { size?: string }) {
-  return <Image src={GRANDPA.portrait} alt="" width={56} height={56} className={`${size} shrink-0 rounded-full border-[3px] border-ink object-cover`} />;
+  return <Image src={GRANDPA.portrait} alt={`${GRANDPA.name}, a grandfather who records stories for his family`} width={56} height={56} className={`${size} shrink-0 rounded-full border-[3px] border-ink object-cover`} />;
 }
 
 function Check() {
@@ -42,7 +43,7 @@ function Check() {
 }
 
 function Cover({ w = 56 }: { w?: number }) {
-  return <Image src={BOOK.cover} alt="" width={w} height={Math.round((w * 4) / 3)} className="aspect-[3/4] shrink-0 rounded-md object-cover shadow-[2px_3px_0_rgba(40,53,72,0.16)]" style={{ width: w }} />;
+  return <Image src={BOOK.cover} alt={coverAlt({ title: BOOK.title })} width={w} height={Math.round((w * 4) / 3)} className="aspect-[3/4] shrink-0 rounded-md object-cover shadow-[2px_3px_0_rgba(40,53,72,0.16)]" style={{ width: w }} />;
 }
 
 /** Phone-sized card that holds one app screen. */

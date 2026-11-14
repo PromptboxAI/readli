@@ -545,13 +545,13 @@ function ConsentStep({
           checked={state.consent.processing}
           onChange={(e) => dispatch({ type: "set_consent", field: "processing", value: e.target.checked })}
         />
-        <span>I agree that Readli may process this recording with its voice provider to create my private preview.</span>
+        <span>I agree that Readli may send this recording to ElevenLabs, its voice provider, to create my private preview.</span>
       </label>
       <button type="submit" className={buttonPrimary} disabled={!ready}>
         Continue to recording
       </button>
       <p className="text-sm text-muted">
-        No account or email needed. <Link href="/privacy" className="underline">How we handle voice recordings</Link>
+        No account or email needed. <Link href="/parents/safety#your-voice-heading" className="underline">How we handle voice recordings</Link>
       </p>
     </form>
   );

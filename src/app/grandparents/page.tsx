@@ -7,6 +7,7 @@ import { buttonPrimary } from "@/components/brand/buttons";
 import { HeroBedtimeScene } from "@/components/home/HeroBedtimeScene";
 import { SamplePlayer } from "@/components/home/SamplePlayer";
 import { SiteFooter } from "@/components/home/sections";
+import { coverAlt } from "@/lib/library/cover-alt";
 import { FOUNDERS } from "@/lib/content/company";
 import { publicPageMetadata } from "@/lib/seo/site";
 import { PAGE_TITLES } from "@/lib/seo/titles";
@@ -125,7 +126,7 @@ function VoiceReachesChild() {
       </div>
       {/* Grandpa, far from the bedroom, with his voice arcing in. */}
       <div className="absolute top-0 left-0 flex flex-col items-center gap-1.5">
-        <Image src={GRANDPA} alt="" width={112} height={112} className="size-20 rounded-full border-4 border-surface shadow-lg lg:size-28" />
+        <Image src={GRANDPA} alt="Grandpa, a smiling grandfather" width={112} height={112} className="size-20 rounded-full border-4 border-surface shadow-lg lg:size-28" />
         <span className="rounded-full bg-surface px-3 py-1 font-display text-sm font-semibold shadow-md lg:text-base">Grandpa</span>
       </div>
       <svg viewBox="0 0 200 120" className="absolute top-8 left-16 w-32 text-sunshine lg:top-12 lg:left-32 lg:w-48" aria-hidden="true">
@@ -149,7 +150,7 @@ function OneVoiceManyHomes() {
   return (
     <div role="img" aria-label="Grandpa's one voice shared with three separate families." className="relative mx-auto w-full max-w-md">
       <div className="flex flex-col items-center gap-2">
-        <Image src={GRANDPA} alt="" width={112} height={112} className="size-24 rounded-full border-4 border-surface shadow-lg" />
+        <Image src={GRANDPA} alt="Grandpa, a smiling grandfather" width={112} height={112} className="size-24 rounded-full border-4 border-surface shadow-lg" />
         <span className="rounded-full bg-surface px-4 py-1.5 font-display text-lg font-semibold shadow-sm">One free voice</span>
       </div>
       <svg viewBox="0 0 300 60" className="mx-auto h-14 w-full max-w-sm text-ink/25" aria-hidden="true">
@@ -215,7 +216,7 @@ export default function GrandparentsPage() {
               </p>
               <div className="mx-auto flex w-full max-w-md flex-col gap-3 rounded-[28px] bg-surface p-4 text-left shadow-[0_24px_50px_-24px_rgba(40,53,72,0.45)] ring-1 ring-ink/5 sm:p-5 lg:mx-0">
                 <div className="flex items-center gap-3">
-                  <Image src="/covers/the-three-billy-goats-gruff.webp" alt="" width={60} height={80} className="h-auto w-[60px] rounded-l-[4px] rounded-r-[10px] shadow-[3px_4px_0_rgba(40,53,72,0.16)]" />
+                  <Image src="/covers/the-three-billy-goats-gruff.webp" alt={coverAlt({ title: "The Three Billy Goats Gruff" })} width={60} height={80} className="h-auto w-[60px] rounded-l-[4px] rounded-r-[10px] shadow-[3px_4px_0_rgba(40,53,72,0.16)]" />
                   <div>
                     <p className="text-sm font-extrabold tracking-[0.1em] text-mint-deep uppercase">Hear a real Readli voice</p>
                     <p className="text-base leading-snug">Grandpa Kevin recorded one minute. Readli read the rest.</p>
@@ -281,6 +282,12 @@ export default function GrandparentsPage() {
                 family keeps its own library and its own choices.
               </p>
               <p className="text-xl leading-relaxed font-semibold">It&apos;s free for you, however many families you share with.</p>
+              <p className="text-lg">
+                Want to give them the stories too?{" "}
+                <Link href="/guides/gift-for-long-distance-grandparents" className="font-semibold underline underline-offset-4" data-testid="grandparents-gift">
+                  Give Readli as a gift
+                </Link>
+              </p>
             </div>
             <OneVoiceManyHomes />
           </div>

@@ -97,7 +97,7 @@ export function GiveFamilyForm({ today, hasVoice, defaultGiverName }: { today: s
             <div key={i} className="grid gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10 sm:grid-cols-2">
               <label className="flex flex-col gap-1 font-semibold" htmlFor={`${id}-name-${i}`}>
                 Family name
-                <input id={`${id}-name-${i}`} className={field} value={f.name} onChange={(e) => update(i, { name: e.target.value })} placeholder="Michael and Sarah" required maxLength={120} autoComplete="off" />
+                <input id={`${id}-name-${i}`} className={field} value={f.name} onChange={(e) => update(i, { name: e.target.value })} required maxLength={120} autoComplete="off" />
               </label>
               <label className="flex flex-col gap-1 font-semibold" htmlFor={`${id}-email-${i}`}>
                 A parent&apos;s email

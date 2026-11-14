@@ -5,7 +5,7 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { CREDIT_EXAMPLE_SLUGS, bookCredits, monthsOfCredits, storiesPerMonth } from "@/lib/content/credits-explained";
-import { annualSavingsPercent, monthlyTotalCents, pricing, type Pricing } from "@/lib/content/pricing";
+import { annualMonthlyCents, annualSavingsPercent, monthlyTotalCents, perNightCents, pricing, type Pricing } from "@/lib/content/pricing";
 import { SPONSORED } from "@/lib/sponsorship/rules";
 import { bookPath } from "@/lib/library/paths";
 import { publicLibrary } from "@/lib/library/public";
@@ -90,6 +90,7 @@ export default async function PricingPage() {
   const P = await pricing();
   const library = publicLibrary();
   const stories = storiesPerMonth(P.monthlyCredits, library, P.charactersPerCredit);
+  const perNight = perNightCents(P);
   const examples = CREDIT_EXAMPLE_SLUGS.map((slug) => library.find((b) => b.slug === slug && b.characters !== null)).filter((b) => b !== undefined);
   return (
     <>
@@ -111,8 +112,15 @@ export default async function PricingPage() {
             <article
               aria-labelledby="plan-family"
               data-testid="plan-family"
-              className="flex flex-col gap-4 rounded-[var(--radius-panel)] border-[3px] border-ink bg-surface p-6 shadow-[6px_8px_0_rgba(40,53,72,0.15)] sm:p-8"
+              className="relative flex flex-col gap-4 rounded-[var(--radius-panel)] border-[5px] border-coral-deep bg-surface p-6 pt-8 shadow-[8px_10px_0_rgba(40,53,72,0.2)] sm:p-8 sm:pt-10"
             >
+              {/* Marked as the recommended plan (site audit, 2026-11). */}
+              <p
+                className="absolute -top-4 left-6 rounded-full border-[3px] border-ink bg-sunshine px-4 py-1 font-display text-sm font-semibold uppercase tracking-[0.08em] sm:left-8"
+                data-testid="plan-family-badge"
+              >
+                Most popular
+              </p>
               <div className="flex flex-col gap-1">
                 <h2 id="plan-family" className="font-display text-3xl font-semibold">
                   Readli Family
@@ -121,12 +129,19 @@ export default async function PricingPage() {
                   {dollars(P.familyMonthlyCents)}
                   <span className="text-lg font-normal text-muted">/month</span>
                 </p>
-                <p className="text-muted">
+                {/* Yearly shown as a monthly figure too, so the two prices compare at a glance (SleepyTale review, 2026-11). */}
+                <p className="text-lg" data-testid="plan-family-annual">
                   or{" "}
-                  <Link href="/signup/family?billing=annual" className="font-semibold text-ink underline underline-offset-4">
-                    {dollars(P.familyAnnualCents)}/year
+                  <Link href="/signup/family?billing=annual" className="font-display font-semibold text-ink underline underline-offset-4">
+                    {dollars(annualMonthlyCents(P))}/month billed yearly
                   </Link>
-                  , about {annualSavingsPercent(P)}% less than paying monthly
+                  <span className="text-muted">
+                    {" "}
+                    ({dollars(P.familyAnnualCents)}/year{annualSavingsPercent(P) > 0 ? `, save ${annualSavingsPercent(P)}%` : ""})
+                  </span>
+                </p>
+                <p className="mt-1 font-semibold text-coral-deep" data-testid="plan-family-per-night">
+                  About {perNight.monthly} cents a night for the whole family, or {perNight.annual} cents with yearly billing.
                 </p>
               </div>
               <PlanList items={familyHighlights(P, stories)} />
@@ -338,9 +353,14 @@ export default async function PricingPage() {
               ))}
             </ul>
             <div className="flex flex-col items-center gap-2 text-center">
-              <Link href="/gift/family" className={buttonPrimary}>
-                Give a gift
-              </Link>
+              <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
+                <Link href="/gift/family" className={`${buttonPrimary} w-full sm:w-auto`}>
+                  Give a gift
+                </Link>
+                <Link href="/gifts" className={`${buttonSecondary} w-full sm:w-auto`}>
+                  How gifts work
+                </Link>
+              </div>
               <p className="text-sm text-muted">Families are never charged for your gift. When it ends, each family chooses whether to keep going.</p>
             </div>
           </div>

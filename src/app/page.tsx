@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { FamilyJourney } from "@/components/home/FamilyJourney";
 import { FamilyVoices } from "@/components/home/FamilyVoices";
+import { GiftBand } from "@/components/home/GiftBand";
+import { ListenAnywhere } from "@/components/home/ListenAnywhere";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import {
   FamilyCircles,
@@ -73,8 +75,10 @@ export default function HomePage() {
         <HowFamiliesWork />
         <FamilyJourney />
         <KidsShelf />
+        <ListenAnywhere />
         <FamilyCircles />
         <FamilyVoices />
+        <GiftBand />
         <FinalCta />
       </main>
       <SiteFooter />

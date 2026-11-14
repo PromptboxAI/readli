@@ -21,6 +21,8 @@ function client() {
  * Signup pages pass askMarketing for an unticked opt-in to Bedtime Thursdays and news (below both ways to
  * sign in, saved after sign-in), and signup, which tells the Meta Pixel a sign-up started when the code
  * is sent or Google opens (the confirmed account is the server's CompleteRegistration). Names are asked for after sign-in, where they can't hold anything up.
+ * Pass quickStart (with onSignedIn) to try signing a new email straight in first: it answers "signed_in" to carry
+ * on without a code, or "existing" when the email already has an account, which then gets the code as usual.
  */
 export function LoginForm({
   next,
@@ -29,6 +31,7 @@ export function LoginForm({
   signup,
   submitLabel = "Email me a code",
   onSignedIn,
+  quickStart,
 }: {
   next: string;
   onSentChange?: (sent: boolean) => void;
@@ -37,6 +40,8 @@ export function LoginForm({
   submitLabel?: string;
   /** Instead of going to `next`: carry on from this page, signed in. Google sign-in still returns to `next`. */
   onSignedIn?: () => Promise<void> | void;
+  /** Signs a new email in without a code; see above. Throws with a message to show when it can't. */
+  quickStart?: (email: string, opts: { news: boolean; tz: string | undefined }) => Promise<"signed_in" | "existing">;
 }) {
   const id = useId();
   const [email, setEmail] = useState("");
@@ -50,6 +55,8 @@ export function LoginForm({
   const [toGoogle, setToGoogle] = useState(false);
   const [news, setNews] = useState(false);
   const [resent, setResent] = useState(false);
+  const [existing, setExisting] = useState(false);
+  const [quickDone, setQuickDone] = useState(false);
   // Coming back from Google with the Back button restores this page from cache; reset the button.
   useEffect(() => {
     const reset = (e: PageTransitionEvent) => e.persisted && setToGoogle(false);
@@ -90,6 +97,24 @@ export function LoginForm({
     e.preventDefault();
     setError(null);
     setState("sending");
+    setExisting(false);
+    if (quickStart) {
+      let outcome: "signed_in" | "existing";
+      try {
+        outcome = await quickStart(email.trim(), { news: askMarketing && news, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || undefined });
+      } catch (err) {
+        setState("idle");
+        setError(err instanceof Error && err.message ? err.message : "Something went wrong. Please try again.");
+        return;
+      }
+      if (outcome === "signed_in") {
+        signedUp();
+        setQuickDone(true);
+        setState("done");
+        return carryOn();
+      }
+      setExisting(true);
+    }
     const failed = await send();
     if (failed) {
       setState("idle");
@@ -144,12 +169,39 @@ export function LoginForm({
     }
   };
 
+  if (state === "done" && quickDone) {
+    return (
+      <div className="flex w-full flex-col gap-3 rounded-[var(--radius-panel)] bg-mint/50 p-4 text-left sm:p-6" data-testid="quick-step">
+        <p role="status">
+          {error ? (
+            <>
+              Your account for <strong>{email.trim()}</strong> is ready.
+            </>
+          ) : (
+            "Opening secure checkout…"
+          )}
+        </p>
+        {error && (
+          <>
+            <p role="alert" className="font-semibold text-coral-deep">
+              {error}
+            </p>
+            <button type="button" className={`${buttonSecondary} self-start`} onClick={() => void carryOn()}>
+              Try again
+            </button>
+          </>
+        )}
+      </div>
+    );
+  }
+
   if (state === "sent" || state === "verifying" || state === "done") {
     return (
       <div className="flex w-full flex-col gap-3 rounded-[var(--radius-panel)] bg-mint/50 p-4 text-left sm:p-6" data-testid="code-step">
         {!onSentChange && <p className="font-display text-2xl font-semibold">Check your email</p>}
         <p role="status">
-          We sent a 6-digit code to <strong>{email.trim()}</strong>. Enter it here to continue.
+          {existing ? "You already have a Readli account, so we need to check it's you. " : ""}We sent a 6-digit code to <strong>{email.trim()}</strong>. Enter it
+          here to continue.
         </p>
         <form
           onSubmit={(e) => {

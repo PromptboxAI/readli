@@ -1,17 +1,21 @@
 import { describe, expect, it } from "vitest";
+import { COMPARISON_NAMES } from "@/lib/content/comparisons";
 import { GUIDES } from "@/lib/guides/guides";
 import { HELP_CATEGORIES } from "@/lib/help/articles";
 import { visibleArticles } from "@/lib/help/search";
+import { COLLECTIONS } from "@/lib/library/collections";
 import { publicLibrary } from "@/lib/library/public";
 import CONTENT_DATES from "./content-dates.json";
 import { publicPages } from "./pages";
-import { PAGE_TITLES, TITLE_MAX, TITLE_MIN, bookTitle, fitTitle, guideTitle, helpArticleTitle, helpCategoryTitle } from "./titles";
+import { PAGE_TITLES, TITLE_MAX, TITLE_MIN, bookTitle, fitTitle, collectionTitle, comparisonTitle, guideTitle, helpArticleTitle, helpCategoryTitle } from "./titles";
 
 describe("page titles", () => {
   const titles = [
     ...Object.values(PAGE_TITLES),
     ...publicLibrary().map(bookTitle),
     ...GUIDES.map(guideTitle),
+    ...COLLECTIONS.map(collectionTitle),
+    ...Object.values(COMPARISON_NAMES).map((name) => comparisonTitle({ name })),
     ...HELP_CATEGORIES.map(helpCategoryTitle),
     ...visibleArticles(false).map(helpArticleTitle),
   ];

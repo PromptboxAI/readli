@@ -4,9 +4,11 @@
 // Needs full git history (a shallow clone gives every file the same date).
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { COMPARISON_SLUGS, comparisonHref } from "@/lib/content/comparisons";
 import { GUIDES, guideHref } from "@/lib/guides/guides";
 import { HELP_ARTICLES, HELP_CATEGORIES } from "@/lib/help/articles";
 import { articleHref } from "@/lib/help/search";
+import { COLLECTIONS, collectionHref } from "@/lib/library/collections";
 import { bookPath } from "@/lib/library/paths";
 import { publicLibrary } from "@/lib/library/public";
 import { publicPages } from "@/lib/seo/pages";
@@ -41,6 +43,9 @@ const STATIC = {
   "/try": [page("/try")],
   "/grandparents": [page("/grandparents")],
   "/pricing": [page("/pricing"), "src/lib/content/pricing.ts", "src/lib/content/credits-explained.ts"],
+  "/gifts": [page("/gifts"), "src/lib/gifting/season.ts"],
+  "/bedtime-stories": [page("/bedtime-stories"), "src/lib/library/collections.ts"],
+  "/vs": [page("/vs"), "src/lib/content/comparisons.ts"],
   "/how-it-works": [page("/how-it-works"), EXPLAINER],
   "/family-voices": [page("/family-voices"), EXPLAINER],
   "/readli-kids": [page("/readli-kids"), EXPLAINER],
@@ -59,6 +64,12 @@ const STATIC = {
 const dates = {};
 for (const [path, files] of Object.entries(STATIC)) dates[path] = filesDate(files);
 for (const g of GUIDES) dates[guideHref(g)] = g.updated;
+for (const slug of COMPARISON_SLUGS) {
+  dates[comparisonHref(slug)] = filesDate(["src/app/vs/[slug]/page.tsx", "src/components/marketing/ComparisonPage.tsx", "src/lib/content/comparisons.ts", "src/lib/content/comparison-facts.ts"]);
+}
+for (const c of COLLECTIONS) {
+  dates[collectionHref(c)] = latest([fileDate("src/app/bedtime-stories/[slug]/page.tsx"), blockDate("src/lib/library/collections.ts", `slug: "${c.slug}"`, /^\s{4}slug: "/)]);
+}
 for (const b of publicLibrary()) {
   dates[bookPath(b.slug)] = latest([fileDate(`src/lib/library/texts/${b.slug}.json`), blockDate("src/lib/library/catalog.ts", `slug: "${b.slug}"`, /slug: "/)]);
 }

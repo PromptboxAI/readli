@@ -11,7 +11,9 @@ import { planConfig } from "@/lib/family/plan";
 import { bookOpening } from "@/lib/library/opening";
 import { BOOK_SAMPLE_NARRATOR, bookSampleSrc } from "@/lib/library/samples";
 import { SamplePlayer } from "@/components/home/SamplePlayer";
+import { collectionHref, collectionsFor } from "@/lib/library/collections";
 import { bookPath, publicSlug, slugFromPublic } from "@/lib/library/paths";
+import { coverAlt } from "@/lib/library/cover-alt";
 import { type PublicBook, publicBook, publicLibrary } from "@/lib/library/public";
 import { absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
 import { bookTitle } from "@/lib/seo/titles";
@@ -101,7 +103,7 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
         />
         <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(breadcrumbLd)} />
         {book.coverUrl ? (
-          <Image src={book.coverUrl} alt="" width={450} height={600} priority className="aspect-[3/4] w-full max-w-sm rounded-3xl object-cover" />
+          <Image src={book.coverUrl} alt={coverAlt(book)} width={450} height={600} priority className="aspect-[3/4] w-full max-w-sm rounded-3xl object-cover" />
         ) : (
           <div className={`flex aspect-[3/4] w-full max-w-sm items-center justify-center rounded-3xl p-6 text-center font-display text-3xl font-semibold ${book.tint}`}>
             {book.title}
@@ -167,6 +169,25 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
                   Try your voice free
                 </Link>
               </div>
+              {collectionsFor(book).length > 0 && (
+                <p data-testid="public-collections">
+                  In{" "}
+                  {collectionsFor(book).map((c, i, all) => (
+                    <span key={c.slug}>
+                      {i > 0 && (i === all.length - 1 ? " and " : ", ")}
+                      <Link href={collectionHref(c)} className="font-semibold underline underline-offset-4">
+                        {c.name}
+                      </Link>
+                    </span>
+                  ))}
+                </p>
+              )}
+              <p className="text-muted" data-testid="public-family-voice">
+                Hear {book.title} read by Grandma, Grandpa or you, in your own voices.{" "}
+                <Link href="/guides/bedtime-stories-in-grandmas-voice" className="font-semibold text-ink underline underline-offset-4">
+                  How it works
+                </Link>
+              </p>
               <p className="text-sm text-muted">Preparing a story needs a Readli Family account, a family member&apos;s shared voice and enough Readli credits. You&apos;ll see the exact cost before anything is made.</p>
             </>
           )}

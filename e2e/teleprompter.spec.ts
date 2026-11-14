@@ -8,7 +8,7 @@ async function consent(page: Page) {
   await expect(cont).toBeDisabled();
   await page.getByLabel(/18 or older/).check();
   await expect(cont).toBeDisabled();
-  await page.getByLabel(/may process this recording/).check();
+  await page.getByLabel(/send this recording to ElevenLabs/).check();
   await cont.click();
 }
 
