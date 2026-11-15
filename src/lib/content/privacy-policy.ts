@@ -199,7 +199,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Help chats",
-        text: "Readli does not save help chats on its servers. A chat stays in your browser tab until you close it or start a new chat. A chat you send with “Talk to a person” is kept in our support inbox as a support request. Anthropic keeps chat data only for the limited time its commercial terms allow, for safety and abuse monitoring.",
+        text: "Readli does not save help chats on its servers. A chat stays in your browser tab until you close it or start a new chat. A chat you send with “Talk to a person” is kept in our support inbox as a support request. Anthropic keeps chat data for a limited time under its own data retention policies.",
       },
       {
         lead: "Child profiles",
