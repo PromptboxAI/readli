@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
@@ -153,6 +154,11 @@ export function SponsorDashboard({ gift }: { gift: GiftView }) {
                 )}
                 {voiceShared && <li className="rounded-full bg-surface/90 px-4 py-2 shadow-sm">Read in your voice</li>}
               </ul>
+            )}
+            {!ended && live.length > 0 && (
+              <Link href={`/gift/family/card?gift=${gift.id}`} className={`${buttonSecondary} w-fit`} data-testid="print-gift-card">
+                Print a gift card
+              </Link>
             )}
           </div>
           <div className="relative mx-auto hidden h-52 w-64 sm:block" aria-hidden="true">

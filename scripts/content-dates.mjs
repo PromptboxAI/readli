@@ -54,6 +54,7 @@ const STATIC = {
   "/parents/safety": [page("/parents/safety")],
   "/help": [page("/help")],
   "/help/recording-tips": [page("/help/recording-tips"), "src/components/teleprompter/RecordingTips.tsx"],
+  "/about": [page("/about"), "src/lib/content/company.ts", "src/lib/content/testimonials.ts"],
   "/company": [page("/company"), "src/lib/content/company.ts", "src/lib/content/social.ts"],
   "/donations": [page("/donations")],
   "/privacy": [page("/privacy"), "src/lib/content/privacy-policy.ts"],

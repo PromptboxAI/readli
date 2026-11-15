@@ -26,7 +26,7 @@ const ICON = { fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLin
 const STEPS: { title: string; body: string; tint: string; icon: ReactNode }[] = [
   {
     title: "Record your voice, free",
-    body: "Read a short story aloud for about a minute on your phone or computer. A few moments later you hear a classic book read in your voice.",
+    body: "Read a short story aloud for about a minute on your phone or computer. The words scroll for you, so no tech skills are needed. A few moments later you hear a classic book read in your voice.",
     tint: "bg-sunshine",
     icon: (
       <svg viewBox="0 0 24 24" className="size-7" {...ICON}>
@@ -98,6 +98,10 @@ const FAQS: { q: string; a: string }[] = [
   {
     q: "What if I change my mind?",
     a: "If you cancel before the delivery day, you get a full refund. A whole-year gift never renews on its own, and a monthly gift runs until you stop it.",
+  },
+  {
+    q: "I'm not very good with technology. Can I still do this?",
+    a: "Yes, no tech skills needed. You record on your phone or computer with nothing to install: the words scroll on the screen and you read them aloud for about a minute. Giving the gift takes a few taps, and Readli emails each family a link to open it.",
   },
   {
     q: "Is it free for me to record and share my voice?",

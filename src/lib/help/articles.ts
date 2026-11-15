@@ -569,6 +569,18 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ["data-deletion", "manage-or-cancel-subscription", "replace-or-delete-my-voice"],
   }),
   A({
+    slug: "what-if-readli-goes-away",
+    category: "privacy-and-child-safety",
+    question: "What happens to my voice if Readli goes away?",
+    status: "published",
+    answer: [
+      "If Readli is ever sold, the new owner has to keep our [Privacy Policy](/privacy) and every permission your family set, and family voices can never be sold on their own.",
+      "If Readli ever closes, we'll email every family before we do, then delete every voice and every recording. Until then, your voice is yours to share, stop sharing or delete whenever you like.",
+    ],
+    keywords: ["shut down", "close", "sold", "acquired", "goes away", "out of business"],
+    related: ["cancel-what-happens-to-voice", "data-deletion", "replace-or-delete-my-voice"],
+  }),
+  A({
     slug: "data-deletion",
     category: "privacy-and-child-safety",
     question: "How do I request deletion of personal data?",

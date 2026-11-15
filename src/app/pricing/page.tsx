@@ -6,6 +6,8 @@ import { authConfigured } from "@/lib/auth/supabase";
 import { currentAdult } from "@/lib/auth/adult";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SiteHeader } from "@/components/home/SiteHeader";
+import { Testimonials } from "@/components/home/Testimonials";
+import { VoiceStaysYours } from "@/components/home/VoiceStaysYours";
 import { SiteFooter } from "@/components/home/sections";
 import { CREDIT_EXAMPLE_SLUGS, bookCredits, monthsOfCredits, storiesPerMonth } from "@/lib/content/credits-explained";
 import { annualMonthlyCents, annualSavingsPercent, monthlyTotalCents, perNightCents, pricing, type Pricing } from "@/lib/content/pricing";
@@ -181,6 +183,8 @@ export default async function PricingPage() {
           {offerFreeSignup && <PricingFreeSignup />}
         </section>
 
+        <Testimonials />
+
         <section aria-labelledby="extras-heading" className="px-4 py-14 sm:px-6">
           <div className="mx-auto flex max-w-5xl flex-col gap-6">
             <div className="flex flex-col gap-2 text-center">
@@ -337,6 +341,8 @@ export default async function PricingPage() {
             </div>
           </div>
         </section>
+
+        <VoiceStaysYours />
 
         <section aria-labelledby="gift-heading" className="bg-coral/15 px-4 py-14 sm:px-6" data-testid="pricing-gift">
           <div className="mx-auto flex max-w-5xl flex-col gap-6">

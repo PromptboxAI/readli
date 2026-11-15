@@ -15,7 +15,12 @@ export interface CertificateInput {
   presentedLine: string;
   message: string | null;
   qr: QrCode;
-  code: string;
+  /** The manual code beside the QR code. A card with no code shows `steps` there instead. */
+  code?: string;
+  /** Short numbered lines beside the QR code when there's no code to type, e.g. how a gift arrives. */
+  steps?: string[];
+  /** A small line under the steps, e.g. what the QR code opens. */
+  qrCaption?: string;
   claimHost: string;
   termLine: string;
   claimByLine: string;
@@ -352,18 +357,33 @@ function draw(c: Canvas, input: CertificateInput) {
     tt += 21;
   }
   tt += 1;
-  c.text(`Or visit ${input.claimHost}${input.claimPath ?? "/claim"} and enter this code:`, "body", 11, "ink", tt, { left: colX });
-  tt += 12;
+  if (input.code) {
+    c.text(`Or visit ${input.claimHost}${input.claimPath ?? "/claim"} and enter this code:`, "body", 11, "ink", tt, { left: colX });
+    tt += 12;
 
-  const codeSize = fit(input.code, "heavy", 23, colW - 28, 14, 2.5);
-  const pillH = codeSize + 20;
-  c.fill("sunSoft");
-  c.stroke("sunshine", 1.5);
-  c.roundRect(colX, tt, colW, pillH, pillH / 2);
-  c.ops.push("B");
-  c.text(input.code, "heavy", codeSize, "ink", tt + pillH / 2 + codeSize * 0.36, { cx: colX + colW / 2, tracking: 2.5 });
-  tt += pillH + 18;
-  c.text("Then create your family circle and start listening.", "body", 10, "muted", tt, { left: colX });
+    const codeSize = fit(input.code, "heavy", 23, colW - 28, 14, 2.5);
+    const pillH = codeSize + 20;
+    c.fill("sunSoft");
+    c.stroke("sunshine", 1.5);
+    c.roundRect(colX, tt, colW, pillH, pillH / 2);
+    c.ops.push("B");
+    c.text(input.code, "heavy", codeSize, "ink", tt + pillH / 2 + codeSize * 0.36, { cx: colX + colW / 2, tracking: 2.5 });
+    tt += pillH + 18;
+    c.text("Then create your family circle and start listening.", "body", 10, "muted", tt, { left: colX });
+  } else {
+    (input.steps ?? []).slice(0, 3).forEach((step, k) => {
+      tt += 4;
+      c.fill("sunSoft");
+      c.circle(colX + 8, tt - 4, 8);
+      c.ops.push("f");
+      c.text(String(k + 1), "heavy", 10, "ink", tt, { cx: colX + 8 });
+      for (const l of wrap(step, "body", 11, colW - 26).slice(0, 2)) {
+        c.text(l, "body", 11, "ink", tt, { left: colX + 24 });
+        tt += 14;
+      }
+    });
+    if (input.qrCaption) c.text(input.qrCaption, "body", 10, "muted", tt + 8, { left: colX });
+  }
 
   // Readi, perched on the ticket's top edge.
   const mascotW = 74;
