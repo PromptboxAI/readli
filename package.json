@@ -15,6 +15,7 @@
     "samples:books": "node --experimental-transform-types --no-warnings --import ./scripts/ts-alias.mjs scripts/book-samples.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "^2.117.3",
     "next": "^15.5.27",

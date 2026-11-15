@@ -14,6 +14,8 @@ export interface OutgoingEmail {
   html: string;
   text: string;
   headers: Record<string, string>;
+  /** Where replies go, when that isn't the sender (help chat handoffs reply to the person who asked). */
+  replyTo?: string;
   /** Resend drops a second send with the same key, so a retried request never emails twice. */
   idempotencyKey?: string;
 }
@@ -47,7 +49,7 @@ export class ResendMailer implements Mailer {
         "content-type": "application/json",
         ...(email.idempotencyKey ? { "idempotency-key": email.idempotencyKey } : {}),
       },
-      body: JSON.stringify({ from: this.from, to: [email.to], subject: email.subject, html: email.html, text: email.text, headers: email.headers }),
+      body: JSON.stringify({ from: this.from, to: [email.to], subject: email.subject, html: email.html, text: email.text, headers: email.headers, ...(email.replyTo ? { reply_to: email.replyTo } : {}) }),
     });
     if (!res.ok) throw new MailerError(`resend ${res.status}: ${(await res.text()).slice(0, 200)}`, res.status);
     const body = (await res.json()) as { id?: string };

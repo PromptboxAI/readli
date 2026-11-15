@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Fredoka, Nunito_Sans } from "next/font/google";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { HelpChat } from "@/components/help/HelpChat";
 import { GoogleAnalytics } from "@/components/marketing/GoogleAnalytics";
 import { MetaPixel } from "@/components/marketing/MetaPixel";
+import { helpChatEnabled } from "@/lib/help-chat/server";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL, baseOpenGraph, indexable } from "@/lib/seo/site";
 import "./globals.css";
 
@@ -44,6 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <MetaPixel />
         <GoogleAnalytics />
         {children}
+        <HelpChat enabled={helpChatEnabled()} />
       </body>
     </html>
   );

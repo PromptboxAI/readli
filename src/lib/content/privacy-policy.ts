@@ -43,6 +43,10 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
         text: "IP address, browser and device information, cookies needed for sign-in and security, diagnostics, anti-abuse signals, first-party usage events recorded by Readli itself, and, on some public website pages, the Meta Pixel described in section 8.",
       },
       {
+        lead: "Help chat",
+        text: "questions you type into the “Need help?” chat and the answers it gives. If you choose “Talk to a person,” we also receive the email address and optional name you enter and the chat so far.",
+      },
+      {
         lead: "Payment data",
         text: "plan, billing status, transaction records, and payment identifiers from Stripe. Card details are entered on Stripe’s checkout and are not stored by Readli.",
       },
@@ -130,6 +134,10 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       { lead: "Vercel", text: "website hosting and scheduled jobs." },
       { lead: "Stripe", text: "payments and billing." },
       { lead: "Resend", text: "invitation and other service emails." },
+      {
+        lead: "Anthropic",
+        text: "writes the help chat’s answers with its Claude AI model. Readli sends Anthropic the chat and Readli’s own help content, not your account details. Anthropic’s commercial terms do not allow it to use this data to train its models.",
+      },
       { lead: "Google", text: "sign-in, only if you choose Google sign-in." },
       {
         lead: "Loom",
@@ -188,6 +196,10 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       {
         lead: "Deleting your account",
         text: "you can delete your account in account settings. Deletion is immediate: Readli deletes your voice model at ElevenLabs, your recordings and voice previews, narration generated in your voice for any household, your photos, households and child profiles that belong to you alone, and then your account and the data linked to it.",
+      },
+      {
+        lead: "Help chats",
+        text: "Readli does not save help chats on its servers. A chat stays in your browser tab until you close it or start a new chat. A chat you send with “Talk to a person” is kept in our support inbox as a support request. Anthropic keeps chat data only for the limited time its commercial terms allow, for safety and abuse monitoring.",
       },
       {
         lead: "Child profiles",
