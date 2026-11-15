@@ -198,7 +198,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
   const plan = planConfig();
   const view = home ? familyHome(state, home, plan, adult.id) : null;
   const familyName = account && home ? state.households.find((h) => h.id === home)?.name : null;
-  const pinRegistry = isGuardian && home ? deviceRegistry(Boolean(account)) : null;
+  const pinRegistry = isGuardian && home && session ? deviceRegistry(session) : null;
   const needsPin = Boolean(pinRegistry && kids.length > 0 && !(await pinRegistry.pinHash(home!)));
   const balance = isGuardian && home ? creditBalance(state, plan, home) : null;
   const creditLine = balance ? creditSummary(balance, entitlement?.source === "trial") : null;

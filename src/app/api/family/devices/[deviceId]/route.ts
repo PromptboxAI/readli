@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export async function DELETE(_req: Request, { params }: { params: Promise<{ deviceId: string }> }) {
   const { deviceId } = await params;
   return withFamily(async ({ actor, store, session }) => {
-    const registry = deviceRegistry(Boolean(session.account));
+    const registry = deviceRegistry(session);
     if (!registry) return fail(404, "family_off", FAMILY_OFF);
     await revokeDevice(registry, await store.read(), actor, deviceId);
     return NextResponse.json({ ok: true });

@@ -34,7 +34,7 @@ async function summaries(page: Extract<Awaited<ReturnType<typeof familyPage>>, {
   const state = page.state!;
   const credits = creditBalance(state, store.plan, householdId);
   const left = `${displayCredits(credits.available, credits.unitsPerCredit).toLocaleString("en-US")} credits left`;
-  const registry = deviceRegistry(Boolean(session.account));
+  const registry = deviceRegistry(session);
   const devices = registry ? (await listDevices(registry, state, session.actor, householdId)).filter((d) => d.status === "active").length : null;
   const hasPin = registry ? Boolean(await registry.pinHash(householdId)) : false;
   const parents = state.members.filter((m) => m.householdId === householdId && m.role === "guardian" && m.removedAt === null).length;

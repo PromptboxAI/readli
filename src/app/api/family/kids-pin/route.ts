@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 /** Whether the family has a grown-up PIN for leaving Readli Kids. The PIN itself is never returned. */
 export async function GET() {
   return withFamily(async ({ actor, store, session }) => {
-    const registry = deviceRegistry(Boolean(session.account));
+    const registry = deviceRegistry(session);
     const householdId = await guardianHousehold(store, actor);
     if (!registry) return fail(404, "family_off", FAMILY_OFF);
     if (!householdId) return fail(403, "not_guardian", "Only a parent or guardian can set the PIN.");
@@ -22,7 +22,7 @@ export async function GET() {
 export async function PUT(req: Request) {
   const { pin } = await jsonBody(req);
   return withFamily(async ({ actor, store, session }) => {
-    const registry = deviceRegistry(Boolean(session.account));
+    const registry = deviceRegistry(session);
     const householdId = await guardianHousehold(store, actor);
     if (!registry) return fail(404, "family_off", FAMILY_OFF);
     if (!householdId) return fail(403, "not_guardian", "Only a parent or guardian can set the PIN.");
