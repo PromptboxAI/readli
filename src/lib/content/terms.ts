@@ -10,7 +10,7 @@
 
 import type { PolicySection } from "@/lib/content/privacy-policy";
 
-export const TERMS_EFFECTIVE_DATE = "November 3, 2026";
+export const TERMS_EFFECTIVE_DATE = "November 15, 2026";
 
 export const TERMS_INTRO: string[] = [
   'These Terms of Service ("Terms") govern access to readli.ai and the Readli Family, Readli Kids, Readli Voice, voice demo, and related services (together, "Readli" or the "Services"), provided by Readli.ai LLC ("Readli," "we," "us," or "our"). By creating an adult account or using the Services, you agree to these Terms and to our Privacy Policy (https://readli.ai/privacy). Parent or guardian consent is required for child-managed experiences as provided below.',
@@ -122,7 +122,7 @@ export const TERMS_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Refunds",
-        text: "Subscription payments and renewals are not refundable, and there is no refund for unused time or unused credits, including when you cancel or delete your account. Readli corrects duplicate charges and billing errors, and gives any refund the law where you live requires; contact admin@readli.ai. Gift purchases follow the refund terms shown when you buy the gift.",
+        text: "14-day money-back guarantee: if you're not happy with Readli Family, email admin@readli.ai within 14 days of your first Readli Family subscription payment, monthly or yearly, and we'll refund that payment in full. The guarantee applies once per household, covers only that first subscription payment (not renewals, extra storyteller slots, credit packs or gifts), and your plan ends when the refund is made. Apart from the guarantee, subscription payments and renewals are not refundable, and there is no refund for unused time or unused credits, including when you cancel or delete your account. Readli corrects duplicate charges and billing errors, and gives any refund the law where you live requires; contact admin@readli.ai. Gift purchases follow the refund terms shown when you buy the gift.",
       },
     ],
   },

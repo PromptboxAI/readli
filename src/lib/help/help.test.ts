@@ -19,10 +19,16 @@ describe("help content", () => {
     for (const a of HELP_ARTICLES) expect(a.question + a.answer.join(" ")).not.toMatch(banned);
   });
 
-  it("covers every topic in Kevin's list (42 questions) plus the library articles, what happens after the demo, the sleep timer, the device guides, family activity and offline listening and what happens if Readli goes away", () => {
-    expect(HELP_ARTICLES).toHaveLength(52);
-    expect(visibleArticles(true)).toHaveLength(52);
-    expect(visibleArticles(false)).toHaveLength(52);
+  it("covers every topic in Kevin's list (42 questions) plus the library articles, what happens after the demo, the sleep timer, the device guides, family activity and offline listening, what happens if Readli goes away and the money-back guarantee", () => {
+    expect(HELP_ARTICLES).toHaveLength(53);
+    expect(visibleArticles(true)).toHaveLength(53);
+    expect(visibleArticles(false)).toHaveLength(53);
+  });
+
+  it("explains the 14-day money-back guarantee on the first payment", () => {
+    const answer = HELP_ARTICLES.find((a) => a.slug === "money-back-guarantee")!.answer.join(" ");
+    expect(answer).toMatch(/within 14 days of your first subscription payment/);
+    expect(answer).toMatch(/once per household/);
   });
 
   it("states a timeframe for deleting a voice by email", () => {

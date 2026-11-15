@@ -156,8 +156,12 @@ export default async function PricingPage() {
                 <Link href="/signup/family" className={`${buttonPrimary} w-full`}>
                   Start your family
                 </Link>
-                <p className="text-center text-sm text-muted">
-                  Monthly or yearly, cancel any time.
+                <p className="text-center text-sm text-muted" data-testid="plan-family-guarantee">
+                  Monthly or yearly, cancel any time.{" "}
+                  <Link href="/help/billing-credits-and-gifts/money-back-guarantee" className="font-semibold text-ink underline underline-offset-4">
+                    14-day money-back guarantee
+                  </Link>
+                  .
                 </p>
               </div>
             </article>

@@ -21,7 +21,7 @@ export interface Founder {
   story: string[];
 }
 
-/** Kevin's name, photo and reason for building Readli (2026-10-24). Story in his own words. */
+/** Kevin's name, photo and reason for building Readli. Story approved by Kevin (2026-11-15). */
 export const FOUNDERS: Founder[] = [
   {
     name: "Kevin Godfrey",
@@ -29,9 +29,11 @@ export const FOUNDERS: Founder[] = [
     photo: "/company/godfrey-family.webp",
     photoAlt: "Kevin Godfrey with his family",
     story: [
-      "I built Readli for my three kids, Milly, Abby and Henry. I wanted them to fall asleep hearing the voices of the people who love them, even when those people couldn't be there in person.",
-      "That idea grew into something bigger: a way for grandparents, aunts, uncles and loved ones to be part of bedtime, no matter how far away they live.",
-      "And because these voices belong to real people, I believe they should always remain in the hands of the people who shared them. It's how I'd want my own family's voices treated.",
+      "My mother passed away from cancer. I only knew two of my grandparents, and they were gone when I was very young. My wife lost her father when she was 15. Between us, our kids, Milly, Abby and Henry, have a family tree full of people they'll never get to hear.",
+      "I can't remember what my grandparents sounded like, and that's the part that stays with me. A photo keeps a face, but a voice is what makes someone feel close, and it's the first thing you lose.",
+      "So I built Readli. Grandma, Grandpa, or anyone who loves your kids records about a minute of their voice, and your children can hear classic storybooks read by them every night, no matter how far away they live.",
+      "One day, hearing the people you love read to your children will mean more than you can imagine. I hope Readli gives your family what I wish mine had.",
+      "From my family to yours, happy reading.",
     ],
   },
 ];
