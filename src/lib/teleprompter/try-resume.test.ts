@@ -1,22 +1,24 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
-import { forgetTryVoice, rememberTryVoice, rememberedTryVoice } from "./try-resume";
+import { forgetTryVoice, rememberTryVoice, rememberedTryBook, rememberedTryVoice } from "./try-resume";
 
 describe("try-resume", () => {
   afterEach(() => window.sessionStorage.clear());
 
   it("remembers the voice's clean-up setting for this tab", () => {
     expect(rememberedTryVoice()).toBeNull();
-    rememberTryVoice(true, 1_000);
+    rememberTryVoice(true, "winnie-the-pooh", 1_000);
     expect(rememberedTryVoice(2_000)).toBe(true);
-    rememberTryVoice(false, 1_000);
+    expect(rememberedTryBook(2_000)).toBe("winnie-the-pooh");
+    rememberTryVoice(false, null, 1_000);
     expect(rememberedTryVoice(2_000)).toBe(false);
+    expect(rememberedTryBook(2_000)).toBeNull();
   });
 
   it("forgets once the guest session would have ended, or when asked", () => {
-    rememberTryVoice(true, 0);
+    rememberTryVoice(true, null, 0);
     expect(rememberedTryVoice(22 * 3_600_000)).toBeNull();
-    rememberTryVoice(true, 0);
+    rememberTryVoice(true, null, 0);
     forgetTryVoice();
     expect(rememberedTryVoice(1)).toBeNull();
   });

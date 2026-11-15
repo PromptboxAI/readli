@@ -10,7 +10,8 @@ import { newMetaEventId, trackMeta } from "@/lib/marketing/meta-pixel";
 import { ImproveLink, RecordingTipsDialog } from "./RecordingTips";
 import type { RecordedTake } from "./useMicrophone";
 import { trackGaEvent } from "@/lib/marketing/google-analytics";
-import { rememberTryVoice } from "@/lib/teleprompter/try-resume";
+import { rememberedTryBook, rememberTryVoice } from "@/lib/teleprompter/try-resume";
+import { findDemoBook } from "@/lib/content/demo-books";
 
 type Mode = "live" | "stub" | "off" | "loading";
 type Phase = "idle" | "saving" | "cloning" | "reading" | "playing" | "error";
@@ -31,6 +32,8 @@ interface Played {
   url: string;
   standIn: boolean;
   cleanUp: boolean;
+  /** False when put back in the player after a reload, so it doesn't start playing by itself. */
+  autoPlay: boolean;
 }
 
 const PHASE_COPY: Partial<Record<Phase, string>> = {
@@ -82,6 +85,9 @@ export function VoicePreview({
   const heard = useRef(new Map<string, Played>());
   const [, setHeardCount] = useState(0);
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
+  /** Coming back to a saved voice: stories the server already read in it, and the last one to put back in the player. */
+  const [savedHeard, setSavedHeard] = useState<ReadonlySet<string>>(new Set());
+  const [restoreSlug, setRestoreSlug] = useState<string | null>(null);
   // Noise clean-up starts on only when the recorder heard a noisy room; quiet takes keep their natural sound.
   const [cleanUp, setCleanUp] = useState(() => (take ? take.recorded.qc.issues.includes("noisy") : resumeCleanUp));
   const uploadedTake = useRef<number | null>(null);
@@ -93,19 +99,26 @@ export function VoicePreview({
   useEffect(() => {
     let cancelled = false;
     fetch("/api/demo/status", { cache: "no-store" })
-      .then((r) => r.json() as Promise<{ mode: Mode; guest: { previewsLeft: number; previewsAllowed: number } | null }>)
+      .then((r) => r.json() as Promise<{ mode: Mode; guest: { previewsLeft: number; previewsAllowed: number; heard?: string[] } | null }>)
       .then((s) => {
         if (cancelled) return;
         setMode(s.mode);
         if (s.guest) {
           setPreviewsLeft(s.guest.previewsLeft);
           setPreviewsAllowed(s.guest.previewsAllowed);
+          if (!take && s.mode !== "off" && s.guest.heard?.length) {
+            setSavedHeard(new Set(s.guest.heard));
+            const last = rememberedTryBook();
+            if (last && s.guest.heard.includes(last)) setRestoreSlug(last);
+          }
         }
       })
       .catch(() => !cancelled && setMode("off"));
     return () => {
       cancelled = true;
     };
+    // Once on arrival; `take` doesn't change for this component (a retake remounts it).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -117,6 +130,8 @@ export function VoicePreview({
 
   const voiceKey = `${takeId}:${cleanUp}`;
   const explored = new Set([...heard.current.keys()].filter((k) => k.startsWith(`${voiceKey}|`)).map((k) => k.split("|")[1]!));
+  // The saved voice is the one these server-side stories were read in.
+  if (!take && voiceKey === `saved:${resumeCleanUp}`) for (const slug of savedHeard) explored.add(slug);
 
   const ensureVoice = async (): Promise<boolean> => {
     const voiceKey = `${takeId}:${cleanUp}`;
@@ -168,13 +183,14 @@ export function VoicePreview({
     uploadedTake.current = take.takeNumber;
   };
 
-  const hear = async (book: DemoBook) => {
+  const hear = async (book: DemoBook, autoPlay = true) => {
     setError(null);
     setActiveSlug(book.slug);
     const already = voiceMadeFrom.current === voiceKey ? heard.current.get(`${voiceKey}|${book.slug}`) : undefined;
     if (already) {
-      setPlaying({ ...already });
+      setPlaying({ ...already, autoPlay });
       setPhase("playing");
+      if (nextSteps) rememberTryVoice(cleanUp, book.slug);
       return;
     }
     try {
@@ -190,13 +206,13 @@ export function VoicePreview({
       if (res.headers.has("x-readli-previews-left") && Number.isFinite(left)) setPreviewsLeft(left);
       const allowed = Number(res.headers.get("x-readli-previews-allowed"));
       if (res.headers.has("x-readli-previews-allowed") && Number.isFinite(allowed)) setPreviewsAllowed(allowed);
-      const played: Played = { book, url: URL.createObjectURL(await res.blob()), standIn: res.headers.get("x-readli-stand-in") === "1", cleanUp };
+      const played: Played = { book, url: URL.createObjectURL(await res.blob()), standIn: res.headers.get("x-readli-stand-in") === "1", cleanUp, autoPlay };
       heard.current.set(`${voiceKey}|${book.slug}`, played);
       setHeardCount(heard.current.size);
       setPlaying(played);
       setPhase("playing");
       // Back from signup or checkout reopens the stories in this voice instead of starting over.
-      if (nextSteps) rememberTryVoice(cleanUp);
+      if (nextSteps) rememberTryVoice(cleanUp, book.slug);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setPhase("error");
@@ -205,6 +221,16 @@ export function VoicePreview({
   };
 
   const busy = phase === "saving" || phase === "cloning" || phase === "reading";
+
+  // After a reload or Back, put the last story heard back in the player (a free replay), paused.
+  useEffect(() => {
+    if (!restoreSlug) return;
+    setRestoreSlug(null);
+    const book = findDemoBook(restoreSlug);
+    if (book) void hear(book, false);
+    // hear() is recreated each render; this runs once per restore.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoreSlug]);
 
   // Keep the loader and player in view; on phones they sit above a tall shelf.
   useEffect(() => {
@@ -241,7 +267,7 @@ export function VoicePreview({
               {playing.book.title} · read by you
             </p>
             <p className="text-sm text-white/85">Noise clean-up {playing.cleanUp ? "on" : "off"}</p>
-            <audio key={playing.url} controls autoPlay src={playing.url} className="w-full" aria-label={`${playing.book.title}, read in your voice`} />
+            <audio key={playing.url} controls autoPlay={playing.autoPlay} src={playing.url} className="w-full" aria-label={`${playing.book.title}, read in your voice`} />
             {playing.standIn && (
               <p className="rounded-xl bg-sunshine px-3 py-2 text-sm font-semibold text-ink">
                 Test mode: this is a stand-in sound, not your voice.
@@ -256,8 +282,9 @@ export function VoicePreview({
         </div>
       )}
 
+      {/* Phones only: on desktop, Keep your voice is already in view below the player. */}
       {nextSteps && playing && !busy && (
-        <Link href={voiceSignupHref(playing.cleanUp, playing.book.slug)} className={`${buttonPrimary} w-full`} data-testid="share-voice-cta">
+        <Link href={voiceSignupHref(playing.cleanUp, playing.book.slug)} className={`${buttonPrimary} w-full sm:hidden`} data-testid="share-voice-cta">
           Share my voice, free
         </Link>
       )}
@@ -268,24 +295,35 @@ export function VoicePreview({
         </p>
       )}
 
-      {mode !== "off" && (
-        <label className="flex min-h-11 items-start gap-3 rounded-2xl border-2 border-ink/10 bg-surface p-4">
-          <input
-            type="checkbox"
-            className="mt-1 size-6 shrink-0 accent-coral-deep"
-            checked={cleanUp}
-            disabled={busy}
-            onChange={(e) => setCleanUp(e.target.checked)}
-          />
-          <span className="flex flex-col gap-1">
-            <span className="font-semibold">Clean up background noise</span>
-            <span className="text-sm text-muted">
-              Helps with echoey or noisy rooms, but it can make a clean recording sound less like you. Change it and pick a
-              story again to hear the difference.
+      {/* Shown once a story has played, so there's something to compare against. */}
+      {mode !== "off" && playing && (
+        <div className="flex flex-col gap-3 rounded-2xl border-2 border-ink/10 bg-surface p-4">
+          <label className="flex min-h-11 items-start gap-3">
+            <input
+              type="checkbox"
+              className="mt-1 size-6 shrink-0 accent-coral-deep"
+              checked={cleanUp}
+              disabled={busy}
+              onChange={(e) => setCleanUp(e.target.checked)}
+            />
+            <span className="flex flex-col gap-1">
+              <span className="font-semibold">Clean up background noise</span>
+              <span className="text-sm text-muted">
+                Helps with echoey or noisy rooms, but it can make a clean recording sound less like you. Change it and pick a
+                story again to hear the difference.
+              </span>
             </span>
-          </span>
-        </label>
+          </label>
+          {playing.cleanUp !== cleanUp && !busy && (!outOfStories || heard.current.has(`${voiceKey}|${playing.book.slug}`)) && (
+            <button type="button" className={`${buttonSecondary} w-full sm:w-fit`} onClick={() => void hear(playing.book)} data-testid="cleanup-try-again">
+              Try again with clean-up {cleanUp ? "on" : "off"}
+            </button>
+          )}
+        </div>
       )}
+
+      {/* Desktop: Keep your voice above the counter. Phones: the counter first (order classes below). */}
+      {nextSteps && !busy && (playing || previewsLeft === 0 || !take) && <NextSteps cleanUp={playing?.cleanUp ?? cleanUp} book={playing?.book.slug ?? null} />}
 
       {used !== null && previewsAllowed !== null && mode !== "off" && (
         <div className="flex flex-col gap-2 rounded-2xl bg-surface p-4" data-testid="preview-counter">
@@ -305,18 +343,18 @@ export function VoicePreview({
         </div>
       )}
 
-      {nextSteps && !busy && (playing || previewsLeft === 0 || !take) && <NextSteps cleanUp={playing?.cleanUp ?? cleanUp} book={playing?.book.slug ?? null} />}
+      <div className="max-sm:order-2">
+        <DemoBookShelf
+          heading={heading}
+          onHear={hear}
+          activeSlug={busy || playing ? activeSlug : null}
+          disabledReason={disabledReason}
+          explored={explored}
+          busy={busy}
+        />
+      </div>
 
-      <DemoBookShelf
-        heading={heading}
-        onHear={hear}
-        activeSlug={busy || playing ? activeSlug : null}
-        disabledReason={disabledReason}
-        explored={explored}
-        busy={busy}
-      />
-
-      <p className="text-sm text-muted">
+      <p className="text-sm text-muted max-sm:order-2">
         {mode === "off"
           ? "We never play a stock voice as if it were yours."
           : "Your recording and voice are deleted within 24 hours. We never play a stock voice as if it were yours."}
@@ -338,7 +376,7 @@ function voiceSignupHref(cleanUp: boolean, book: string | null): string {
 function NextSteps({ cleanUp, book }: { cleanUp: boolean; book: string | null }) {
   const carry = `from=try${cleanUp ? "&cleanup=1" : ""}`;
   return (
-    <section aria-labelledby="next-steps-heading" className="flex flex-col gap-4 rounded-panel bg-surface p-5 ring-2 ring-ink/10 sm:p-6" data-testid="try-next-steps">
+    <section aria-labelledby="next-steps-heading" className="flex flex-col gap-4 rounded-panel bg-surface p-5 ring-2 ring-ink/10 max-sm:order-1 sm:p-6" data-testid="try-next-steps">
       <div className="flex flex-col gap-1">
         <h2 id="next-steps-heading" className="font-display text-2xl font-semibold">
           Keep your voice

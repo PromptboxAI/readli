@@ -47,6 +47,8 @@ export interface GuestStore {
   /** A story already read in this voice, kept so replays are free. `key` names the voice and the book. */
   findPreview(sessionId: string, key: string): Promise<{ audio: Blob; contentType: string } | null>;
   savePreview(sessionId: string, key: string, audio: ArrayBuffer, contentType: string): Promise<void>;
+  /** Which of these preview keys are kept for the guest, without downloading the audio. */
+  keptPreviews(sessionId: string, keys: string[]): Promise<string[]>;
   /** Database kill switch (feature_flags.demo_audio). */
   demoAudioEnabled(): Promise<boolean>;
   listExpired(limit: number): Promise<ExpiredGuest[]>;
@@ -153,6 +155,11 @@ export class MemoryGuestStore implements GuestStore {
 
   async savePreview(sessionId: string, key: string, audio: ArrayBuffer, contentType: string) {
     this.guest(sessionId).previews.set(key, { audio: new Blob([audio], { type: contentType }), contentType });
+  }
+
+  async keptPreviews(sessionId: string, keys: string[]) {
+    const previews = this.guest(sessionId).previews;
+    return keys.filter((k) => previews.has(k));
   }
 
   async demoAudioEnabled() {
@@ -426,6 +433,22 @@ export class SupabaseGuestStore implements GuestStore {
       this.db.from("guest_assets").insert({ guest_session_id: sessionId, kind: "generated_audio", storage_key: storageKey, expires_at: session.expires_at }),
       "record cached preview",
     );
+  }
+
+  async keptPreviews(sessionId: string, keys: string[]) {
+    if (keys.length === 0) return [];
+    const byStorageKey = new Map(keys.map((k) => [previewStorageKey(sessionId, k), k]));
+    const rows = await this.maybe<{ storage_key: string }[]>(
+      this.db
+        .from("guest_assets")
+        .select("storage_key")
+        .eq("guest_session_id", sessionId)
+        .eq("kind", "generated_audio")
+        .eq("deletion_state", "active")
+        .in("storage_key", [...byStorageKey.keys()]),
+      "list cached previews",
+    );
+    return [...new Set((rows ?? []).map((r) => byStorageKey.get(r.storage_key)).filter((k): k is string => Boolean(k)))];
   }
 
   async demoAudioEnabled() {
