@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
 import { formatPrice } from "@/lib/family/plan";
 import { newMetaEventId, rememberCheckout, takeCheckout, trackMeta } from "@/lib/marketing/meta-pixel";
+import { trackGaEvent } from "@/lib/marketing/google-analytics";
 
 async function goTo(path: string, body: unknown, setError: (e: string) => void, beforeLeaving?: () => void) {
   const res = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -83,6 +84,7 @@ export function StartPlan(props: { monthlyCents: number; annualCents: number; sl
           const eventId = newMetaEventId();
           void goTo("/api/billing/checkout", { item: choice, extraSlots: extra, ...(eventId ? { metaEventId: eventId } : {}) }, setError, () => {
             trackMeta("InitiateCheckout", { value: cents / 100, currency: "USD", content_name: choice }, eventId);
+            trackGaEvent("begin_checkout", { value: cents / 100, currency: "USD", plan: choice });
             rememberCheckout(cents);
           }).finally(() => setBusy(false));
         }}
@@ -100,7 +102,9 @@ export function StartPlan(props: { monthlyCents: number; annualCents: number; sl
 export function CheckoutDone({ sessionId }: { sessionId?: string }) {
   useEffect(() => {
     const cents = takeCheckout();
-    if (cents !== null) trackMeta("Subscribe", { value: cents / 100, currency: "USD" }, sessionId ? `subscribe_${sessionId}` : null);
+    if (cents === null) return;
+    trackMeta("Subscribe", { value: cents / 100, currency: "USD" }, sessionId ? `subscribe_${sessionId}` : null);
+    trackGaEvent("purchase", { value: cents / 100, currency: "USD", ...(sessionId ? { transaction_id: sessionId } : {}) });
   }, [sessionId]);
   return null;
 }

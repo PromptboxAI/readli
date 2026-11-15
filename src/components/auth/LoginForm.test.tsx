@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const auth = { signInWithOtp: vi.fn(), verifyOtp: vi.fn(), signInWithOAuth: vi.fn() };
 vi.mock("@supabase/ssr", () => ({ createBrowserClient: () => ({ auth }) }));
 vi.mock("@/lib/marketing/meta-pixel", () => ({ trackMeta: vi.fn() }));
+vi.mock("@/lib/marketing/google-analytics", () => ({ trackGaEvent: vi.fn() }));
 
 import { LoginForm } from "./LoginForm";
 

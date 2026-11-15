@@ -1,4 +1,5 @@
 import { newMetaEventId, rememberCheckout, trackMeta } from "@/lib/marketing/meta-pixel";
+import { trackGaEvent } from "@/lib/marketing/google-analytics";
 
 export type FamilyBilling = "monthly" | "annual";
 
@@ -26,6 +27,7 @@ export async function startFamilyCheckout(opts: { billing: FamilyBilling; cents:
   // The server reports the same checkout with this id once Stripe's session exists.
   const eventId = newMetaEventId();
   trackMeta("InitiateCheckout", { value: opts.cents / 100, currency: "USD", content_name: item }, eventId);
+  trackGaEvent("begin_checkout", { value: opts.cents / 100, currency: "USD", plan: item });
   rememberCheckout(opts.cents);
   const { url } = await post("/api/billing/checkout", {
     item,
