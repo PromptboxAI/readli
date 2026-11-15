@@ -8,7 +8,7 @@ test("a finished take becomes a voice and reads four stories, with free replays"
 
   await page.getByRole("button", { name: "Start recording" }).click();
   // Real audio time: the server checks the take's bytes against its length, so a fake clock won't do here.
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
   await page.getByTestId("teleprompter").hover();
   await page.mouse.wheel(0, 20_000);
   await expect(page.getByRole("button", { name: "Finish" })).toBeEnabled({ timeout: 70_000 });
@@ -45,6 +45,11 @@ test("a finished take becomes a voice and reads four stories, with free replays"
   await cleanUp.setChecked(!wasOn);
   // Flipping it offers to hear the same story again with the new setting.
   await expect(preview.getByTestId("cleanup-try-again")).toHaveText(`Try again with clean-up ${wasOn ? "off" : "on"}`);
+  // Hearing the same story with clean-up switched is free: the count doesn't move.
+  await preview.getByTestId("cleanup-try-again").click();
+  await expect(preview.getByText(`Noise clean-up ${wasOn ? "off" : "on"}`)).toBeVisible({ timeout: 15_000 });
+  await expect(preview.getByText("The Tale of Peter Rabbit · read by you")).toBeVisible();
+  await expect(preview.getByTestId("preview-counter")).toContainText("1 of 4 stories explored");
   await preview.getByRole("article", { name: "Winnie-the-Pooh" }).getByRole("button", { name: "Hear this passage" }).click();
   await expect(preview.getByText("Winnie-the-Pooh · read by you")).toBeVisible({ timeout: 15_000 });
   await expect(preview.getByText(`Noise clean-up ${wasOn ? "off" : "on"}`)).toBeVisible();
@@ -98,6 +103,45 @@ test("a finished take becomes a voice and reads four stories, with free replays"
   await expect(page.getByText("Winnie-the-Pooh · read by you")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("preview-counter")).toContainText("4 of 4 stories explored");
   await expect(page.getByRole("article", { name: "The Tale of Peter Rabbit" }).getByRole("button", { name: "Play again" })).toBeVisible();
+
+  // A new recording is a new demo: the count starts again and no story is marked heard.
+  await page.getByRole("button", { name: "← Record a new voice" }).click();
+  if (await page.getByLabel(/18 or older/).isVisible()) {
+    await page.getByLabel(/18 or older/).check();
+    await page.getByLabel(/send this recording to ElevenLabs/).check();
+    await page.getByRole("button", { name: "Continue to recording" }).click();
+  }
+  await page.getByRole("button", { name: "Start recording" }).click();
+  await page.getByTestId("teleprompter").hover();
+  await page.mouse.wheel(0, 20_000);
+  await expect(page.getByRole("button", { name: "Finish" })).toBeEnabled({ timeout: 70_000 });
+  await page.getByRole("button", { name: "Finish" }).click();
+  await page.getByRole("button", { name: "Choose a story" }).click();
+  const fresh = page.getByTestId("voice-preview");
+  await expect(fresh.getByTestId("preview-counter")).toContainText("0 of 4 stories explored");
+  await expect(fresh.getByRole("button", { name: "Play again" })).toHaveCount(0);
+  await fresh.getByRole("article", { name: "The Tale of Peter Rabbit" }).getByRole("button", { name: "Hear this passage" }).click();
+  await expect(fresh.getByText("The Tale of Peter Rabbit · read by you")).toBeVisible({ timeout: 15_000 });
+  await expect(fresh.getByTestId("preview-counter")).toContainText("1 of 4 stories explored");
+
+  // Switching clean-up back and forth never counts as a story, and Keep your voice stays put throughout.
+  const box = fresh.getByLabel(/Clean up background noise/);
+  for (let i = 1; i <= 4; i++) {
+    const on = await box.isChecked();
+    await box.setChecked(!on);
+    await fresh.getByTestId("cleanup-try-again").click();
+    await expect(fresh.getByTestId("try-next-steps")).toBeVisible();
+    await expect(fresh.getByText(`Noise clean-up ${on ? "off" : "on"}`)).toBeVisible({ timeout: 15_000 });
+    await expect(fresh.getByTestId("preview-counter")).toContainText("1 of 4 stories explored");
+  }
+  // A fifth switch on one recording is past the demo's limit: a plain message, and the setting goes back.
+  const before = await box.isChecked();
+  await box.setChecked(!before);
+  await fresh.getByTestId("cleanup-try-again").click();
+  await expect(fresh.getByRole("alert")).toContainText("switched noise clean-up 4 times on this recording");
+  await expect(box).toBeChecked({ checked: before });
+  await expect(fresh.getByTestId("preview-counter")).toContainText("1 of 4 stories explored");
+  await expect(fresh.getByTestId("try-next-steps")).toBeVisible();
 });
 
 test("the server refuses previews without a session and a voice", async ({ request }) => {

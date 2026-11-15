@@ -10,7 +10,7 @@ import { newMetaEventId, trackMeta } from "@/lib/marketing/meta-pixel";
 import { ImproveLink, RecordingTipsDialog } from "./RecordingTips";
 import type { RecordedTake } from "./useMicrophone";
 import { trackGaEvent } from "@/lib/marketing/google-analytics";
-import { rememberedTryBook, rememberTryVoice } from "@/lib/teleprompter/try-resume";
+import { forgetTryVoice, rememberedTryBook, rememberTryVoice } from "@/lib/teleprompter/try-resume";
 import { findDemoBook } from "@/lib/content/demo-books";
 
 type Mode = "live" | "stub" | "off" | "loading";
@@ -95,6 +95,8 @@ export function VoicePreview({
   /** The take and clean-up setting the current voice was made from. A saved voice is already made. */
   const voiceMadeFrom = useRef<string | null>(take ? null : `saved:${resumeCleanUp}`);
   const topRef = useRef<HTMLDivElement>(null);
+  /** The player's last height, which the loader keeps while the next story or voice is made. */
+  const playerHeight = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,7 +131,8 @@ export function VoicePreview({
   }, []);
 
   const voiceKey = `${takeId}:${cleanUp}`;
-  const explored = new Set([...heard.current.keys()].filter((k) => k.startsWith(`${voiceKey}|`)).map((k) => k.split("|")[1]!));
+  // Stories heard from this recording, with clean-up on or off: hearing one again is free either way.
+  const explored = new Set([...heard.current.keys()].filter((k) => k.startsWith(`${takeId}:`)).map((k) => k.split("|")[1]!));
   // The saved voice is the one these server-side stories were read in.
   if (!take && voiceKey === `saved:${resumeCleanUp}`) for (const slug of savedHeard) explored.add(slug);
 
@@ -149,6 +152,9 @@ export function VoicePreview({
       body: JSON.stringify({ removeBackgroundNoise: cleanUp, ...(leadId ? { metaEventId: leadId } : {}) }),
     });
     if (!clone.ok) throw new Error(await errorMessage(clone, "We couldn't make your voice just now. Please try again."));
+    const made = (await clone.json().catch(() => null)) as { previewsLeft?: unknown; previewsAllowed?: unknown } | null;
+    if (typeof made?.previewsLeft === "number") setPreviewsLeft(made.previewsLeft);
+    if (typeof made?.previewsAllowed === "number") setPreviewsAllowed(made.previewsAllowed);
     if (leadId) trackMeta("Lead", { content_name: "Voice demo" }, leadId);
     if (!voiceMadeFrom.current) trackGaEvent("demo_complete");
     voiceMadeFrom.current = voiceKey;
@@ -157,6 +163,8 @@ export function VoicePreview({
 
   const uploadTake = async (take: TakeDetails) => {
     setPhase("saving");
+    // A new recording: an earlier voice's stories shouldn't come back on a reload.
+    forgetTryVoice();
     const session = await fetch("/api/guest/session", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -216,6 +224,9 @@ export function VoicePreview({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setPhase("error");
+      // A clean-up switch that couldn't be made leaves the voice as it was: show its setting again.
+      const made = voiceMadeFrom.current;
+      if (made && made !== voiceKey) setCleanUp(made.endsWith(":true"));
       setActiveSlug(playing?.book.slug ?? null);
     }
   };
@@ -237,7 +248,9 @@ export function VoicePreview({
     if (busy || phase === "playing" || phase === "error") topRef.current?.scrollIntoView({ block: "start" });
   }, [busy, phase]);
   // Back from signup we don't know which stories were heard, so the server says which ones replay.
-  const outOfStories = previewsLeft === 0 && take !== null;
+  // A new recording hasn't made its voice yet: its fresh set of stories starts when it does.
+  const freshTake = take !== null && voiceMadeFrom.current === null;
+  const outOfStories = previewsLeft === 0 && take !== null && !freshTake;
   const disabledReason =
     mode === "loading"
       ? "Checking voice previews…"
@@ -248,19 +261,36 @@ export function VoicePreview({
           : outOfStories
             ? "You've explored all your free stories."
             : null;
-  const used = previewsLeft !== null && previewsAllowed !== null ? Math.max(0, previewsAllowed - previewsLeft) : null;
+  // Keep your voice appears after the first story (or with a saved voice) and then stays, whatever is clicked.
+  const nextStepsDue = nextSteps && !busy && (playing !== null || (previewsLeft === 0 && !freshTake) || !take);
+  const [nextStepsShown, setNextStepsShown] = useState(false);
+  useEffect(() => {
+    if (nextStepsDue) setNextStepsShown(true);
+  }, [nextStepsDue]);
+  const showNextSteps = nextSteps && (nextStepsShown || nextStepsDue);
+  const used = previewsLeft !== null && previewsAllowed !== null ? (freshTake ? 0 : Math.max(0, previewsAllowed - previewsLeft)) : null;
 
   return (
     <div ref={topRef} className="flex scroll-mt-20 flex-col gap-5" data-testid="voice-preview">
+      {/* While a story or voice is being made, the loader takes the player's place at the player's height,
+          so nothing below it moves. */}
       {busy && (
-        <div role="status" className="flex items-center gap-4 rounded-panel bg-plum p-5 text-white">
+        <div
+          role="status"
+          className="flex items-center gap-4 rounded-panel bg-plum p-5 text-white"
+          style={playerHeight.current ? { minHeight: playerHeight.current } : undefined}
+        >
           <ReadiMascot state="listening" size={110} decorative className="animate-bob" />
           <p className="font-display text-xl font-semibold">{PHASE_COPY[phase]}</p>
         </div>
       )}
 
       {playing && !busy && (
-        <div className="flex flex-col gap-3 rounded-panel bg-plum p-5 text-white sm:flex-row sm:items-center">
+        <div
+          ref={(el) => {
+            if (el) playerHeight.current = el.offsetHeight;
+          }}
+          className="flex flex-col gap-3 rounded-panel bg-plum p-5 text-white sm:flex-row sm:items-center">
           <ReadiMascot state="listening" size={110} decorative className="shrink-0" />
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <p className="font-display text-xl font-semibold">
@@ -283,7 +313,7 @@ export function VoicePreview({
       )}
 
       {/* Phones only: on desktop, Keep your voice is already in view below the player. */}
-      {nextSteps && playing && !busy && (
+      {nextSteps && playing && (
         <Link href={voiceSignupHref(playing.cleanUp, playing.book.slug)} className={`${buttonPrimary} w-full sm:hidden`} data-testid="share-voice-cta">
           Share my voice, free
         </Link>
@@ -314,8 +344,14 @@ export function VoicePreview({
               </span>
             </span>
           </label>
-          {playing.cleanUp !== cleanUp && !busy && (!outOfStories || heard.current.has(`${voiceKey}|${playing.book.slug}`)) && (
-            <button type="button" className={`${buttonSecondary} w-full sm:w-fit`} onClick={() => void hear(playing.book)} data-testid="cleanup-try-again">
+          {playing.cleanUp !== cleanUp && (
+            <button
+              type="button"
+              disabled={busy}
+              className={`${buttonSecondary} w-full disabled:cursor-wait disabled:opacity-60 sm:w-fit`}
+              onClick={() => void hear(playing.book)}
+              data-testid="cleanup-try-again"
+            >
               Try again with clean-up {cleanUp ? "on" : "off"}
             </button>
           )}
@@ -323,7 +359,7 @@ export function VoicePreview({
       )}
 
       {/* Keep your voice, then the counter right above the stories (Kevin, 2026-11-15). */}
-      {nextSteps && !busy && (playing || previewsLeft === 0 || !take) && <NextSteps cleanUp={playing?.cleanUp ?? cleanUp} book={playing?.book.slug ?? null} />}
+      {showNextSteps && <NextSteps cleanUp={playing?.cleanUp ?? cleanUp} book={playing?.book.slug ?? null} />}
 
       {used !== null && previewsAllowed !== null && mode !== "off" && (
         <div className="flex flex-col gap-2 rounded-2xl bg-surface p-4" data-testid="preview-counter">
@@ -336,7 +372,7 @@ export function VoicePreview({
             ))}
           </div>
           <p className="text-sm text-muted">
-            {previewsLeft === 0
+            {previewsLeft === 0 && !freshTake
               ? "That's all the free stories for this demo. Stories you've heard play again any time today."
               : "Replaying a story you've already heard is free."}
           </p>
@@ -382,18 +418,19 @@ function NextSteps({ cleanUp, book }: { cleanUp: boolean; book: string | null })
         <p className="text-sm text-muted">Your recording comes with you, so you won&apos;t read the story again. Save it within 24 hours.</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-3 rounded-2xl bg-mint/50 p-4">
-          <p className="font-display text-lg font-semibold">Read to your family&apos;s kids</p>
-          <p className="text-sm">Make a free Readli Voice account and invite the families you love. They choose which children hear you.</p>
-          <Link href={voiceSignupHref(cleanUp, book)} className={`${buttonPrimary} mt-auto w-full`}>
-            Share my voice, free
-          </Link>
-        </div>
+        {/* The paid plan first, with the primary button (Kevin, 2026-11-15). */}
         <div className="flex flex-col gap-3 rounded-2xl bg-sunshine/50 p-4">
           <p className="font-display text-lg font-semibold">Read to your own kids</p>
           <p className="text-sm">Start Readli Family: classic stories in your voice and your storytellers&apos; voices, for every child.</p>
-          <Link href={`/signup/family?${carry}`} className={`${buttonSecondary} mt-auto w-full`}>
+          <Link href={`/signup/family?${carry}`} className={`${buttonPrimary} mt-auto w-full`}>
             Start Readli Family
+          </Link>
+        </div>
+        <div className="flex flex-col gap-3 rounded-2xl bg-mint/50 p-4">
+          <p className="font-display text-lg font-semibold">Read to your family&apos;s kids</p>
+          <p className="text-sm">Make a free Readli Voice account and invite the families you love. They choose which children hear you.</p>
+          <Link href={voiceSignupHref(cleanUp, book)} className={`${buttonSecondary} mt-auto w-full`}>
+            Share my voice, free
           </Link>
         </div>
       </div>
