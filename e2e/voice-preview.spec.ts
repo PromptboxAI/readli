@@ -123,6 +123,25 @@ test("a finished take becomes a voice and reads four stories, with free replays"
   await fresh.getByRole("article", { name: "The Tale of Peter Rabbit" }).getByRole("button", { name: "Hear this passage" }).click();
   await expect(fresh.getByText("The Tale of Peter Rabbit · read by you")).toBeVisible({ timeout: 15_000 });
   await expect(fresh.getByTestId("preview-counter")).toContainText("1 of 4 stories explored");
+
+  // Switching clean-up back and forth never counts as a story, and Keep your voice stays put throughout.
+  const box = fresh.getByLabel(/Clean up background noise/);
+  for (let i = 1; i <= 4; i++) {
+    const on = await box.isChecked();
+    await box.setChecked(!on);
+    await fresh.getByTestId("cleanup-try-again").click();
+    await expect(fresh.getByTestId("try-next-steps")).toBeVisible();
+    await expect(fresh.getByText(`Noise clean-up ${on ? "off" : "on"}`)).toBeVisible({ timeout: 15_000 });
+    await expect(fresh.getByTestId("preview-counter")).toContainText("1 of 4 stories explored");
+  }
+  // A fifth switch on one recording is past the demo's limit: a plain message, and the setting goes back.
+  const before = await box.isChecked();
+  await box.setChecked(!before);
+  await fresh.getByTestId("cleanup-try-again").click();
+  await expect(fresh.getByRole("alert")).toContainText("switched noise clean-up 4 times on this recording");
+  await expect(box).toBeChecked({ checked: before });
+  await expect(fresh.getByTestId("preview-counter")).toContainText("1 of 4 stories explored");
+  await expect(fresh.getByTestId("try-next-steps")).toBeVisible();
 });
 
 test("the server refuses previews without a session and a voice", async ({ request }) => {

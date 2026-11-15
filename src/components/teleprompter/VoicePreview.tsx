@@ -144,12 +144,10 @@ export function VoicePreview({
     // A free voice made on the Try page is the ads' lead; a re-made voice (clean-up switched) isn't a new one.
     // The server reports the same lead with this id, so Meta counts it once.
     const leadId = voiceMadeFrom.current ? null : newMetaEventId();
-    // The first voice from a new recording starts a fresh set of stories; a clean-up switch doesn't.
-    const newTake = take !== null && voiceMadeFrom.current === null;
     const clone = await fetch("/api/guest/clone", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ removeBackgroundNoise: cleanUp, ...(newTake ? { newTake: true } : {}), ...(leadId ? { metaEventId: leadId } : {}) }),
+      body: JSON.stringify({ removeBackgroundNoise: cleanUp, ...(leadId ? { metaEventId: leadId } : {}) }),
     });
     if (!clone.ok) throw new Error(await errorMessage(clone, "We couldn't make your voice just now. Please try again."));
     const made = (await clone.json().catch(() => null)) as { previewsLeft?: unknown; previewsAllowed?: unknown } | null;
@@ -224,6 +222,9 @@ export function VoicePreview({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setPhase("error");
+      // A clean-up switch that couldn't be made leaves the voice as it was: show its setting again.
+      const made = voiceMadeFrom.current;
+      if (made && made !== voiceKey) setCleanUp(made.endsWith(":true"));
       setActiveSlug(playing?.book.slug ?? null);
     }
   };
@@ -258,6 +259,13 @@ export function VoicePreview({
           : outOfStories
             ? "You've explored all your free stories."
             : null;
+  // Keep your voice appears after the first story (or with a saved voice) and then stays, whatever is clicked.
+  const nextStepsDue = nextSteps && !busy && (playing !== null || (previewsLeft === 0 && !freshTake) || !take);
+  const [nextStepsShown, setNextStepsShown] = useState(false);
+  useEffect(() => {
+    if (nextStepsDue) setNextStepsShown(true);
+  }, [nextStepsDue]);
+  const showNextSteps = nextSteps && (nextStepsShown || nextStepsDue);
   const used = previewsLeft !== null && previewsAllowed !== null ? (freshTake ? 0 : Math.max(0, previewsAllowed - previewsLeft)) : null;
 
   return (
@@ -333,7 +341,7 @@ export function VoicePreview({
       )}
 
       {/* Keep your voice, then the counter right above the stories (Kevin, 2026-11-15). */}
-      {nextSteps && !busy && (playing || (previewsLeft === 0 && !freshTake) || !take) && <NextSteps cleanUp={playing?.cleanUp ?? cleanUp} book={playing?.book.slug ?? null} />}
+      {showNextSteps && <NextSteps cleanUp={playing?.cleanUp ?? cleanUp} book={playing?.book.slug ?? null} />}
 
       {used !== null && previewsAllowed !== null && mode !== "off" && (
         <div className="flex flex-col gap-2 rounded-2xl bg-surface p-4" data-testid="preview-counter">

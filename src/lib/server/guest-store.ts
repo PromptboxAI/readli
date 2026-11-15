@@ -41,6 +41,10 @@ export interface GuestStore {
   getVoice(sessionId: string): Promise<string | null>;
   /** How many provider voices this guest has made (retakes each make one). */
   voiceCount(sessionId: string): Promise<number>;
+  /** How many recordings this guest has uploaded. */
+  recordingCount(sessionId: string): Promise<number>;
+  /** How many voices were made from the latest recording (its first, plus one per noise clean-up switch). */
+  voicesForLatestRecording(sessionId: string): Promise<number>;
   /** Atomically spends one preview; false when the guest has none left. */
   useGeneration(sessionId: string): Promise<boolean>;
   refundGeneration(sessionId: string): Promise<void>;
@@ -84,6 +88,8 @@ interface MemoryGuest {
   previews: Map<string, { audio: Blob; contentType: string }>;
   /** Stories read since the latest recording. */
   takeStories?: Set<string>;
+  /** Voices made since the latest recording. */
+  takeVoices?: number;
   voiceId: string | null;
 }
 
@@ -119,6 +125,7 @@ export class MemoryGuestStore implements GuestStore {
     const key = `${sessionId}/${randomUUID()}.${extensionFor(meta.mimeType)}`;
     this.guest(sessionId).recordings.push({ key, audio, mimeType: baseMimeType(meta.mimeType), meta });
     this.guest(sessionId).takeStories = new Set();
+    this.guest(sessionId).takeVoices = 0;
     return { recordingId: key };
   }
 
@@ -136,6 +143,7 @@ export class MemoryGuestStore implements GuestStore {
 
   async setVoice(sessionId: string, voiceId: string) {
     this.guest(sessionId).voiceId = voiceId;
+    this.guest(sessionId).takeVoices = (this.guest(sessionId).takeVoices ?? 0) + 1;
     this.voicesMade.set(sessionId, (this.voicesMade.get(sessionId) ?? 0) + 1);
   }
 
@@ -147,6 +155,14 @@ export class MemoryGuestStore implements GuestStore {
 
   async voiceCount(sessionId: string) {
     return this.voicesMade.get(sessionId) ?? 0;
+  }
+
+  async recordingCount(sessionId: string) {
+    return this.guest(sessionId).recordings.length;
+  }
+
+  async voicesForLatestRecording(sessionId: string) {
+    return this.guest(sessionId).takeVoices ?? 0;
   }
 
   async useGeneration(sessionId: string) {
@@ -417,6 +433,45 @@ export class SupabaseGuestStore implements GuestStore {
     return count ?? 0;
   }
 
+  async recordingCount(sessionId: string) {
+    const { count, error } = await this.db
+      .from("guest_assets")
+      .select("id", { count: "exact", head: true })
+      .eq("guest_session_id", sessionId)
+      .eq("kind", "recording");
+    if (error) throw new Error(`count recordings: ${error.message}`);
+    return count ?? 0;
+  }
+
+  async voicesForLatestRecording(sessionId: string) {
+    const since = await this.latestRecordingTime(sessionId);
+    if (!since) return 0;
+    const { count, error } = await this.db
+      .from("guest_assets")
+      .select("id", { count: "exact", head: true })
+      .eq("guest_session_id", sessionId)
+      .eq("kind", "provider_voice")
+      .gte("created_at", since);
+    if (error) throw new Error(`count voices for recording: ${error.message}`);
+    return count ?? 0;
+  }
+
+  private async latestRecordingTime(sessionId: string): Promise<string | null> {
+    const row = await this.maybe<{ created_at: string }>(
+      this.db
+        .from("guest_assets")
+        .select("created_at")
+        .eq("guest_session_id", sessionId)
+        .eq("kind", "recording")
+        .eq("deletion_state", "active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      "find latest recording time",
+    );
+    return row?.created_at ?? null;
+  }
+
   async useGeneration(sessionId: string) {
     return Boolean(await this.maybe(this.db.rpc("use_guest_generation", { p_session: sessionId }), "spend preview"));
   }
@@ -462,19 +517,8 @@ export class SupabaseGuestStore implements GuestStore {
   }
 
   async storyReadForLatestRecording(sessionId: string, slug: string) {
-    const recording = await this.maybe<{ created_at: string }>(
-      this.db
-        .from("guest_assets")
-        .select("created_at")
-        .eq("guest_session_id", sessionId)
-        .eq("kind", "recording")
-        .eq("deletion_state", "active")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      "find latest recording time",
-    );
-    if (!recording) return false;
+    const since = await this.latestRecordingTime(sessionId);
+    if (!since) return false;
     // Preview files are named <voice hash>-<slug>.mp3, so any voice made from this recording counts.
     const safeSlug = slug.replace(/[^a-zA-Z0-9-]/g, "");
     const rows = await this.maybe<{ id: string }[]>(
@@ -485,7 +529,7 @@ export class SupabaseGuestStore implements GuestStore {
         .eq("kind", "generated_audio")
         .eq("deletion_state", "active")
         .like("storage_key", `${sessionId}/previews/%-${safeSlug}.mp3`)
-        .gte("created_at", recording.created_at)
+        .gte("created_at", since)
         .limit(1),
       "find story read for this recording",
     );

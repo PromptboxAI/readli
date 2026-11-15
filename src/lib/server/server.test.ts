@@ -73,6 +73,12 @@ describe("memory guest store", () => {
     expect(await store.storyReadForLatestRecording(s.id, "the-tale-of-peter-rabbit")).toBe(false);
     await store.resetGenerations(s.id);
     expect(store.guests.get(s.id)!.session.generationsUsed).toBe(0);
+    // Voices are counted per recording, for the clean-up switch limit.
+    expect(await store.recordingCount(s.id)).toBe(2);
+    expect(await store.voicesForLatestRecording(s.id)).toBe(0);
+    await store.setVoice(s.id, "v1");
+    await store.setVoice(s.id, "v2");
+    expect(await store.voicesForLatestRecording(s.id)).toBe(2);
   });
 
   it("guest sessions expire early enough for hourly cleanup to keep the 24-hour promise", () => {

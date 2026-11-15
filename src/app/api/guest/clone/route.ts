@@ -5,16 +5,16 @@ import { fileExtension } from "@/lib/audio/mime";
 import { attributionFrom, eventIdFrom, sendCapiEvent } from "@/lib/server/meta-capi";
 import { recordVoiceEvent } from "@/lib/server/voice-analytics";
 import { VoiceProviderError } from "@/lib/voice/provider";
+import { MAX_CLEANUP_SWITCHES_PER_RECORDING, MAX_RECORDINGS_PER_GUEST, TOO_MANY_CLEANUP_SWITCHES } from "@/lib/server/guest-limits";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Each guest may make a few voices (retakes), never unlimited provider voice slots. This is also the cost
- * backstop for stories: each new recording's voice starts a fresh set, so a guest hears at most
- * MAX_VOICES_PER_GUEST x the stories allowed per demo.
+ * Never unlimited provider voices: each recording (at most MAX_RECORDINGS_PER_GUEST, checked on upload)
+ * makes one voice, plus one per noise clean-up switch, capped per recording.
  */
-const MAX_VOICES_PER_GUEST = 3;
+const MAX_VOICES_PER_GUEST = MAX_RECORDINGS_PER_GUEST * (1 + MAX_CLEANUP_SWITCHES_PER_RECORDING);
 
 /**
  * Turns the guest's latest take into an instant voice clone. No stock voice is ever substituted. When the
@@ -29,12 +29,14 @@ export async function POST(req: Request) {
 
   const recording = await deps.store.latestRecording(guest.id);
   if (!recording) return fail(409, "no_recording", "Record your voice first, then pick a story.");
-  if ((await deps.store.voiceCount(guest.id)) >= MAX_VOICES_PER_GUEST) {
-    return fail(429, "too_many_voices", "You've made a few voices already. Pick a story to hear the latest one.");
+  // The first voice for a recording is always allowed (uploads are capped); after that, each is a clean-up switch.
+  const fromThisRecording = await deps.store.voicesForLatestRecording(guest.id);
+  if (fromThisRecording > MAX_CLEANUP_SWITCHES_PER_RECORDING || (await deps.store.voiceCount(guest.id)) >= MAX_VOICES_PER_GUEST) {
+    return fail(429, "too_many_voices", TOO_MANY_CLEANUP_SWITCHES);
   }
 
   // The guest's choice from the preview panel; missing or malformed means the default (on).
-  const body = (await req.json().catch(() => null)) as { removeBackgroundNoise?: unknown; metaEventId?: unknown; newTake?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { removeBackgroundNoise?: unknown; metaEventId?: unknown } | null;
   const removeBackgroundNoise = body?.removeBackgroundNoise !== false;
 
   const previous = await deps.store.getVoice(guest.id);
@@ -48,7 +50,7 @@ export async function POST(req: Request) {
     });
     await deps.store.setVoice(guest.id, voiceId);
     // A new recording is a new demo: its story count starts again. Switching noise clean-up keeps the count.
-    if (body?.newTake === true) await deps.store.resetGenerations(guest.id);
+    if (fromThisRecording === 0) await deps.store.resetGenerations(guest.id);
     await recordVoiceEvent(deps.config, { name: "voice_cloned", guestSessionId: guest.id, properties: { surface: "guest", removeBackgroundNoise } });
   } catch (err) {
     console.error("clone failed", err);
@@ -63,7 +65,7 @@ export async function POST(req: Request) {
   if (leadId && attribution) {
     after(() => sendCapiEvent({ name: "Lead", eventId: leadId, attribution, externalId: guest.id, customData: { content_name: "Voice demo" } }));
   }
-  const used = body?.newTake === true ? 0 : guest.generationsUsed;
+  const used = fromThisRecording === 0 ? 0 : guest.generationsUsed;
   return NextResponse.json(
     { status: "ready", previewsLeft: Math.max(0, guest.generationsAllowed - used), previewsAllowed: guest.generationsAllowed },
     { status: 201 },
