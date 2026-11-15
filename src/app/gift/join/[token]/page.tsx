@@ -5,8 +5,9 @@ import { AdultPage, Eyebrow } from "@/components/invites/AdultPage";
 import { GiftBoxArt } from "@/components/invites/illustrations";
 import { JoinGiftButton } from "@/components/sponsorship/JoinGiftButton";
 import { currentAdult } from "@/lib/auth/adult";
+import { pricing } from "@/lib/content/pricing";
 import { sponsorshipContext } from "@/lib/sponsorship/http";
-import { shortDate } from "@/lib/sponsorship/rules";
+import { shortDate, SPONSORED } from "@/lib/sponsorship/rules";
 import { invitationLanding } from "@/lib/sponsorship/view";
 
 export const metadata: Metadata = { title: "A Readli gift for your family | Readli", robots: { index: false } };
@@ -35,6 +36,7 @@ export default async function JoinGiftPage({ params }: { params: Promise<{ token
     );
   }
   const from = gift.giverName;
+  const listeners = (await pricing()).simultaneousListeners;
   const signedIn = Boolean(await currentAdult());
   const here = `/gift/join/${token}`;
   return (
@@ -57,10 +59,10 @@ export default async function JoinGiftPage({ params }: { params: Promise<{ token
         </li>
         <li className="rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
           <p className="font-semibold">{gift.creditShare} story credits a month</p>
-          <p className="text-sm">Your share of {from}&apos;s 40; replays are free.</p>
+          <p className="text-sm">{gift.creditShare >= SPONSORED.monthlyCredits ? "For new stories. Replays are always free." : `Your share of ${from}'s ${SPONSORED.monthlyCredits}. Replays are always free.`}</p>
         </li>
         <li className="rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
-          <p className="font-semibold">2 children listening at once</p>
+          <p className="font-semibold">{listeners} children listening at once</p>
           <p className="text-sm">Kids Mode with your own PIN.</p>
         </li>
       </ul>
