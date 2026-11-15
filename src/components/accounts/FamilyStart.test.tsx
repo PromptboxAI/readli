@@ -5,6 +5,7 @@ const auth = { signInWithOtp: vi.fn(async () => ({ error: null })), verifyOtp: v
 vi.mock("@supabase/ssr", () => ({ createBrowserClient: () => ({ auth }) }));
 const trackMeta = vi.fn();
 vi.mock("@/lib/marketing/meta-pixel", () => ({ trackMeta: (...a: unknown[]) => trackMeta(...a), trackMetaCustom: vi.fn(), rememberCheckout: vi.fn(), newMetaEventId: () => null }));
+vi.mock("@/lib/marketing/google-analytics", () => ({ trackGaEvent: vi.fn() }));
 
 import { FamilyStart } from "./FamilyStart";
 
