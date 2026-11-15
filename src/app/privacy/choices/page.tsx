@@ -27,6 +27,9 @@ export default function PrivacyChoicesPage() {
           actions. Opting out here stops those too. The pixel never runs in Readli Kids or the parent portal, and Meta never gets voice recordings or
           anything about children from Readli.
         </p>
+        <p>
+          Opting out also turns off Google Analytics, which we use on the same public pages to count visits and see how people find Readli.
+        </p>
         <AdsChoice />
         <p className="text-sm">
           Your choice is saved in this browser, so make it again on other browsers and devices, or after clearing site data. A Global Privacy Control signal

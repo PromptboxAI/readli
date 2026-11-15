@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { stopGa } from "@/lib/marketing/google-analytics";
 import { adsOptedOut, setAdsOptOut } from "@/lib/marketing/meta-pixel";
 
 /** The "Do Not Sell or Share" switch for this browser. Global Privacy Control already counts as opting out. */
@@ -15,7 +16,7 @@ export function AdsChoice() {
   if (state === "gpc") {
     return (
       <p role="status" className="rounded-2xl bg-mint/50 p-4" data-testid="ads-choice">
-        Your browser sends a Global Privacy Control signal, so you&apos;re already opted out. Readli doesn&apos;t load the Meta Pixel for you.
+        Your browser sends a Global Privacy Control signal, so you&apos;re already opted out. Readli doesn&apos;t load the Meta Pixel or Google Analytics for you.
       </p>
     );
   }
@@ -23,13 +24,14 @@ export function AdsChoice() {
   return (
     <div className="flex flex-col gap-3" data-testid="ads-choice">
       <p role="status" className={`rounded-2xl p-4 ${out ? "bg-mint/50" : "bg-surface ring-2 ring-ink/10"}`}>
-        {out ? "You're opted out on this browser. Readli won't load the Meta Pixel here." : "You're not opted out on this browser."}
+        {out ? "You're opted out on this browser. Readli won't load the Meta Pixel or Google Analytics here." : "You're not opted out on this browser."}
       </p>
       <button
         type="button"
         className={`${out ? buttonSecondary : buttonPrimary} self-start`}
         onClick={() => {
           setAdsOptOut(!out);
+          if (!out) stopGa();
           setState(out ? "in" : "out");
         }}
       >

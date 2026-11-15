@@ -10,7 +10,7 @@
 export type PolicyParagraph = { lead?: string; text: string };
 export type PolicySection = { id: string; title: string; paragraphs: PolicyParagraph[] };
 
-export const PRIVACY_EFFECTIVE_DATE = "November 5, 2026";
+export const PRIVACY_EFFECTIVE_DATE = "November 15, 2026";
 
 export const PRIVACY_INTRO: string[] = [
   'Readli ("Readli," "we," "our," or "us"), operated by Readli.ai LLC at 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790, provides family storytelling, children’s reading, and optional AI-generated narration in voices that participating adults choose to record and share. This Privacy Policy describes how we collect, use, disclose, retain, and protect information when you visit readli.ai, try our voice demo, or use Readli Family, Readli Kids, Readli Voice, and related features (together, the "Services").',
@@ -152,11 +152,15 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     title: "8. Cookies and analytics",
     paragraphs: [
       {
-        text: "We use essential cookies for sign-in, security, Kids Mode devices, and the demo. When you first arrive at readli.ai from another website or a tagged link, a first-party cookie remembers how you found us (such as the campaign name, which kind of ad link it was, or the referring website’s name) for up to 90 days, and we save that with your family when you create one so we can count which channels bring families to Readli. It never runs in Readli Kids and is not shared with anyone. Readli records its own usage events in its own database and does not use third-party analytics. Fonts are served from Readli’s own site. Embedded content, such as the Loom video above, may set its provider’s cookies when you play it.",
+        text: "We use essential cookies for sign-in, security, Kids Mode devices, and the demo. When you first arrive at readli.ai from another website or a tagged link, a first-party cookie remembers how you found us (such as the campaign name, which kind of ad link it was, or the referring website’s name) for up to 90 days, and we save that with your family when you create one so we can count which channels bring families to Readli. It never runs in Readli Kids and is not shared with anyone. Inside the app, Readli records its own usage events in its own database. Fonts are served from Readli’s own site. Embedded content, such as the Loom video above, may set its provider’s cookies when you play it.",
       },
       {
         lead: "Meta Pixel",
         text: "on public website pages for grown-ups (such as the homepage, the Try page, pricing, the library, help, gifts, sign-up, and Plan & credits), we use the Meta Pixel from Meta Platforms, Inc. to measure and improve our ads on Facebook and Instagram. It sets Meta cookies and tells Meta which of these pages you visited and whether you made a demo voice, started sign-up, or started a plan and its price, along with your IP address and browser information. It does not receive voice recordings, email addresses, or child-profile information. It never runs in Readli Kids, in the rest of the parent portal, on invitation pages, or on the sign-in and legal pages. Meta may use this information under its own privacy policy, including to show you ads for Readli.",
+      },
+      {
+        lead: "Google Analytics",
+        text: "on the same public website pages as the Meta Pixel, we use Google Analytics from Google LLC to count visits and see how people find and use the website. It sets Google Analytics cookies and tells Google which of these pages you visited, the website or link that brought you there, and your IP address and browser and device information. Google signals and ad personalization are turned off, so we don’t use it to show you ads. It does not receive voice recordings, email addresses, or child-profile information, and it never runs in Readli Kids, in the rest of the parent portal, on invitation pages, or on the sign-in and legal pages. Google may use this information under its own privacy policy.",
       },
       {
         lead: "Meta Conversions API",
@@ -164,7 +168,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Your choices",
-        text: "you can opt out of this sharing at https://readli.ai/privacy/choices (the “Do Not Sell or Share My Personal Information” link at the bottom of our website pages), and Readli then stops loading the Meta Pixel and stops sending Conversions API events for actions on that browser. If your browser sends a Global Privacy Control signal, we treat it as the same opt-out, including for a purchase you start from that browser. Readli does not sell personal information for money. You can also manage ad settings in your Facebook or Instagram account, or block third-party cookies in your browser.",
+        text: "you can opt out of this sharing at https://readli.ai/privacy/choices (the “Do Not Sell or Share My Personal Information” link at the bottom of our website pages), and Readli then stops loading the Meta Pixel and Google Analytics and stops sending Conversions API events for actions on that browser. If your browser sends a Global Privacy Control signal, we treat it as the same opt-out, including for a purchase you start from that browser. Readli does not sell personal information for money. You can also manage ad settings in your Facebook or Instagram account, or block third-party cookies in your browser.",
       },
     ],
   },

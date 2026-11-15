@@ -48,4 +48,11 @@ describe("published legal pages (Kevin, 2026-10-23)", () => {
     expect(privacy).toMatch(/never send voice recordings, voice details, names, phone numbers, birth dates, or anything about children/);
     expect(privacy).not.toMatch(/does not use third-party analytics or advertising trackers/);
   });
+
+  it("say where Google Analytics runs and that the opt-out covers it (Kevin, 2026-11-15)", () => {
+    expect(privacy).toMatch(/Google Analytics/);
+    expect(privacy).toMatch(/Google signals and ad personalization are turned off/);
+    expect(privacy).toMatch(/stops loading the Meta Pixel and Google Analytics/);
+    expect(privacy).not.toMatch(/does not use third-party analytics/);
+  });
 });
