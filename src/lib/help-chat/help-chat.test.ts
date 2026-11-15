@@ -148,3 +148,47 @@ describe("talk to a person", () => {
     expect(email.html).not.toContain("<b>won't</b>");
   });
 });
+
+describe("public pages in the help chat", () => {
+  it("reads every sitemap page whose content isn't already in the knowledge", async () => {
+    const { pagesToRead } = await import("./site-pages");
+    const { publicPages } = await import("@/lib/seo/pages");
+    const paths = pagesToRead().map((p) => p.path);
+    for (const p of ["/", "/donations", "/gifts", "/grandparents", "/about", "/parents/safety", "/pricing", "/help/recording-tips", "/vs/yoto"]) {
+      expect(paths).toContain(p);
+    }
+    for (const p of ["/help", "/help/getting-started", "/guides", "/books", "/privacy", "/terms", "/accessibility"]) expect(paths).not.toContain(p);
+    // Anything skipped is covered by the knowledge built from source.
+    const text = staticKnowledge([]);
+    for (const page of publicPages()) {
+      if (paths.includes(page.path) || /^\/(books|help\/[^/]+)$|^\/books\//.test(page.path) || ["/help", "/guides", "/books"].includes(page.path)) continue;
+      expect(text, page.path).toContain(page.path);
+    }
+  });
+
+  it("turns a page's main content into text with Readli links", async () => {
+    const { htmlToText } = await import("./site-pages");
+    const html = `<html><body><header>Menu</header><main class="x"><h1>Readli Gives Back</h1><script>bad()</script>
+      <p>We donate <strong>family memberships</strong> to school raffles &amp; auctions.</p>
+      <ul><li>Ask by <a href="/donations#request">filling in the form</a></li><li>Email <a href="mailto:admin@readli.ai">us</a></li></ul>
+      <svg><text>icon</text></svg></main><footer>Footer</footer></body></html>`;
+    expect(htmlToText(html)).toBe(
+      "### Readli Gives Back\nWe donate family memberships to school raffles & auctions.\n- Ask by [filling in the form](/donations#request)\n- Email us",
+    );
+  });
+
+  it("skips pages that fail and keeps the rest", async () => {
+    const { readSitePages } = await import("./site-pages");
+    const fetchImpl = (async (url: URL) =>
+      url.pathname === "/donations"
+        ? new Response(`<main><p>Readli donates memberships to school raffles and charity auctions.</p></main>`, { headers: { "content-type": "text/html" } })
+        : new Response("nope", { status: 500 })) as unknown as typeof fetch;
+    const r = await readSitePages("https://readli.ai", [
+      { path: "/donations", title: "Readli Gives Back", priority: 1, changeFrequency: "monthly" },
+      { path: "/gifts", title: "Gifts", priority: 1, changeFrequency: "monthly" },
+    ], { fetchImpl });
+    expect(r.read).toBe(1);
+    expect(r.total).toBe(2);
+    expect(r.text).toContain("## Readli Gives Back (/donations)\nReadli donates memberships");
+  });
+});

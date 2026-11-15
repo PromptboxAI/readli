@@ -54,7 +54,7 @@ export async function POST(req: Request) {
   const db = accountDb();
   if ((await spentToday(db).catch(() => 0)) >= dailyCapUsd()) return fail(503, "cap", OFF);
 
-  const { stable, prices } = await helpChatKnowledge();
+  const { stable, pages, prices } = await helpChatKnowledge(req.url);
   const client = new Anthropic();
   const encoder = new TextEncoder();
 
@@ -74,7 +74,8 @@ export async function POST(req: Request) {
           output_config: { effort: "low" },
           system: [
             { type: "text", text: HELP_CHAT_RULES },
-            { type: "text", text: `<readli_knowledge>\n${stable}\n</readli_knowledge>`, cache_control: { type: "ephemeral" } },
+            { type: "text", text: `<readli_knowledge>\n${stable}\n</readli_knowledge>`, ...(pages ? {} : { cache_control: { type: "ephemeral" as const } }) },
+            ...(pages ? [{ type: "text" as const, text: `<readli_site_pages>\n${pages}\n</readli_site_pages>`, cache_control: { type: "ephemeral" as const } }] : []),
             ...(prices ? [{ type: "text" as const, text: prices }] : []),
           ],
           messages: chat.messages,
