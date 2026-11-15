@@ -5,16 +5,10 @@ import { fileExtension } from "@/lib/audio/mime";
 import { attributionFrom, eventIdFrom, sendCapiEvent } from "@/lib/server/meta-capi";
 import { recordVoiceEvent } from "@/lib/server/voice-analytics";
 import { VoiceProviderError } from "@/lib/voice/provider";
-import { MAX_CLEANUP_SWITCHES_PER_RECORDING, MAX_RECORDINGS_PER_GUEST, TOO_MANY_CLEANUP_SWITCHES } from "@/lib/server/guest-limits";
+import { MAX_CLEANUP_SWITCHES_PER_RECORDING, MAX_VOICES_PER_GUEST, TOO_MANY_CLEANUP_SWITCHES, TOO_MANY_VOICES } from "@/lib/server/guest-limits";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-
-/**
- * Never unlimited provider voices: each recording (at most MAX_RECORDINGS_PER_GUEST, checked on upload)
- * makes one voice, plus one per noise clean-up switch, capped per recording.
- */
-const MAX_VOICES_PER_GUEST = MAX_RECORDINGS_PER_GUEST * (1 + MAX_CLEANUP_SWITCHES_PER_RECORDING);
 
 /**
  * Turns the guest's latest take into an instant voice clone. No stock voice is ever substituted. When the
@@ -29,11 +23,11 @@ export async function POST(req: Request) {
 
   const recording = await deps.store.latestRecording(guest.id);
   if (!recording) return fail(409, "no_recording", "Record your voice first, then pick a story.");
-  // The first voice for a recording is always allowed (uploads are capped); after that, each is a clean-up switch.
+  // Never unlimited provider voices. The first voice for a recording counts against the overall backstop;
+  // after that, each voice is a noise clean-up switch, capped per recording.
   const fromThisRecording = await deps.store.voicesForLatestRecording(guest.id);
-  if (fromThisRecording > MAX_CLEANUP_SWITCHES_PER_RECORDING || (await deps.store.voiceCount(guest.id)) >= MAX_VOICES_PER_GUEST) {
-    return fail(429, "too_many_voices", TOO_MANY_CLEANUP_SWITCHES);
-  }
+  if (fromThisRecording > MAX_CLEANUP_SWITCHES_PER_RECORDING) return fail(429, "too_many_voices", TOO_MANY_CLEANUP_SWITCHES);
+  if ((await deps.store.voiceCount(guest.id)) >= MAX_VOICES_PER_GUEST) return fail(429, "too_many_voices", TOO_MANY_VOICES);
 
   // The guest's choice from the preview panel; missing or malformed means the default (on).
   const body = (await req.json().catch(() => null)) as { removeBackgroundNoise?: unknown; metaEventId?: unknown } | null;

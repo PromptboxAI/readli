@@ -3,7 +3,6 @@ import { currentGuest, effectiveMode, guestDemoDeps } from "@/lib/server/guest-d
 import { fail, NO_SESSION, PREVIEWS_OFF } from "@/lib/server/http";
 import { checkUpload, SERVER_QC_MESSAGES } from "@/lib/server/recording-qc";
 import { recordVoiceEvent } from "@/lib/server/voice-analytics";
-import { MAX_RECORDINGS_PER_GUEST, TOO_MANY_RECORDINGS } from "@/lib/server/guest-limits";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +19,6 @@ export async function POST(req: Request) {
   if ((await effectiveMode(deps)) === "off" || !deps) return fail(503, "previews_off", PREVIEWS_OFF);
   const guest = await currentGuest(deps);
   if (!guest) return fail(401, "no_session", NO_SESSION);
-
-  if ((await deps.store.recordingCount(guest.id)) >= MAX_RECORDINGS_PER_GUEST) return fail(429, "too_many_recordings", TOO_MANY_RECORDINGS);
 
   const form = await req.formData().catch(() => null);
   const audio = form?.get("audio");

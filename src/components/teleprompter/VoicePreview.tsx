@@ -95,6 +95,8 @@ export function VoicePreview({
   /** The take and clean-up setting the current voice was made from. A saved voice is already made. */
   const voiceMadeFrom = useRef<string | null>(take ? null : `saved:${resumeCleanUp}`);
   const topRef = useRef<HTMLDivElement>(null);
+  /** The player's last height, which the loader keeps while the next story or voice is made. */
+  const playerHeight = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -270,15 +272,25 @@ export function VoicePreview({
 
   return (
     <div ref={topRef} className="flex scroll-mt-20 flex-col gap-5" data-testid="voice-preview">
+      {/* While a story or voice is being made, the loader takes the player's place at the player's height,
+          so nothing below it moves. */}
       {busy && (
-        <div role="status" className="flex items-center gap-4 rounded-panel bg-plum p-5 text-white">
+        <div
+          role="status"
+          className="flex items-center gap-4 rounded-panel bg-plum p-5 text-white"
+          style={playerHeight.current ? { minHeight: playerHeight.current } : undefined}
+        >
           <ReadiMascot state="listening" size={110} decorative className="animate-bob" />
           <p className="font-display text-xl font-semibold">{PHASE_COPY[phase]}</p>
         </div>
       )}
 
       {playing && !busy && (
-        <div className="flex flex-col gap-3 rounded-panel bg-plum p-5 text-white sm:flex-row sm:items-center">
+        <div
+          ref={(el) => {
+            if (el) playerHeight.current = el.offsetHeight;
+          }}
+          className="flex flex-col gap-3 rounded-panel bg-plum p-5 text-white sm:flex-row sm:items-center">
           <ReadiMascot state="listening" size={110} decorative className="shrink-0" />
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <p className="font-display text-xl font-semibold">
@@ -301,7 +313,7 @@ export function VoicePreview({
       )}
 
       {/* Phones only: on desktop, Keep your voice is already in view below the player. */}
-      {nextSteps && playing && !busy && (
+      {nextSteps && playing && (
         <Link href={voiceSignupHref(playing.cleanUp, playing.book.slug)} className={`${buttonPrimary} w-full sm:hidden`} data-testid="share-voice-cta">
           Share my voice, free
         </Link>
@@ -332,8 +344,14 @@ export function VoicePreview({
               </span>
             </span>
           </label>
-          {playing.cleanUp !== cleanUp && !busy && (
-            <button type="button" className={`${buttonSecondary} w-full sm:w-fit`} onClick={() => void hear(playing.book)} data-testid="cleanup-try-again">
+          {playing.cleanUp !== cleanUp && (
+            <button
+              type="button"
+              disabled={busy}
+              className={`${buttonSecondary} w-full disabled:cursor-wait disabled:opacity-60 sm:w-fit`}
+              onClick={() => void hear(playing.book)}
+              data-testid="cleanup-try-again"
+            >
               Try again with clean-up {cleanUp ? "on" : "off"}
             </button>
           )}
