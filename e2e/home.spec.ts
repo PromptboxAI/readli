@@ -13,18 +13,24 @@ test("homepage follows the design brief order with six books under the demo", as
   const books = page.getByTestId("demo-books").getByRole("article");
   await expect(books).toHaveCount(6);
 
-  // Family tree: explorable without signing up, nothing is sent.
-  const tree = page.getByTestId("family-tree");
-  // Phones open on the list, cut off after Grandpa Joe.
+  // Testimonials sit right above the closing sign-up buttons.
+  expect(headings.indexOf("Start a family library") - headings.indexOf("What families are saying")).toBe(1);
+
+  // Family tree: hidden on phones; elsewhere explorable without signing up, nothing is sent.
   const phone = (page.viewportSize()?.width ?? 1000) < 640;
-  await expect(tree.getByRole("button", { name: "List", exact: true })).toHaveAttribute("aria-pressed", String(phone));
-  await tree.getByRole("button", { name: /Grandpa Joe/ }).click();
-  const profile = page.getByRole("region", { name: "Grandpa Joe's profile" });
-  await profile.getByRole("button", { name: "Invite to record" }).click();
-  await expect(profile).toContainText("nothing was sent");
-  await tree.getByRole("button", { name: "List", exact: true }).click();
-  await expect(tree.getByRole("list", { name: "Example family members" }).getByRole("button")).toHaveCount(phone ? 4 : 8);
-  await tree.getByRole("button", { name: "Tree", exact: true }).click();
+  if (phone) {
+    await expect(page.getByTestId("home-family-circles")).toBeHidden();
+  } else {
+    const tree = page.getByTestId("family-tree");
+    await expect(tree.getByRole("button", { name: "List", exact: true })).toHaveAttribute("aria-pressed", "false");
+    await tree.getByRole("button", { name: /Grandpa Joe/ }).click();
+    const profile = page.getByRole("region", { name: "Grandpa Joe's profile" });
+    await profile.getByRole("button", { name: "Invite to record" }).click();
+    await expect(profile).toContainText("nothing was sent");
+    await tree.getByRole("button", { name: "List", exact: true }).click();
+    await expect(tree.getByRole("list", { name: "Example family members" }).getByRole("button")).toHaveCount(8);
+    await tree.getByRole("button", { name: "Tree", exact: true }).click();
+  }
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
