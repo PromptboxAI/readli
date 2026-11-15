@@ -58,6 +58,23 @@ describe("memory guest store", () => {
     expect(await store.useGeneration(s.id)).toBe(true);
   });
 
+  it("a new recording starts a fresh set of stories; a story read again from the same recording is known", async () => {
+    const store = new MemoryGuestStore();
+    const s = await store.createSession({ tokenHash: "h4", policyVersion: "v", generationsAllowed: 4 });
+    const meta = { durationMs: 60_000, mimeType: "audio/webm", teleprompterWpm: null, pauseCount: 0, deviceClass: null, scriptOffsetEnd: null };
+    await store.saveRecording(s.id, new Blob(["a"]), meta);
+    expect(await store.useGeneration(s.id)).toBe(true);
+    await store.savePreview(s.id, "abc123-the-tale-of-peter-rabbit", new ArrayBuffer(1), "audio/mpeg");
+    // Clean-up switched: a new voice hash, same recording and story.
+    expect(await store.storyReadForLatestRecording(s.id, "the-tale-of-peter-rabbit")).toBe(true);
+    expect(await store.storyReadForLatestRecording(s.id, "winnie-the-pooh")).toBe(false);
+    // A new recording: nothing read yet, and the count starts again once its voice is made.
+    await store.saveRecording(s.id, new Blob(["b"]), meta);
+    expect(await store.storyReadForLatestRecording(s.id, "the-tale-of-peter-rabbit")).toBe(false);
+    await store.resetGenerations(s.id);
+    expect(store.guests.get(s.id)!.session.generationsUsed).toBe(0);
+  });
+
   it("guest sessions expire early enough for hourly cleanup to keep the 24-hour promise", () => {
     expect(GUEST_TTL_MS + 3 * 60 * 60 * 1000).toBeLessThanOrEqual(GUEST_DELETION_PROMISE_MS);
   });

@@ -10,7 +10,7 @@ import { newMetaEventId, trackMeta } from "@/lib/marketing/meta-pixel";
 import { ImproveLink, RecordingTipsDialog } from "./RecordingTips";
 import type { RecordedTake } from "./useMicrophone";
 import { trackGaEvent } from "@/lib/marketing/google-analytics";
-import { rememberedTryBook, rememberTryVoice } from "@/lib/teleprompter/try-resume";
+import { forgetTryVoice, rememberedTryBook, rememberTryVoice } from "@/lib/teleprompter/try-resume";
 import { findDemoBook } from "@/lib/content/demo-books";
 
 type Mode = "live" | "stub" | "off" | "loading";
@@ -129,7 +129,8 @@ export function VoicePreview({
   }, []);
 
   const voiceKey = `${takeId}:${cleanUp}`;
-  const explored = new Set([...heard.current.keys()].filter((k) => k.startsWith(`${voiceKey}|`)).map((k) => k.split("|")[1]!));
+  // Stories heard from this recording, with clean-up on or off: hearing one again is free either way.
+  const explored = new Set([...heard.current.keys()].filter((k) => k.startsWith(`${takeId}:`)).map((k) => k.split("|")[1]!));
   // The saved voice is the one these server-side stories were read in.
   if (!take && voiceKey === `saved:${resumeCleanUp}`) for (const slug of savedHeard) explored.add(slug);
 
@@ -143,12 +144,17 @@ export function VoicePreview({
     // A free voice made on the Try page is the ads' lead; a re-made voice (clean-up switched) isn't a new one.
     // The server reports the same lead with this id, so Meta counts it once.
     const leadId = voiceMadeFrom.current ? null : newMetaEventId();
+    // The first voice from a new recording starts a fresh set of stories; a clean-up switch doesn't.
+    const newTake = take !== null && voiceMadeFrom.current === null;
     const clone = await fetch("/api/guest/clone", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ removeBackgroundNoise: cleanUp, ...(leadId ? { metaEventId: leadId } : {}) }),
+      body: JSON.stringify({ removeBackgroundNoise: cleanUp, ...(newTake ? { newTake: true } : {}), ...(leadId ? { metaEventId: leadId } : {}) }),
     });
     if (!clone.ok) throw new Error(await errorMessage(clone, "We couldn't make your voice just now. Please try again."));
+    const made = (await clone.json().catch(() => null)) as { previewsLeft?: unknown; previewsAllowed?: unknown } | null;
+    if (typeof made?.previewsLeft === "number") setPreviewsLeft(made.previewsLeft);
+    if (typeof made?.previewsAllowed === "number") setPreviewsAllowed(made.previewsAllowed);
     if (leadId) trackMeta("Lead", { content_name: "Voice demo" }, leadId);
     if (!voiceMadeFrom.current) trackGaEvent("demo_complete");
     voiceMadeFrom.current = voiceKey;
@@ -157,6 +163,8 @@ export function VoicePreview({
 
   const uploadTake = async (take: TakeDetails) => {
     setPhase("saving");
+    // A new recording: an earlier voice's stories shouldn't come back on a reload.
+    forgetTryVoice();
     const session = await fetch("/api/guest/session", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -237,7 +245,9 @@ export function VoicePreview({
     if (busy || phase === "playing" || phase === "error") topRef.current?.scrollIntoView({ block: "start" });
   }, [busy, phase]);
   // Back from signup we don't know which stories were heard, so the server says which ones replay.
-  const outOfStories = previewsLeft === 0 && take !== null;
+  // A new recording hasn't made its voice yet: its fresh set of stories starts when it does.
+  const freshTake = take !== null && voiceMadeFrom.current === null;
+  const outOfStories = previewsLeft === 0 && take !== null && !freshTake;
   const disabledReason =
     mode === "loading"
       ? "Checking voice previews…"
@@ -248,7 +258,7 @@ export function VoicePreview({
           : outOfStories
             ? "You've explored all your free stories."
             : null;
-  const used = previewsLeft !== null && previewsAllowed !== null ? Math.max(0, previewsAllowed - previewsLeft) : null;
+  const used = previewsLeft !== null && previewsAllowed !== null ? (freshTake ? 0 : Math.max(0, previewsAllowed - previewsLeft)) : null;
 
   return (
     <div ref={topRef} className="flex scroll-mt-20 flex-col gap-5" data-testid="voice-preview">
@@ -314,7 +324,7 @@ export function VoicePreview({
               </span>
             </span>
           </label>
-          {playing.cleanUp !== cleanUp && !busy && (!outOfStories || heard.current.has(`${voiceKey}|${playing.book.slug}`)) && (
+          {playing.cleanUp !== cleanUp && !busy && (
             <button type="button" className={`${buttonSecondary} w-full sm:w-fit`} onClick={() => void hear(playing.book)} data-testid="cleanup-try-again">
               Try again with clean-up {cleanUp ? "on" : "off"}
             </button>
@@ -323,7 +333,7 @@ export function VoicePreview({
       )}
 
       {/* Keep your voice, then the counter right above the stories (Kevin, 2026-11-15). */}
-      {nextSteps && !busy && (playing || previewsLeft === 0 || !take) && <NextSteps cleanUp={playing?.cleanUp ?? cleanUp} book={playing?.book.slug ?? null} />}
+      {nextSteps && !busy && (playing || (previewsLeft === 0 && !freshTake) || !take) && <NextSteps cleanUp={playing?.cleanUp ?? cleanUp} book={playing?.book.slug ?? null} />}
 
       {used !== null && previewsAllowed !== null && mode !== "off" && (
         <div className="flex flex-col gap-2 rounded-2xl bg-surface p-4" data-testid="preview-counter">
@@ -336,7 +346,7 @@ export function VoicePreview({
             ))}
           </div>
           <p className="text-sm text-muted">
-            {previewsLeft === 0
+            {previewsLeft === 0 && !freshTake
               ? "That's all the free stories for this demo. Stories you've heard play again any time today."
               : "Replaying a story you've already heard is free."}
           </p>

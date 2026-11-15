@@ -9,7 +9,11 @@ import { VoiceProviderError } from "@/lib/voice/provider";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-/** Each guest may make a few voices (retakes), never unlimited provider voice slots. */
+/**
+ * Each guest may make a few voices (retakes), never unlimited provider voice slots. This is also the cost
+ * backstop for stories: each new recording's voice starts a fresh set, so a guest hears at most
+ * MAX_VOICES_PER_GUEST x the stories allowed per demo.
+ */
 const MAX_VOICES_PER_GUEST = 3;
 
 /**
@@ -30,7 +34,7 @@ export async function POST(req: Request) {
   }
 
   // The guest's choice from the preview panel; missing or malformed means the default (on).
-  const body = (await req.json().catch(() => null)) as { removeBackgroundNoise?: unknown; metaEventId?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { removeBackgroundNoise?: unknown; metaEventId?: unknown; newTake?: unknown } | null;
   const removeBackgroundNoise = body?.removeBackgroundNoise !== false;
 
   const previous = await deps.store.getVoice(guest.id);
@@ -43,6 +47,8 @@ export async function POST(req: Request) {
       removeBackgroundNoise,
     });
     await deps.store.setVoice(guest.id, voiceId);
+    // A new recording is a new demo: its story count starts again. Switching noise clean-up keeps the count.
+    if (body?.newTake === true) await deps.store.resetGenerations(guest.id);
     await recordVoiceEvent(deps.config, { name: "voice_cloned", guestSessionId: guest.id, properties: { surface: "guest", removeBackgroundNoise } });
   } catch (err) {
     console.error("clone failed", err);
@@ -57,5 +63,9 @@ export async function POST(req: Request) {
   if (leadId && attribution) {
     after(() => sendCapiEvent({ name: "Lead", eventId: leadId, attribution, externalId: guest.id, customData: { content_name: "Voice demo" } }));
   }
-  return NextResponse.json({ status: "ready" }, { status: 201 });
+  const used = body?.newTake === true ? 0 : guest.generationsUsed;
+  return NextResponse.json(
+    { status: "ready", previewsLeft: Math.max(0, guest.generationsAllowed - used), previewsAllowed: guest.generationsAllowed },
+    { status: 201 },
+  );
 }
