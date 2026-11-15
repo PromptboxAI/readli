@@ -79,12 +79,16 @@ export default function HomePage() {
         <FamilyJourney />
         <KidsShelf />
         <ListenAnywhere />
-        <FamilyCircles />
-        <FamilyVoices />
+        {/* "For Families" (/#families) lands here; on phones the family circle is hidden, so it lands on family voices. */}
+        <div id="families" className="scroll-mt-20">
+          <FamilyCircles />
+          <FamilyVoices />
+        </div>
         <FounderStory />
-        <Testimonials />
         <VoiceStaysYours />
         <GiftBand />
+        {/* Social proof sits right above the closing sign-up buttons (Kevin, 2026-11-15). */}
+        <Testimonials />
         <FinalCta />
       </main>
       <SiteFooter />
