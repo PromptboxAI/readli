@@ -228,3 +228,39 @@ export async function householdGift(db: SupabaseClient, householdId: string): Pr
     nextFrom: iso(seat.next_credits_from),
   };
 }
+
+export interface CardLanding {
+  /** arrives: not delivered yet; invited: the email is out; joined: the family added it; ended: the gift or place is over. */
+  status: "arrives" | "invited" | "joined" | "ended";
+  giverName: string;
+  recipientName: string;
+  plan: SponsorPlan;
+  deliverAt: string;
+  sharesVoice: boolean;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The page the printed gift card's QR code opens (Kevin, 2026-11-15). It shows only what the card already
+ * says and never opens the gift, which still takes the emailed link, so a lost or photographed card is
+ * harmless. The gift id in the link is a random UUID nobody can guess.
+ */
+export async function cardLanding(db: SupabaseClient, id: string, seatNumber: number): Promise<CardLanding | null> {
+  if (!UUID.test(id) || !Number.isInteger(seatNumber)) return null;
+  const sp = (await q(db.from("sponsorships").select("*").eq("id", id).neq("status", "awaiting_payment"), "read gift"))[0];
+  if (!sp) return null;
+  const seats = (await q(db.from("sponsorship_seats").select("*").eq("sponsorship_id", id).eq("seat", seatNumber), "read place")).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  const seat = seats.find((s) => LIVE_SEATS.includes(s.status as SeatStatus)) ?? seats[0];
+  if (!seat) return null;
+  const over = ["ended", "refunded"].includes(sp.status as string) || !LIVE_SEATS.includes(seat.status as SeatStatus);
+  const status: CardLanding["status"] = over ? "ended" : seat.status === "invited" ? (sp.delivered_at ? "invited" : "arrives") : "joined";
+  return {
+    status,
+    giverName: sp.giver_display_name as string,
+    recipientName: seat.recipient_name as string,
+    plan: sp.plan as SponsorPlan,
+    deliverAt: iso(sp.deliver_at)!,
+    sharesVoice: seat.share_voice === true,
+  };
+}

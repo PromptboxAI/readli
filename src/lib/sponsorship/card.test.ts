@@ -1,6 +1,6 @@
 import { inflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
-import { cardDefaults, cardInput, cardPlace, giftCardPdf } from "./card";
+import { cardDefaults, cardInput, cardLink, cardPlace, giftCardPdf } from "./card";
 import type { GiftView, PlaceView } from "./view";
 
 const place = (seat: number, name: string, extra: Partial<PlaceView> = {}): PlaceView => ({
@@ -63,6 +63,7 @@ describe("printable gift card", () => {
   it("carries no gift code, and says when the email arrives", () => {
     const c = cardInput(gift, { seat: 2 }, "https://readli.ai", NOW);
     expect(c.code).toBeUndefined();
+    expect(c.qrCaption).toBe("Scan the code to see your gift.");
     expect(c.extraLines).toEqual([]);
     expect(c.steps![0]).toBe("Watch for an email from Readli on Dec 25, 2026.");
     expect(c.steps![2]).toContain("no tech skills needed");
@@ -70,6 +71,10 @@ describe("printable gift card", () => {
     expect(text).toContain("A Year of Stories");
     expect(text).toContain("Your gift arrives by email");
     expect(text).not.toContain("enter this code");
+  });
+
+  it("its QR code opens that family's gift page", () => {
+    expect(cardLink(gift, cardPlace(gift, 2), "https://readli.ai/")).toBe("https://readli.ai/gift/card/g1?seat=2");
   });
 
   it("points a delivered gift at the email that already came", () => {

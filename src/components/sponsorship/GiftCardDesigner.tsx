@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useId, useMemo, useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { encodeQr } from "@/lib/qr/encode";
-import { CARD_LIMITS, cardDefaults, cardInput, cardPlace, HEADLINES, type CardChoices } from "@/lib/sponsorship/card-copy";
+import { CARD_LIMITS, cardDefaults, cardInput, cardLink, cardPlace, HEADLINES, type CardChoices } from "@/lib/sponsorship/card-copy";
 import type { GiftView } from "@/lib/sponsorship/view";
 
 const field = "w-full rounded-2xl border-[3px] border-ink/20 bg-surface px-4 py-3 text-lg font-normal focus:border-ink";
@@ -27,7 +27,8 @@ export function GiftCardDesigner({ gift, origin }: { gift: GiftView; origin: str
   const [text, setText] = useState(() => cardDefaults(gift, place));
   const choices: CardChoices = { seat, ...text };
   const card = cardInput(gift, choices, origin);
-  const qr = useMemo(() => encodeQr(`${origin.replace(/\/$/, "")}/how-it-works`, "M"), [origin]);
+  const link = cardLink(gift, place, origin);
+  const qr = useMemo(() => encodeQr(link, "M"), [link]);
 
   const query = new URLSearchParams({ seat: String(seat), headline: text.headline, to: text.to, from: text.from, message: text.message }).toString();
   const pdfUrl = `/api/sponsorships/${gift.id}/card?${query}`;
@@ -88,7 +89,7 @@ export function GiftCardDesigner({ gift, origin }: { gift: GiftView; origin: str
           </span>
         </label>
         <p className="rounded-2xl bg-sky/20 px-4 py-3 text-base">
-          The card has no code on it, so it&apos;s safe to hand over or post a photo of. The family still opens the gift from the email Readli sends them. The QR code opens How it works.
+          The QR code opens a welcome page for this family&apos;s gift, where they can ask for their invitation email again. The card can&apos;t open the gift by itself, so it&apos;s safe to hand over or post a photo of. The family still opens it from the email Readli sends them.
         </p>
         <div className="flex flex-wrap gap-3">
           <a href={`${pdfUrl}&download=1`} className={buttonPrimary} download>
@@ -185,7 +186,7 @@ function QrPreview({ modules }: { modules: boolean[][] }) {
   const size = modules.length;
   const path = modules.flatMap((row, y) => row.map((on, x) => (on ? `M${x + 2} ${y + 2}h1v1h-1z` : ""))).join("");
   return (
-    <svg viewBox={`0 0 ${size + 4} ${size + 4}`} className="size-[22cqw] shrink-0 rounded-[1.4cqw] border-[0.35cqw] border-ink bg-white" role="img" aria-label="QR code that opens How it works">
+    <svg viewBox={`0 0 ${size + 4} ${size + 4}`} className="size-[22cqw] shrink-0 rounded-[1.4cqw] border-[0.35cqw] border-ink bg-white" role="img" aria-label="QR code that opens the gift's welcome page">
       <path d={path} fill="#000" />
     </svg>
   );

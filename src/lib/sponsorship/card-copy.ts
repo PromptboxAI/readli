@@ -6,8 +6,9 @@ import type { GiftView, PlaceView } from "./view";
 /**
  * The printable card a giver can hand over with a Readli Family gift (Kevin, 2026-11-15). It reuses the
  * complimentary certificate's design, but carries no secret: the family still opens the gift from the
- * invitation email, so a lost or photographed card can't be used by anyone else. Its QR code opens How
- * it works. The giver can change the headline, the names and the note before printing.
+ * invitation email, so a lost or photographed card can't be used by anyone else. Its QR code opens the
+ * gift's welcome page (/gift/card/[id]), which explains how to open it and can resend the invitation to
+ * the address the giver entered. The giver can change the headline, the names and the note before printing.
  */
 export interface CardChoices {
   seat?: number;
@@ -22,6 +23,11 @@ export const CARD_LIMITS = { headline: 40, to: 60, from: 60, message: 200 } as c
 export const HEADLINES = ["A Year of Stories", "A Gift of Stories", "Stories in My Voice", "Bedtime Stories, From Me to You"] as const;
 
 const clean = (v: string | undefined, max: number) => (v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+
+/** Where the card's QR code goes: the gift's own welcome page, for this family. */
+export function cardLink(gift: GiftView, place: PlaceView | null, origin: string): string {
+  return `${origin.replace(/\/$/, "")}/gift/card/${gift.id}?seat=${place?.seat ?? 1}`;
+}
 
 /** The family the card is for: the seat asked for if it's live, else the first live one. */
 export function cardPlace(gift: GiftView, seat?: number): PlaceView | null {
@@ -64,9 +70,9 @@ export function cardInput(gift: GiftView, choices: CardChoices, origin: string, 
     presentedLine: [to && `For ${to}`, from && `From ${from}`].filter(Boolean).join(" · ") || "Readli Family",
     extraLines: voice ? [`With stories read in ${from || "your storyteller"}'s own voice`] : [],
     message: message || null,
-    qr: encodeQr(`${origin.replace(/\/$/, "")}/how-it-works`, "M"),
+    qr: encodeQr(cardLink(gift, place, origin), "M"),
     steps,
-    qrCaption: "Scan the code to see how Readli works.",
+    qrCaption: "Scan the code to see your gift.",
     scanLine: joined ? "Your stories are ready" : "Your gift arrives by email",
     claimHost: host,
     termLine: gift.plan === "annual" ? "12 months of Readli Family · Paid in full · Does not renew" : `Readli Family, paid monthly by ${from || "the giver"}`,
