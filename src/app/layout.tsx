@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fredoka, Nunito_Sans } from "next/font/google";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { GoogleAnalytics } from "@/components/marketing/GoogleAnalytics";
 import { MetaPixel } from "@/components/marketing/MetaPixel";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL, baseOpenGraph, indexable } from "@/lib/seo/site";
 import "./globals.css";
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh antialiased">
         <ScrollToTop />
         <MetaPixel />
+        <GoogleAnalytics />
         {children}
       </body>
     </html>
