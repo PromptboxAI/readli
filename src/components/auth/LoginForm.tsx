@@ -5,6 +5,7 @@ import { useEffect, useId, useState } from "react";
 import { CODE_LENGTH, CodeBoxes } from "@/components/auth/CodeBoxes";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { trackMetaCustom } from "@/lib/marketing/meta-pixel";
+import { trackGaEvent } from "@/lib/marketing/google-analytics";
 
 const field = "min-h-12 w-full rounded-2xl border-[3px] border-ink/20 bg-surface px-4 text-lg focus:border-ink";
 
@@ -70,6 +71,7 @@ export function LoginForm({
 
   const signedUp = () => {
     if (signup) trackMetaCustom("SignupStarted", { content_name: signup });
+    if (signup) trackGaEvent("sign_up_start", { method: signup });
   };
 
   const google = async () => {

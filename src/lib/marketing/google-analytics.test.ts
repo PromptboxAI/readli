@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GA_MEASUREMENT_ID, stopGa, trackGaPageView } from "./google-analytics";
+import { GA_MEASUREMENT_ID, stopGa, trackGaEvent, trackGaPageView } from "./google-analytics";
 
 const fakeWindow = (path: string, gpc = false) => {
   const doc = document.implementation.createHTMLDocument();
@@ -46,6 +46,17 @@ describe("Google Analytics", () => {
     }
     vi.stubEnv("NEXT_PUBLIC_VERCEL_ENV", "preview");
     expect(trackGaPageView(fakeWindow("/") as never)).toBe(false);
+  });
+
+  it("sends conversion events only where a page view already loaded the tag", () => {
+    const w = fakeWindow("/try");
+    expect(trackGaEvent("demo_start", undefined, w as never)).toBe(false);
+    trackGaPageView(w as never);
+    expect(trackGaEvent("demo_complete", undefined, w as never)).toBe(true);
+    expect(calls(w).at(-1)).toEqual(["event", "demo_complete", {}]);
+    (w.location as { pathname: string }).pathname = "/family";
+    expect(trackGaEvent("begin_checkout", { value: 19.99 }, w as never)).toBe(false);
+    expect(trackGaEvent("demo_start", undefined, fakeWindow("/try", true) as never)).toBe(false);
   });
 
   it("stops at once on opt-out", () => {

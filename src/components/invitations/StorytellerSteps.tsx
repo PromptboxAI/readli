@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { PlanStarting } from "@/components/family/PlanStarting";
 import { newMetaEventId, rememberCheckout, trackMeta } from "@/lib/marketing/meta-pixel";
+import { trackGaEvent } from "@/lib/marketing/google-analytics";
 
 export interface StepsProps {
   token: string;
@@ -107,6 +108,7 @@ export function StorytellerSteps(p: StepsProps) {
       const eventId = newMetaEventId();
       const item = cycle === "annual" ? "family_annual" : "family_monthly";
       trackMeta("InitiateCheckout", { value: cents / 100, currency: "USD", content_name: item }, eventId);
+      trackGaEvent("begin_checkout", { value: cents / 100, currency: "USD", plan: item });
       rememberCheckout(cents);
       const data = await call("/api/billing/checkout", "POST", { item, invitationId: p.checkout.invitationId, returnPath: `/v/${p.token}/connect`, ...(eventId ? { metaEventId: eventId } : {}) });
       if (data?.url) window.location.assign(data.url);

@@ -45,6 +45,23 @@ export function trackGaPageView(w: GaWindow = window as unknown as GaWindow): bo
   return true;
 }
 
+/**
+ * The conversion events Readli sends to GA4 (SEO brief, Phase 4). Mark demo_complete, sign_up and purchase
+ * as key events in GA (Admin → Events). sign_up comes from the server (lib/server/ga-measurement), since
+ * a confirmed account lands on a page GA doesn't run on.
+ */
+export type GaEvent = "demo_start" | "demo_complete" | "sign_up_start" | "begin_checkout" | "purchase";
+
+/**
+ * Sends one event, under the same rules as page views: an allowed page, production, no opt-out. It only
+ * uses a tag the page view already loaded, so it never loads GA on its own.
+ */
+export function trackGaEvent(event: GaEvent, params?: Record<string, string | number>, w: GaWindow = window as unknown as GaWindow): boolean {
+  if (!mayTrack(w) || !w.gtag) return false;
+  w.gtag("event", event, params ?? {});
+  return true;
+}
+
 /** Stops a loaded tag at once when the visitor opts out on /privacy/choices. */
 export function stopGa(w: GaWindow = window as unknown as GaWindow): void {
   w[DISABLE_KEY] = true;

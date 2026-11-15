@@ -10,6 +10,7 @@ import { newMetaEventId, trackMeta } from "@/lib/marketing/meta-pixel";
 import { DemoEmailForm } from "./DemoEmailForm";
 import { ImproveLink, RecordingTipsDialog } from "./RecordingTips";
 import type { RecordedTake } from "./useMicrophone";
+import { trackGaEvent } from "@/lib/marketing/google-analytics";
 
 type Mode = "live" | "stub" | "off" | "loading";
 type Phase = "idle" | "saving" | "cloning" | "reading" | "playing" | "error";
@@ -136,6 +137,7 @@ export function VoicePreview({
     });
     if (!clone.ok) throw new Error(await errorMessage(clone, "We couldn't make your voice just now. Please try again."));
     if (leadId) trackMeta("Lead", { content_name: "Voice demo" }, leadId);
+    if (!voiceMadeFrom.current) trackGaEvent("demo_complete");
     voiceMadeFrom.current = voiceKey;
     return true;
   };

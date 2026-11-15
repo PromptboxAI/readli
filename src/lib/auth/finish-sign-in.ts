@@ -7,6 +7,7 @@ import { GROWNUP_COOKIE, PIN_RESUMED_COOKIE } from "@/lib/family/grownup-stash";
 import { KIDS_COOKIE } from "@/lib/family/kids-mode";
 import { currentDevice } from "@/lib/family/session";
 import { attributionFrom, sendCapiEvent } from "@/lib/server/meta-capi";
+import { sendGaServerEvent } from "@/lib/server/ga-measurement";
 
 /**
  * What every sign-in does once Supabase has a session, whether it came from an email link, Google or a
@@ -38,6 +39,8 @@ export async function finishSignIn(supabase: SupabaseClient, req: Request, url: 
       }),
     );
   }
+  // GA4's sign_up for the same new accounts; it honours the same opt-outs (lib/server/ga-measurement).
+  if (signup && signup.intent !== "voice_invited") after(() => sendGaServerEvent(req, "sign_up", { method: signup.intent }));
   const kidsDevice = await currentDevice().catch(() => null);
   if (kidsDevice) {
     const { registry, device } = kidsDevice;

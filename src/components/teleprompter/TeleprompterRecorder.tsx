@@ -21,6 +21,7 @@ import { Teleprompter, type TeleprompterProgress } from "./Teleprompter";
 import { micBlockedSteps, micPlatform } from "@/lib/audio/mic-help";
 import { MIC_ERROR_MESSAGES, useMicrophone, type RecordedTake } from "./useMicrophone";
 import { VoicePreview, type TakeDetails } from "./VoicePreview";
+import { trackGaEvent } from "@/lib/marketing/google-analytics";
 
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
@@ -144,6 +145,8 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
     const ok = await mic.start();
     setStarting(false);
     if (ok) dispatch({ type: "start" });
+    // The free demo on the Try page; an account's own recording isn't the demo.
+    if (ok && !onTake) trackGaEvent("demo_start");
   };
 
   const finishRecording = async () => {
