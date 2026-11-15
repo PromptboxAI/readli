@@ -40,11 +40,25 @@ export async function finishSignIn(supabase: SupabaseClient, req: Request, url: 
     );
   }
   // GA4's sign_up for the same new accounts; it honours the same opt-outs (lib/server/ga-measurement).
-  if (signup && signup.intent !== "voice_invited") after(() => sendGaServerEvent(req, "sign_up", { method: signup.intent }));
+  // A signup form that marks where it was (the pricing page's free signup sends /home?from=pricing) passes that on as the source.
+  if (signup && signup.intent !== "voice_invited") {
+    const source = signupSource(next);
+    after(() => sendGaServerEvent(req, "sign_up", source ? { method: signup.intent, source } : { method: signup.intent }));
+  }
   const kidsDevice = await currentDevice().catch(() => null);
   if (kidsDevice) {
     const { registry, device } = kidsDevice;
     await registry.update(device.id, { revokedAt: new Date().toISOString(), revokedBy: device.registeredBy, activeChildId: null }).catch(() => undefined);
+  }
+}
+
+/** The `from` a signup form put on where sign-in is headed, such as "pricing", or null. */
+export function signupSource(next: string): string | null {
+  try {
+    const from = new URL(next, "https://readli.invalid").searchParams.get("from");
+    return from && /^[a-z_]{1,32}$/.test(from) ? from : null;
+  } catch {
+    return null;
   }
 }
 

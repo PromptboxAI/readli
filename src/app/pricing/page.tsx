@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PlanList } from "@/components/accounts/PlanList";
+import { PricingFreeSignup } from "@/components/accounts/PricingFreeSignup";
+import { authConfigured } from "@/lib/auth/supabase";
+import { currentAdult } from "@/lib/auth/adult";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
@@ -91,6 +94,8 @@ export default async function PricingPage() {
   const library = publicLibrary();
   const stories = storiesPerMonth(P.monthlyCredits, library, P.charactersPerCredit);
   const perNight = perNightCents(P);
+  // The free signup is for visitors; a signed-in grown-up already has the welcome or their family.
+  const offerFreeSignup = authConfigured() && !(await currentAdult());
   const examples = CREDIT_EXAMPLE_SLUGS.map((slug) => library.find((b) => b.slug === slug && b.characters !== null)).filter((b) => b !== undefined);
   return (
     <>
@@ -173,6 +178,7 @@ export default async function PricingPage() {
               </Link>
             </article>
           </div>
+          {offerFreeSignup && <PricingFreeSignup />}
         </section>
 
         <section aria-labelledby="extras-heading" className="px-4 py-14 sm:px-6">
