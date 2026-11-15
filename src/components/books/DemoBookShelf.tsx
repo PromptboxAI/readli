@@ -71,7 +71,7 @@ export function DemoBookCard({ book, onHear, activeSlug, disabledReason, explore
           disabled={unavailable || active || Boolean(busy)}
           aria-describedby={`${headingId}-status`}
           onClick={() => onHear?.(book)}
-          className={`${hearButton} disabled:cursor-not-allowed ${unavailable ? "disabled:bg-ivory disabled:text-muted" : ""} ${active ? "!bg-mint !text-ink" : ""}`}
+          className={`${hearButton} disabled:cursor-not-allowed ${unavailable ? "disabled:bg-ivory disabled:text-muted" : ""} ${active ? "!bg-mint !text-ink" : heard && !unavailable ? "!bg-ink !text-sunshine" : ""}`}
         >
           {active ? "Now playing" : heard ? "Play again" : "Hear this passage"}
         </button>

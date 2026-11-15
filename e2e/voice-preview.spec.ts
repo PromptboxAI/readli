@@ -19,6 +19,8 @@ test("a finished take becomes a voice and reads four stories, with free replays"
   await expect(page.getByTestId("demo-books").getByRole("article")).toHaveCount(6);
   await expect(page.getByTestId("teleprompter")).toHaveCount(0);
   await expect(page.getByTestId("try-steps")).toContainText("Hear a story");
+  // Noise clean-up waits until a story has played.
+  await expect(page.getByLabel(/Clean up background noise/)).toHaveCount(0);
   const preview = page.getByTestId("voice-preview");
   const peter = preview.getByRole("article", { name: "The Tale of Peter Rabbit" });
   await expect(peter.getByRole("button", { name: "Hear this passage" })).toBeEnabled();
@@ -41,6 +43,8 @@ test("a finished take becomes a voice and reads four stories, with free replays"
   const cleanUp = preview.getByLabel(/Clean up background noise/);
   const wasOn = await cleanUp.isChecked();
   await cleanUp.setChecked(!wasOn);
+  // Flipping it offers to hear the same story again with the new setting.
+  await expect(preview.getByTestId("cleanup-try-again")).toHaveText(`Try again with clean-up ${wasOn ? "off" : "on"}`);
   await preview.getByRole("article", { name: "Winnie-the-Pooh" }).getByRole("button", { name: "Hear this passage" }).click();
   await expect(preview.getByText("Winnie-the-Pooh · read by you")).toBeVisible({ timeout: 15_000 });
   await expect(preview.getByText(`Noise clean-up ${wasOn ? "off" : "on"}`)).toBeVisible();
@@ -77,7 +81,7 @@ test("a finished take becomes a voice and reads four stories, with free replays"
   await expect(page.getByTestId("demo-books").getByRole("article")).toHaveCount(6);
   await expect(page.getByTestId("teleprompter")).toHaveCount(0);
   await expect(page.getByTestId("try-next-steps")).toBeVisible();
-  await page.getByTestId("voice-preview").getByRole("article", { name: "Winnie-the-Pooh" }).getByRole("button").click();
+  // The last story heard is back in the player, without spending a preview.
   await expect(page.getByText("Winnie-the-Pooh · read by you")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("preview-counter")).toContainText("4 of 4 stories explored");
 
@@ -88,6 +92,12 @@ test("a finished take becomes a voice and reads four stories, with free replays"
   await expect(page.getByTestId("demo-books").getByRole("article")).toHaveCount(6);
   await expect(page.getByTestId("teleprompter")).toHaveCount(0);
   await expect(page.getByLabel(/18 or older/)).toHaveCount(0);
+
+  // A reload puts the last story back in the player, paused, and heard stories still say Play again.
+  await page.reload();
+  await expect(page.getByText("Winnie-the-Pooh · read by you")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("preview-counter")).toContainText("4 of 4 stories explored");
+  await expect(page.getByRole("article", { name: "The Tale of Peter Rabbit" }).getByRole("button", { name: "Play again" })).toBeVisible();
 });
 
 test("the server refuses previews without a session and a voice", async ({ request }) => {
