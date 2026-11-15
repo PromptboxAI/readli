@@ -4,7 +4,7 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { SocialIcon } from "@/components/brand/SocialIcon";
-import { COMPANY, COMPANY_ADDRESS, FOUNDERS } from "@/lib/content/company";
+import { COMPANY, COMPANY_ADDRESS, FOUNDERS, PROMISES } from "@/lib/content/company";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
 import { SITE_LONG_DESCRIPTION, publicPageMetadata } from "@/lib/seo/site";
 import { PAGE_TITLES } from "@/lib/seo/titles";
@@ -15,13 +15,6 @@ export const metadata: Metadata = publicPageMetadata({
   description: `About Readli, made by ${COMPANY.legalName} in ${COMPANY.city}, ${COMPANY.region}: who we are, how to reach us, and our official accounts.`,
   path: "/company",
 });
-
-const PROMISES = [
-  "A voice belongs to the person who recorded it. Only they can share it, and they can stop at any time.",
-  "Parents choose which children hear each voice. Every newly shared voice starts switched off.",
-  "A voice only reads the storybooks in the Readli library. Nobody can type in their own words for it to say.",
-  "Family voices are never made public.",
-];
 
 /** Company page: who makes Readli and how to reach them, above the fold for families meeting us cold (Kevin, 2026-10-24). */
 export default function CompanyPage() {

@@ -35,3 +35,11 @@ export const FOUNDERS: Founder[] = [
     ],
   },
 ];
+
+/** Our promises about voices, on /company and /about. */
+export const PROMISES = [
+  "A voice belongs to the person who recorded it. Only they can share it, and they can stop at any time.",
+  "Parents choose which children hear each voice. Every newly shared voice starts switched off.",
+  "A voice only reads the storybooks in the Readli library. Nobody can type in their own words for it to say.",
+  "Family voices are never made public.",
+];

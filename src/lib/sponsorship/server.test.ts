@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { StripeApi } from "@/lib/billing/stripe-api";
 import { fakeEmailDb } from "@/lib/email/fake-db.test-util";
+import { ProviderRefCipher } from "@/lib/server/provider-ref";
 import { giveRequest } from "./rules";
-import { applySponsorshipChange, askForCredits, cancelGift, changeDelivery, offerPlace, rebalanceCredits, removeFamily, resendInvitation, runSponsorships, startGift, undoRemoval, type SponsorshipContext } from "./server";
+import { applySponsorshipChange, askForCredits, cancelGift, changeDelivery, offerPlace, rebalanceCredits, removeFamily, resendFromCard, resendInvitation, runSponsorships, startGift, undoRemoval, type SponsorshipContext } from "./server";
 
 const SECRET = "test-secret-for-sponsorships-0123456789";
 const BOUGHT = new Date("2026-11-28T15:00:00.000Z");
@@ -332,6 +333,19 @@ describe("families and credits", () => {
     await resendInvitation(ctx, "ruth", id, 2);
     expect(tables.email_outbox!.filter((e) => e.email_id === "S1")).toHaveLength(3);
     await expect(resendInvitation(ctx, "ruth", id, 2)).rejects.toMatchObject({ code: "resend_soon" });
+  });
+
+  it("the printed card's page can resend the invitation to the giver's address, under the same limits", async () => {
+    const { ctx, id, tables, clock } = await delivered();
+    await expect(resendFromCard(ctx, id, 1)).rejects.toMatchObject({ code: "already_joined" });
+    await expect(resendFromCard(ctx, id, 2)).rejects.toMatchObject({ code: "resend_soon" });
+    clock.now = new Date("2026-12-25T13:30:00.000Z");
+    const before = tables.email_outbox!.filter((e) => e.email_id === "S1");
+    await resendFromCard(ctx, id, 2);
+    const sent = tables.email_outbox!.filter((e) => e.email_id === "S1");
+    expect(sent).toHaveLength(before.length + 1);
+    const to = (e: Row) => new ProviderRefCipher(SECRET).decrypt(e.to_email_encrypted as string);
+    expect(to(sent.at(-1)!)).toBe(to(before.at(-1)!));
   });
 
   it("a new credit split starts next gift month and leaves this month alone", async () => {

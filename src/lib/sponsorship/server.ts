@@ -436,7 +436,7 @@ async function sendInvitation(ctx: SponsorshipContext, sp: Row, seat: Row): Prom
         ...(sp.message ? [`${from} wrote: "${sp.message as string}"`] : []),
         READLI_INTRO,
         ...(seat.share_voice ? [`Your kids can also hear stories in ${from}'s own voice.`] : []),
-        "Open your gift, add your kids, and pick tonight's story.",
+        "Open your gift, add your kids, and pick tonight's story. There's no app to install and no tech skills needed.",
         `Your gift is waiting for you until ${shortDate(new Date(now.getTime() + SPONSORED.invitationDays * 86_400_000))}.`,
       ],
       cta: { label: "Open your gift", url: `${ctx.base}/gift/join/${token}` },
@@ -711,6 +711,23 @@ async function wholeGiftTo(ctx: SponsorshipContext, sp: Row, leaving: Row, from:
  */
 export async function resendInvitation(ctx: SponsorshipContext, sponsorId: string, id: string, seatNumber: number): Promise<void> {
   const sp = await sponsorshipFor(ctx, id, sponsorId);
+  await resendSeat(ctx, sp, seatNumber);
+  await track(ctx.db, "sponsor_invitation_resent", { sponsorship_id: id, seat: seatNumber }, sponsorId);
+}
+
+/**
+ * Someone holding the printed gift card asks for the invitation again (Kevin, 2026-11-15). It goes only
+ * to the address the giver entered, under the same limits as the giver's own resend, so the card can
+ * never send the gift anywhere else.
+ */
+export async function resendFromCard(ctx: SponsorshipContext, id: string, seatNumber: number): Promise<void> {
+  const sp = await sponsorshipFor(ctx, id);
+  await resendSeat(ctx, sp, seatNumber);
+  await track(ctx.db, "gift_card_invitation_resent", { sponsorship_id: id, seat: seatNumber });
+}
+
+async function resendSeat(ctx: SponsorshipContext, sp: Row, seatNumber: number): Promise<void> {
+  const id = sp.id as string;
   if (!["active", "past_due", "canceling"].includes(sp.status as string) || !sp.delivered_at) throw new SponsorshipError(409, "not_delivered", "The invitation goes out on the delivery day.");
   const seat = placeOf(await seatsOf(ctx, id), seatNumber);
   if (!seat || seat.status !== "invited") throw new SponsorshipError(409, "already_joined", "That family has already joined.");
@@ -720,7 +737,6 @@ export async function resendInvitation(ctx: SponsorshipContext, sponsorId: strin
   if (Number(inv.sent_count ?? 0) >= 5) throw new SponsorshipError(429, "resend_limit", "That invitation has been sent 5 times. Please check the email address with the family.");
   if (inv.sent_at && now.getTime() - Date.parse(inv.sent_at as string) < 10 * 60_000) throw new SponsorshipError(429, "resend_soon", "It was just sent. Please give it a few minutes to arrive.");
   await sendInvitation(ctx, sp, seat);
-  await track(ctx.db, "sponsor_invitation_resent", { sponsorship_id: id, seat: seatNumber }, sponsorId);
 }
 
 const placeOf = (seats: Row[], seat: number) => seats.find((s) => s.seat === seat && LIVE_SEATS.includes(s.status as SeatStatus));

@@ -19,10 +19,10 @@ describe("help content", () => {
     for (const a of HELP_ARTICLES) expect(a.question + a.answer.join(" ")).not.toMatch(banned);
   });
 
-  it("covers every topic in Kevin's list (42 questions) plus the library articles, what happens after the demo, the sleep timer, the device guides, family activity and offline listening", () => {
-    expect(HELP_ARTICLES).toHaveLength(51);
-    expect(visibleArticles(true)).toHaveLength(51);
-    expect(visibleArticles(false)).toHaveLength(51);
+  it("covers every topic in Kevin's list (42 questions) plus the library articles, what happens after the demo, the sleep timer, the device guides, family activity and offline listening and what happens if Readli goes away", () => {
+    expect(HELP_ARTICLES).toHaveLength(52);
+    expect(visibleArticles(true)).toHaveLength(52);
+    expect(visibleArticles(false)).toHaveLength(52);
   });
 
   it("states a timeframe for deleting a voice by email", () => {

@@ -31,6 +31,7 @@ export function publicPages(): PublicPage[] {
     { path: "/parents/safety", title: "Family privacy & safety", priority: 0.7, changeFrequency: "monthly" },
     { path: "/help", title: "Help Center", priority: 0.7, changeFrequency: "weekly" },
     { path: "/help/recording-tips", title: "Tips for a better voice recording", priority: 0.5, changeFrequency: "monthly" },
+    { path: "/about", title: "About Us", priority: 0.6, changeFrequency: "yearly" },
     { path: "/company", title: "Company", priority: 0.4, changeFrequency: "yearly" },
     { path: "/donations", title: "Readli Gives Back: donation requests for school raffles and charity auctions", priority: 0.6, changeFrequency: "monthly" },
     { path: "/privacy", title: "Privacy Policy", priority: 0.3, changeFrequency: "yearly" },

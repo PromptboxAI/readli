@@ -28,7 +28,7 @@ const ICON = { fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLin
 const STEPS: { title: string; body: string; tint: string; icon: ReactNode }[] = [
   {
     title: "Record",
-    body: "Read a short story aloud for about a minute, on your phone or computer. The words scroll for you.",
+    body: "Read a short story aloud for about a minute, on your phone or computer. The words scroll for you, so no tech skills are needed.",
     tint: "bg-sunshine",
     icon: (
       <svg viewBox="0 0 24 24" className="size-8" {...ICON}>
@@ -229,7 +229,7 @@ export default function GrandparentsPage() {
                   Try Your Voice Free
                 </Link>
                 <ul className="flex flex-col gap-2 text-left text-lg font-semibold sm:flex-row sm:flex-wrap sm:gap-x-6">
-                  {["Free for storytellers", "No card or subscription", "Nothing to install"].map((t) => (
+                  {["Free for storytellers", "No card or subscription", "No tech skills needed"].map((t) => (
                     <li key={t} className="flex items-center gap-2">
                       <Check />
                       {t}
@@ -366,7 +366,7 @@ export default function GrandparentsPage() {
             <Link href="/try" className={`${BIG_CTA} w-full sm:w-auto`} data-testid="grandparents-cta">
               Try Your Voice Free
             </Link>
-            <p className="text-lg font-semibold">Takes about two minutes. No card or subscription.</p>
+            <p className="text-lg font-semibold">Takes about two minutes. Nothing to install, no tech skills needed, no card or subscription.</p>
           </div>
         </section>
       </main>

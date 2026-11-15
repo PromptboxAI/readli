@@ -393,6 +393,7 @@ const FOOTER_GROUPS: { title: string; links: { href: string; label: string }[] }
   {
     title: "About",
     links: [
+      { href: "/about", label: "About us" },
       { href: "/company", label: "Company" },
       { href: "/donations", label: "Readli Gives Back" },
       { href: "/help", label: "Help" },

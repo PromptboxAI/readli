@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fakeEmailDb } from "@/lib/email/fake-db.test-util";
 import { hashInvitationToken } from "@/lib/invitations/server";
-import { householdGift, invitationLanding, placeState, sponsorGifts } from "./view";
+import { cardLanding, householdGift, invitationLanding, placeState, sponsorGifts } from "./view";
 
 const NOW = new Date("2027-01-10T00:00:00.000Z");
 const TOKEN = "a".repeat(32);
@@ -94,5 +94,24 @@ describe("the family's side", () => {
     const { db } = world();
     expect(await householdGift(db, "home-m")).toMatchObject({ giverName: "Grandma Ruth", plan: "annual", endsAt: "2027-12-25T12:00:00.000Z", creditShare: 20 });
     expect(await householdGift(db, "home-x")).toBeNull();
+  });
+});
+
+describe("the printed card's page", () => {
+  const GIFT = "0b6f0a52-7a1d-4c55-9a43-2f3c3f6d8e11";
+  const db = () =>
+    fakeEmailDb({
+      sponsorships: [{ id: GIFT, plan: "annual", status: "active", giver_display_name: "Grandma Ruth", deliver_at: "2026-12-25T12:00:00.000Z", delivered_at: "2026-12-25T12:02:00.000Z" }],
+      sponsorship_seats: [
+        { id: "s1", sponsorship_id: GIFT, seat: 1, status: "active", recipient_name: "Michael and Sarah", share_voice: true, created_at: "2026-11-28T15:00:00.000Z" },
+        { id: "s2", sponsorship_id: GIFT, seat: 2, status: "invited", recipient_name: "Emma and David", share_voice: false, created_at: "2026-11-28T15:00:00.000Z" },
+      ],
+    }).db;
+
+  it("says where each family is, and nothing the card doesn't", async () => {
+    expect(await cardLanding(db() as never, GIFT, 1)).toEqual({ status: "joined", giverName: "Grandma Ruth", recipientName: "Michael and Sarah", plan: "annual", deliverAt: "2026-12-25T12:00:00.000Z", sharesVoice: true });
+    expect((await cardLanding(db() as never, GIFT, 2))?.status).toBe("invited");
+    expect(await cardLanding(db() as never, GIFT, 3)).toBeNull();
+    expect(await cardLanding(db() as never, "not-a-uuid", 1)).toBeNull();
   });
 });
