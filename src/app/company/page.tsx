@@ -74,7 +74,8 @@ export default function CompanyPage() {
                     </p>
                   ))}
                   <p className="font-display text-lg font-semibold">
-                    {f.name}, <span className="font-normal text-muted">{f.title}</span>
+                    {f.name}
+<span className="block font-normal text-muted">{f.title}</span>
                   </p>
                 </div>
               </article>

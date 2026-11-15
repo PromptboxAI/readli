@@ -68,7 +68,8 @@ export default function AboutPage() {
                 </p>
               ))}
               <p className="font-display text-xl font-semibold">
-                {founder.name}, <span className="font-normal text-muted">{founder.title}</span>
+                {founder.name}
+<span className="block font-normal text-muted">{founder.title}</span>
               </p>
             </div>
           </section>

@@ -31,7 +31,8 @@ export function FounderStory() {
             </p>
           ))}
           <p className="font-display text-xl font-semibold">
-            {founder.name}, <span className="font-normal text-muted">{founder.title}</span>
+            {founder.name}
+<span className="block font-normal text-muted">{founder.title}</span>
           </p>
           <Link href="/about" className="font-semibold underline underline-offset-4">
             More about us
