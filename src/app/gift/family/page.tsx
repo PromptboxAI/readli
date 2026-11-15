@@ -6,6 +6,7 @@ import { GiftBoxArt } from "@/components/invites/illustrations";
 import { GiveFamilyForm } from "@/components/sponsorship/GiveFamilyForm";
 import { SponsorDashboard } from "@/components/sponsorship/SponsorDashboard";
 import { currentAdult } from "@/lib/auth/adult";
+import { pricing } from "@/lib/content/pricing";
 import { sponsorshipContext } from "@/lib/sponsorship/http";
 import { sponsorGifts } from "@/lib/sponsorship/view";
 import { serverConfig } from "@/lib/server/config";
@@ -74,7 +75,7 @@ export default async function GiveFamilyPage({ searchParams }: { searchParams: P
             <h1 className="font-display text-4xl font-semibold sm:text-5xl">Give Readli Family as a gift</h1>
             <p className="max-w-2xl text-lg">You pay for one plan. Each family runs its own home, children and approvals.</p>
           </header>
-          <GiveFamilyForm today={today} hasVoice={voice?.status === "ready"} defaultGiverName="" />
+          <GiveFamilyForm today={today} hasVoice={voice?.status === "ready"} defaultGiverName="" listeners={(await pricing()).simultaneousListeners} />
         </>
       ) : gifts.length ? (
         <>

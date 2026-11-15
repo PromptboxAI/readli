@@ -24,7 +24,7 @@ function christmas(today: string): string {
  * Give Readli Family to up to two families. The year is featured for Christmas; every line that makes
  * a promise (what's charged today, what it covers, when it renews) uses the approved copy with real dates.
  */
-export function GiveFamilyForm({ today, hasVoice, defaultGiverName }: { today: string; hasVoice: boolean; defaultGiverName: string }) {
+export function GiveFamilyForm({ today, hasVoice, defaultGiverName, listeners }: { today: string; hasVoice: boolean; defaultGiverName: string; listeners: number }) {
   const id = useId();
   const [plan, setPlan] = useState<SponsorPlan>("annual");
   const [families, setFamilies] = useState<Family[]>([{ name: "", email: "", shareVoice: hasVoice }]);
@@ -190,7 +190,7 @@ export function GiveFamilyForm({ today, hasVoice, defaultGiverName }: { today: s
           <ul className="list-disc pl-5">
             <li>Your voice, once their parents approve it, plus one more storyteller</li>
             <li>Up to 6 children with their own profiles</li>
-            <li>2 children listening at once</li>
+            <li>{listeners} children listening at once</li>
           </ul>
         </div>
         <p className="text-sm">

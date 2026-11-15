@@ -5,8 +5,9 @@ import { AdultPage, Eyebrow } from "@/components/invites/AdultPage";
 import { GiftBoxArt } from "@/components/invites/illustrations";
 import { JoinGiftButton } from "@/components/sponsorship/JoinGiftButton";
 import { currentAdult } from "@/lib/auth/adult";
+import { pricing } from "@/lib/content/pricing";
 import { sponsorshipContext } from "@/lib/sponsorship/http";
-import { shortDate } from "@/lib/sponsorship/rules";
+import { shortDate, SPONSORED } from "@/lib/sponsorship/rules";
 import { invitationLanding } from "@/lib/sponsorship/view";
 
 export const metadata: Metadata = { title: "A Readli gift for your family | Readli", robots: { index: false } };
@@ -35,6 +36,7 @@ export default async function JoinGiftPage({ params }: { params: Promise<{ token
     );
   }
   const from = gift.giverName;
+  const listeners = (await pricing()).simultaneousListeners;
   const signedIn = Boolean(await currentAdult());
   const here = `/gift/join/${token}`;
   return (
@@ -57,10 +59,10 @@ export default async function JoinGiftPage({ params }: { params: Promise<{ token
         </li>
         <li className="rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
           <p className="font-semibold">{gift.creditShare} story credits a month</p>
-          <p className="text-sm">Your share of {from}&apos;s 40; replays are free.</p>
+          <p className="text-sm">{gift.creditShare >= SPONSORED.monthlyCredits ? "For new stories. Replays are always free." : `Your share of ${from}'s ${SPONSORED.monthlyCredits}. Replays are always free.`}</p>
         </li>
         <li className="rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
-          <p className="font-semibold">2 children listening at once</p>
+          <p className="font-semibold">{listeners} children listening at once</p>
           <p className="text-sm">Kids Mode with your own PIN.</p>
         </li>
       </ul>
@@ -88,12 +90,18 @@ export default async function JoinGiftPage({ params }: { params: Promise<{ token
         </p>
       </section>
 
-      <section className="rounded-3xl bg-ivory p-5 text-sm">
-        <p className="font-semibold">If the gift ever ends</p>
-        <p>
-          We&apos;ll tell you before it does{gift.endsAt ? ` (it runs until ${shortDate(new Date(Date.parse(gift.endsAt) - 86_400_000))})` : ""}. Your children&apos;s profiles, approvals and progress are kept.
-          Listening pauses until you choose a plan of your own. Stories in {from}&apos;s voice stay with your family as long as {from} keeps sharing their voice with you.
-        </p>
+      <section className="flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10 sm:p-6" aria-labelledby="gift-ends-h">
+        <h2 id="gift-ends-h" className="font-display text-xl font-semibold">
+          If the gift ever ends
+        </h2>
+        <ul className="flex list-disc flex-col gap-1.5 pl-5">
+          <li>We&apos;ll tell you before it does{gift.endsAt ? `. It runs until ${shortDate(new Date(Date.parse(gift.endsAt) - 86_400_000))}` : ""}.</li>
+          <li>Your children&apos;s profiles, approvals and progress are kept.</li>
+          <li>Listening pauses until you choose a plan of your own.</li>
+          <li>
+            Stories in {from}&apos;s voice stay with your family as long as {from} keeps sharing their voice with you.
+          </li>
+        </ul>
       </section>
     </AdultPage>
   );
