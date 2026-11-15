@@ -472,7 +472,19 @@ export const HELP_ARTICLES: HelpArticle[] = [
       "In Readli Family, open Settings, then Plan & credits, and choose Manage billing. That opens our payment provider's page, where you can update your card or cancel. If you cancel, your plan stays active until the end of the period you've paid for and won't renew.",
     ],
     keywords: ["cancel", "billing", "payment method", "stop subscription"],
-    related: ["cancel-what-happens-to-voice", "family-plan-included"],
+    related: ["cancel-what-happens-to-voice", "family-plan-included", "money-back-guarantee"],
+  }),
+  A({
+    slug: "money-back-guarantee",
+    category: "billing-credits-and-gifts",
+    question: "Is there a money-back guarantee?",
+    status: "published",
+    answer: [
+      "Yes. If your family isn't happy with Readli Family, email admin@readli.ai within 14 days of your first subscription payment, monthly or yearly, and we'll refund that payment in full. Your plan ends when the refund is made.",
+      "The guarantee is once per household and covers your first Readli Family payment only, not renewals, extra storyteller slots or credit packs. Gifts have their own refund terms, shown when you buy. The full details are in our [Terms](/terms).",
+    ],
+    keywords: ["refund", "money back", "guarantee", "14 days", "not happy", "return"],
+    related: ["manage-or-cancel-subscription", "family-plan-included"],
   }),
   A({
     slug: "gift-memberships",

@@ -203,9 +203,9 @@ export default async function GiftsPage() {
           <div className="mx-auto flex max-w-5xl flex-col gap-6">
             <div className="flex flex-col gap-2 text-center">
               <h2 id="plans-heading" className="font-display text-3xl font-semibold sm:text-4xl">
-                One gift, up to {SPONSORED.households} families
+                Give it to all your grandkids
               </h2>
-              <p className="text-lg">You pay for one plan. Each family runs its own home, children and approvals.</p>
+              <p className="text-lg">You pay for one plan that covers up to {SPONSORED.households} families. Each family runs its own children and approvals.</p>
             </div>
             <ul className="mx-auto grid w-full max-w-3xl gap-5 sm:grid-cols-2">
               {PLANS.map((p) => (

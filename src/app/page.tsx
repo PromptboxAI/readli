@@ -4,6 +4,7 @@ import { FamilyVoices } from "@/components/home/FamilyVoices";
 import { GiftBand } from "@/components/home/GiftBand";
 import { ListenAnywhere } from "@/components/home/ListenAnywhere";
 import { SiteHeader } from "@/components/home/SiteHeader";
+import { FounderStory } from "@/components/home/FounderStory";
 import { Testimonials } from "@/components/home/Testimonials";
 import { VoiceStaysYours } from "@/components/home/VoiceStaysYours";
 import {
@@ -80,6 +81,7 @@ export default function HomePage() {
         <ListenAnywhere />
         <FamilyCircles />
         <FamilyVoices />
+        <FounderStory />
         <Testimonials />
         <VoiceStaysYours />
         <GiftBand />
