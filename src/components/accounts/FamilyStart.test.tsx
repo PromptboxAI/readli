@@ -45,7 +45,7 @@ describe("FamilyStart", () => {
     await waitFor(() => expect(assign).toHaveBeenCalledWith("https://checkout.stripe.com/c/test_123"));
     expect(calls).toEqual([
       { url: "/api/family/household", body: { provisional: true } },
-      { url: "/api/billing/checkout", body: { item: "family_annual", from: "signup" } },
+      { url: "/api/billing/checkout", body: { item: "family_annual", from: "signup", fromTry: true, cleanUp: false } },
     ]);
     expect(trackMeta).toHaveBeenCalledWith("InitiateCheckout", { value: 179.99, currency: "USD", content_name: "family_annual" }, null);
   });
@@ -86,7 +86,7 @@ describe("FamilyStart", () => {
   it("goes on to checkout by itself when back from Google with a plan chosen", async () => {
     render(<FamilyStart {...props} initial="annual" signedInAs="kevin@example.com" autoStart />);
     await waitFor(() => expect(assign).toHaveBeenCalledWith("https://checkout.stripe.com/c/test_123"));
-    expect(calls[1]).toEqual({ url: "/api/billing/checkout", body: { item: "family_annual", from: "signup" } });
+    expect(calls[1]).toEqual({ url: "/api/billing/checkout", body: { item: "family_annual", from: "signup", fromTry: true, cleanUp: false } });
   });
 
   it("starts the family without checkout while payments are off", async () => {

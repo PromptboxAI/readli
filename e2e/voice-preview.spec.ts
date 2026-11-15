@@ -27,6 +27,9 @@ test("a finished take becomes a voice and reads four stories, with free replays"
   await expect(preview.getByText("The Tale of Peter Rabbit · read by you")).toBeVisible({ timeout: 15_000 });
   await expect(preview.getByLabel("The Tale of Peter Rabbit, read in your voice")).toHaveAttribute("src", /^blob:/);
   await expect(preview.getByText("Test mode: this is a stand-in sound, not your voice.")).toBeVisible();
+  // Right under the player: share the voice free, keeping this take and the story just heard.
+  await expect(preview.getByTestId("share-voice-cta")).toHaveAttribute("href", /^\/signup\/voice\?from=try.*&book=the-tale-of-peter-rabbit/);
+  await expect(preview.getByTestId("demo-email-form")).toHaveCount(0);
   await expect(preview.getByTestId("preview-counter")).toContainText("1 of 4 stories explored");
   // Next steps keep the take, so nobody reads the story again.
   const next = preview.getByTestId("try-next-steps");
@@ -77,6 +80,14 @@ test("a finished take becomes a voice and reads four stories, with free replays"
   await page.getByTestId("voice-preview").getByRole("article", { name: "Winnie-the-Pooh" }).getByRole("button").click();
   await expect(page.getByText("Winnie-the-Pooh · read by you")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("preview-counter")).toContainText("4 of 4 stories explored");
+
+  // The browser's Back button from Family signup (or checkout) lands on the stories again, not the consent boxes.
+  await page.getByTestId("try-next-steps").getByRole("link", { name: "Start Readli Family" }).click();
+  await expect(page.getByRole("heading", { name: "Create your family" })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByTestId("demo-books").getByRole("article")).toHaveCount(6);
+  await expect(page.getByTestId("teleprompter")).toHaveCount(0);
+  await expect(page.getByLabel(/18 or older/)).toHaveCount(0);
 });
 
 test("the server refuses previews without a session and a voice", async ({ request }) => {
