@@ -392,18 +392,19 @@ function NextSteps({ cleanUp, book }: { cleanUp: boolean; book: string | null })
         <p className="text-sm text-muted">Your recording comes with you, so you won&apos;t read the story again. Save it within 24 hours.</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-3 rounded-2xl bg-mint/50 p-4">
-          <p className="font-display text-lg font-semibold">Read to your family&apos;s kids</p>
-          <p className="text-sm">Make a free Readli Voice account and invite the families you love. They choose which children hear you.</p>
-          <Link href={voiceSignupHref(cleanUp, book)} className={`${buttonPrimary} mt-auto w-full`}>
-            Share my voice, free
-          </Link>
-        </div>
+        {/* The paid plan first, with the primary button (Kevin, 2026-11-15). */}
         <div className="flex flex-col gap-3 rounded-2xl bg-sunshine/50 p-4">
           <p className="font-display text-lg font-semibold">Read to your own kids</p>
           <p className="text-sm">Start Readli Family: classic stories in your voice and your storytellers&apos; voices, for every child.</p>
-          <Link href={`/signup/family?${carry}`} className={`${buttonSecondary} mt-auto w-full`}>
+          <Link href={`/signup/family?${carry}`} className={`${buttonPrimary} mt-auto w-full`}>
             Start Readli Family
+          </Link>
+        </div>
+        <div className="flex flex-col gap-3 rounded-2xl bg-mint/50 p-4">
+          <p className="font-display text-lg font-semibold">Read to your family&apos;s kids</p>
+          <p className="text-sm">Make a free Readli Voice account and invite the families you love. They choose which children hear you.</p>
+          <Link href={voiceSignupHref(cleanUp, book)} className={`${buttonSecondary} mt-auto w-full`}>
+            Share my voice, free
           </Link>
         </div>
       </div>
