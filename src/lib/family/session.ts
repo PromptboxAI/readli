@@ -169,20 +169,54 @@ export const currentSession = cache(async (): Promise<FamilySession | null> => {
 });
 
 /** Where a kids device is kept: Supabase for a signed-in family, memory for the preview. */
-export function deviceRegistry(account: boolean): DeviceRegistry | null {
-  if (account) {
-    const db = familyAccountsEnabled() ? accountDb() : null;
-    return db ? new SupabaseDeviceRegistry(db) : null;
-  }
+export function deviceRegistry(session: Pick<FamilySession, "account" | "sandbox">): DeviceRegistry | null {
+  if (session.account) return accountDevices();
   if (!familyPreviewEnabled()) return null;
+  return previewDevices(session.sandbox);
+}
+
+function accountDevices(): DeviceRegistry | null {
+  const db = familyAccountsEnabled() ? accountDb() : null;
+  return db ? new SupabaseDeviceRegistry(db) : null;
+}
+
+function previewDeviceStore(): MemoryDeviceRegistry {
   g.__readliDevices ??= new MemoryDeviceRegistry();
   return g.__readliDevices;
+}
+
+/**
+ * Every preview sandbox has the same demo household, so the preview's devices, family PIN and PIN
+ * lock are kept per sandbox: one visitor's PIN or wrong tries never reach another visitor's preview.
+ */
+export function previewDevices(sandbox: string, store: MemoryDeviceRegistry = previewDeviceStore()): DeviceRegistry {
+  const key = (householdId: string) => `${sandbox}/${householdId}`;
+  const mine = (d: KidsDevice | null) => (d && d.scope === sandbox ? d : null);
+  return {
+    create: (device) => store.create(device),
+    get: async (id) => mine(await store.get(id)),
+    list: async (householdId) => (await store.list(householdId)).filter((d) => d.scope === sandbox),
+    update: async (id, patch) => {
+      if (mine(await store.get(id))) await store.update(id, patch);
+    },
+    pinHash: (householdId) => store.pinHash(key(householdId)),
+    setPinHash: (householdId, hash) => store.setPinHash(key(householdId), hash),
+    pinLock: (householdId) => store.pinLock(key(householdId)),
+    setPinLock: (householdId, lock) => store.setPinLock(key(householdId), lock),
+  };
 }
 
 export async function currentDevice(): Promise<{ registry: DeviceRegistry; device: KidsDevice } | null> {
   const value = (await cookies()).get(KIDS_COOKIE)?.value;
   const parsed = parseDeviceCookie(value);
-  const registry = parsed ? deviceRegistry(parsed.account) : null;
+  if (!parsed) return null;
+  let registry: DeviceRegistry | null = null;
+  if (parsed.account) registry = accountDevices();
+  else if (familyPreviewEnabled()) {
+    // The cookie names the device, and the device names its sandbox.
+    const found = await previewDeviceStore().get(parsed.id);
+    registry = found ? previewDevices(found.scope) : null;
+  }
   const device = registry ? await deviceForCookie(registry, value, secret()) : null;
   return registry && device ? { registry, device } : null;
 }
@@ -261,7 +295,7 @@ export async function resumeGrownUp(session: FamilySession, pin: unknown, now = 
   if (lockedNow(stash, now)) throw new PermissionError(429, "pin_locked", "Too many tries. Try again in a few minutes, or sign in instead.");
   const store = await familyStore(session);
   const child = store ? activeChild(await store.read(), session.temporary.childId) : null;
-  const registry = child ? deviceRegistry(Boolean(session.account)) : null;
+  const registry = child ? deviceRegistry(session) : null;
   const stored = child && registry ? await registry.pinHash(child.householdId) : null;
   if (!child || !registry || !stored) throw new PermissionError(409, "no_pin", "Your family hasn't set a grown-up PIN yet. Sign in instead, then set one in Parent controls.");
   // Wrong tries are counted twice: in the sealed cookie, and on the server for the family, so putting

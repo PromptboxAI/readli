@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 /** The family's Readli Kids devices, for its parents and guardians. */
 export async function GET() {
   return withFamily(async ({ actor, store, session }) => {
-    const registry = deviceRegistry(Boolean(session.account));
+    const registry = deviceRegistry(session);
     if (!registry) return fail(404, "family_off", FAMILY_OFF);
     const householdId = await guardianHousehold(store, actor);
     if (!householdId) return fail(403, "not_guardian", "Only a parent or guardian can set up and manage kids devices.");
@@ -22,7 +22,7 @@ export async function GET() {
 export async function POST(req: Request) {
   const { childIds, label } = await jsonBody(req);
   return withFamily(async ({ actor, store, session }) => {
-    const registry = deviceRegistry(Boolean(session.account));
+    const registry = deviceRegistry(session);
     if (!registry) return fail(404, "family_off", FAMILY_OFF);
     const ids = Array.isArray(childIds) ? childIds.filter((c): c is string => typeof c === "string") : [];
     const { device, token } = await registerDevice(registry, await store.read(), actor, { scope: deviceScope(session), childIds: ids, label }, deviceSecret());

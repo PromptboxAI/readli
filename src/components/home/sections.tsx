@@ -329,9 +329,10 @@ export function KidsShelf() {
   );
 }
 
+/** Desktop and tablet only: hidden on phones (Kevin, 2026-11-15). The #families anchor lives on the wrapper in app/page.tsx. */
 export function FamilyCircles() {
   return (
-    <section id="families" aria-labelledby="circles-heading" className="scroll-mt-20 bg-ivory">
+    <section aria-labelledby="circles-heading" className="hidden bg-ivory sm:block" data-testid="home-family-circles">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-14 sm:px-6">
         <div className="flex max-w-2xl flex-col gap-3">
           <h2 id="circles-heading" className="font-display text-3xl font-semibold sm:text-4xl">

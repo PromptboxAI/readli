@@ -41,12 +41,20 @@ export interface GuestStore {
   getVoice(sessionId: string): Promise<string | null>;
   /** How many provider voices this guest has made (retakes each make one). */
   voiceCount(sessionId: string): Promise<number>;
+  /** How many recordings this guest has uploaded. */
+  recordingCount(sessionId: string): Promise<number>;
+  /** How many voices were made from the latest recording (its first, plus one per noise clean-up switch). */
+  voicesForLatestRecording(sessionId: string): Promise<number>;
   /** Atomically spends one preview; false when the guest has none left. */
   useGeneration(sessionId: string): Promise<boolean>;
   refundGeneration(sessionId: string): Promise<void>;
+  /** A new recording's voice starts a fresh set of stories (still capped by voices per guest). */
+  resetGenerations(sessionId: string): Promise<void>;
   /** A story already read in this voice, kept so replays are free. `key` names the voice and the book. */
   findPreview(sessionId: string, key: string): Promise<{ audio: Blob; contentType: string } | null>;
   savePreview(sessionId: string, key: string, audio: ArrayBuffer, contentType: string): Promise<void>;
+  /** Whether this story was already read for the guest's latest recording, in any voice made from it (clean-up on or off). */
+  storyReadForLatestRecording(sessionId: string, slug: string): Promise<boolean>;
   /** Which of these preview keys are kept for the guest, without downloading the audio. */
   keptPreviews(sessionId: string, keys: string[]): Promise<string[]>;
   /** Database kill switch (feature_flags.demo_audio). */
@@ -54,6 +62,11 @@ export interface GuestStore {
   listExpired(limit: number): Promise<ExpiredGuest[]>;
   deleteStorage(keys: string[]): Promise<void>;
   deleteSession(sessionId: string): Promise<void>;
+}
+
+/** The book slug in a preview key (`<voice hash>-<slug>`). */
+export function slugOfPreviewKey(key: string): string {
+  return key.slice(key.indexOf("-") + 1);
 }
 
 /** Where a cached preview lives in the guest bucket. Keys come from the server, never the browser. */
@@ -73,6 +86,10 @@ interface MemoryGuest {
   tokenHash: string;
   recordings: { key: string; audio: Blob; mimeType: string; meta: RecordingMeta }[];
   previews: Map<string, { audio: Blob; contentType: string }>;
+  /** Stories read since the latest recording. */
+  takeStories?: Set<string>;
+  /** Voices made since the latest recording. */
+  takeVoices?: number;
   voiceId: string | null;
 }
 
@@ -107,6 +124,8 @@ export class MemoryGuestStore implements GuestStore {
   async saveRecording(sessionId: string, audio: Blob, meta: RecordingMeta) {
     const key = `${sessionId}/${randomUUID()}.${extensionFor(meta.mimeType)}`;
     this.guest(sessionId).recordings.push({ key, audio, mimeType: baseMimeType(meta.mimeType), meta });
+    this.guest(sessionId).takeStories = new Set();
+    this.guest(sessionId).takeVoices = 0;
     return { recordingId: key };
   }
 
@@ -124,6 +143,7 @@ export class MemoryGuestStore implements GuestStore {
 
   async setVoice(sessionId: string, voiceId: string) {
     this.guest(sessionId).voiceId = voiceId;
+    this.guest(sessionId).takeVoices = (this.guest(sessionId).takeVoices ?? 0) + 1;
     this.voicesMade.set(sessionId, (this.voicesMade.get(sessionId) ?? 0) + 1);
   }
 
@@ -135,6 +155,14 @@ export class MemoryGuestStore implements GuestStore {
 
   async voiceCount(sessionId: string) {
     return this.voicesMade.get(sessionId) ?? 0;
+  }
+
+  async recordingCount(sessionId: string) {
+    return this.guest(sessionId).recordings.length;
+  }
+
+  async voicesForLatestRecording(sessionId: string) {
+    return this.guest(sessionId).takeVoices ?? 0;
   }
 
   async useGeneration(sessionId: string) {
@@ -149,12 +177,22 @@ export class MemoryGuestStore implements GuestStore {
     s.generationsUsed = Math.max(0, s.generationsUsed - 1);
   }
 
+  async resetGenerations(sessionId: string) {
+    this.guest(sessionId).session.generationsUsed = 0;
+  }
+
   async findPreview(sessionId: string, key: string) {
     return this.guest(sessionId).previews.get(key) ?? null;
   }
 
   async savePreview(sessionId: string, key: string, audio: ArrayBuffer, contentType: string) {
-    this.guest(sessionId).previews.set(key, { audio: new Blob([audio], { type: contentType }), contentType });
+    const g = this.guest(sessionId);
+    g.previews.set(key, { audio: new Blob([audio], { type: contentType }), contentType });
+    (g.takeStories ??= new Set()).add(slugOfPreviewKey(key));
+  }
+
+  async storyReadForLatestRecording(sessionId: string, slug: string) {
+    return this.guest(sessionId).takeStories?.has(slug) ?? false;
   }
 
   async keptPreviews(sessionId: string, keys: string[]) {
@@ -395,12 +433,55 @@ export class SupabaseGuestStore implements GuestStore {
     return count ?? 0;
   }
 
+  async recordingCount(sessionId: string) {
+    const { count, error } = await this.db
+      .from("guest_assets")
+      .select("id", { count: "exact", head: true })
+      .eq("guest_session_id", sessionId)
+      .eq("kind", "recording");
+    if (error) throw new Error(`count recordings: ${error.message}`);
+    return count ?? 0;
+  }
+
+  async voicesForLatestRecording(sessionId: string) {
+    const since = await this.latestRecordingTime(sessionId);
+    if (!since) return 0;
+    const { count, error } = await this.db
+      .from("guest_assets")
+      .select("id", { count: "exact", head: true })
+      .eq("guest_session_id", sessionId)
+      .eq("kind", "provider_voice")
+      .gte("created_at", since);
+    if (error) throw new Error(`count voices for recording: ${error.message}`);
+    return count ?? 0;
+  }
+
+  private async latestRecordingTime(sessionId: string): Promise<string | null> {
+    const row = await this.maybe<{ created_at: string }>(
+      this.db
+        .from("guest_assets")
+        .select("created_at")
+        .eq("guest_session_id", sessionId)
+        .eq("kind", "recording")
+        .eq("deletion_state", "active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      "find latest recording time",
+    );
+    return row?.created_at ?? null;
+  }
+
   async useGeneration(sessionId: string) {
     return Boolean(await this.maybe(this.db.rpc("use_guest_generation", { p_session: sessionId }), "spend preview"));
   }
 
   async refundGeneration(sessionId: string) {
     await this.maybe(this.db.rpc("refund_guest_generation", { p_session: sessionId }), "refund preview");
+  }
+
+  async resetGenerations(sessionId: string) {
+    await this.maybe(this.db.from("guest_sessions").update({ generations_used: 0 }).eq("id", sessionId), "reset previews");
   }
 
   async findPreview(sessionId: string, key: string) {
@@ -433,6 +514,26 @@ export class SupabaseGuestStore implements GuestStore {
       this.db.from("guest_assets").insert({ guest_session_id: sessionId, kind: "generated_audio", storage_key: storageKey, expires_at: session.expires_at }),
       "record cached preview",
     );
+  }
+
+  async storyReadForLatestRecording(sessionId: string, slug: string) {
+    const since = await this.latestRecordingTime(sessionId);
+    if (!since) return false;
+    // Preview files are named <voice hash>-<slug>.mp3, so any voice made from this recording counts.
+    const safeSlug = slug.replace(/[^a-zA-Z0-9-]/g, "");
+    const rows = await this.maybe<{ id: string }[]>(
+      this.db
+        .from("guest_assets")
+        .select("id")
+        .eq("guest_session_id", sessionId)
+        .eq("kind", "generated_audio")
+        .eq("deletion_state", "active")
+        .like("storage_key", `${sessionId}/previews/%-${safeSlug}.mp3`)
+        .gte("created_at", since)
+        .limit(1),
+      "find story read for this recording",
+    );
+    return (rows ?? []).length > 0;
   }
 
   async keptPreviews(sessionId: string, keys: string[]) {
