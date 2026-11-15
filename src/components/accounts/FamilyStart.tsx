@@ -54,7 +54,14 @@ export function FamilyStart(props: {
       window.location.assign("/home?start=1");
       return;
     }
-    await startFamilyCheckout({ billing, cents: billing === "annual" ? props.annualCents : props.monthlyCents, familyName: null, from: "signup" });
+    const carried = new URLSearchParams(props.carry);
+    await startFamilyCheckout({
+      billing,
+      cents: billing === "annual" ? props.annualCents : props.monthlyCents,
+      familyName: null,
+      from: "signup",
+      ...(carried.get("from") === "try" ? { fromTry: { cleanUp: carried.get("cleanup") === "1" } } : {}),
+    });
   };
 
   const run = async () => {

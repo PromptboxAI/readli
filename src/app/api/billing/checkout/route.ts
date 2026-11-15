@@ -80,7 +80,8 @@ export async function POST(req: Request) {
     const deferred = request.mode === "subscription" ? deferredStart(request.startsAfter) : {};
     const fromSignup = request.mode === "subscription" && body.from === "signup";
     const fromStart = request.mode === "subscription" && body.from === "start";
-    const back = checkoutReturn(origin, { fromSignup, fromStart, invitationId, returnPath: body.returnPath });
+    const fromTry = fromSignup && body.fromTry === true ? { cleanUp: body.cleanUp === true } : null;
+    const back = checkoutReturn(origin, { fromSignup, fromStart, fromTry, invitationId, returnPath: body.returnPath });
     const attribution = attributionFrom(req);
     const stripe = new StripeApi(config);
     try {

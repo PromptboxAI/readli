@@ -7,10 +7,10 @@ import { DemoBookShelf } from "@/components/books/DemoBookShelf";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import type { DemoBook } from "@/lib/content/demo-books";
 import { newMetaEventId, trackMeta } from "@/lib/marketing/meta-pixel";
-import { DemoEmailForm } from "./DemoEmailForm";
 import { ImproveLink, RecordingTipsDialog } from "./RecordingTips";
 import type { RecordedTake } from "./useMicrophone";
 import { trackGaEvent } from "@/lib/marketing/google-analytics";
+import { rememberTryVoice } from "@/lib/teleprompter/try-resume";
 
 type Mode = "live" | "stub" | "off" | "loading";
 type Phase = "idle" | "saving" | "cloning" | "reading" | "playing" | "error";
@@ -78,7 +78,6 @@ export function VoicePreview({
   const [previewsAllowed, setPreviewsAllowed] = useState<number | null>(null);
   const [playing, setPlaying] = useState<Played | null>(null);
   const [tipsOpen, setTipsOpen] = useState(false);
-  const [demoEmail, setDemoEmail] = useState(false);
   /** Stories already read, by voice ("take:clean-up") and book. */
   const heard = useRef(new Map<string, Played>());
   const [, setHeardCount] = useState(0);
@@ -94,11 +93,10 @@ export function VoicePreview({
   useEffect(() => {
     let cancelled = false;
     fetch("/api/demo/status", { cache: "no-store" })
-      .then((r) => r.json() as Promise<{ mode: Mode; demoEmail?: boolean; guest: { previewsLeft: number; previewsAllowed: number } | null }>)
+      .then((r) => r.json() as Promise<{ mode: Mode; guest: { previewsLeft: number; previewsAllowed: number } | null }>)
       .then((s) => {
         if (cancelled) return;
         setMode(s.mode);
-        setDemoEmail(s.demoEmail === true);
         if (s.guest) {
           setPreviewsLeft(s.guest.previewsLeft);
           setPreviewsAllowed(s.guest.previewsAllowed);
@@ -197,6 +195,8 @@ export function VoicePreview({
       setHeardCount(heard.current.size);
       setPlaying(played);
       setPhase("playing");
+      // Back from signup or checkout reopens the stories in this voice instead of starting over.
+      if (nextSteps) rememberTryVoice(cleanUp);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setPhase("error");
@@ -256,15 +256,17 @@ export function VoicePreview({
         </div>
       )}
 
-      {playing && !busy && demoEmail && !playing.standIn && <DemoEmailForm />}
+      {nextSteps && playing && !busy && (
+        <Link href={voiceSignupHref(playing.cleanUp, playing.book.slug)} className={`${buttonPrimary} w-full`} data-testid="share-voice-cta">
+          Share my voice, free
+        </Link>
+      )}
 
       {error && (
         <p role="alert" className="rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold">
           {error}
         </p>
       )}
-
-      {nextSteps && !busy && (playing || previewsLeft === 0 || !take) && <NextSteps cleanUp={playing?.cleanUp ?? cleanUp} book={playing?.book.slug ?? null} />}
 
       {mode !== "off" && (
         <label className="flex min-h-11 items-start gap-3 rounded-2xl border-2 border-ink/10 bg-surface p-4">
@@ -303,6 +305,8 @@ export function VoicePreview({
         </div>
       )}
 
+      {nextSteps && !busy && (playing || previewsLeft === 0 || !take) && <NextSteps cleanUp={playing?.cleanUp ?? cleanUp} book={playing?.book.slug ?? null} />}
+
       <DemoBookShelf
         heading={heading}
         onHear={hear}
@@ -322,14 +326,17 @@ export function VoicePreview({
   );
 }
 
+/** Readli Voice signup that keeps this take, and names the story just heard so Save your voice can show it. */
+function voiceSignupHref(cleanUp: boolean, book: string | null): string {
+  return `/signup/voice?from=try${cleanUp ? "&cleanup=1" : ""}${book ? `&book=${encodeURIComponent(book)}` : ""}`;
+}
+
 /**
  * Where a guest goes once they've heard themselves. Both paths keep the take: signing in within the
  * guest's 24 hours offers it on /voice/record, so nobody reads the story again.
  */
 function NextSteps({ cleanUp, book }: { cleanUp: boolean; book: string | null }) {
   const carry = `from=try${cleanUp ? "&cleanup=1" : ""}`;
-  // The story they just heard, so Save your voice can show what they're keeping.
-  const heard = book ? `&book=${encodeURIComponent(book)}` : "";
   return (
     <section aria-labelledby="next-steps-heading" className="flex flex-col gap-4 rounded-panel bg-surface p-5 ring-2 ring-ink/10 sm:p-6" data-testid="try-next-steps">
       <div className="flex flex-col gap-1">
@@ -342,7 +349,7 @@ function NextSteps({ cleanUp, book }: { cleanUp: boolean; book: string | null })
         <div className="flex flex-col gap-3 rounded-2xl bg-mint/50 p-4">
           <p className="font-display text-lg font-semibold">Read to your family&apos;s kids</p>
           <p className="text-sm">Make a free Readli Voice account and invite the families you love. They choose which children hear you.</p>
-          <Link href={`/signup/voice?${carry}${heard}`} className={`${buttonPrimary} mt-auto w-full`}>
+          <Link href={voiceSignupHref(cleanUp, book)} className={`${buttonPrimary} mt-auto w-full`}>
             Share my voice, free
           </Link>
         </div>

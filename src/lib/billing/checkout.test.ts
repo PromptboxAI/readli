@@ -186,6 +186,15 @@ describe("checkoutReturn", () => {
     }
   });
 
+  it("sends a canceled Family signup from /try back with its way to the demo stories", () => {
+    expect(checkoutReturn(origin, { fromSignup: true, fromTry: { cleanUp: true }, invitationId: null, returnPath: undefined }).cancel).toBe(
+      `${origin}/signup/family?checkout=canceled&from=try&cleanup=1`,
+    );
+    expect(checkoutReturn(origin, { fromSignup: true, fromTry: { cleanUp: false }, invitationId: null, returnPath: undefined }).cancel).toBe(
+      `${origin}/signup/family?checkout=canceled&from=try`,
+    );
+  });
+
   it("keeps Family signup going back to setup", () => {
     expect(checkoutReturn(origin, { fromSignup: true, invitationId: null, returnPath: undefined })).toEqual({ success: `${origin}/family/setup?checkout=success&session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}/signup/family?checkout=canceled` });
   });

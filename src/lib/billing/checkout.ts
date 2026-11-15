@@ -42,14 +42,16 @@ const INVITATION_RETURN = /^\/v\/[A-Za-z0-9_-]{20,64}\/connect$/;
  */
 export function checkoutReturn(
   origin: string,
-  opts: { fromSignup: boolean; fromStart?: boolean; invitationId: string | null; returnPath: unknown },
+  opts: { fromSignup: boolean; fromStart?: boolean; fromTry?: { cleanUp: boolean } | null; invitationId: string | null; returnPath: unknown },
 ): { success: string; cancel: string } {
   if (opts.invitationId && typeof opts.returnPath === "string" && INVITATION_RETURN.test(opts.returnPath)) {
     return { success: `${origin}${opts.returnPath}?checkout=success&session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}${opts.returnPath}?checkout=canceled` };
   }
   // The new-signup welcome's plan page: on to family setup once paid, or back to the plans if canceled.
   if (opts.fromStart) return { success: `${origin}/family/setup?checkout=success&from=start&session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}/start/plan?checkout=canceled` };
-  if (opts.fromSignup) return { success: `${origin}/family/setup?checkout=success&session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}/signup/family?checkout=canceled` };
+  // Family signup from the /try demo: a canceled checkout keeps its way back to the stories in the guest's voice.
+  const tryCarry = opts.fromTry ? `&from=try${opts.fromTry.cleanUp ? "&cleanup=1" : ""}` : "";
+  if (opts.fromSignup) return { success: `${origin}/family/setup?checkout=success&session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}/signup/family?checkout=canceled${tryCarry}` };
   return { success: `${origin}/family/billing/thanks?session_id={CHECKOUT_SESSION_ID}`, cancel: `${origin}/family/settings/plan?checkout=canceled` };
 }
 
