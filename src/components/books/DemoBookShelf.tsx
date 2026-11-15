@@ -80,8 +80,9 @@ export function DemoBookCard({ book, onHear, activeSlug, disabledReason, explore
           Hear this passage
         </Link>
       )}
+      {/* Room for the longest note, so every button in a shelf row sits on the same line. */}
       {status && (
-        <p id={`${headingId}-status`} className="text-xs text-muted">
+        <p id={`${headingId}-status`} className="min-h-[3lh] text-xs text-muted sm:min-h-[2lh]">
           {status}
         </p>
       )}

@@ -322,7 +322,7 @@ export function VoicePreview({
         </div>
       )}
 
-      {/* Desktop: Keep your voice above the counter. Phones: the counter first (order classes below). */}
+      {/* Keep your voice, then the counter right above the stories (Kevin, 2026-11-15). */}
       {nextSteps && !busy && (playing || previewsLeft === 0 || !take) && <NextSteps cleanUp={playing?.cleanUp ?? cleanUp} book={playing?.book.slug ?? null} />}
 
       {used !== null && previewsAllowed !== null && mode !== "off" && (
@@ -343,18 +343,16 @@ export function VoicePreview({
         </div>
       )}
 
-      <div className="max-sm:order-2">
-        <DemoBookShelf
-          heading={heading}
-          onHear={hear}
-          activeSlug={busy || playing ? activeSlug : null}
-          disabledReason={disabledReason}
-          explored={explored}
-          busy={busy}
-        />
-      </div>
+      <DemoBookShelf
+        heading={heading}
+        onHear={hear}
+        activeSlug={busy || playing ? activeSlug : null}
+        disabledReason={disabledReason}
+        explored={explored}
+        busy={busy}
+      />
 
-      <p className="text-sm text-muted max-sm:order-2">
+      <p className="text-sm text-muted">
         {mode === "off"
           ? "We never play a stock voice as if it were yours."
           : "Your recording and voice are deleted within 24 hours. We never play a stock voice as if it were yours."}
@@ -376,7 +374,7 @@ function voiceSignupHref(cleanUp: boolean, book: string | null): string {
 function NextSteps({ cleanUp, book }: { cleanUp: boolean; book: string | null }) {
   const carry = `from=try${cleanUp ? "&cleanup=1" : ""}`;
   return (
-    <section aria-labelledby="next-steps-heading" className="flex flex-col gap-4 rounded-panel bg-surface p-5 ring-2 ring-ink/10 max-sm:order-1 sm:p-6" data-testid="try-next-steps">
+    <section aria-labelledby="next-steps-heading" className="flex flex-col gap-4 rounded-panel bg-surface p-5 ring-2 ring-ink/10 sm:p-6" data-testid="try-next-steps">
       <div className="flex flex-col gap-1">
         <h2 id="next-steps-heading" className="font-display text-2xl font-semibold">
           Keep your voice
