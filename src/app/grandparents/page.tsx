@@ -350,7 +350,8 @@ export default function GrandparentsPage() {
                   </p>
                 ))}
                 <p className="font-display text-xl font-semibold">
-                  {founder.name}, <span className="font-normal text-muted">{founder.title}</span>
+                  {founder.name}
+<span className="block font-normal text-muted">{founder.title}</span>
                 </p>
                 <Link href="/company#our-story" className="inline-flex min-h-12 w-fit items-center font-display text-xl font-semibold text-coral-deep underline underline-offset-4 md:hidden">
                   Read our story

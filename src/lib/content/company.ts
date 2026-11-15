@@ -21,18 +21,22 @@ export interface Founder {
   story: string[];
 }
 
-/** Kevin's name, photo and reason for building Readli. Story approved by Kevin (2026-11-15). */
+/** Kevin's name, photo and reason for building Readli. Story in Kevin's own words (2026-11-15). */
 export const FOUNDERS: Founder[] = [
   {
     name: "Kevin Godfrey",
-    title: "Founder of Readli",
+    title: "Founder, Readli",
     photo: "/company/godfrey-family.webp",
     photoAlt: "Kevin Godfrey with his family",
     story: [
-      "My mother passed away from cancer. I only knew two of my grandparents, and they were gone when I was very young. My wife lost her father when she was 15. Between us, our kids, Milly, Abby and Henry, have a family tree full of people they'll never get to hear.",
-      "I can't remember what my grandparents sounded like, and that's the part that stays with me. A photo keeps a face, but a voice is what makes someone feel close, and it's the first thing you lose.",
-      "So I built Readli. Grandma, Grandpa, or anyone who loves your kids records about a minute of their voice, and your children can hear classic storybooks read by them every night, no matter how far away they live.",
-      "One day, hearing the people you love read to your children will mean more than you can imagine. I hope Readli gives your family what I wish mine had.",
+      "My mother passed away from cancer. I lost the only two grandparents I ever knew when I was very young. My wife lost her father when she was just 15.",
+      "Between us, our three children, Milly, Abby, and Henry, have a family tree filled with people they'll never get to hear.",
+      "I have pictures of my grandparents, but I can't remember what their voices sounded like. That's the part that stays with me. Photos remind us what someone looked like, but there's something about hearing a familiar voice that brings them back in a way a picture never can.",
+      "And once that voice is gone, it's gone.",
+      "That's why I built Readli.",
+      "With just a minute of recording, Grandma, Grandpa, or anyone your children love can share their voice. Readli uses it to bring classic storybooks to life, so your kids can hear the people they love reading to them at bedtime, whether they're across the country or just down the road.",
+      "Today, it's a bedtime story. Years from now, it could be something your children treasure more than anything.",
+      "I built Readli because I wish I could hear those voices again. My hope is that your family never has to wish for the same thing.",
       "From my family to yours, happy reading.",
     ],
   },
