@@ -33,6 +33,7 @@ export function LoginForm({
   submitLabel = "Email me a code",
   onSignedIn,
   quickStart,
+  source,
 }: {
   next: string;
   onSentChange?: (sent: boolean) => void;
@@ -43,6 +44,8 @@ export function LoginForm({
   onSignedIn?: () => Promise<void> | void;
   /** Signs a new email in without a code; see above. Throws with a message to show when it can't. */
   quickStart?: (email: string, opts: { news: boolean; tz: string | undefined }) => Promise<"signed_in" | "existing">;
+  /** Which signup form this is, sent with GA's sign_up_start so one entry point can be told from another. */
+  source?: string;
 }) {
   const id = useId();
   const [email, setEmail] = useState("");
@@ -71,7 +74,7 @@ export function LoginForm({
 
   const signedUp = () => {
     if (signup) trackMetaCustom("SignupStarted", { content_name: signup });
-    if (signup) trackGaEvent("sign_up_start", { method: signup });
+    if (signup) trackGaEvent("sign_up_start", source ? { method: signup, source } : { method: signup });
   };
 
   const google = async () => {
