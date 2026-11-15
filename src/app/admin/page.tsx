@@ -69,6 +69,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <Link href="/admin/donations" className={buttonSecondary}>Readli Gives Back</Link>
           <Link href="/admin/invitations" className={buttonSecondary}>Family invitations</Link>
           <Link href="/admin/email" className={buttonSecondary}>Email</Link>
+          <Link href="/admin/banner" className={buttonSecondary}>Top banner</Link>
           <Link href="/admin/voice-quality" className={buttonSecondary}>Voice quality</Link>
         </nav>
       </header>

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { FamilyJourney } from "@/components/home/FamilyJourney";
 import { FamilyVoices } from "@/components/home/FamilyVoices";
-import { GiftBand } from "@/components/home/GiftBand";
 import { ListenAnywhere } from "@/components/home/ListenAnywhere";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { FounderStory } from "@/components/home/FounderStory";
@@ -86,7 +85,6 @@ export default function HomePage() {
         </div>
         <FounderStory />
         <VoiceStaysYours />
-        <GiftBand />
         {/* Social proof sits right above the closing sign-up buttons (Kevin, 2026-11-15). */}
         <Testimonials />
         <FinalCta />
