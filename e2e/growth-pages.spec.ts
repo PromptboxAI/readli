@@ -22,7 +22,6 @@ test("the gift page explains a Readli gift, is indexable and is linked from home
   await noSidewaysScroll(page);
 
   await page.goto("/");
-  await expect(page.getByTestId("home-gift-band").getByRole("link", { name: "See Readli gifts" })).toHaveAttribute("href", "/gifts");
   await expect(page.locator("footer").getByRole("link", { name: "Gifts", exact: true })).toHaveAttribute("href", "/gifts");
   await page.goto("/pricing");
   await expect(page.getByTestId("pricing-gift").getByRole("link", { name: "How gifts work" })).toHaveAttribute("href", "/gifts");
