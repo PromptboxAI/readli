@@ -18,7 +18,7 @@ export default async function KidsModePage() {
   if (session?.actor.kind !== "adult" || !page.state) return <NeedsGrownUp text="Only a parent or guardian can manage kids devices." />;
   const store = (await familyStore(session))!;
   const householdId = await guardianHousehold(store, session.actor);
-  const registry = deviceRegistry(Boolean(session.account));
+  const registry = deviceRegistry(session);
   if (!householdId || !registry) return <NeedsGrownUp text="Only a parent or guardian can manage kids devices." />;
   const kids = guardianChildren(page.state, session.actor.adultId)
     .filter((c) => c.householdId === householdId)

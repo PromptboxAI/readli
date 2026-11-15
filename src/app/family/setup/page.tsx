@@ -266,7 +266,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
 
   const recorder = step === "voice" && !recorded && session.account ? await recorderProps(adultId) : null;
   // The family PIN isn't asked for in setup: opening a child's Readli Kids asks for it the first time. The last page says so.
-  const pinRegistry = step === "done" && kids.length > 0 ? deviceRegistry(Boolean(session.account)) : null;
+  const pinRegistry = step === "done" && kids.length > 0 ? deviceRegistry(session) : null;
   const pinToSet = Boolean(pinRegistry && !(await pinRegistry.pinHash(home).catch(() => "unknown")));
 
   let body: React.ReactNode;

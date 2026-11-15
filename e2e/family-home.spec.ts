@@ -140,13 +140,10 @@ test("the Family tab lists the kids and opens Readli Kids from a child's profile
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/family-kids-${info.project.name}.png`, fullPage: true });
   await page.getByRole("button", { name: "Open Readli Kids for Maya" }).click();
-  // The preview's family PIN is shared by every test: when no other test has set it yet, a PIN comes first.
+  // Each test's preview has its own family PIN, and this family hasn't set one yet: a PIN comes first.
   const setPin = page.getByTestId("pin-before-kids");
-  await expect(setPin.or(page.getByRole("heading", { name: "Hi Maya! Pick a story." }))).toBeVisible();
-  if (await setPin.isVisible()) {
-    await setPin.getByLabel("New PIN").fill("4821");
-    await setPin.getByRole("button", { name: "Save PIN" }).click();
-  }
+  await setPin.getByLabel("New PIN").fill("4821");
+  await setPin.getByRole("button", { name: "Save PIN" }).click();
   await expect(page).toHaveURL(/\/kids$/);
 });
 

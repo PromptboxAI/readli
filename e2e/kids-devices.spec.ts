@@ -131,6 +131,8 @@ test("Readli Kids saves to the home screen as an app that opens on the bookshelf
 
 test("Back on a kids profile stays on the kids bookshelf instead of returning to parent pages", async ({ page }) => {
   expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
+  // Kids Mode opens straight away once the family has a PIN.
+  expect((await page.request.put("/api/family/kids-pin", { data: { pin: PIN } })).status()).toBe(200);
   await page.goto("/family");
   await page.goto("/home");
   await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
@@ -143,6 +145,8 @@ test("Back on a kids profile stays on the kids bookshelf instead of returning to
 
 test("opening a child's Readli Kids is temporary Kids Mode on this browser, not a kids device", async ({ page, context, browser }) => {
   expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
+  // Kids Mode opens straight away once the family has a PIN.
+  expect((await page.request.put("/api/family/kids-pin", { data: { pin: PIN } })).status()).toBe(200);
   // The same grown-up on their phone, signed in with the same family.
   const phone = await browser.newContext();
   await phone.addCookies(await context.cookies());
@@ -188,17 +192,13 @@ test("a grown-up leaves temporary Kids Mode with the family PIN and is back in t
   expect((await page.request.post("/api/family/session", { data: { as: "adult:sara" } })).status()).toBe(200);
   // Something the family changed before Kids Mode, to show the same family comes back.
   expect((await page.request.post("/api/family/children", { data: { nickname: "Ava" } })).status()).toBe(200);
-  // The preview's device registry is shared by every test, so another test may have set the PIN
-  // already. When it hasn't, the family home asks for one right above the kids.
+  // Each test's preview has its own family PIN, so this family hasn't set one yet: the family home
+  // asks for it right above the kids.
   await page.goto("/home");
   const setPin = page.getByTestId("set-kids-pin");
-  if (await setPin.isVisible()) {
-    await setPin.getByLabel("New PIN").fill(PIN);
-    await setPin.getByRole("button", { name: "Save PIN" }).click();
-    await expect(setPin).toContainText("PIN saved");
-  } else {
-    expect((await page.request.put("/api/family/kids-pin", { data: { pin: PIN } })).status()).toBe(200);
-  }
+  await setPin.getByLabel("New PIN").fill(PIN);
+  await setPin.getByRole("button", { name: "Save PIN" }).click();
+  await expect(setPin).toContainText("PIN saved");
   await page.getByRole("button", { name: "Open Maya's Readli Kids" }).click();
   await expect(page.getByRole("heading", { name: "Hi Maya! Pick a story." })).toBeVisible();
   // The grown-up's sign-in is set aside in a cookie the page can't read.
