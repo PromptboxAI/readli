@@ -247,6 +247,9 @@ export async function sendDueEmails(deps: OutboxDeps): Promise<SendReport> {
   return report;
 }
 
+/** The Resend events that settle what happened to a sent email. */
+const OUTCOME_EVENTS = new Set(["email.delivered", "email.bounced", "email.complained"]);
+
 /** Records a Resend webhook event once, and suppresses addresses that hard-bounced or complained. */
 export async function recordEmailEvent(
   db: SupabaseClient,
@@ -258,8 +261,12 @@ export async function recordEmailEvent(
     "store email event",
   );
   if (!stored.length) return { duplicate: true, suppressed: 0 };
-  if (providerRef) {
-    await q(db.from("email_outbox").update({ last_event: event.type, last_event_at: new Date().toISOString() }).eq("provider_ref", providerRef), "record email event");
+  if (providerRef && OUTCOME_EVENTS.has(event.type)) {
+    // Only outcomes move the dashboard, so an open, click or delay never hides "Delivered", and a late
+    // "delivered" never hides a bounce or a spam report.
+    let update = db.from("email_outbox").update({ last_event: event.type, last_event_at: new Date().toISOString() }).eq("provider_ref", providerRef);
+    if (event.type === "email.delivered") update = update.is("last_event", null);
+    await q(update, "record email event");
   }
   const bounceType = (event.data?.bounce?.type ?? "").toLowerCase();
   const hardBounce = event.type === "email.bounced" && bounceType !== "transient" && bounceType !== "temporary";

@@ -144,4 +144,15 @@ describe("Resend webhook events", () => {
     const soft = { id: "evt_2", type: "email.bounced", data: { email_id: "re_1", to: ["busy@example.com"], bounce: { type: "Transient" } } };
     expect(await recordEmailEvent(db, soft)).toEqual({ duplicate: false, suppressed: 0 });
   });
+
+  it("keeps the outcome when later opens, clicks or a late delivered event arrive", async () => {
+    const { db, tables } = fakeEmailDb({ email_outbox: [{ id: "o1", provider_ref: "re_9", status: "sent" }] });
+    await recordEmailEvent(db, { id: "e1", type: "email.delivered", data: { email_id: "re_9" } });
+    await recordEmailEvent(db, { id: "e2", type: "email.opened", data: { email_id: "re_9" } });
+    expect(tables.email_outbox![0]!.last_event).toBe("email.delivered");
+    await recordEmailEvent(db, { id: "e3", type: "email.complained", data: { email_id: "re_9" } });
+    await recordEmailEvent(db, { id: "e4", type: "email.delivered", data: { email_id: "re_9" } });
+    expect(tables.email_outbox![0]!.last_event).toBe("email.complained");
+    expect(tables.email_events).toHaveLength(4);
+  });
 });
