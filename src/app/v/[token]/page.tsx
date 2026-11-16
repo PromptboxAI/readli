@@ -11,7 +11,6 @@ import { paymentsOn } from "@/lib/billing/config";
 import { annualSavingsPercent, pricing } from "@/lib/content/pricing";
 import { formatPrice } from "@/lib/family/plan";
 import { invitationContext } from "@/lib/invitations/context";
-import { DEFAULT_CONTRIBUTOR_MESSAGE } from "@/lib/invitations/invitations";
 import { landingFor } from "@/lib/invitations/server";
 import { READLI_TIME_ZONE } from "@/lib/time";
 
@@ -62,7 +61,7 @@ export default async function InvitationPreviewPage({ params }: { params: Promis
       <section className="mx-auto flex w-full max-w-2xl flex-col gap-5 rounded-[var(--radius-panel)] bg-sky/40 p-5 sm:p-10" data-testid="invitation-preview">
         {landing.recipientName && <p className="font-display text-lg font-semibold text-coral-deep">An invitation for {landing.recipientName}</p>}
         <h1 className="font-display text-4xl font-semibold leading-tight sm:text-5xl">{book ? `${name} has a bedtime story for your family.` : `${name} would love to read bedtime stories to your family.`}</h1>
-        <blockquote className="whitespace-pre-line rounded-2xl bg-surface/80 px-5 py-4 text-lg italic">&ldquo;{landing.message || DEFAULT_CONTRIBUTOR_MESSAGE}&rdquo;</blockquote>
+        {landing.message?.trim() && <blockquote className="whitespace-pre-line rounded-2xl bg-surface/80 px-5 py-4 text-lg italic">&ldquo;{landing.message}&rdquo;</blockquote>}
         {book && (
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center" data-testid="preview-centerpiece">
             {book.coverUrl && <Image src={book.coverUrl} alt={`${book.title} book cover`} width={180} height={240} priority className="w-36 shrink-0 rounded-2xl shadow-md sm:w-40" />}
@@ -102,15 +101,20 @@ export default async function InvitationPreviewPage({ params }: { params: Promis
         </section>
       </div>
 
-      <section className="mx-auto flex w-full max-w-2xl flex-col gap-3" aria-labelledby="how-h">
-        <h2 id="how-h" className="font-display text-xl font-semibold">
+      <section className="mx-auto flex w-full max-w-4xl flex-col gap-3" aria-labelledby="how-h">
+        <h2 id="how-h" className="font-display text-2xl font-semibold">
           How it works
         </h2>
         <p>Readli reads classic children&apos;s books aloud in the voices of the people your children love. You decide who each child hears.</p>
-        <ol className="flex list-decimal flex-col gap-1 pl-5" data-testid="how-it-works">
-          <li>Start Readli Family, or sign in.</li>
-          <li>Add {name} as a storyteller.</li>
-          <li>Choose which children can listen, then pick a story.</li>
+        <ol className="grid gap-3 sm:grid-cols-3" data-testid="how-it-works">
+          {["Start Readli Family, or sign in.", `Add ${name} as a storyteller.`, "Choose which children can listen, then pick a story."].map((step, i) => (
+            <li key={step} className="flex flex-col gap-2 rounded-3xl bg-surface p-5 ring-2 ring-ink/10">
+              <span aria-hidden="true" className="grid size-9 place-items-center rounded-full bg-sunshine font-display font-semibold">
+                {i + 1}
+              </span>
+              <p className="font-display text-lg font-semibold">{step}</p>
+            </li>
+          ))}
         </ol>
       </section>
 

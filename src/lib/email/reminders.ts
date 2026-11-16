@@ -154,7 +154,7 @@ async function voiceReminders(ctx: SequenceContext, linkDays: number): Promise<{
       recipientName: String(r.recipient_name ?? ""),
       message: String(r.message ?? ""),
       bookTitle: typeof slug === "string" ? (findCatalogBook(slug)?.title ?? null) : null,
-      coverUrl: emailCoverUrl(ctx.base, typeof slug === "string" ? slug : null),
+      coverUrl: emailCoverUrl(typeof slug === "string" ? slug : null),
       linkDays,
       reminder: true,
       ...invitationLinks({ secret: ctx.secret, origin: ctx.base }, id, token),

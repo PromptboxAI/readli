@@ -266,7 +266,7 @@ describe("family invitations on the server", () => {
     expect(calls).toEqual([{ name: "accept_voice_invitation", args: { p_token_hash: hashInvitationToken("tok"), p_user: "u2", p_household: "h1" } }]);
   });
 
-  it("send without a preview, in the contributor's words or Readli's default", async () => {
+  it("send without a preview, and with no message bubble when the contributor left it blank", async () => {
     const mailer = new MemoryMailer();
     const { db, tables, calls } = fakeDb({ voice_invitation_settings: [settings()], adult_profiles: [{ user_id: "u1", display_name: "Andrea" }] }, (_name, args) => {
       tables.voice_invitation_sends = [{ id: 1, invitation_id: ID, delivery: "queued" }];
@@ -276,7 +276,9 @@ describe("family invitations on the server", () => {
     expect((await sendInvitations(db, { secret: SECRET, origin: "https://readli.ai", mailer }, deps(), { id: "u1", name: "Andrea" }, input))[0]!.result).toBe("created");
     expect(calls[0]!.args.p_preview).toBeNull();
     const text = mailer.sent[0]!.text;
-    expect(text).toContain("I made my Readli voice so I can read bedtime stories to the kids. I hope you love it!");
+    expect(text).not.toContain("I made my Readli voice");
+    expect(mailer.sent[0]!.html).not.toContain("I made my Readli voice");
+    expect(mailer.sent[0]!.html).not.toContain("#fff3c9");
     expect(text).toContain("Hear Andrea read a story: https://readli.ai/v/");
     expect(text).not.toContain("voice reading");
     expect(mailer.sent[0]!.html).not.toContain("email-covers/winnie");
