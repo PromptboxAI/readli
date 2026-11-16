@@ -1,5 +1,4 @@
 import { READLI_INTRO } from "@/lib/email/templates";
-import { DEFAULT_CONTRIBUTOR_MESSAGE } from "./invitations";
 import { READLI_TIME_ZONE } from "@/lib/time";
 
 /**
@@ -121,11 +120,17 @@ const EMAIL_COVERS = new Set([
 ]);
 
 /**
+ * Where email images load from: always the public production site. A preview deployment sits behind
+ * Vercel's login, so images pointed at it show as broken in the recipient's inbox.
+ */
+export const EMAIL_IMAGE_ORIGIN = "https://readli.ai";
+
+/**
  * A book cover the email can show in every client (JPG, since Outlook can't show WebP), from Readli's
  * own public files: the image host learns only which public cover was opened, never a token or household.
  */
-export function emailCoverUrl(origin: string, slug: string | null | undefined): string | null {
-  return slug && EMAIL_COVERS.has(slug) ? `${origin.replace(/\/$/, "")}/email-covers/${slug}.jpg` : null;
+export function emailCoverUrl(slug: string | null | undefined): string | null {
+  return slug && EMAIL_COVERS.has(slug) ? `${EMAIL_IMAGE_ORIGIN}/email-covers/${slug}.jpg` : null;
 }
 
 const longDate = (d: Date) => d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: READLI_TIME_ZONE });
@@ -138,22 +143,19 @@ const longDate = (d: Date) => d.toLocaleDateString("en-US", { month: "long", day
 export function invitationEmail(input: InvitationEmailInput): Omit<OutgoingEmail, "to"> {
   const who = input.contributorName;
   const book = input.bookTitle;
-  const said = input.message || DEFAULT_CONTRIBUTOR_MESSAGE;
+  const said = input.message?.trim() || null;
   const headline = `${who} has a bedtime story for your family.`;
   const subject = input.reminder ? `Still waiting: ${who} has a bedtime story for your family` : `${who} has a bedtime story for your family`;
   const cta = `Hear ${who} read a story`;
   const hear = book ? `Hear ${who}'s voice reading ${book}.` : null;
   const support = `Already have Readli Family? Connect ${who} in a few taps. New to Readli? You can start Readli Family from the same page.`;
   const expires = longDate(new Date((input.now ?? new Date()).getTime() + input.linkDays * 86_400_000));
-  const origin = new URL(input.previewUrl).origin;
   const lines = [
     ...(input.recipientName ? [`Hi ${input.recipientName},`, ""] : []),
     ...(input.reminder ? [REMINDER_LINE, ""] : []),
     headline,
     "",
-    `"${said}"`,
-    `${who}`,
-    "",
+    ...(said ? [`"${said}"`, `${who}`, ""] : []),
     ...(hear ? [hear, ""] : []),
     `${cta}: ${input.previewUrl}`,
     "",
@@ -175,13 +177,13 @@ export function invitationEmail(input: InvitationEmailInput): Omit<OutgoingEmail
 <body style="margin:0;padding:0;background:#fff9ed;font-family:Arial,Helvetica,sans-serif;color:#283548">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#fff9ed" style="background:#fff9ed"><tr><td align="center" style="padding:24px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px">
-<tr><td align="center" style="padding:0 0 16px"><img src="${esc(origin)}/email-covers/readi.png" width="48" height="33" alt="" style="display:inline-block;vertical-align:middle;border:0"> <span style="display:inline-block;vertical-align:middle;font-size:26px;font-weight:700;color:#c9402f">Readli</span></td></tr>
+<tr><td align="center" style="padding:0 0 16px"><img src="${EMAIL_IMAGE_ORIGIN}/email-covers/readi.png" width="48" height="33" alt="" style="display:inline-block;vertical-align:middle;border:0"> <span style="display:inline-block;vertical-align:middle;font-size:26px;font-weight:700;color:#c9402f">Readli</span></td></tr>
 <tr><td bgcolor="#fffef9" style="background:#fffef9;border-radius:24px;padding:28px 24px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 ${input.reminder ? `<tr><td align="center" style="padding:0 0 8px;font-size:14px;color:#5b6676">${REMINDER_LINE}</td></tr>
 ` : ""}<tr><td align="center" style="padding:0 0 16px;font-size:26px;line-height:1.25;font-weight:700">${esc(headline)}</td></tr>
-<tr><td align="center" style="padding:0 0 18px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="max-width:420px"><tr><td bgcolor="#fff3c9" style="background:#fff3c9;border-radius:18px 18px 18px 4px;padding:12px 16px;font-size:16px;line-height:1.45;text-align:left;white-space:pre-line">${esc(said)}<br><span style="font-size:13px;color:#5b6676">${esc(who)}</span></td></tr></table></td></tr>
-${cover}${book ? `<tr><td align="center" style="padding:0 0 4px;font-size:21px;font-weight:700">${esc(book)}</td></tr>
+${said ? `<tr><td align="center" style="padding:0 0 18px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="max-width:420px"><tr><td bgcolor="#fff3c9" style="background:#fff3c9;border-radius:18px 18px 18px 4px;padding:12px 16px;font-size:16px;line-height:1.45;text-align:left;white-space:pre-line">${esc(said)}<br><span style="font-size:13px;color:#5b6676">${esc(who)}</span></td></tr></table></td></tr>
+` : ""}${cover}${book ? `<tr><td align="center" style="padding:0 0 4px;font-size:21px;font-weight:700">${esc(book)}</td></tr>
 <tr><td align="center" style="padding:0 0 20px;font-size:16px">${esc(hear!)}</td></tr>
 ` : ""}<tr><td align="center" style="padding:0 0 18px"><a href="${esc(input.previewUrl)}" style="display:inline-block;background:#c9402f;color:#ffffff;text-decoration:none;font-weight:700;font-size:18px;line-height:1.2;padding:16px 28px;border-radius:999px">&#9654;&nbsp; ${esc(cta)}</a></td></tr>
 <tr><td align="center" style="padding:0 0 12px;font-size:16px;line-height:1.5">${esc(READLI_INTRO)}</td></tr>

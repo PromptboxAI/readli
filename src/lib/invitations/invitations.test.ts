@@ -56,7 +56,7 @@ describe("family invitations", () => {
       recipientName: "Sara",
       message: "Love, Mom",
       bookTitle: "Winnie-the-Pooh",
-      coverUrl: emailCoverUrl("https://readli.ai", "winnie-the-pooh"),
+      coverUrl: emailCoverUrl("winnie-the-pooh"),
       previewUrl: "https://readli.ai/v/tok",
       declineUrl: "https://readli.ai/v/respond/r?action=decline",
       unsubscribeUrl: "https://readli.ai/v/respond/r?action=unsubscribe",

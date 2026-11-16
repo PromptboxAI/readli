@@ -11,7 +11,6 @@ import { paymentsOn } from "@/lib/billing/config";
 import { annualSavingsPercent, pricing } from "@/lib/content/pricing";
 import { formatPrice } from "@/lib/family/plan";
 import { invitationContext } from "@/lib/invitations/context";
-import { DEFAULT_CONTRIBUTOR_MESSAGE } from "@/lib/invitations/invitations";
 import { landingFor } from "@/lib/invitations/server";
 import { READLI_TIME_ZONE } from "@/lib/time";
 
@@ -62,7 +61,7 @@ export default async function InvitationPreviewPage({ params }: { params: Promis
       <section className="mx-auto flex w-full max-w-2xl flex-col gap-5 rounded-[var(--radius-panel)] bg-sky/40 p-5 sm:p-10" data-testid="invitation-preview">
         {landing.recipientName && <p className="font-display text-lg font-semibold text-coral-deep">An invitation for {landing.recipientName}</p>}
         <h1 className="font-display text-4xl font-semibold leading-tight sm:text-5xl">{book ? `${name} has a bedtime story for your family.` : `${name} would love to read bedtime stories to your family.`}</h1>
-        <blockquote className="whitespace-pre-line rounded-2xl bg-surface/80 px-5 py-4 text-lg italic">&ldquo;{landing.message || DEFAULT_CONTRIBUTOR_MESSAGE}&rdquo;</blockquote>
+        {landing.message?.trim() && <blockquote className="whitespace-pre-line rounded-2xl bg-surface/80 px-5 py-4 text-lg italic">&ldquo;{landing.message}&rdquo;</blockquote>}
         {book && (
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center" data-testid="preview-centerpiece">
             {book.coverUrl && <Image src={book.coverUrl} alt={`${book.title} book cover`} width={180} height={240} priority className="w-36 shrink-0 rounded-2xl shadow-md sm:w-40" />}

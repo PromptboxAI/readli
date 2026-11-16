@@ -392,7 +392,7 @@ async function deliver(db: SupabaseClient, ctx: SendContext, invitation: { id: s
     recipientName: invitation.name,
     message: invitation.message,
     bookTitle: sender.book ? (findCatalogBook(sender.book)?.title ?? null) : null,
-    coverUrl: emailCoverUrl(ctx.origin, sender.book),
+    coverUrl: emailCoverUrl(sender.book),
     linkDays,
     ...invitationLinks(ctx, invitation.id, invitation.token),
   });
