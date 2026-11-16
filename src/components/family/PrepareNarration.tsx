@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Availability, BookUpdate, GenerationQuote, PrepareBookView, PrepareVoiceView } from "@/lib/narration/narration";
 import { GiftShortOptions } from "@/components/sponsorship/GiftShortOptions";
 import { StorytellerAvatar } from "./StorytellerAvatar";
+import { useBack } from "@/components/nav/BackTrail";
 
 /** Units (characters) as credits, to one decimal place. */
 const n = (units: number) => displayCredits(units).toLocaleString("en-US");
@@ -218,18 +219,23 @@ export function PrepareNarration({
   const confirmFor = (voice: PrepareVoiceView) =>
     pending && <Confirm view={view} voice={voice} quote={pending.quote} busy={busy} onConfirm={confirm} onCancel={() => setPending(null)} />;
 
+  // The breadcrumb goes back to wherever the book was opened from (Home, a listen page...); arriving
+  // directly it goes up to Books, or to the bookshelf it was opened from.
+  const way = useBack(fromShelf ? { href: "/family#bookshelf", label: "Family bookshelf" } : { href: "/family/books", label: "Books" });
+
   return (
     <div className="flex flex-col gap-7" data-testid="prepare-narration">
       <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-muted sm:text-sm">
         <Link
-          href={fromShelf ? "/family#bookshelf" : "/family/books"}
+          href={way.href}
+          onClick={way.onClick}
           className="-ml-2 flex min-h-11 items-center rounded-lg px-2 font-display text-lg font-semibold text-ink underline-offset-4 transition-colors hover:underline active:bg-ink/10 sm:font-sans sm:text-sm"
           data-testid="back-link"
         >
           <span aria-hidden="true" className="mr-1.5 sm:hidden">
             ←
           </span>
-          {fromShelf ? "Family bookshelf" : "Books"}
+          {way.label}
           <BackPending />
         </Link>
         <span aria-hidden="true" className="hidden sm:inline">

@@ -6,6 +6,7 @@ import { GiftCardDesigner } from "@/components/sponsorship/GiftCardDesigner";
 import { currentAdult } from "@/lib/auth/adult";
 import { sponsorshipContext } from "@/lib/sponsorship/http";
 import { sponsorGifts } from "@/lib/sponsorship/view";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const metadata: Metadata = { title: "Print a gift card | Readli", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -49,9 +50,7 @@ export default async function GiftCardPage({ searchParams }: { searchParams: Pro
   return (
     <AdultPage wide>
       <header className="flex flex-col gap-2">
-        <Link href="/gift/family" className="w-fit font-semibold underline underline-offset-4">
-          Back to your gift
-        </Link>
+        <BackTo fallback={{ href: "/gift/family", label: "your gift" }} look="back-to" className="w-fit font-semibold underline underline-offset-4" />
         <Eyebrow>Readli Family gift</Eyebrow>
         <h1 className="font-display text-4xl font-semibold sm:text-5xl">Print a gift card</h1>
         <p className="max-w-2xl text-lg">

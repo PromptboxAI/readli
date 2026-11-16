@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/admin/access";
 import { COHORT_MONTHS, loadGrowth, type GrowthReport } from "@/lib/admin/growth";
 import { accountDb } from "@/lib/family/account-store";
 import { CHANNEL_LABELS } from "@/lib/marketing/first-touch";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const metadata: Metadata = { title: "Growth metrics | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -65,7 +66,7 @@ export default async function GrowthPage({ searchParams }: { searchParams: Promi
         <h1 className="font-display text-4xl font-semibold">Growth metrics</h1>
         <p className="text-lg">Aggregates only, for investor updates. Nothing here identifies a child.</p>
         <p className="flex flex-wrap gap-4 text-sm">
-          <Link href="/admin" className="underline underline-offset-4">Back to the admin overview</Link>
+          <BackTo fallback={{ href: "/admin", label: "the admin overview" }} look="back-to" className="underline underline-offset-4" />
           <Link href="/admin/finance" className="underline underline-offset-4">Finances</Link>
           <Link href={test ? "/admin/growth" : "/admin/growth?mode=test"} className="underline underline-offset-4">
             {test ? "Show live payments" : "Show test-mode payments"}

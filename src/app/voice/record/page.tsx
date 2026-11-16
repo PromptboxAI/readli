@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
 import { VoiceSetup } from "@/components/accounts/VoiceSetup";
 import { currentAdult } from "@/lib/auth/adult";
@@ -11,6 +10,7 @@ import { findGuestTake } from "@/lib/voice/guest-handoff";
 import { familyPage } from "@/lib/family/page-data";
 import { isParent } from "@/lib/family/storyteller";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const metadata: Metadata = { title: "Record your voice | Readli Voice", robots: { index: false } };
 
@@ -35,14 +35,10 @@ export default async function VoiceRecordPage({ searchParams }: { searchParams: 
     <AdultPage wide>
       <header className="flex flex-col gap-2">
         {next.startsWith("/family/setup") || next.startsWith("/voice/setup") ? (
-          <Link href={next.replace("step=kids", "step=voice").replace("step=share", "step=voice")} className="w-fit font-display font-semibold underline-offset-4 hover:underline">
-            ← Back to setup
-          </Link>
+          <BackTo fallback={{ href: next.replace("step=kids", "step=voice").replace("step=share", "step=voice"), label: "Back to setup" }} className="w-fit font-display font-semibold underline-offset-4 hover:underline" />
         ) : (
           // A storyteller making their first voice goes back to Home, where their getting-started list says what's next.
-          <Link href={parent ? "/family/my-voice" : existing ? "/voice" : "/home"} className="w-fit font-display font-semibold underline-offset-4 hover:underline">
-            {parent || existing ? "← My voice" : "← Home"}
-          </Link>
+          <BackTo fallback={parent ? { href: "/family/my-voice", label: "My voice" } : existing ? { href: "/voice", label: "My voice" } : { href: "/home", label: "Home" }} className="w-fit font-display font-semibold underline-offset-4 hover:underline" />
         )}
         <Eyebrow>Readli Voice</Eyebrow>
         <h1 className="font-display text-4xl font-semibold sm:text-5xl">{existing ? "Replace your Readli voice" : "Create your Readli voice"}</h1>

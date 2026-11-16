@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
 import { requireAdmin } from "@/lib/admin/access";
 import { accountDb } from "@/lib/family/account-store";
 import { BANNER_LIMITS, bannerLive, readSiteBanner, readliDay, safeBannerLink } from "@/lib/marketing/site-banner";
 import { saveBannerAction } from "./actions";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const metadata: Metadata = { title: "Top banner | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -31,9 +31,7 @@ export default async function AdminBannerPage({ searchParams }: { searchParams: 
           A slim bar above the header on the public website. It never shows in Readli Kids, the parent portal, invitations or admin, and visitors can close it for the rest of
           their visit.
         </p>
-        <Link href="/admin" className="text-sm underline underline-offset-4">
-          Back to admin
-        </Link>
+        <BackTo fallback={{ href: "/admin", label: "admin" }} look="back-to" className="text-sm underline underline-offset-4" />
       </header>
       {typeof p.ok === "string" && <p className="rounded-2xl bg-mint/60 px-4 py-3">{p.ok}</p>}
       {typeof p.err === "string" && (

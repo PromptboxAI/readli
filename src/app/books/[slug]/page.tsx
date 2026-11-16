@@ -18,6 +18,7 @@ import { type PublicBook, publicBook, publicLibrary } from "@/lib/library/public
 import { absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
 import { bookDescription, bookTitle } from "@/lib/seo/titles";
 import { PageLd } from "@/components/seo/PageLd";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export function generateStaticParams() {
   return publicLibrary().flatMap((b) => [...new Set([b.slug, publicSlug(b.slug)])].map((slug) => ({ slug })));
@@ -102,9 +103,7 @@ export default async function PublicBookPage({ params }: { params: Promise<{ slu
           </div>
         )}
         <div className="flex flex-col gap-4">
-          <Link href="/books" className="w-fit font-display font-semibold underline-offset-4 hover:underline">
-            ← The Readli Library
-          </Link>
+          <BackTo fallback={{ href: "/books", label: "The Readli Library" }} className="w-fit font-display font-semibold underline-offset-4 hover:underline" />
           <h1 className="font-display text-4xl font-semibold">{book.title}</h1>
           <p className="text-lg text-muted">
             {book.author}

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { buttonSecondary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
 import { requireAdmin } from "@/lib/admin/access";
@@ -7,6 +6,7 @@ import { liveRevisionAudit } from "@/lib/admin/revision-audit";
 import { accountDb } from "@/lib/family/account-store";
 import { familyPage } from "@/lib/family/page-data";
 import { revisionAudit, type RevisionStatus } from "@/lib/narration/revision-audit";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Audiobook versions | Readli admin", robots: { index: false } };
@@ -44,9 +44,7 @@ export default async function AudiobookAuditPage() {
         <Eyebrow>Admin</Eyebrow>
         <h1 className="font-display text-4xl font-semibold">Audiobook versions</h1>
         <p className="text-lg">Which text each stored audiobook reads, and how saved reading places will resume. Nothing here changes data.</p>
-        <Link href="/admin" className={`${buttonSecondary} self-start`}>
-          Back to the admin overview
-        </Link>
+        <BackTo fallback={{ href: "/admin", label: "the admin overview" }} look="back-to" className={`${buttonSecondary} self-start`} />
       </header>
       {!audit || !t ? (
         <PreviewNote>The audit shows here once Supabase is connected.</PreviewNote>

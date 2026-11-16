@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
 import { requireAdmin } from "@/lib/admin/access";
@@ -7,6 +6,7 @@ import { currentWeek, featuredBooks, nextWeek } from "@/lib/email/bedtime";
 import { accountDb } from "@/lib/family/account-store";
 import { CATALOG, type CatalogBook } from "@/lib/library/catalog";
 import { chooseBooksAction } from "./actions";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const metadata: Metadata = { title: "Bedtime Thursdays | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -57,9 +57,7 @@ export default async function AdminBedtimePage({ searchParams }: { searchParams:
         <p className="text-lg">
           Two stories a week, in the Thursday email for people who opted in (sent from 4pm their time) and in the app&apos;s &quot;New this week&quot; notice.
         </p>
-        <Link href="/admin/email" className="text-sm underline underline-offset-4">
-          Back to Email
-        </Link>
+        <BackTo fallback={{ href: "/admin/email", label: "Email" }} look="back-to" className="text-sm underline underline-offset-4" />
       </header>
       {typeof p.ok === "string" && <p className="rounded-2xl bg-mint/60 px-4 py-3">{p.ok}</p>}
       {typeof p.err === "string" && (

@@ -10,6 +10,7 @@ import { FOUNDERS } from "@/lib/content/company";
 import { GUIDES, GUIDE_AUTHOR, getGuide, guideHref } from "@/lib/guides/guides";
 import { SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
 import { guideTitle } from "@/lib/seo/titles";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const dynamicParams = false;
 
@@ -69,9 +70,7 @@ export default async function GuidePage({ params }: { params: Params }) {
       <SiteHeader />
       <main className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-12 sm:px-6 sm:py-14">
         <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(ld)} />
-        <Link href="/guides" className="w-fit font-display font-semibold underline-offset-4 hover:underline">
-          ← Stories &amp; Guides
-        </Link>
+        <BackTo fallback={{ href: "/guides", label: "Stories & Guides" }} className="w-fit font-display font-semibold underline-offset-4 hover:underline" />
         <article className="flex flex-col gap-6">
           <header className="flex flex-col gap-4">
             <h1 className="font-display text-4xl font-semibold leading-[1.08] sm:text-5xl">{guide.title}</h1>

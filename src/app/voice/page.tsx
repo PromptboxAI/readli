@@ -21,6 +21,7 @@ import { invitationSettings, listInvitations } from "@/lib/invitations/server";
 import { pendingJoinPath } from "@/lib/invites/pending";
 import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps, voiceModelStatus } from "@/lib/voice/account-voices";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const metadata: Metadata = { title: "My voice | Readli Voice", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -68,9 +69,7 @@ export default async function VoiceHomePage({ searchParams }: { searchParams: Pr
   return (
     <AdultPage>
       <header className="flex flex-col gap-2">
-        <Link href="/home" className="w-fit font-display font-semibold underline-offset-4 hover:underline">
-          ← Home
-        </Link>
+        <BackTo fallback={{ href: "/home", label: "Home" }} className="w-fit font-display font-semibold underline-offset-4 hover:underline" />
         <Eyebrow>Readli Voice · Free storyteller account</Eyebrow>
         <h1 className="font-display text-4xl font-semibold sm:text-5xl">My Voice</h1>
       </header>

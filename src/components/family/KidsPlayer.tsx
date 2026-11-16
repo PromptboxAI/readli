@@ -21,6 +21,7 @@ import { checkDownloads, offlineTrack, readDownloads } from "./offline";
 import { DownloadButton } from "./DownloadButton";
 import { AskButton } from "./AskButton";
 import { findDownload } from "@/lib/offline/manifest";
+import { useBack } from "@/components/nav/BackTrail";
 
 const REFRESH_MS = 10_000;
 const MODE_KEY = "readli-player-mode";
@@ -608,10 +609,11 @@ export function KidsPlayer({
   );
 
   const current = narrators.find((n) => n.voiceId === voiceId) ?? null;
+  const way = useBack({ href: "/kids", label: "My stories" });
   const back = (
-    <Link href="/kids" className="grid size-12 shrink-0 place-items-center rounded-full bg-current/10">
+    <Link href={way.href} onClick={way.onClick} className="grid size-12 shrink-0 place-items-center rounded-full bg-current/10" data-testid="back-link">
       <Icon name="left" />
-      <span className="sr-only">My stories</span>
+      <span className="sr-only">{way.label}</span>
     </Link>
   );
 

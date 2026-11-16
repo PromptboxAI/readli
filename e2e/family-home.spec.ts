@@ -217,9 +217,14 @@ test("Back after approving a storyteller shows the change, not a stale page", as
 test("a ready story opens the grown-up player and plays stored audio", async ({ page }) => {
   await signIn(page, "adult:sara");
   await page.goto("/home");
-  // Book page opens the book's page, where a grown-up can change its voice, and the way back is the bookshelf.
+  // Book page opens the book's page, where a grown-up can change its voice, and the way back is Home, where it was opened.
   await page.getByTestId("shelf-ready").getByTestId("home-book-page-the-lion-and-the-mouse").click();
   await expect(page).toHaveURL(/\/family\/books\/the-lion-and-the-mouse\?from=bookshelf$/);
+  await expect(page.getByTestId("back-link")).toHaveAttribute("href", "/home");
+  await expect(page.getByTestId("back-link")).toContainText("Home");
+  // Opened directly, it goes up to the bookshelf it came from.
+  await page.goto("/family");
+  await page.goto("/family/books/the-lion-and-the-mouse?from=bookshelf");
   await expect(page.getByTestId("back-link")).toHaveAttribute("href", "/family#bookshelf");
   await expect(page.getByTestId("back-link")).toContainText("Family bookshelf");
   await page.goto("/home");
@@ -395,4 +400,37 @@ test("Family activity shows notices with their buttons and what the kids have li
   await expect(page.getByTestId("help-link-family-activity")).toBeVisible();
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/family-activity-${info.project.name}.png`, fullPage: true });
+});
+
+test("Back returns to the page the visitor came from, wherever that is (Kevin, 2026-11-16)", async ({ page }) => {
+  await signIn(page, "adult:sara");
+  // Home's Play → the player → Back is Home, not the book page.
+  await page.goto("/home");
+  await page.getByTestId("shelf-ready").getByTestId("home-book-the-lion-and-the-mouse").click();
+  await expect(page).toHaveURL(/\/family\/books\/the-lion-and-the-mouse\/listen$/);
+  await expect(page.getByTestId("back-link")).toHaveAttribute("href", "/home");
+  await page.getByTestId("back-link").click();
+  await expect(page).toHaveURL(/\/home$/);
+
+  // Home → the book page → Play → Back is the book page, and its breadcrumb then goes back Home, not to Books.
+  await page.getByTestId("shelf-ready").getByTestId("home-book-page-the-lion-and-the-mouse").click();
+  await expect(page).toHaveURL(/\/family\/books\/the-lion-and-the-mouse\?from=bookshelf$/);
+  await page.goto("/family/books/the-lion-and-the-mouse/listen");
+  // A fresh load of the player, with nowhere in this tab to return to, falls back to the book page.
+  await expect(page.getByTestId("back-link")).toHaveAttribute("href", "/family/books/the-lion-and-the-mouse");
+  await page.getByTestId("back-link").click();
+  await expect(page).toHaveURL(/\/family\/books\/the-lion-and-the-mouse$/);
+  await page.getByTestId("prepare-narration").getByRole("link", { name: /Play|Listen/ }).first().click();
+  await expect(page).toHaveURL(/\/listen/);
+  await expect(page.getByTestId("back-link")).toHaveAttribute("href", "/family/books/the-lion-and-the-mouse");
+  await page.getByTestId("back-link").click();
+  await expect(page).toHaveURL(/\/family\/books\/the-lion-and-the-mouse$/);
+  // From Books, a book's breadcrumb says Books and returns there.
+  await page.goto("/family/books");
+  await page.locator('a[href^="/family/books/the-lion-and-the-mouse"]').first().click();
+  await expect(page).toHaveURL(/\/family\/books\/the-lion-and-the-mouse/);
+  await expect(page.getByTestId("back-link")).toContainText("Books");
+  await page.getByTestId("back-link").click();
+  await expect(page).toHaveURL(/\/family\/books$/);
+
 });

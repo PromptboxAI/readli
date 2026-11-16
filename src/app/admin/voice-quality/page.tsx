@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow } from "@/components/invites/AdultPage";
 import { requireAdmin } from "@/lib/admin/access";
@@ -10,6 +9,7 @@ import { summarizeVoiceEvents, voiceEventSink, voiceModelCounts, type VoiceQuali
 import { activePreset, FALLBACK_MODEL, VOICE_PRESETS, voiceSettings } from "@/lib/voice/elevenlabs";
 import { fetchProviderModels } from "@/lib/voice/model-watch";
 import { updateDemoPreviewsAction } from "./actions";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Voice quality | Readli admin", robots: { index: false } };
@@ -205,9 +205,7 @@ export default async function VoiceQualityPage({ searchParams }: { searchParams:
         </p>
       </section>
 
-      <Link href="/admin" className={`${buttonSecondary} self-start`}>
-        Back to the admin overview
-      </Link>
+      <BackTo fallback={{ href: "/admin", label: "the admin overview" }} look="back-to" className={`${buttonSecondary} self-start`} />
     </AdultPage>
   );
 }
