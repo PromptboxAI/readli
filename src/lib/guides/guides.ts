@@ -29,6 +29,57 @@ export const GUIDE_AUTHOR = { name: "Kevin Godfrey", title: "Founder of Readli",
 
 export const GUIDES: readonly Guide[] = [
   {
+    slug: "record-your-voice-for-bedtime-stories",
+    title: "How to record your voice for your child's bedtime stories",
+    description: "A parent's guide to recording a voice that sounds like you at bedtime: how long to read, how to sound natural, and how to set up a quiet room.",
+    published: "2026-10-29",
+    updated: "2026-10-29",
+    readMinutes: 4,
+    intro:
+      "Your child knows your bedtime voice better than anyone's. A good recording captures that voice, the one you use with the lights low, so every story Readli reads sounds like you. Here's how to get it right the first time.",
+    sections: [
+      {
+        heading: "Read for about one to two minutes",
+        paragraphs: [
+          "Readli needs about a minute of you reading aloud, ideally one to two. That is enough audio to learn how you sound. Reading for longer doesn't make the voice better, so there's no need to record a whole book.",
+          "On the recording screen, a short story scrolls for you. Keep reading until the end of the script, and the Finish button turns on when you reach the last paragraph.",
+        ],
+      },
+      {
+        heading: "Use the voice you use at bedtime",
+        paragraphs: [
+          "Read the way you would at bedtime: warm, with gentle expression and natural pauses. That's the voice your child will hear.",
+          "Stay in one voice all the way through. Skip accents, whispering, shouting and character voices, because your Readli voice copies all of it. A flat, careful reading voice gives a flat-sounding Readli voice too.",
+        ],
+      },
+      {
+        heading: "Pick a quiet, soft room",
+        paragraphs: [
+          "A bedroom is usually best, because soft things like curtains and bedding soak up echo. Bare kitchens and bathrooms echo more.",
+          "Turn off the TV, music and fans, and make sure nobody else is talking. Hold your phone or microphone about a hand's width from your mouth, and keep it there the whole time.",
+        ],
+      },
+      {
+        heading: "Listen, then decide",
+        paragraphs: [
+          "A few moments after you finish, you hear a classic story read in your voice. If it doesn't sound like you, record again somewhere quieter, with a little more of your natural expression. The [recording tips](/help/recording-tips) cover a few more fixes.",
+          "When you [try your voice](/try) without an account, the recording is private and deleted within 24 hours unless you choose to save it.",
+        ],
+      },
+      {
+        heading: "Invite the rest of the family",
+        paragraphs: [
+          "Once your voice is ready, you can invite grandparents, aunts, uncles and family friends to record theirs. Each person records and approves their own voice, and you choose which of your children can hear each one. See [how Readli works](/how-it-works) for the whole journey.",
+        ],
+      },
+    ],
+    related: [
+      { href: "/help/recording-tips", label: "Tips for a better voice recording" },
+      { href: "/family-voices", label: "Family Voices" },
+      { href: "/help/voices-and-sharing/record-my-voice", label: "How do I record my voice?" },
+    ],
+  },
+  {
     slug: "meaningful-christmas-gifts-from-grandparents",
     title: "Meaningful Christmas gifts from grandparents",
     description: "Christmas gift ideas from grandparents that last past December: their voice reading bedtime stories, a scheduled Christmas-morning surprise and more.",
@@ -81,57 +132,6 @@ export const GUIDES: readonly Guide[] = [
       { href: "/gifts", label: "Give Readli as a gift" },
       { href: "/guides/gift-for-long-distance-grandparents", label: "A gift for long-distance grandparents" },
       { href: "/long-distance-families", label: "Readli for long-distance families" },
-    ],
-  },
-  {
-    slug: "record-your-voice-for-bedtime-stories",
-    title: "How to record your voice for your child's bedtime stories",
-    description: "A parent's guide to recording a voice that sounds like you at bedtime: how long to read, how to sound natural, and how to set up a quiet room.",
-    published: "2026-10-29",
-    updated: "2026-10-29",
-    readMinutes: 4,
-    intro:
-      "Your child knows your bedtime voice better than anyone's. A good recording captures that voice, the one you use with the lights low, so every story Readli reads sounds like you. Here's how to get it right the first time.",
-    sections: [
-      {
-        heading: "Read for about one to two minutes",
-        paragraphs: [
-          "Readli needs about a minute of you reading aloud, ideally one to two. That is enough audio to learn how you sound. Reading for longer doesn't make the voice better, so there's no need to record a whole book.",
-          "On the recording screen, a short story scrolls for you. Keep reading until the end of the script, and the Finish button turns on when you reach the last paragraph.",
-        ],
-      },
-      {
-        heading: "Use the voice you use at bedtime",
-        paragraphs: [
-          "Read the way you would at bedtime: warm, with gentle expression and natural pauses. That's the voice your child will hear.",
-          "Stay in one voice all the way through. Skip accents, whispering, shouting and character voices, because your Readli voice copies all of it. A flat, careful reading voice gives a flat-sounding Readli voice too.",
-        ],
-      },
-      {
-        heading: "Pick a quiet, soft room",
-        paragraphs: [
-          "A bedroom is usually best, because soft things like curtains and bedding soak up echo. Bare kitchens and bathrooms echo more.",
-          "Turn off the TV, music and fans, and make sure nobody else is talking. Hold your phone or microphone about a hand's width from your mouth, and keep it there the whole time.",
-        ],
-      },
-      {
-        heading: "Listen, then decide",
-        paragraphs: [
-          "A few moments after you finish, you hear a classic story read in your voice. If it doesn't sound like you, record again somewhere quieter, with a little more of your natural expression. The [recording tips](/help/recording-tips) cover a few more fixes.",
-          "When you [try your voice](/try) without an account, the recording is private and deleted within 24 hours unless you choose to save it.",
-        ],
-      },
-      {
-        heading: "Invite the rest of the family",
-        paragraphs: [
-          "Once your voice is ready, you can invite grandparents, aunts, uncles and family friends to record theirs. Each person records and approves their own voice, and you choose which of your children can hear each one. See [how Readli works](/how-it-works) for the whole journey.",
-        ],
-      },
-    ],
-    related: [
-      { href: "/help/recording-tips", label: "Tips for a better voice recording" },
-      { href: "/family-voices", label: "Family Voices" },
-      { href: "/help/voices-and-sharing/record-my-voice", label: "How do I record my voice?" },
     ],
   },
   {
