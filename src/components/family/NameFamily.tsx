@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import Link from "next/link";
-import { parentPrimary, stepNext, stepRow } from "@/components/brand/buttons";
+import { buttonPrimary, parentPrimary, stepNext, stepRow } from "@/components/brand/buttons";
 
 /** Names (or renames) the family, as setup's first step after Family checkout. */
 export function NameFamily({ current }: { current: string }) {
@@ -102,7 +102,7 @@ export function SetupFamilyName({ next, nextLabel, back }: { next: string; nextL
         <Link href={back} className="font-semibold underline underline-offset-4">
           Back
         </Link>
-        <button type="submit" className={`${parentPrimary} ${stepNext}`} disabled={busy || !name.trim()}>
+        <button type="submit" className={`${buttonPrimary} ${stepNext}`} disabled={busy || !name.trim()}>
           {busy ? "Saving…" : nextLabel}
         </button>
       </div>
