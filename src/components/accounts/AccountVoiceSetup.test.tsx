@@ -39,7 +39,7 @@ afterEach(() => {
 
 describe("AccountVoiceSetup from Save My Voice Free", () => {
   it("offers the demo recording first, with one consent, then leads to choosing a story", async () => {
-    render(<AccountVoiceSetup hasVoice={false} guestTake={take} fromTry askName />);
+    render(<AccountVoiceSetup hasVoice={false} guestTake={take} fromTry />);
     // No box to tick: the consent points are listed and the button is the agreement.
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
     expect(screen.getByTestId("voice-consent").textContent).toContain("This is my own voice");
@@ -53,7 +53,8 @@ describe("AccountVoiceSetup from Save My Voice Free", () => {
     expect(await screen.findByRole("heading", { name: "Your Readli voice is ready!" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Choose a Story to Share" }).getAttribute("href")).toBe("/voice/invite");
     expect(screen.getByRole("link", { name: "Go to My Voice" }).getAttribute("href")).toBe("/voice");
-    expect(screen.getByTestId("ask-name")).toBeTruthy();
+    // The name is asked elsewhere, never inside this card (Kevin, 2026-11-16).
+    expect(screen.queryByTestId("ask-name")).toBeNull();
     expect(calls).toEqual(["/api/voice/from-guest", "/api/voice/sample?candidate=1", "/api/voice/keep"]);
     expect(calls.join()).not.toMatch(/billing|checkout|family/);
     expect(assign).not.toHaveBeenCalled();

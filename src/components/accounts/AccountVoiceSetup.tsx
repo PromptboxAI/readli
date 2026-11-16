@@ -8,7 +8,6 @@ import { buttonPrimary, buttonQuiet, buttonSecondary } from "@/components/brand/
 import { ImproveLink, RecordingTipsDialog } from "@/components/teleprompter/RecordingTips";
 import { TeleprompterRecorder } from "@/components/teleprompter/TeleprompterRecorder";
 import type { TakeDetails } from "@/components/teleprompter/VoicePreview";
-import { AskName } from "@/components/account/AskName";
 import { VOICE_CONSENTS } from "@/lib/content/voice-consents";
 import { DEMO_SCRIPT } from "@/lib/content/voice-scripts";
 import { formatClock } from "@/lib/teleprompter/recorder-machine";
@@ -48,7 +47,6 @@ export function AccountVoiceSetup({
   guestTake = null,
   guestCleanUp = false,
   fromTry = false,
-  askName = false,
   waiting = null,
   nextLabel,
   intro,
@@ -65,8 +63,6 @@ export function AccountVoiceSetup({
   guestCleanUp?: boolean;
   /** Straight from Save My Voice Free: says so when the demo take has expired. */
   fromTry?: boolean;
-  /** No name chosen yet: ask on the ready step, since invitations show it. */
-  askName?: boolean;
   /** A recording made earlier but never kept: opens on its sample, so they can keep it without reading again. */
   waiting?: WaitingRecording | null;
   /** Inside a setup walkthrough: names the next step, in place of "Continue". */
@@ -393,11 +389,6 @@ export function AccountVoiceSetup({
           <ReadiMascot size={120} decorative />
           <h2 className="font-display text-3xl font-semibold">Your Readli voice is ready!</h2>
           <p className="max-w-md">{nextLabel ? "It's saved, and it's yours. Families you choose will hear stories read in it." : next ? "Let's get back to where you were." : "Next, choose a story for your family to hear first. You'll approve it before anyone gets an invitation."}</p>
-          {askName && (
-            <div className="w-full text-left">
-              <AskName label="What should families call you?" hint="Invitations use this name, like “Grandpa Joe has a bedtime story for your family.”" placeholder="Grandpa Joe, Nana, Aunt Sue…" />
-            </div>
-          )}
           {!doneFooter && (
             <div className="flex w-full flex-col items-center gap-2 sm:w-auto">
               <Link href={next ?? "/voice/invite"} className={`${buttonPrimary} w-full sm:w-auto`}>
