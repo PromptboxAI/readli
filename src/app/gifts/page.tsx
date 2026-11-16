@@ -277,6 +277,16 @@ export default async function GiftsPage() {
                 Open it here
               </Link>
             </p>
+            <p className="text-center" data-testid="gifts-guide-link">
+              More ideas:{" "}
+              <Link href="/guides/meaningful-christmas-gifts-from-grandparents" className="font-semibold underline underline-offset-4">
+                Meaningful Christmas gifts from grandparents
+              </Link>
+              {" "}and{" "}
+              <Link href="/long-distance-families" className="font-semibold underline underline-offset-4">
+                Readli for long-distance families
+              </Link>
+            </p>
           </div>
         </section>
       </main>
