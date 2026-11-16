@@ -2,16 +2,17 @@ import { describe, expect, it } from "vitest";
 import { signedInVoiceSignup, voiceRecordPath, voiceSignupBack } from "./voice-signup";
 
 const demo = { fromTry: true, cleanUp: false, takeKept: true };
+const free = (next: string) => `/start/free?next=${encodeURIComponent(next)}`;
 const never = (path: string) => expect(path).not.toMatch(/billing|checkout|signup\/family|^\/family(\?|$)/);
 
 describe("Save My Voice Free routes", () => {
   it("goes from signing in to saving the demo take", () => {
-    expect(voiceRecordPath(demo)).toBe("/voice/record?from=try");
-    expect(voiceRecordPath({ ...demo, cleanUp: true })).toBe("/voice/record?from=try&cleanup=1");
+    expect(voiceRecordPath(demo)).toBe(free("/voice/record?from=try"));
+    expect(voiceRecordPath({ ...demo, cleanUp: true })).toBe(free("/voice/record?from=try&cleanup=1"));
   });
 
   it("says so when the demo take has expired, and records afresh", () => {
-    expect(voiceRecordPath({ ...demo, takeKept: false })).toBe("/voice/record?from=try&expired=1");
+    expect(voiceRecordPath({ ...demo, takeKept: false })).toBe(free("/voice/record?from=try&expired=1"));
   });
 
   it("goes through the signup welcome when there was no demo", () => {
@@ -20,9 +21,9 @@ describe("Save My Voice Free routes", () => {
 
   it("sends signed-in grown-ups on without the form", () => {
     // An account interrupted before saving its voice picks up where it left off.
-    expect(signedInVoiceSignup(demo, false)).toBe("/voice/record?from=try");
+    expect(signedInVoiceSignup(demo, false)).toBe(free("/voice/record?from=try"));
     // An existing Readli Voice user from the demo can still save that take; their voice keeps working until they keep it.
-    expect(signedInVoiceSignup(demo, true)).toBe("/voice/record?from=try");
+    expect(signedInVoiceSignup(demo, true)).toBe(free("/voice/record?from=try"));
     // Not from the demo, someone with a voice goes Home (Family Home for a parent, Voice Home for a free account).
     expect(signedInVoiceSignup({ fromTry: false, cleanUp: false, takeKept: false }, true)).toBe("/home");
     expect(signedInVoiceSignup({ fromTry: false, cleanUp: false, takeKept: false }, false)).toBe("/home");

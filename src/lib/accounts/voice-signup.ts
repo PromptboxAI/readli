@@ -15,12 +15,17 @@ export interface VoiceSignupFrom {
 
 /** Where signing in continues to: making the voice, from the demo take when it's still there. */
 export function voiceRecordPath({ fromTry, cleanUp, takeKept }: VoiceSignupFrom): string {
-  if (fromTry && takeKept) return `/voice/record?from=try${cleanUp ? "&cleanup=1" : ""}`;
-  // The demo take is gone: the record page says so and records afresh.
-  if (fromTry) return "/voice/record?from=try&expired=1";
+  // From the demo, the account is marked as free Readli Voice on the way (/start/free), so Home and the menu
+  // never take it into the family welcome before its voice is kept. The demo take is used while it lasts;
+  // once it's gone, the record page says so and records afresh.
+  if (fromTry) return keepAsVoice(takeKept ? `/voice/record?from=try${cleanUp ? "&cleanup=1" : ""}` : "/voice/record?from=try&expired=1");
   // Someone who hasn't tried the demo goes through the signup welcome (name, family, voice, a story, then the
   // plans, where free Readli Voice is one choice). Home sends a new account there and anyone else to their own home.
   return "/home";
+}
+
+function keepAsVoice(next: string): string {
+  return `/start/free?next=${encodeURIComponent(next)}`;
 }
 
 /** The way back from signup: to the demo stories in the voice already made, or to choosing an account. */
