@@ -639,7 +639,7 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
       last?.status === "failed" && status.readiness !== "ready"
         ? refusedFailure
           ? "We couldn't read this in that voice, because the voice service turned the voice down. Nothing was charged. Recording the voice again fixes it."
-          : `We couldn't finish preparing this, and unused credits were returned.${failedSeg?.error ? ` (${failedSeg.error})` : ""}`
+          : `We couldn't finish preparing this${Object.values(last.reservations).some((d) => d.length > 0) ? ", and unused credits were returned" : ""}.${failedSeg?.error ? ` (${failedSeg.error})` : ""}`
         : null,
     voiceRefused: refusedFailure,
     missingCredits,
@@ -1111,6 +1111,8 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
   const at = clock().toISOString();
   await store.write((s) => {
     if (job.status !== "running") return;
+    // A free preparation (a new family's first book, a Readli correction) never spent credits, so there's nothing to return.
+    const paid = Object.values(job.reservations).some((d) => d.length > 0);
     const allReady = job.sentenceIds.every((id) => s.segments.find((x) => x.libraryKey === job.libraryKey && x.sentenceId === id)?.status === "ready");
     job.status = allReady ? "done" : "failed";
     job.finishedAt = at;
@@ -1122,7 +1124,7 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
       householdId: job.householdId,
       text: allReady
         ? `${owner?.displayName ?? "Your storyteller"}'s reading of ${text.title} is ${status.readiness === "ready" ? "ready" : "partly ready"}.`
-        : `We couldn't finish preparing ${text.title} in ${owner?.displayName ?? "that voice"}. Unused credits were returned.`,
+        : `We couldn't finish preparing ${text.title} in ${owner?.displayName ?? "that voice"}.${paid ? " Unused credits were returned." : ""}`,
       href: `/family/books/${text.slug}`,
       at,
       readAt: null,

@@ -176,6 +176,18 @@ describe("family home", () => {
     expect(homeNotice(state, DEMO_HOUSEHOLD_ID, "sara", new Date("2026-10-29T12:00:00Z"))).toBeNull();
   });
 
+  it("drops a failure once the same storyteller's reading of that book finishes", () => {
+    const state = demoFamilyState();
+    const note = (text: string, slug: string, at: string) => ({ id: `${slug}-${at}`, householdId: DEMO_HOUSEHOLD_ID, text, href: `/family/books/${slug}`, at, readAt: null });
+    state.notifications.push(
+      note("We couldn't finish preparing The Lion and the Mouse in Kevin.", SLUG, "2026-10-20T10:00:00Z"),
+      note("We couldn't finish preparing The Lion and the Mouse in Mom. Unused credits were returned.", SLUG, "2026-10-20T10:05:00Z"),
+      note("Kevin's reading of The Lion and the Mouse is ready.", SLUG, "2026-10-20T11:00:00Z"),
+    );
+    const n = homeNotice(state, DEMO_HOUSEHOLD_ID, "sara", new Date("2026-10-21T12:00:00Z"))!;
+    expect(noticeLines(n)).toEqual(["New reading ready: The Lion and the Mouse, read by Kevin.", "We couldn't finish preparing The Lion and the Mouse in Mom. Unused credits were returned."]);
+  });
+
   it("keeps a busy week's notice short: a few titles, then each other update on its own line, newest first", () => {
     const lines = noticeLines({
       titles: ["A", "B", "C", "D", "E"],

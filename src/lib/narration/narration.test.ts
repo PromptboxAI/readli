@@ -489,6 +489,21 @@ describe("a new family's first book is on Readli", () => {
     expect(welcomeBookOnUs(state, H, WELCOME_BOOK)).toBe(false);
   });
 
+  it("a failed free first book never talks about returning credits", async () => {
+    const { state, store } = family();
+    const { job } = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: BOOK, scope: "book", welcome: true }, clock);
+    await runJob(store, new CountingProvider(() => true), job!.id, clock);
+    const notice = state.notifications.at(-1)!.text;
+    expect(notice).toMatch(/We couldn't finish preparing/);
+    expect(notice).not.toMatch(/credits/);
+    const june = (await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-june")!;
+    expect(june.lastFailure).not.toMatch(/credits/);
+    // A paid one still says so.
+    const paid = family();
+    await prepareJune(paid.store, new CountingProvider(() => true));
+    expect(paid.state.notifications.at(-1)!.text).toMatch(/Unused credits were returned/);
+  });
+
   it("can be tried again after a stopped first try", async () => {
     const { state, store } = family();
     const { job } = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: BOOK, scope: "book", welcome: true }, clock);
