@@ -101,15 +101,20 @@ export default async function InvitationPreviewPage({ params }: { params: Promis
         </section>
       </div>
 
-      <section className="mx-auto flex w-full max-w-2xl flex-col gap-3" aria-labelledby="how-h">
-        <h2 id="how-h" className="font-display text-xl font-semibold">
+      <section className="mx-auto flex w-full max-w-4xl flex-col gap-3" aria-labelledby="how-h">
+        <h2 id="how-h" className="font-display text-2xl font-semibold">
           How it works
         </h2>
         <p>Readli reads classic children&apos;s books aloud in the voices of the people your children love. You decide who each child hears.</p>
-        <ol className="flex list-decimal flex-col gap-1 pl-5" data-testid="how-it-works">
-          <li>Start Readli Family, or sign in.</li>
-          <li>Add {name} as a storyteller.</li>
-          <li>Choose which children can listen, then pick a story.</li>
+        <ol className="grid gap-3 sm:grid-cols-3" data-testid="how-it-works">
+          {["Start Readli Family, or sign in.", `Add ${name} as a storyteller.`, "Choose which children can listen, then pick a story."].map((step, i) => (
+            <li key={step} className="flex flex-col gap-2 rounded-3xl bg-surface p-5 ring-2 ring-ink/10">
+              <span aria-hidden="true" className="grid size-9 place-items-center rounded-full bg-sunshine font-display font-semibold">
+                {i + 1}
+              </span>
+              <p className="font-display text-lg font-semibold">{step}</p>
+            </li>
+          ))}
         </ol>
       </section>
 
