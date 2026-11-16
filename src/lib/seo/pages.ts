@@ -20,6 +20,7 @@ export function publicPages(): PublicPage[] {
     { path: "/try", title: "Hear a story in your voice, free", priority: 0.9, changeFrequency: "monthly" },
     { path: "/grandparents", title: "Read to your grandkids in your own voice", priority: 0.8, changeFrequency: "monthly" },
     { path: "/pricing", title: "Pricing", priority: 0.9, changeFrequency: "monthly" },
+    { path: "/long-distance-families", title: "Bedtime stories for long-distance families", priority: 0.7, changeFrequency: "monthly" },
     { path: "/gifts", title: "Give the gift of your voice at bedtime", priority: 0.8, changeFrequency: "monthly" },
     { path: "/how-it-works", title: "How Readli works", priority: 0.8, changeFrequency: "monthly" },
     { path: "/family-voices", title: "Family Voices", priority: 0.8, changeFrequency: "monthly" },

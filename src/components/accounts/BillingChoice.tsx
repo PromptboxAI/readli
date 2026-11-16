@@ -66,7 +66,8 @@ export function BillingChoice({
       <p className="rounded-2xl border-2 border-ink/15 bg-surface px-5 py-4 text-lg" aria-live="polite">
         You chose <strong>{chosen.label}</strong>:{" "}
         <strong data-testid="family-price">{chosen.price}</strong> today.{" "}
-        {billing === "annual" ? `Renews yearly, and your ${monthlyCredits} narration credits still arrive every month.` : "Renews monthly. Cancel any time."}
+        {billing === "annual" ? `Renews yearly, and your ${monthlyCredits} narration credits still arrive every month.` : "Renews monthly. Cancel any time."}{" "}
+        14-day money-back guarantee on your first payment.
       </p>
     </div>
   );

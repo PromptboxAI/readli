@@ -29,6 +29,61 @@ export const GUIDE_AUTHOR = { name: "Kevin Godfrey", title: "Founder of Readli",
 
 export const GUIDES: readonly Guide[] = [
   {
+    slug: "meaningful-christmas-gifts-from-grandparents",
+    title: "Meaningful Christmas gifts from grandparents",
+    description: "Christmas gift ideas from grandparents that last past December: their voice reading bedtime stories, a scheduled Christmas-morning surprise and more.",
+    published: "2026-11-16",
+    updated: "2026-11-16",
+    readMinutes: 5,
+    intro:
+      "The toys from Christmas morning are often forgotten by February. The gifts grandkids remember are the ones that carry a piece of you. Here are a few ideas that last well past the holidays, starting with the one we built Readli for: your voice, reading them a bedtime story every night.",
+    sections: [
+      {
+        heading: "What makes a grandparent's gift meaningful",
+        paragraphs: [
+          "The best gifts from grandparents tend to share three things. They carry something personal, like your handwriting, your stories or your voice. They become part of the grandkids' routine, so they get used rather than shelved. And they keep you close when you can't be in the room, which matters most for [long-distance families](/long-distance-families).",
+        ],
+      },
+      {
+        heading: "Bedtime stories read in your own voice",
+        paragraphs: [
+          "With Readli, you read a short story aloud for about a minute on your phone or computer. Then classic storybooks like Peter Rabbit and Winnie-the-Pooh play in your voice, so your grandkids hear you at bedtime every night. There's no app to install and no tech skills needed: the words scroll on the screen and you read them aloud. You can [try it free](/try) before you make an account.",
+          "Recording and sharing your voice is always free. To give the stories too, [give Readli as a gift](/gifts). It covers Readli Family for up to two of your children's families, either a whole year paid once (it never renews on its own) or month to month. The families never enter a card.",
+        ],
+      },
+      {
+        heading: "Have it arrive on Christmas morning",
+        paragraphs: [
+          "When you give a Readli gift, you can pick the day it arrives, so Christmas morning works. Readli emails each family your name and your message at 7 in the morning that day. If you cancel before then, you get a full refund.",
+          "If you'd like something to wrap, you can print a gift card from your gift page and tuck it under the tree. It shows your message and a QR code that opens the gift's welcome page, but it can't be used to redeem the gift, so it's safe if it gets lost in the wrapping paper.",
+        ],
+      },
+      {
+        heading: "Pair it with a book they can hold",
+        paragraphs: [
+          "Some grandparents wrap a printed copy of the first story they'll be reading. The grandkids turn the pages while they listen to you read, which makes the first night feel like you're sitting on the end of the bed. Browse the [library](/books) to choose one.",
+        ],
+      },
+      {
+        heading: "More gift ideas that carry your voice and your stories",
+        paragraphs: [
+          "A handwritten letter for each grandchild, to be opened when they're older. A family recipe card in your handwriting, with a note about who taught it to you. A short video of you telling the story of how you met, or what Christmas was like when you were their age. A standing video call on the same night every week. None of these cost much, and all of them are the kind of thing grandkids keep.",
+        ],
+      },
+      {
+        heading: "Parents stay in charge",
+        paragraphs: [
+          "A Readli gift never gives the giver access to the family's account, children or other voices. The parents add their children and choose which storytellers each child can hear. See [how gift memberships work](/help/billing-credits-and-gifts/gift-memberships).",
+        ],
+      },
+    ],
+    related: [
+      { href: "/gifts", label: "Give Readli as a gift" },
+      { href: "/guides/gift-for-long-distance-grandparents", label: "A gift for long-distance grandparents" },
+      { href: "/long-distance-families", label: "Readli for long-distance families" },
+    ],
+  },
+  {
     slug: "record-your-voice-for-bedtime-stories",
     title: "How to record your voice for your child's bedtime stories",
     description: "A parent's guide to recording a voice that sounds like you at bedtime: how long to read, how to sound natural, and how to set up a quiet room.",

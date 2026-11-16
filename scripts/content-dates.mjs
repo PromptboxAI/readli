@@ -43,6 +43,7 @@ const STATIC = {
   "/try": [page("/try")],
   "/grandparents": [page("/grandparents")],
   "/pricing": [page("/pricing"), "src/lib/content/pricing.ts", "src/lib/content/credits-explained.ts"],
+  "/long-distance-families": [page("/long-distance-families"), "src/lib/content/testimonials.ts"],
   "/gifts": [page("/gifts"), "src/lib/gifting/season.ts"],
   "/bedtime-stories": [page("/bedtime-stories"), "src/lib/library/collections.ts"],
   "/vs": [page("/vs"), "src/lib/content/comparisons.ts"],

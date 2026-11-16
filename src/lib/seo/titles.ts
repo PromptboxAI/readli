@@ -22,6 +22,7 @@ export const PAGE_TITLES = {
   home: "Readli: Bedtime Stories Read in Your Family's Voice",
   try: "Hear a story in your voice, free | Readli",
   grandparents: "Bedtime stories for grandkids, in your voice | Readli",
+  longDistance: "Bedtime stories for long-distance families | Readli",
   pricing: "Pricing: Readli Family plan and free Readli Voice",
   gifts: "Give the gift of your voice at bedtime | Readli gifts",
   bedtimeStories: "Classic bedtime stories for kids | Readli",

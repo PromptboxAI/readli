@@ -366,7 +366,7 @@ export function FinalCta() {
           </Link>
         </div>
         <p data-testid="family-plan-line">
-          Readli Family is a monthly or yearly plan you can cancel any time.{" "}
+          Readli Family is a monthly or yearly plan you can cancel any time, with a 14-day money-back guarantee.{" "}
           <Link href="/pricing" className="font-semibold underline underline-offset-4">
             See pricing
           </Link>
@@ -389,6 +389,7 @@ const FOOTER_GROUPS: { title: string; links: { href: string; label: string }[] }
       { href: "/bedtime-stories", label: "Bedtime stories" },
       { href: "/pricing", label: "Pricing" },
       { href: "/gifts", label: "Gifts" },
+      { href: "/long-distance-families", label: "Long-distance families" },
       { href: "/guides", label: "Guides" },
       { href: "/vs", label: "Compare" },
     ],
