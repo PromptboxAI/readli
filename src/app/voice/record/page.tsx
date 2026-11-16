@@ -39,8 +39,9 @@ export default async function VoiceRecordPage({ searchParams }: { searchParams: 
             ← Back to setup
           </Link>
         ) : (
-          <Link href={parent ? "/family/my-voice" : "/voice"} className="w-fit font-display font-semibold underline-offset-4 hover:underline">
-            ← My voice
+          // A storyteller making their first voice goes back to Home, where their getting-started list says what's next.
+          <Link href={parent ? "/family/my-voice" : existing ? "/voice" : "/home"} className="w-fit font-display font-semibold underline-offset-4 hover:underline">
+            {parent || existing ? "← My voice" : "← Home"}
           </Link>
         )}
         <Eyebrow>Readli Voice</Eyebrow>
