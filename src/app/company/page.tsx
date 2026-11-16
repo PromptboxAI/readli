@@ -9,6 +9,7 @@ import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
 import { SITE_LONG_DESCRIPTION, publicPageMetadata } from "@/lib/seo/site";
 import { PAGE_TITLES } from "@/lib/seo/titles";
 import { PageLd } from "@/components/seo/PageLd";
+import { ORGANIZATION_ID, organizationNode, websiteNode } from "@/lib/seo/organization";
 
 export const metadata: Metadata = publicPageMetadata({
   title: PAGE_TITLES.company,
@@ -22,7 +23,7 @@ export default function CompanyPage() {
     <>
       <SiteHeader />
       <main className="mx-auto flex max-w-4xl flex-col gap-12 px-4 py-14 sm:px-6">
-        <PageLd path="/company" title={PAGE_TITLES.company} description={metadata.description} type="AboutPage" />
+        <PageLd path="/company" title={PAGE_TITLES.company} description={metadata.description} type="AboutPage" extra={{ about: { "@id": ORGANIZATION_ID }, mainEntity: { "@id": ORGANIZATION_ID } }} graph={[organizationNode(), websiteNode()]} />
         <section aria-labelledby="about-heading" className="flex flex-col gap-4">
           <p className="font-display text-lg font-semibold text-coral-deep">Every Book. Every Voice.</p>
           <h1 id="about-heading" className="font-display text-4xl font-semibold sm:text-5xl">

@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { Testimonials } from "@/components/home/Testimonials";
 import { PageLd } from "@/components/seo/PageLd";
+import { ORGANIZATION_ID, organizationNode, websiteNode } from "@/lib/seo/organization";
 import { COMPANY, FOUNDERS, PROMISES } from "@/lib/content/company";
 import { publicPageMetadata } from "@/lib/seo/site";
 import { PAGE_TITLES } from "@/lib/seo/titles";
@@ -27,7 +28,7 @@ export default function AboutPage() {
     <>
       <SiteHeader />
       <main>
-        <PageLd path="/about" title={PAGE_TITLES.about} description={DESCRIPTION} type="AboutPage" />
+        <PageLd path="/about" title={PAGE_TITLES.about} description={DESCRIPTION} type="AboutPage" extra={{ about: { "@id": ORGANIZATION_ID }, mainEntity: { "@id": ORGANIZATION_ID } }} graph={[organizationNode(), websiteNode()]} />
         <section aria-labelledby="about-heading" className="bg-sunshine/35 px-4 py-14 sm:px-6 sm:py-20">
           <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
             <div className="flex flex-col gap-5">

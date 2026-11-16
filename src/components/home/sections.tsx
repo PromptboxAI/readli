@@ -31,6 +31,8 @@ export function Hero() {
         <div className="flex flex-col items-center gap-[18px] lg:items-start lg:gap-[22px]">
           <p className="text-[13px] font-extrabold uppercase tracking-[0.16em] text-coral-deep">Every Book. Every Voice.</p>
           <h1 className="font-display text-4xl font-semibold leading-[1.08] tracking-[-0.012em] sm:text-5xl lg:text-[56px] lg:leading-[1.06]">
+            {/* The brand name leads the page's main heading for search engines and screen readers; the logo above already shows it. */}
+            <span className="sr-only">Readli: </span>
             Their favorite stories. Read by their{" "}
             <span className="relative whitespace-nowrap">
               favorite people.
