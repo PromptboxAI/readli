@@ -498,6 +498,10 @@ export interface HomeNotice {
 }
 
 const READY = /^(.+)'s reading of (.+) is ready\.$/;
+/** "Kevin's reading of X is ready." or "... is partly ready.": the storyteller. */
+const FINISHED = /^(.+)'s reading of .+ is (?:partly )?ready\.$/;
+/** "We couldn't finish preparing X in Kevin." (with or without the credits sentence): the storyteller. */
+const FAILED = /^We couldn't finish preparing .+ in (.+?)\.(?: Unused credits were returned\.)?$/;
 
 /**
  * One combined notice for the adult's household: the narration updates from the last seven days that
@@ -506,7 +510,12 @@ const READY = /^(.+)'s reading of (.+) is ready\.$/;
 export function homeNotice(state: FamilyState, householdId: string, adultId: string, now: Date = new Date()): HomeNotice | null {
   const since = new Date(now.getTime() - NOTICE_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const seen = state.members.find((m) => m.householdId === householdId && m.adultId === adultId && m.removedAt === null)?.noticesSeenThrough ?? null;
-  const notes = state.notifications.filter((n) => n.householdId === householdId && n.at > since && (!seen || n.at > seen));
+  const fresh = state.notifications.filter((n) => n.householdId === householdId && n.at > since && (!seen || n.at > seen));
+  // A failure that a later reading of the same book, by the same storyteller, put right isn't news any more.
+  const notes = fresh.filter((n) => {
+    const failed = FAILED.exec(n.text)?.[1];
+    return !failed || !fresh.some((o) => o.href === n.href && o.at > n.at && FINISHED.exec(o.text)?.[1] === failed);
+  });
   if (!notes.length) return null;
   const titles: string[] = [];
   const narrators: string[] = [];
