@@ -75,3 +75,37 @@ export function collectionTitle(c: { title: string }): string {
 export function comparisonTitle(c: { name: string }): string {
   return fitTitle([`Readli or ${c.name}? How they compare | Readli`, `Readli or ${c.name}? How they compare`, `Readli vs ${c.name} | Readli`, `Readli vs ${c.name}`]);
 }
+
+export const DESCRIPTION_MAX = 160;
+
+/** "by Beatrix Potter", "a traditional tale", "a traditional tale from Joseph Jacobs' English Fairy Tales", "retold by Readli". */
+function bookByline(author: string): string {
+  const a = author.trim();
+  if (!a) return "";
+  const traditional = /^traditional(?:,\s*from\s+(.+))?$/i.exec(a);
+  if (traditional) return traditional[1] ? `, a traditional tale from ${traditional[1]}` : ", a traditional tale";
+  if (/^retold by /i.test(a)) return `, ${a.charAt(0).toLowerCase()}${a.slice(1)}`;
+  return ` by ${a}`;
+}
+
+/**
+ * A book page's meta description (Kevin, 2026-11-15): who wrote it and how long it takes to read aloud,
+ * in plain words. Folk tales read "a traditional tale" rather than "by Traditional", and the year of first
+ * publication stays in the page's structured data, not the blurb. Built from the book's data, so books
+ * added later get one too. A long title drops the chapter count, then the longer closing line, so Google
+ * doesn't cut the blurb off.
+ */
+export function bookDescription(b: { title: string; author: string; minutes: number; chapters: readonly string[]; comingSoon: boolean }): string {
+  const lead = `${b.title}${bookByline(b.author)}`;
+  if (b.comingSoon) return `${lead}, coming soon to the Readli library. Hear it in the voices of the people your kids love.`;
+  const minutes = Math.round(b.minutes);
+  const length = b.minutes < 1 ? "in under a minute" : `in about ${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
+  const chapters = b.chapters.length > 1 ? ` across ${b.chapters.length} chapters` : "";
+  const candidates = [
+    `${lead}, read aloud ${length}${chapters}. Hear it in the voices of the people your kids love with Readli.`,
+    `${lead}, read aloud ${length}. Hear it in the voices of the people your kids love with Readli.`,
+    `${lead}, read aloud ${length}. Hear it in your family's own voices with Readli.`,
+    `${lead}, read aloud ${length} in your family's voices with Readli.`,
+  ];
+  return candidates.find((d) => d.length <= DESCRIPTION_MAX) ?? candidates[candidates.length - 1]!;
+}

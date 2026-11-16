@@ -16,7 +16,7 @@ import { bookPath, publicSlug, slugFromPublic } from "@/lib/library/paths";
 import { coverAlt } from "@/lib/library/cover-alt";
 import { type PublicBook, publicBook, publicLibrary } from "@/lib/library/public";
 import { absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
-import { bookTitle } from "@/lib/seo/titles";
+import { bookDescription, bookTitle } from "@/lib/seo/titles";
 import { PageLd } from "@/components/seo/PageLd";
 
 export function generateStaticParams() {
@@ -45,14 +45,6 @@ function creditLine(book: PublicBook): string | null {
     return `About ${credits} Readli ${unit} to prepare in one voice, out of the ${plan.monthlyCredits} that come with Readli Family each month. Replays are free.`;
   }
   return `About ${credits} Readli credits for the whole book in one voice, or about ${monthsOfCredits(credits, plan.monthlyCredits)} months of Readli Family credits. Prepare it a chapter at a time, and replays are free.`;
-}
-
-function bookDescription(book: PublicBook): string {
-  const published = book.firstPublished ? `, first published in ${book.firstPublished}` : "";
-  if (book.comingSoon) return `${book.title} by ${book.author}${published}. Coming soon to the Readli library, read aloud in your family's own voices.`;
-  const length = book.minutes < 1 ? "Under a minute" : `About ${Math.round(book.minutes)} minutes`;
-  const chapters = book.chapters.length > 1 ? ` in ${book.chapters.length} chapters` : "";
-  return `${book.title} by ${book.author}${published}. ${length} read aloud${chapters}. Hear it in the voices of the people your kids love with Readli.`;
 }
 
 /**
