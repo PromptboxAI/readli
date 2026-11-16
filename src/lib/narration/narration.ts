@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { sameHash } from "@/lib/server/guest-token";
 import { voiceSettings } from "@/lib/voice/elevenlabs";
-import { VoiceProviderError, type VoiceProvider } from "@/lib/voice/provider";
+import { VOICE_REFUSED, voiceRefusedError, type VoiceProvider } from "@/lib/voice/provider";
 import type { Actor, CreditLot, FamilyState, JobScope, NarrationJob, NarrationLibrary, NarrationSegment } from "@/lib/family/model";
 import { activeChild, activeEntitlement, activeShare, activeSlot, childVoiceAccess, countedSlots, isActiveMember, narratorSlotCount, readyVoice } from "@/lib/family/permissions";
 import { calledIn } from "@/lib/family/names";
@@ -983,15 +983,6 @@ export async function cancelGeneration(store: FamilyStore, actor: Actor | null, 
     settleUnfinished(s, job, at);
     audit(s, adultId, "narration_canceled", at, { householdId: job.householdId, detail: job.libraryKey });
   });
-}
-
-/** A stored failure that came from the voice itself, not from one sentence or a busy moment. */
-const VOICE_REFUSED = /voice not ready|voice_access_denied|voice_not_found|voice_does_not_exist/;
-
-/** The provider refused the voice or the key (deleted, another account's, bad key): every sentence would fail the same way. */
-export function voiceRefusedError(err: unknown): boolean {
-  if (err instanceof VoiceProviderError) return err.status === 401 || err.status === 403 || err.status === 404 || VOICE_REFUSED.test(err.message);
-  return err instanceof Error && VOICE_REFUSED.test(err.message);
 }
 
 /**

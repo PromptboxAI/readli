@@ -77,8 +77,14 @@ export class ElevenLabsProvider implements VoiceProvider {
     form.append("labels", JSON.stringify({ source: "readli_guest_demo" }));
     console.info(JSON.stringify({ event: "elevenlabs_clone", type: "instant", removeBackgroundNoise, bytes: audio.size }));
     const res = await this.call("/voices/add", { method: "POST", body: form });
-    const json = (await res.json()) as { voice_id?: string };
+    const json = (await res.json()) as { voice_id?: string; requires_verification?: boolean };
     if (!json.voice_id) throw new VoiceProviderError("ElevenLabs returned no voice_id", 502);
+    // ElevenLabs' safety review held the clone: it reads nothing until verified, and only Readli could
+    // verify it. Don't hand it out; the speaker records again instead.
+    if (json.requires_verification === true) {
+      await this.deleteVoice(json.voice_id).catch(() => undefined);
+      throw new VoiceProviderError("ElevenLabs voice requires verification (voice_access_denied)", 403, "We couldn't make a voice from this recording. Please record it again.");
+    }
     return { voiceId: json.voice_id };
   }
 
