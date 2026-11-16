@@ -541,7 +541,15 @@ function WholeBook({
 
       {v.lastFailure && v.status.readiness !== "preparing" && (
         <p className="rounded-lg bg-coral/15 p-3 text-sm font-semibold" data-testid="last-failure">
-          {v.lastFailure} You can try again.
+          {v.lastFailure} {v.voiceRefused ? "" : "You can try again."}
+          {v.voiceRefused && v.yours && (
+            <>
+              {" "}
+              <Link href={`/voice/record?next=${encodeURIComponent(`/family/books/${view.book.slug}`)}`} className="underline underline-offset-4" data-testid="record-again">
+                Record my voice again
+              </Link>
+            </>
+          )}
         </p>
       )}
 

@@ -13,7 +13,19 @@ import type { GenerationQuote, PrepareBookView } from "@/lib/narration/narration
  * on the button (or that it's on us, for a new family) and prepares it; a progress bar shows it being made,
  * then the step's Next goes on to Listen. Never leaves setup.
  */
-export function SetupPrepareBook({ initial, voiceId, onUs = false }: { initial: PrepareBookView; voiceId: string; /** A new family's first book: free. */ onUs?: boolean }) {
+export function SetupPrepareBook({
+  initial,
+  voiceId,
+  onUs = false,
+  recordHref,
+}: {
+  initial: PrepareBookView;
+  voiceId: string;
+  /** A new family's first book: free. */
+  onUs?: boolean;
+  /** Where to record the voice again, when the voice service turned it down. */
+  recordHref?: string;
+}) {
   const router = useRouter();
   const [view, setView] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -111,10 +123,27 @@ export function SetupPrepareBook({ initial, voiceId, onUs = false }: { initial: 
           </>
         ) : v.availability === "unavailable" ? (
           <p>{v.unavailableReason ?? "This voice can't read it yet."}</p>
+        ) : v.voiceRefused && v.yours && recordHref ? (
+          // Trying again can't help: the voice itself was turned down, so the way forward is a new recording.
+          <>
+            <p role="alert" className="font-semibold text-coral-deep" data-testid="setup-book-failed">
+              We couldn&apos;t read it in your voice. Please record your voice again, then come back to prepare it. It&apos;s still free.
+            </p>
+            <Link href={recordHref} className={parentPrimary} data-testid="setup-record-again">
+              Record my voice again
+            </Link>
+          </>
         ) : (
-          <button type="button" className={parentPrimary} disabled={busy} onClick={() => void prepare()} data-testid="setup-prepare-book">
-            {onUs ? "Prepare it free" : `Prepare it · ${cost} ${cost === 1 ? "credit" : "credits"}`}
-          </button>
+          <>
+            {v.lastFailure && (
+              <p role="alert" className="font-semibold text-coral-deep" data-testid="setup-book-failed">
+                We couldn&apos;t finish preparing it just now. Nothing was charged. Please try again.
+              </p>
+            )}
+            <button type="button" className={parentPrimary} disabled={busy} onClick={() => void prepare()} data-testid="setup-prepare-book">
+              {v.lastFailure ? (onUs ? "Try again, free" : "Try again") : onUs ? "Prepare it free" : `Prepare it · ${cost} ${cost === 1 ? "credit" : "credits"}`}
+            </button>
+          </>
         )}
         {message && (
           <p role="alert" className="text-sm font-semibold text-coral-deep">

@@ -36,3 +36,15 @@ export class VoiceProviderError extends Error {
     super(message);
   }
 }
+
+/**
+ * A failure that came from the voice itself, not from one sentence or a busy moment: the provider won't
+ * read in it (gone, another account's, or held by the provider's safety review until verified).
+ */
+export const VOICE_REFUSED = /voice not ready|voice_access_denied|voice_not_found|voice_does_not_exist/;
+
+/** The provider refused the voice or the key: every sentence would fail the same way. */
+export function voiceRefusedError(err: unknown): boolean {
+  if (err instanceof VoiceProviderError) return err.status === 401 || err.status === 403 || err.status === 404 || VOICE_REFUSED.test(err.message);
+  return err instanceof Error && VOICE_REFUSED.test(err.message);
+}

@@ -32,7 +32,7 @@ import { activeEntitlement, activeShare, activeSlot } from "@/lib/family/permiss
 import { adoptCarriedInvitation, carriedStoryteller } from "@/lib/invitations/adopt";
 import { childProfiles, familyParents, homeHousehold, PROVISIONAL_FAMILY_NAME } from "@/lib/family/service";
 import { deviceRegistry, familyStore } from "@/lib/family/session";
-import { listenView, prepareView, WELCOME_BOOK, welcomeBookOnUs } from "@/lib/narration/narration";
+import { listenView, prepareView, voiceRefused, WELCOME_BOOK, welcomeBookOnUs } from "@/lib/narration/narration";
 import { recorderProps } from "@/lib/voice/recorder";
 import {
   familyInvited,
@@ -304,6 +304,9 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   const pinRegistry = step === "done" && kids.length > 0 ? deviceRegistry(session) : null;
   const pinToSet = Boolean(pinRegistry && !(await pinRegistry.pinHash(home).catch(() => "unknown")));
 
+  // The voice service turned the voice down (it reads nothing in it): the Voice step says so and offers a new recording.
+  const ownRefused = Boolean(ownInState && voiceRefused(state, ownInState.id));
+
   let body: React.ReactNode;
   if (step === "voice") {
     const intro = (
@@ -311,7 +314,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
         <h1 className="font-display text-3xl font-semibold sm:text-4xl">{recorded ? "Your voice is recorded" : "First, record your voice"}</h1>
         <p className="max-w-2xl text-lg">
           {recorded
-            ? "Readli will read your kids' stories in it. You can re-record it any time from My Voice."
+            ? "Readli will read your kids' stories in it. You can record it again here or any time from My Voice."
             : "Read a short passage aloud, about one minute. Readli then reads every story to your kids in your voice, even when you're not there."}
         </p>
       </header>
@@ -319,8 +322,23 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
     body = (
       <>
         {!recorder && intro}
-        {recorded ? (
-          <Done>{ownInState?.status === "ready" ? "Your voice is ready." : "Your voice is being made. It usually takes a few minutes, so carry on."}</Done>
+        {recorded && ownRefused ? (
+          <div className="flex flex-col items-start gap-3 rounded-3xl bg-coral/15 p-5 sm:p-6" role="alert" data-testid="setup-voice-refused">
+            <p className="font-semibold">We couldn&apos;t read a story in this recording of your voice.</p>
+            <p>Please record your voice again. It takes about a minute, and your first book is still free.</p>
+            <Link href={`/voice/record?next=${encodeURIComponent(setupHref("book"))}`} className={parentPrimary} data-testid="setup-record-again">
+              Record my voice again
+            </Link>
+          </div>
+        ) : recorded ? (
+          <div className="flex flex-col gap-3">
+            <Done>{ownInState?.status === "ready" ? "Your voice is ready." : "Your voice is being made. It usually takes a few minutes, so carry on."}</Done>
+            {session.account && (
+              <Link href={`/voice/record?next=${encodeURIComponent(setupHref("voice"))}`} className="w-fit font-semibold underline underline-offset-4" data-testid="setup-rerecord">
+                Record my voice again
+              </Link>
+            )}
+          </div>
         ) : recorder ? (
           // Recording, making and keeping the voice all happen right here, so setup never leaves for another page.
           <AccountVoiceSetup
@@ -439,7 +457,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
         ) : !intro ? (
           <p className="rounded-2xl bg-sunshine/50 p-4">The library is still loading its first books. Try again in a moment.</p>
         ) : prep && reader ? (
-          <SetupPrepareBook key={String(reader.on)} initial={prep} voiceId={reader.voiceId} onUs={onUs} />
+          <SetupPrepareBook key={String(reader.on)} initial={prep} voiceId={reader.voiceId} onUs={onUs} recordHref={`/voice/record?next=${encodeURIComponent(setupHref("book"))}`} />
         ) : (
           <p className="rounded-2xl bg-sunshine/50 p-4">
             {recorded ? "Your voice is still being made, usually a few minutes. Refresh this page in a moment to prepare the book." : "Record your voice first, so the book can be read in it."}{" "}

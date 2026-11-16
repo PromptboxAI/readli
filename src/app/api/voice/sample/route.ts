@@ -5,6 +5,8 @@ import { fail } from "@/lib/server/http";
 import { AccountVoiceError, accountVoiceDeps, accountVoiceSample } from "@/lib/voice/account-voices";
 import { accountDb } from "@/lib/family/account-store";
 import { markStoryHeard } from "@/lib/voice/home-progress";
+import { voiceRefusedError } from "@/lib/voice/provider";
+import { alertVoiceRefused } from "@/lib/voice/refused-alert";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -34,6 +36,11 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     if (err instanceof AccountVoiceError) return fail(err.status, err.code, err.userMessage);
+    // The voice service won't read in this recording (often a safety check only Readli could clear): say so plainly, so they record again.
+    if (voiceRefusedError(err)) {
+      await alertVoiceRefused({ label: `the voice of user ${user.id}`, key: `user-${user.id}`, where: "sample", error: err instanceof Error ? err.message : String(err) });
+      return fail(422, "voice_refused", "We couldn't make a Readli voice from this recording. Please tap Record Again and read the story once more.");
+    }
     throw err;
   }
 }

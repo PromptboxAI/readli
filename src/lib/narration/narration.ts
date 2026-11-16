@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { sameHash } from "@/lib/server/guest-token";
 import { voiceSettings } from "@/lib/voice/elevenlabs";
-import type { VoiceProvider } from "@/lib/voice/provider";
+import { VOICE_REFUSED, voiceRefusedError, type VoiceProvider } from "@/lib/voice/provider";
 import type { Actor, CreditLot, FamilyState, JobScope, NarrationJob, NarrationLibrary, NarrationSegment } from "@/lib/family/model";
 import { activeChild, activeEntitlement, activeShare, activeSlot, childVoiceAccess, countedSlots, isActiveMember, narratorSlotCount, readyVoice } from "@/lib/family/permissions";
 import { calledIn } from "@/lib/family/names";
@@ -504,6 +504,8 @@ export interface PrepareVoiceView {
   kids: { id: string; name: string; approved: boolean }[];
   /** Why the last preparation of this book in this voice stopped, when it did. */
   lastFailure: string | null;
+  /** The last preparation stopped because the voice service wouldn't read in this voice: recording again fixes it. */
+  voiceRefused: boolean;
   /** Credits to prepare everything still missing in this book. */
   missingCredits: number;
   /** How many more credits the household needs to prepare the rest of the book. */
@@ -604,6 +606,7 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
     .filter((j) => j.libraryKey === library.key && j.householdId === householdId)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
   const failedSeg = last?.status === "failed" ? state.segments.find((x) => x.libraryKey === library.key && x.status === "failed" && x.error) : undefined;
+  const refusedFailure = last?.status === "failed" && status.readiness !== "ready" && Boolean(failedSeg?.error && VOICE_REFUSED.test(failedSeg.error));
   const availability: Availability = reason
     ? "unavailable"
     : status.readiness === "ready"
@@ -634,8 +637,11 @@ function voiceView(state: FamilyState, plan: PlanConfig, householdId: string, te
     kids: kids.map((c) => ({ id: c.id, name: c.nickname, approved: approved.has(c.id) })),
     lastFailure:
       last?.status === "failed" && status.readiness !== "ready"
-        ? `We couldn't finish preparing this, and unused credits were returned.${failedSeg?.error ? ` (${failedSeg.error})` : ""}`
+        ? refusedFailure
+          ? "We couldn't read this in that voice, because the voice service turned the voice down. Nothing was charged. Recording the voice again fixes it."
+          : `We couldn't finish preparing this, and unused credits were returned.${failedSeg?.error ? ` (${failedSeg.error})` : ""}`
         : null,
+    voiceRefused: refusedFailure,
     missingCredits,
     extraCreditsNeeded: Math.max(0, missingCredits - available),
     estimateSeconds: status.missingCharacters ? estimateSeconds(status.missingCharacters, library.modelId) : 0,
@@ -980,6 +986,21 @@ export async function cancelGeneration(store: FamilyStore, actor: Actor | null, 
 }
 
 /**
+ * The voice service turned down this recording of the voice on its latest preparation, with nothing
+ * prepared in it after. A new recording (a new version) clears it, so setup offers one.
+ */
+export function voiceRefused(state: FamilyState, voiceId: string): boolean {
+  const voice = state.voices.find((v) => v.id === voiceId);
+  if (!voice) return false;
+  const keys = new Set(state.libraries.filter((l) => l.voiceId === voiceId && l.voiceVersion === voice.version).map((l) => l.key));
+  const last = state.jobs
+    .filter((j) => keys.has(j.libraryKey) && j.finishedAt && (j.status === "failed" || j.status === "done"))
+    .sort((a, b) => Date.parse(b.finishedAt!) - Date.parse(a.finishedAt!))[0];
+  if (!last || last.status !== "failed") return false;
+  return state.segments.some((x) => x.libraryKey === last.libraryKey && last.sentenceIds.includes(x.sentenceId) && x.status === "failed" && Boolean(x.error && VOICE_REFUSED.test(x.error)));
+}
+
+/**
  * Generates a job's segments in order. Resumable: it picks up wherever it stopped. A segment is
  * marked ready only after its audio is stored and read back. Failed segments retry up to the plan's
  * limit. Credits are committed per segment at most once (capped at what was reserved; Readli
@@ -1000,6 +1021,8 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
   });
 
   let outOfTime = false;
+  // The provider won't read in this voice at all (gone, or not this account's): no use trying every sentence.
+  let refused = false;
   // A parent's Stop may come from another request, whose write this worker's snapshot never sees, so
   // the stored status is asked for again around each sentence. Once stopped, nothing more is generated,
   // stored or charged: the cancel already released the job's sentences and refunded what was left.
@@ -1012,6 +1035,7 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
     return false;
   };
   for (const id of job.sentenceIds) {
+    if (refused) break;
     if (!(await stillWanted())) break; // canceled
     // Stop between sentences when this worker's time is up; the next one picks up from here.
     if (Date.now() > deadline) {
@@ -1075,6 +1099,10 @@ export async function runJob(store: FamilyStore, provider: VoiceProvider, jobId:
           seg.status = "failed";
           seg.error = err instanceof Error ? err.message.slice(0, 200) : "generation failed";
         });
+        if (voiceRefusedError(err)) {
+          refused = true;
+          break;
+        }
       }
     }
   }
