@@ -29,6 +29,7 @@ import {
   readPlayback,
   requestGeneration,
   runJob,
+  voiceRefused,
   WELCOME_BOOK,
   welcomeBookOnUs,
 } from "./narration";
@@ -196,14 +197,19 @@ describe("narration libraries (required tests)", () => {
     expect(june.voiceRefused).toBe(true);
     expect(june.lastFailure).toMatch(/Recording the voice again/);
     expect(june.lastFailure).not.toMatch(/ElevenLabs/);
+    // Setup's Voice step offers a new recording until there is one.
+    expect(voiceRefused(state, "voice-june")).toBe(true);
+    state.voices.find((v) => v.id === "voice-june")!.version += 1;
+    expect(voiceRefused(state, "voice-june")).toBe(false);
   });
 
   it("an ordinary failure isn't blamed on the voice", async () => {
-    const { store } = family();
+    const { state, store } = family();
     await prepareJune(store, new CountingProvider((t) => t === text.sentences[2]!.text));
     const june = (await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-june")!;
     expect(june.voiceRefused).toBe(false);
     expect(june.lastFailure).toMatch(/couldn't finish preparing/);
+    expect(voiceRefused(state, "voice-june")).toBe(false);
   });
 
   it("unprepared narration is never labeled Ready, and partial preparation exposes only stored sentences", async () => {

@@ -995,6 +995,21 @@ export function voiceRefusedError(err: unknown): boolean {
 }
 
 /**
+ * The voice service turned down this recording of the voice on its latest preparation, with nothing
+ * prepared in it after. A new recording (a new version) clears it, so setup offers one.
+ */
+export function voiceRefused(state: FamilyState, voiceId: string): boolean {
+  const voice = state.voices.find((v) => v.id === voiceId);
+  if (!voice) return false;
+  const keys = new Set(state.libraries.filter((l) => l.voiceId === voiceId && l.voiceVersion === voice.version).map((l) => l.key));
+  const last = state.jobs
+    .filter((j) => keys.has(j.libraryKey) && j.finishedAt && (j.status === "failed" || j.status === "done"))
+    .sort((a, b) => Date.parse(b.finishedAt!) - Date.parse(a.finishedAt!))[0];
+  if (!last || last.status !== "failed") return false;
+  return state.segments.some((x) => x.libraryKey === last.libraryKey && last.sentenceIds.includes(x.sentenceId) && x.status === "failed" && Boolean(x.error && VOICE_REFUSED.test(x.error)));
+}
+
+/**
  * Generates a job's segments in order. Resumable: it picks up wherever it stopped. A segment is
  * marked ready only after its audio is stored and read back. Failed segments retry up to the plan's
  * limit. Credits are committed per segment at most once (capped at what was reserved; Readli
