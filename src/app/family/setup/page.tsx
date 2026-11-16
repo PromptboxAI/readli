@@ -439,7 +439,7 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
         ) : !intro ? (
           <p className="rounded-2xl bg-sunshine/50 p-4">The library is still loading its first books. Try again in a moment.</p>
         ) : prep && reader ? (
-          <SetupPrepareBook key={String(reader.on)} initial={prep} voiceId={reader.voiceId} onUs={onUs} />
+          <SetupPrepareBook key={String(reader.on)} initial={prep} voiceId={reader.voiceId} onUs={onUs} recordHref={`/voice/record?next=${encodeURIComponent(setupHref("book"))}`} />
         ) : (
           <p className="rounded-2xl bg-sunshine/50 p-4">
             {recorded ? "Your voice is still being made, usually a few minutes. Refresh this page in a moment to prepare the book." : "Record your voice first, so the book can be read in it."}{" "}

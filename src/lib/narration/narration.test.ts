@@ -12,7 +12,7 @@ import {
   setHouseholdShare,
   startListening,
 } from "@/lib/family/service";
-import type { SynthesizedAudio, VoiceProvider } from "@/lib/voice/provider";
+import { VoiceProviderError, type SynthesizedAudio, type VoiceProvider } from "@/lib/voice/provider";
 import { toneWav } from "@/lib/voice/stub";
 import { ELEVENLABS_PLANS, modelCost, usdPerMinute } from "./costs";
 import {
@@ -177,6 +177,33 @@ describe("narration libraries (required tests)", () => {
     expect(claims(sara).sid).toBe(claims(june).sid);
     expect(claims(sara).v).toBe("voice-sara");
     expect(state.plays.map((p) => p.sentenceId)).toEqual([text.sentences[4]!.id, text.sentences[4]!.id]);
+  });
+
+  it("stops at once when the voice service refuses the voice, and says recording again fixes it", async () => {
+    const { state, store } = family();
+    const refusing = new CountingProvider();
+    refusing.synthesize = async (input) => {
+      refusing.calls.push(input.text);
+      throw new VoiceProviderError(`ElevenLabs POST /text-to-speech/abc failed: 403 {"detail":{"type":"authorization_error","code":"voice_access_denied"}}`, 403);
+    };
+    const { job } = await prepareJune(store, refusing);
+    expect(job!.status).toBe("failed");
+    // One sentence tried once, not every sentence over and over.
+    expect(refusing.calls).toHaveLength(1);
+    // Nothing was charged.
+    expect(state.ledger.filter((e) => e.kind === "commit")).toHaveLength(0);
+    const june = (await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-june")!;
+    expect(june.voiceRefused).toBe(true);
+    expect(june.lastFailure).toMatch(/Recording the voice again/);
+    expect(june.lastFailure).not.toMatch(/ElevenLabs/);
+  });
+
+  it("an ordinary failure isn't blamed on the voice", async () => {
+    const { store } = family();
+    await prepareJune(store, new CountingProvider((t) => t === text.sentences[2]!.text));
+    const june = (await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-june")!;
+    expect(june.voiceRefused).toBe(false);
+    expect(june.lastFailure).toMatch(/couldn't finish preparing/);
   });
 
   it("unprepared narration is never labeled Ready, and partial preparation exposes only stored sentences", async () => {
