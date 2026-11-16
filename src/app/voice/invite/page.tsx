@@ -13,6 +13,7 @@ import { ADULTS_CONSENT, SHARE_CONSENT, contributorState, listInvitations, type 
 import { familyPage } from "@/lib/family/page-data";
 import { isParent } from "@/lib/family/storyteller";
 import { findCatalogBook } from "@/lib/library/catalog";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const metadata: Metadata = { title: "Share your voice with your family | Readli Voice", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -56,9 +57,7 @@ export default async function InviteFamilyPage({ searchParams }: { searchParams:
   const ctx = invitationContext();
   const header = (myVoice: string, title = "Share Your Voice With Your Family") => (
     <header className="flex flex-col gap-2">
-      <Link href={myVoice} className="w-fit font-display font-semibold underline-offset-4 hover:underline">
-        ← {myVoice === "/home" ? "Home" : "My Voice"}
-      </Link>
+      <BackTo fallback={{ href: myVoice, label: myVoice === "/home" ? "Home" : "My Voice" }} className="w-fit font-display font-semibold underline-offset-4 hover:underline" />
       <h1 className="font-display text-3xl font-semibold sm:text-5xl">{title}</h1>
     </header>
   );

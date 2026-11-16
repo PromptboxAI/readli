@@ -6,6 +6,7 @@ import { buttonPrimary } from "@/components/brand/buttons";
 import { loadFinance, type CostConfig, type FinanceReport } from "@/lib/admin/finance";
 import { accountDb } from "@/lib/family/account-store";
 import { updateCostSettingsAction } from "../actions";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const metadata: Metadata = { title: "Finances | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -56,7 +57,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
           Recurring revenue only counts subscriptions and narrator slots. Credit packs and gifts are one-time and never part of MRR.
         </p>
         <p className="flex flex-wrap gap-4 text-sm">
-          <Link href="/admin" className="underline underline-offset-4">Back to the admin overview</Link>
+          <BackTo fallback={{ href: "/admin", label: "the admin overview" }} look="back-to" className="underline underline-offset-4" />
           <Link href={test ? "/admin/finance" : "/admin/finance?mode=test"} className="underline underline-offset-4">
             {test ? "Show live payments" : "Show test-mode payments"}
           </Link>

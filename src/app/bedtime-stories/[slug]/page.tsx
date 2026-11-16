@@ -13,6 +13,7 @@ import { publicLibrary } from "@/lib/library/public";
 import { BOOK_SAMPLE_NARRATOR, bookSampleSrc } from "@/lib/library/samples";
 import { absoluteUrl, jsonLd, publicPageMetadata, webPageNode } from "@/lib/seo/site";
 import { collectionTitle } from "@/lib/seo/titles";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const dynamicParams = false;
 
@@ -73,9 +74,7 @@ export default async function CollectionPage({ params }: { params: Params }) {
       <SiteHeader />
       <main className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-12 sm:px-6 sm:py-14">
         <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(ld)} />
-        <Link href="/bedtime-stories" className="w-fit font-display font-semibold underline-offset-4 hover:underline">
-          ← Bedtime stories
-        </Link>
+        <BackTo fallback={{ href: "/bedtime-stories", label: "Bedtime stories" }} className="w-fit font-display font-semibold underline-offset-4 hover:underline" />
         <header className="grid items-start gap-8 lg:grid-cols-[1.3fr_1fr]">
           <div className="flex flex-col gap-4">
             <h1 className="font-display text-4xl leading-[1.05] font-semibold sm:text-5xl">{c.title}</h1>

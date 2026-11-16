@@ -8,6 +8,7 @@ import { readliMailer } from "@/lib/email/send";
 import { accountDb } from "@/lib/family/account-store";
 import { retryEmailAction, setAllEmailSwitchesAction, setEmailSwitchAction } from "./actions";
 import { adminDateTime } from "@/lib/admin/time";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const metadata: Metadata = { title: "Email | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -42,9 +43,7 @@ export default async function AdminEmailPage({ searchParams }: { searchParams: P
         <Eyebrow>Admin</Eyebrow>
         <h1 className="font-display text-4xl font-semibold">Email</h1>
         <p className="text-lg">Every automated Readli email, sent through one outbox. Each one stays off until you switch it on.</p>
-        <Link href="/admin" className="text-sm underline underline-offset-4">
-          Back to the admin overview
-        </Link>
+        <BackTo fallback={{ href: "/admin", label: "the admin overview" }} look="back-to" className="text-sm underline underline-offset-4" />
         <Link href="/admin/bedtime" className="text-sm underline underline-offset-4">
           Pick this week&apos;s Bedtime Thursdays stories
         </Link>

@@ -18,6 +18,7 @@ import { useMediaSession } from "./useMediaSession";
 import { usePlaceSaver } from "./usePlaceSaver";
 import { useSleepTimer } from "./useSleepTimer";
 import { useTrackAudio } from "./useTrackAudio";
+import { useBack } from "@/components/nav/BackTrail";
 
 const MODE_KEY = "readli-grown-up-player-mode";
 const SPEED_KEY = "readli-grown-up-player-speed";
@@ -417,10 +418,12 @@ export function GrownUpPlayer({
   );
 
   const { listen, soft, faint, main, round, side } = playerTone(mode);
+  // Back to wherever this was opened from (Home's Play, the bookshelf, the book page...), else the book page.
+  const way = useBack(backHref ? { href: backHref, label: "setup" } : { href: `/family/books/${book.slug}`, label: book.title });
   const back = (
-    <Link href={backHref ?? `/family/books/${book.slug}`} className="grid size-12 shrink-0 place-items-center rounded-full bg-current/10">
+    <Link href={way.href} onClick={way.onClick} className="grid size-12 shrink-0 place-items-center rounded-full bg-current/10" data-testid="back-link">
       <Icon name="left" />
-      <span className="sr-only">{backHref ? "Back to setup" : `Back to ${book.title}`}</span>
+      <span className="sr-only">{way.label === "Back" ? "Back" : `Back to ${way.label}`}</span>
     </Link>
   );
 

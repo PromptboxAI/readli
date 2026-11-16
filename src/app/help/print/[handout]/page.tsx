@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PrintButton } from "@/components/help/PrintButton";
 import { HANDOUTS, getHandout } from "@/lib/help/handouts";
 import { publicPageMetadata, SITE_URL } from "@/lib/seo/site";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const dynamicParams = false;
 
@@ -31,9 +31,7 @@ export default async function HandoutPage({ params }: { params: Params }) {
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 px-5 py-10 text-ink print:max-w-none print:gap-4 print:p-0" data-testid="handout">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <Link href="/help" className="font-semibold underline underline-offset-4">
-          Back to Help
-        </Link>
+        <BackTo fallback={{ href: "/help", label: "Help" }} look="back-to" className="font-semibold underline underline-offset-4" />
         <PrintButton />
       </div>
       <header className="flex flex-col gap-2 border-b-2 border-ink/15 pb-4">

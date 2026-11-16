@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fredoka, Nunito_Sans } from "next/font/google";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { BackTrail } from "@/components/nav/BackTrail";
 import { HelpChat } from "@/components/help/HelpChat";
 import { GoogleAnalytics } from "@/components/marketing/GoogleAnalytics";
 import { MetaPixel } from "@/components/marketing/MetaPixel";
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${fredoka.variable} ${nunitoSans.variable}`}>
       <body className="min-h-dvh antialiased">
         <ScrollToTop />
+        <BackTrail />
         <MetaPixel />
         <GoogleAnalytics />
         {children}

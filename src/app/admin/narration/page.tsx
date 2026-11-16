@@ -1,6 +1,5 @@
 import { displayCredits } from "@/lib/narration/credits";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { buttonSecondary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow } from "@/components/invites/AdultPage";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
@@ -9,6 +8,7 @@ import { formatPrice } from "@/lib/family/plan";
 import { familyStore } from "@/lib/family/session";
 import { narrationMetrics } from "@/lib/narration/admin";
 import { requireAdmin } from "@/lib/admin/access";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Narration | Readli admin", robots: { index: false } };
@@ -38,9 +38,7 @@ function NarrationNotLive() {
         This dashboard fills in once live narration is saved for real families. Until then, the admin overview counts narration
         libraries and jobs straight from the database.
       </p>
-      <Link href="/admin" className={`${buttonSecondary} self-start`}>
-        Back to the admin overview
-      </Link>
+      <BackTo fallback={{ href: "/admin", label: "the admin overview" }} look="back-to" className={`${buttonSecondary} self-start`} />
     </AdultPage>
   );
 }

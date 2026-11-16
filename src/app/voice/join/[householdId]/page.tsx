@@ -15,6 +15,7 @@ import { familyStore } from "@/lib/family/session";
 import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps } from "@/lib/voice/account-voices";
 import { shareKeptVoice } from "@/lib/invites/share-on-keep";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const metadata: Metadata = { title: "Your storyteller steps | Readli Voice", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -62,9 +63,7 @@ export default async function JoinStepsPage({ params, searchParams }: { params: 
     <AdultPage>
       <header className="flex flex-col gap-2">
         {fromSetup && (
-          <Link href="/voice/setup?step=share" className="w-fit font-display font-semibold underline-offset-4 hover:underline">
-            ← Back to setup
-          </Link>
+          <BackTo fallback={{ href: "/voice/setup?step=share", label: "Back to setup" }} className="w-fit font-display font-semibold underline-offset-4 hover:underline" />
         )}
         <Eyebrow>Joining {family.name}</Eyebrow>
         <h1 className="font-display text-4xl font-semibold sm:text-5xl">Your storyteller steps</h1>
