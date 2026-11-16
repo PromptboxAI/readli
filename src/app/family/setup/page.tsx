@@ -17,7 +17,7 @@ import { SetupPrepareBook } from "@/components/family/SetupPrepareBook";
 import { ChildProfiles } from "@/components/family/ChildProfiles";
 import { FamilyOff, FamilyShell, NeedsGrownUp } from "@/components/family/FamilyShell";
 import { FamilyParents } from "@/components/family/FamilyParents";
-import { NameFamily } from "@/components/family/NameFamily";
+import { NameFamily, SetupFamilyName } from "@/components/family/NameFamily";
 import { PlanStarting } from "@/components/family/PlanStarting";
 import { Welcome } from "@/components/onboarding/Welcome";
 import { SetupStorytellerInvites, SetupUseMyVoice } from "@/components/family/SetupSteps";
@@ -58,6 +58,10 @@ export const metadata: Metadata = { title: "Set up your family | Readli", robots
 
 /** Setup's one intro book: about a minute long, so it's quick and cheap to hear working. */
 const INTRO_BOOK = WELCOME_BOOK;
+
+/** The family-name screen between the welcome and the first step. Not one of the numbered steps. */
+const FAMILY_NAME_STEP = "family-name";
+const FAMILY_NAME_HREF = `/family/setup?step=${FAMILY_NAME_STEP}`;
 
 /** Where each step's "Next" goes, in words. */
 const NEXT_LABEL: Record<SetupStep, string> = {
@@ -212,7 +216,14 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   // Someone who came through the signup welcome (/start) already saw it, named themselves and heard their voice:
   // they carry on from the first step still to do, never the welcome again.
   const throughStart = q.from === "start" || Boolean(familyNameFor((await cookies()).get(FAMILY_NAME_COOKIE)?.value, adultId));
-  const welcome = q.step === "welcome" || (!q.step && !throughStart && !voice && kids.length === 0 && !progress.story);
+  // Sign-in fills the name from Google, which can be a business name; the welcome page asks them to keep or change it.
+  const signedIn = session.account ? await currentAdult() : null;
+  const myName = chosenName(adult.displayName, signedIn?.email, signedIn?.named);
+  // Family checkout (from Pricing, Sign up or /try) never asked what to call them or their family, so setup asks
+  // first, even when a voice is already there. Without a name, storytellers and kids would see their email address.
+  const needsName = Boolean(session.account) && !myName;
+  const needsFamilyName = Boolean(session.account) && !named;
+  const welcome = q.step === "welcome" || (!q.step && (needsName || (!throughStart && !voice && kids.length === 0 && !progress.story)));
   const step = setupStep(q.step, progress);
   // The first story can't be skipped: Listen and the last page wait until one is prepared (or being prepared).
   const storyLib = plan && (step === "listen" || step === "done") ? await familyLibrary(store, actor, home) : null;
@@ -244,11 +255,10 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
   const n = (SETUP_STEPS as readonly string[]).indexOf(step) + 1;
   const eyebrow = step === "done" ? "All set" : `Step ${n} of ${SETUP_STEPS.length}`;
 
-  // Sign-in fills the name from Google, which can be a business name; the welcome page asks them to keep or change it.
-  const signedIn = session.account ? await currentAdult() : null;
   // Named on the gift page just now: setup greets them instead of asking again.
   const namedOnGift = (await cookies()).get(NAMED_COOKIE)?.value === "1";
-  const myName = chosenName(adult.displayName, signedIn?.email, signedIn?.named);
+  // After the name, the family's name, then the first step.
+  const afterWelcome = needsFamilyName ? FAMILY_NAME_HREF : setupHref("voice");
   if (welcome) {
     return (
       <FamilyShell>
@@ -256,7 +266,32 @@ export default async function FamilySetupPage({ searchParams }: { searchParams: 
         {confirmEmail && <ConfirmEmailNote email={confirmEmail} />}
         {paying && <PlanStarting waiting="Thank you! Your plan starts as soon as the payment goes through, usually within a minute. Have a look around while you wait." />}
         {!plan && !paying && <NoPlan />}
-        <Welcome kind="family" startHref={setupHref("voice")} name={myName?.split(" ")[0]} askName={session.account && !((q.named === "1" || namedOnGift) && myName) ? (myName ?? "") : undefined} />
+        <Welcome
+          kind="family"
+          startHref={afterWelcome}
+          name={myName?.split(" ")[0]}
+          askName={session.account && !((q.named === "1" || namedOnGift) && myName) ? (myName ?? "") : undefined}
+          nameNext={afterWelcome}
+        />
+      </FamilyShell>
+    );
+  }
+
+  // What to call the family: asked once, right after the welcome, for a family started at checkout with a stand-in name.
+  if (needsFamilyName && (q.step === FAMILY_NAME_STEP || !q.step)) {
+    const first = myName?.split(" ")[0];
+    return (
+      <FamilyShell>
+        {q.checkout === "success" && <CheckoutDone sessionId={q.session_id} />}
+        {confirmEmail && <ConfirmEmailNote email={confirmEmail} />}
+        {paying && <PlanStarting waiting="Thank you! Your plan starts as soon as the payment goes through, usually within a minute." />}
+        <div className="flex flex-col gap-6" data-testid="setup-family-name">
+          <header className="flex flex-col gap-2">
+            <h1 className="font-display text-3xl font-semibold sm:text-4xl">{first ? `Nice to meet you, ${first}! ` : ""}What&apos;s your family called?</h1>
+            <p className="max-w-2xl text-lg">Your kids see it in Readli Kids, and the grandparents and others you invite see it on their invitation. You can change it later.</p>
+          </header>
+          <SetupFamilyName next={setupHref("voice")} nextLabel={recorded ? "Next: your voice" : "Next: record your voice"} back="/family/setup?step=welcome" />
+        </div>
       </FamilyShell>
     );
   }
