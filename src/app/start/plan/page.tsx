@@ -56,7 +56,7 @@ export default async function StartPlanPage({ searchParams }: { searchParams: Pr
     `Up to ${P.maxChildProfiles} kids, each with their own bookshelf in Readli Kids`,
     "Replay prepared stories as often as you like",
     "You approve who each child hears",
-    "Cancel any time",
+    "Cancel any time, with a 14-day money-back guarantee",
   ];
   return (
     <AdultPage wide onboarding>
