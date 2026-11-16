@@ -345,7 +345,7 @@ export function AccountVoiceSetup({
             <div className="flex flex-col gap-2 rounded-2xl bg-surface p-4">
               <p className="font-semibold">Your Readli voice, reading a story</p>
               <p className="text-sm text-muted">New narration made from your recording. Tap play when you&apos;re ready.</p>
-              <audio key={sample.url} controls src={sample.url} className="w-full" aria-label="A sample of your Readli voice" />
+              <audio key={sample.url} controls src={sample.url} className="voice-preview-audio w-full" aria-label="A sample of your Readli voice" onPlay={(e) => (e.currentTarget.dataset.playing = "true")} onPause={(e) => delete e.currentTarget.dataset.playing} />
               <p className="text-sm text-muted">Noise clean-up {sample.cleanUp ? "on" : "off"}</p>
               {sample.standIn && <p className="text-sm font-semibold">Test mode: this is a stand-in sound, not your voice.</p>}
               <ImproveLink onOpen={() => setTipsOpen(true)} where="account_sample" />
