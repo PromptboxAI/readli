@@ -102,3 +102,28 @@ body {
 .journey-screen {
   animation: journey-in 0.45s ease-out;
 }
+
+.voice-preview-audio::-webkit-media-controls-play-button {
+  background-color: #3ccf6e;
+  border-radius: 9999px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .voice-preview-audio::-webkit-media-controls-play-button {
+    animation: voice-play-pulse 1.6s ease-in-out infinite;
+  }
+}
+
+.voice-preview-audio[data-playing]::-webkit-media-controls-play-button {
+  animation: none;
+}
+
+@keyframes voice-play-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(60 207 110 / 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgb(60 207 110 / 0);
+  }
+}
