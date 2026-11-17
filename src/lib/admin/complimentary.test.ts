@@ -121,10 +121,14 @@ describe("complimentary membership copy", () => {
     expect(complimentaryHeadline({ months: 12, occasion: "raffle" })).toBe("You've won a year of Readli Family!");
     expect(complimentaryHeadline({ months: 3, occasion: "school" })).toBe("Enjoy 3 months of Readli Family!");
     expect(presentedLine({ sponsorName: "Readli", sponsorIsReadli: true, eventName: "Mount Elementary Basket Dinner" })).toBe(
-      "Donated by Readli for the Mount Elementary Basket Dinner.",
+      "Donated by Readli for Mount Elementary Basket Dinner.",
     );
     expect(presentedLine({ sponsorName: "Oak Street PTA", sponsorIsReadli: false, eventName: "The Spring Fair" })).toBe("Presented by Oak Street PTA for The Spring Fair.");
     expect(presentedLine({ sponsorName: "Readli", sponsorIsReadli: true, eventName: null })).toBe("Donated by Readli.");
+    expect(presentedLine({ sponsorName: "Readli", sponsorIsReadli: true, eventName: "Bella's Breakfast with Santa" })).toBe(
+      "Donated by Readli for Bella's Breakfast with Santa.",
+    );
+    expect(presentedLine({ sponsorName: "Readli", sponsorIsReadli: true, eventName: "the Fall Gala" })).toBe("Donated by Readli for the Fall Gala.");
     expect(recipientLine(null)).toBeNull();
     expect(recipientLine("  ")).toBeNull();
     expect(recipientLine("Maya Garcia")).toBe("For Maya Garcia");

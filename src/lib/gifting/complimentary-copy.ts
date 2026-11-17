@@ -36,11 +36,15 @@ export function certificateHeadline(months: number): string {
   return `${capitalize(termPhrase(months))} of Readli Family`;
 }
 
+/**
+ * The event name shows exactly as the admin typed it, with no article added, so "Bella's Breakfast
+ * with Santa" never becomes "the Bella's Breakfast with Santa". Type "the" to get one (Kevin, 2026-11-17).
+ */
 function forEvent(eventName: string): string {
-  return /^the\s/i.test(eventName) ? `for ${eventName}` : `for the ${eventName}`;
+  return `for ${eventName.trim()}`;
 }
 
-/** "Donated by Readli for the Mount Elementary Basket Dinner." or "Presented by Oak Street PTA." */
+/** "Donated by Readli for Mount Elementary Basket Dinner." or "Presented by Oak Street PTA." */
 export function presentedLine(f: Pick<ComplimentaryFacts, "sponsorName" | "sponsorIsReadli" | "eventName">, period = true): string {
   const who = f.sponsorIsReadli ? "Donated by Readli" : `Presented by ${f.sponsorName}`;
   const line = f.eventName ? `${who} ${forEvent(f.eventName)}` : who;
