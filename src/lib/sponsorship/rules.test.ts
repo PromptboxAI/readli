@@ -8,6 +8,7 @@ import {
   creditSplit,
   giveRequest,
   ownPlanStart,
+  refundAfterDelivery,
   removalDate,
   shortDate,
   zonedTime,
@@ -89,6 +90,17 @@ describe("cancel and refund", () => {
   it("the year has nothing to stop", () => {
     expect(cancelOutcome(facts({ plan: "annual", paidThrough: new Date("2027-12-25T12:00:00.000Z") })).kind).toBe("year_does_not_renew");
     expect(cancelOutcome(facts({ status: "ended" })).kind).toBe("nothing_to_cancel");
+  });
+  it("after delivery: the month just paid while it runs, the year for its first 30 days", () => {
+    const jan = new Date("2027-01-10T00:00:00.000Z");
+    expect(refundAfterDelivery(facts(), 1999, jan)).toEqual({ cents: 1999, until: null });
+    expect(refundAfterDelivery(facts({ status: "canceling" }), 1999, jan)).toEqual({ cents: 1999, until: null });
+    expect(refundAfterDelivery(facts({ status: "past_due" }), 1999, jan)).toBeNull();
+    const year = facts({ plan: "annual", paidThrough: new Date("2027-12-25T12:00:00.000Z") });
+    expect(refundAfterDelivery(year, 17999, jan)).toEqual({ cents: 17999, until: new Date("2027-01-24T12:00:00.000Z") });
+    expect(refundAfterDelivery(year, 17999, new Date("2027-01-24T12:00:00.000Z"))).toBeNull();
+    expect(refundAfterDelivery(facts({ status: "scheduled", deliveredAt: null, startsAt: null }), 1999, NOW)).toBeNull();
+    expect(refundAfterDelivery(facts({ status: "refunded" }), 1999, jan)).toBeNull();
   });
 });
 
