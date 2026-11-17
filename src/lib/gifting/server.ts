@@ -4,6 +4,7 @@ import { addMonths } from "@/lib/narration/credits";
 import { normalizeGiftCode } from "./codes";
 import { hashGiftCode } from "./codes.server";
 import { giftPlan, type GiftPlan } from "./plans";
+import { PROVISIONAL_FAMILY_NAME } from "@/lib/family/service";
 
 /**
  * Gift redemption for real accounts (gifts, migration 000500). The code is looked up by its hash.
@@ -86,7 +87,8 @@ export async function redeemGiftCode(db: SupabaseClient, code: string, user: { i
   const normalized = normalizeGiftCode(code);
   if (!normalized) throw new GiftError(400, "bad_code", "That doesn't look like a gift code. It's 12 letters and numbers, like ABCD-EFGH-JKMN.");
   if (opts.deferBilling && !opts.stripe) throw new GiftError(503, "billing_unavailable", "We can't pause your paid plan right now, so your gift wasn't used. Please try again later or contact us.");
-  const familyName = opts.familyName?.replace(/\s+/g, " ").trim().slice(0, 120) || `${user.name}'s family`;
+  // No name given: the stand-in name, so setup asks what the family is called, as it does after checkout (Kevin, 2026-11-17).
+  const familyName = opts.familyName?.replace(/\s+/g, " ").trim().slice(0, 120) || PROVISIONAL_FAMILY_NAME;
   const args: Record<string, unknown> = { p_code_hash: hashGiftCode(normalized), p_user: user.id, p_family_name: familyName };
   if (opts.deferBilling) args.p_defer_billing = true;
   const { data, error } = await db.rpc("redeem_gift", args);

@@ -109,7 +109,8 @@ export function complimentaryBatchEmail(f: BatchEmailFacts): EmailMessage {
       `They can also type the code at ${f.claimPage}.${claimBy ? ` Please have them claim it by ${claimBy}.` : ""}`,
     ],
     books: f.memberships.map((m) => ({ title: m.certificate, byline: `Code ${m.code}`, url: m.url, imageUrl: null })),
-    cta: { label: "How claiming works", url: f.claimPage },
+    // One membership: the button claims it, code built in. Several: each card has its own link, so the button opens the enter-code page (Kevin, 2026-11-17).
+    cta: { label: "Claim Readli", url: n === 1 && f.memberships[0] ? f.memberships[0].url : f.claimPage },
     reason: "You're getting this because a Readli admin sent you these memberships to hand out.",
   });
 }
