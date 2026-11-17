@@ -50,10 +50,15 @@ function stashedIntent(code: string): ClaimIntent | null {
   return null;
 }
 
-function stashed(): string | null {
+/**
+ * The code to reopen on a bare /claim: only one the winner pressed Claim My Gift on before signing in.
+ * A code that was merely looked at stays out, so the plain readli.ai/claim link in an email shows the
+ * enter-code page instead of the last code this browser opened (Kevin, 2026-11-16).
+ */
+function stashedResume(): string | null {
   try {
-    const v = JSON.parse(localStorage.getItem(STASH) ?? "null") as { code?: string; at?: number } | null;
-    if (v?.code && v.at && Date.now() - v.at < STASH_MS) return normalizeGiftCode(v.code);
+    const v = JSON.parse(localStorage.getItem(STASH) ?? "null") as { code?: string; at?: number; intent?: unknown } | null;
+    if (v?.code && v.at && v.intent && Date.now() - v.at < STASH_MS) return normalizeGiftCode(v.code);
   } catch {
     /* Nothing usable stored. */
   }
@@ -105,7 +110,7 @@ export function ClaimFromLink({ path = "/claim", intro = CLAIM_INTRO }: { path?:
   const [error, setError] = useState("");
   const [checking, setChecking] = useState(true);
 
-  async function lookUp(c: string) {
+  async function lookUp(c: string, resuming = false) {
     setChecking(true);
     setError("");
     const res = await fetch("/api/gifts/lookup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code: c }) });
@@ -119,6 +124,11 @@ export function ClaimFromLink({ path = "/claim", intro = CLAIM_INTRO }: { path?:
       window.location.replace(`/gift/open?code=${encodeURIComponent(c)}`);
       return;
     }
+    if (resuming && body.gift?.status !== "ready") {
+      // The saved code is used up or withdrawn: start fresh rather than say "already claimed".
+      forget();
+      return;
+    }
     setCode(c);
     stash(c);
     setLoaded({ gift: body.gift, viewer: body.viewer });
@@ -127,8 +137,9 @@ export function ClaimFromLink({ path = "/claim", intro = CLAIM_INTRO }: { path?:
   useEffect(() => {
     const fromHash = normalizeGiftCode(decodeURIComponent(window.location.hash.replace(/^#/, "")));
     if (window.location.hash) window.history.replaceState(null, "", window.location.pathname);
-    const c = fromHash ?? stashed();
-    if (c) void lookUp(c);
+    const resume = fromHash ? null : stashedResume();
+    const c = fromHash ?? resume;
+    if (c) void lookUp(c, !!resume);
     else setChecking(false);
   }, []);
 
