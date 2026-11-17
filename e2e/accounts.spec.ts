@@ -102,7 +102,7 @@ test("admins can issue complimentary memberships for an unknown raffle winner", 
   await expect(form.getByLabel("Recipient name")).toBeDisabled();
   await form.getByLabel(/Event or fundraiser name/).fill("Mount Elementary Basket Dinner");
   await expect(form).toContainText("You've won a year of Readli Family!");
-  await expect(form).toContainText("Donated by Readli for the Mount Elementary Basket Dinner.");
+  await expect(form).toContainText("Donated by Readli for Mount Elementary Basket Dinner.");
   await form.getByRole("radio", { name: "3 months" }).check();
   await expect(form).toContainText("You've won 3 months of Readli Family!");
   await page.screenshot({ path: `e2e/screenshots/admin-complimentary-${info.project.name}.png`, fullPage: true });

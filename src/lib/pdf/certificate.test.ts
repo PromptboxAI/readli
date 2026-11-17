@@ -5,7 +5,7 @@ import { certificatePdf, textWidth, winAnsi, wrap } from "./certificate";
 
 const input = {
   headline: "A year of Readli Family",
-  presentedLine: "Donated by Readli for the Mount Elementary Basket Dinner",
+  presentedLine: "Donated by Readli for Mount Elementary Basket Dinner",
   message: "Thank you for supporting Mount Elementary!",
   qr: encodeQr("https://readli.ai/claim#ABCD-EFGH-JKMN"),
   code: "ABCD-EFGH-JKMN",
