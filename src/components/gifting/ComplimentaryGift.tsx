@@ -15,17 +15,15 @@ import { READLI_TIME_ZONE } from "@/lib/time";
 const STASH = "readli-claim-code";
 const STASH_MS = 7 * 86_400_000;
 
-/** What the winner already chose before signing in, so the claim finishes on its own when they're back. */
-interface ClaimIntent {
-  familyName: string;
-  yourName: string;
-}
-
-function stash(code: string, intent?: ClaimIntent) {
+/**
+ * stash(code, true) marks that the winner pressed Claim My Gift before signing in, so the claim finishes on
+ * its own when they're back. Their name and family's name are asked in setup, not here (Kevin, 2026-11-17).
+ */
+function stash(code: string, intent = false) {
   try {
     // Re-stashing the same code keeps an intent saved before sign-in.
-    const kept = intent ?? (stashedIntent(code) ?? undefined);
-    localStorage.setItem(STASH, JSON.stringify({ code, at: Date.now(), ...(kept ? { intent: kept } : {}) }));
+    const kept = intent || stashedIntent(code);
+    localStorage.setItem(STASH, JSON.stringify({ code, at: Date.now(), ...(kept ? { intent: true } : {}) }));
   } catch {
     /* Storage blocked: they can type the code from the certificate. */
   }
@@ -40,14 +38,13 @@ function dropIntent(code: string) {
   }
 }
 
-function stashedIntent(code: string): ClaimIntent | null {
+function stashedIntent(code: string): boolean {
   try {
-    const v = JSON.parse(localStorage.getItem(STASH) ?? "null") as { code?: string; at?: number; intent?: ClaimIntent } | null;
-    if (v?.code && normalizeGiftCode(v.code) === code && v.at && Date.now() - v.at < STASH_MS && v.intent) return { familyName: String(v.intent.familyName ?? ""), yourName: String(v.intent.yourName ?? "") };
+    const v = JSON.parse(localStorage.getItem(STASH) ?? "null") as { code?: string; at?: number; intent?: unknown } | null;
+    return Boolean(v?.code && normalizeGiftCode(v.code) === code && v.at && Date.now() - v.at < STASH_MS && v.intent);
   } catch {
-    /* Nothing usable stored. */
+    return false;
   }
-  return null;
 }
 
 /**
@@ -208,8 +205,6 @@ function EnterCode({ error, onCode, intro }: { error: string; onCode: (code: str
 export function ComplimentaryGift({ code, gift, viewer, path = "/claim" }: { code: string; gift: ComplimentaryLanding; viewer: GiftViewer; path?: "/claim" | "/redeem" }) {
   const id = useId();
   const [stage, setStage] = useState<"open" | "claimed">(gift.status === "redeemed" ? "claimed" : "open");
-  const [familyName, setFamilyName] = useState("");
-  const [yourName, setYourName] = useState("");
   const [agreePause, setAgreePause] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -219,10 +214,10 @@ export function ComplimentaryGift({ code, gift, viewer, path = "/claim" }: { cod
   const claimBy = claimByLabel(gift.claimBy);
   const subscriber = viewer.plan === "subscription";
 
-  async function claim(name = familyName, me = yourName) {
+  async function claim() {
     if (!viewer.signedIn) {
-      // One press: the names ride along, and the claim finishes by itself after sign-in (Kevin, 2026-11-03).
-      stash(code, { familyName: name, yourName: me });
+      // One press: the claim finishes by itself after sign-in (Kevin, 2026-11-03).
+      stash(code, true);
       window.location.assign(`/login?next=${path}`);
       return;
     }
@@ -233,8 +228,6 @@ export function ComplimentaryGift({ code, gift, viewer, path = "/claim" }: { cod
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         code,
-        familyName: viewer.hasFamily ? undefined : name,
-        yourName: viewer.hasFamily ? undefined : me.trim() || undefined,
         pauseBilling: subscriber ? agreePause : undefined,
       }),
     });
@@ -251,13 +244,10 @@ export function ComplimentaryGift({ code, gift, viewer, path = "/claim" }: { cod
   const [resumed, setResumed] = useState(false);
   useEffect(() => {
     if (resumed || !viewer.signedIn || stage !== "open" || gift.status === "unavailable") return;
-    const intent = stashedIntent(code);
-    if (!intent) return;
+    if (!stashedIntent(code)) return;
     setResumed(true);
     dropIntent(code);
-    setFamilyName(intent.familyName);
-    setYourName(intent.yourName);
-    if (!subscriber) void claim(intent.familyName, intent.yourName);
+    if (!subscriber) void claim();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewer.signedIn, stage, code]);
 
@@ -283,7 +273,7 @@ export function ComplimentaryGift({ code, gift, viewer, path = "/claim" }: { cod
               ? `Your paid plan won't bill again until ${longDate(result.paidThrough)}. After that it carries on as before, unless you cancel first.`
               : `Readli Family is on for your family until ${longDate(result.paidThrough)}. No card needed, and nothing renews on its own.`}
         </p>
-        <Link href={result ? (yourName.trim() ? "/family/setup?named=1" : "/family/setup") : "/home"} className={buttonPrimary}>
+        <Link href={result ? "/family/setup" : "/home"} className={buttonPrimary}>
           {result ? "Set up my family" : "Go to my family"}
         </Link>
       </section>
@@ -334,32 +324,6 @@ export function ComplimentaryGift({ code, gift, viewer, path = "/claim" }: { cod
             <p>No automatic renewal.</p>
             <p>Nothing is charged when it ends. You&apos;d only pay if you later choose a plan at a separate checkout.</p>
           </section>
-
-          {!viewer.hasFamily && (
-            <label className="flex flex-col gap-1">
-              <span className="font-display font-semibold">What should your family call you? (optional)</span>
-              <input
-                value={yourName}
-                onChange={(e) => setYourName(e.target.value)}
-                maxLength={60}
-                autoComplete="given-name"
-                placeholder="Mom, Dad, Kevin…"
-                className="min-h-12 rounded-2xl bg-surface px-4 ring-2 ring-ink/20 focus:ring-ink"
-              />
-            </label>
-          )}
-          {!viewer.hasFamily && (
-            <label className="flex flex-col gap-1">
-              <span className="font-display font-semibold">Your family&apos;s name (optional)</span>
-              <input
-                value={familyName}
-                onChange={(e) => setFamilyName(e.target.value)}
-                maxLength={120}
-                placeholder="The Garcia family"
-                className="min-h-12 rounded-2xl bg-surface px-4 ring-2 ring-ink/20 focus:ring-ink"
-              />
-            </label>
-          )}
 
           {subscriber && (
             <section className="flex flex-col gap-2 rounded-2xl bg-sunshine/40 p-4" data-testid="subscriber-pause">

@@ -63,7 +63,7 @@ describe("real gifts", () => {
     const db = fakeDb([], (name, args) => (calls.push({ name, ...args }), answers.shift()!));
     const me = { id: "u2", name: "Ben" };
     expect(await redeemGiftCode(db, "abcdefghjkmn", me)).toEqual({ householdId: "h9", paidThrough: "2027-10-11T12:00:00Z" });
-    expect(calls[0]).toEqual({ name: "redeem_gift", p_code_hash: hashGiftCode(CODE), p_user: "u2", p_family_name: "Ben's family" });
+    expect(calls[0]).toEqual({ name: "redeem_gift", p_code_hash: hashGiftCode(CODE), p_user: "u2", p_family_name: "My family" });
     await expect(redeemGiftCode(db, CODE, me)).rejects.toMatchObject({ status: 409, code: "gift_redeemed" });
     await expect(redeemGiftCode(db, CODE, me)).rejects.toMatchObject({ status: 403, code: "own_gift" });
     await expect(redeemGiftCode(db, CODE, me)).rejects.toMatchObject({ status: 404, code: "gift_not_found" });
