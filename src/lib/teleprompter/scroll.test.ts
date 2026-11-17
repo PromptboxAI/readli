@@ -20,7 +20,7 @@ describe("scroll math", () => {
     expect(clampWpm(10)).toBe(80);
     expect(clampWpm(500)).toBe(200);
     expect(clampWpm(133)).toBe(135);
-    expect(clampWpm(145 + 10)).toBe(155);
+    expect(clampWpm(155 + 10)).toBe(165);
   });
 
   it("estimates remaining time", () => {
