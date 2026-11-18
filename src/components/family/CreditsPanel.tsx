@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { parentPrimary } from "@/components/brand/buttons";
 import type { CreditPack } from "@/lib/family/plan";
+import { InAppPurchaseNote } from "@/components/InAppPurchaseNote";
 
 const n = (x: number) => x.toLocaleString("en-US");
 const price = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -57,7 +58,8 @@ export function CreditsPanel({ packs, need, returnTo, canBuy, simulated }: { pac
       )}
       {!canBuy && <p className="font-semibold">Buying credits isn&apos;t switched on yet.</p>}
       {simulated && <p className="text-sm text-muted">Preview: no payment is taken. Pack sizes and prices are placeholders until pricing is final.</p>}
-      <ul className="grid gap-3 sm:grid-cols-3">
+      <InAppPurchaseNote />
+      <ul className="grid gap-3 sm:grid-cols-3" data-purchase>
         {packs.map((p) => (
           <li key={p.id} className={`flex flex-col gap-2 rounded-3xl bg-surface p-4 ring-2 ${p.credits >= need && need > 0 ? "ring-coral-deep" : "ring-ink/10"}`}>
             <span className="font-display text-2xl font-semibold">{n(p.credits)} credits</span>

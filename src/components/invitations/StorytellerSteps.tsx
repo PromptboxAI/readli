@@ -8,6 +8,7 @@ import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { PlanStarting } from "@/components/family/PlanStarting";
 import { newMetaEventId, rememberCheckout, trackMeta } from "@/lib/marketing/meta-pixel";
 import { trackGaEvent } from "@/lib/marketing/google-analytics";
+import { InAppPurchaseNote } from "@/components/InAppPurchaseNote";
 
 export interface StepsProps {
   token: string;
@@ -160,7 +161,8 @@ export function StorytellerSteps(p: StepsProps) {
               {cycle === "monthly" ? `${p.checkout.monthly} a month` : `${p.checkout.annual} a year`}, charged when you check out, with {p.checkout.monthlyCredits} narration credits every month. Renews{" "}
               {cycle === "monthly" ? "monthly" : "yearly"} until you cancel, which you can do any time in Billing.
             </p>
-            <button type="button" className={`${buttonPrimary} w-full sm:w-fit`} disabled={busy} onClick={startCheckout} data-testid="circle-checkout">
+            <InAppPurchaseNote />
+            <button type="button" className={`${buttonPrimary} w-full sm:w-fit`} disabled={busy} onClick={startCheckout} data-testid="circle-checkout" data-purchase>
               Continue to checkout
             </button>
           </>

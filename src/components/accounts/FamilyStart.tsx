@@ -6,6 +6,7 @@ import { BillingChoice, type Billing } from "@/components/accounts/BillingChoice
 import { buttonPrimary } from "@/components/brand/buttons";
 import { PlanIncludes, StepHeading } from "@/components/accounts/SignupSteps";
 import { startFamilyCheckout } from "@/lib/accounts/family-checkout";
+import { InAppPurchaseNote } from "@/components/InAppPurchaseNote";
 
 /** Quick signup: a new email is signed straight in; one that already has an account gets the code. */
 async function quickSignup(email: string, opts: { news: boolean; tz: string | undefined }): Promise<"signed_in" | "existing"> {
@@ -113,7 +114,8 @@ export function FamilyStart(props: {
               Signed in as <strong>{props.signedInAs}</strong>. Readli Family is added to this account, and anything you already have, like
               your voice and the families you share it with, stays as it is.
             </p>
-            <button type="button" className={`${buttonPrimary} min-h-16 w-full text-xl`} disabled={busy} onClick={() => void run()} data-testid="family-checkout">
+            {props.paymentsOn && <InAppPurchaseNote />}
+            <button type="button" className={`${buttonPrimary} min-h-16 w-full text-xl`} disabled={busy} onClick={() => void run()} data-testid="family-checkout" data-purchase={props.paymentsOn || undefined}>
               {busy ? "Opening checkout…" : props.paymentsOn ? "Continue to checkout" : "Start my family"}
             </button>
             {error && (

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { after, NextResponse } from "next/server";
 import { checkoutRequest, checkoutReturn, deferredStart } from "@/lib/billing/checkout";
+import { IN_APP_PURCHASE_MESSAGE, fromAndroidApp } from "@/lib/android/in-app";
 import { billingConfig, customerForMode } from "@/lib/billing/config";
 import { StripeApi, StripeError } from "@/lib/billing/stripe-api";
 import { slotItemFor } from "@/lib/billing/catalog";
@@ -48,6 +49,7 @@ async function carriedOpenInvitation(): Promise<string | null> {
 }
 
 export async function POST(req: Request) {
+  if (fromAndroidApp(req)) return fail(403, "in_app_purchase", IN_APP_PURCHASE_MESSAGE);
   const config = billingConfig();
   if (config.mode === "off") return fail(404, "not_found", "Not found.");
   const body = await jsonBody(req);

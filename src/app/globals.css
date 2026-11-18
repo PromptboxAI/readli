@@ -127,3 +127,14 @@ body {
     box-shadow: 0 0 0 8px rgb(60 207 110 / 0);
   }
 }
+
+/* Inside the Android app (see src/lib/android/in-app.ts) purchases are hidden, and a short note shows instead. */
+[data-app-note] {
+  display: none;
+}
+[data-app="android"] [data-app-note] {
+  display: block;
+}
+[data-app="android"] [data-purchase] {
+  display: none !important;
+}

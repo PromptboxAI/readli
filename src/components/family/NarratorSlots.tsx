@@ -15,6 +15,7 @@ import { PaidSlots } from "./PaidSlots";
 import { RelationshipPicker } from "./RelationshipPicker";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 import { READLI_TIME_ZONE } from "@/lib/time";
+import { InAppPurchaseNote } from "@/components/InAppPurchaseNote";
 
 /** "live": invitations are saved; "preview": the sample family, nothing saved; "off": no invitations here. */
 export type InviteMode = "live" | "preview" | "off";
@@ -728,9 +729,12 @@ export function NarratorSlots({
             {!canBuy ? (
               <p className="text-sm text-muted">Extra slots go with a paid Readli Family plan, added here by the parent who manages it.</p>
             ) : !buying ? (
-              <button type="button" className={`${parentSecondary} self-start`} onClick={() => setBuying(true)}>
-                Add a slot
-              </button>
+              <>
+                <InAppPurchaseNote />
+                <button type="button" data-purchase className={`${parentSecondary} self-start`} onClick={() => setBuying(true)}>
+                  Add a slot
+                </button>
+              </>
             ) : (
               <div className="flex flex-col gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10" data-testid="slot-checkout">
                 <p className="font-display text-xl font-semibold">1 extra narrator slot · {price}/month</p>

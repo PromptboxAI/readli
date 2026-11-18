@@ -5,6 +5,7 @@ import { BackTrail } from "@/components/nav/BackTrail";
 import { HelpChat } from "@/components/help/HelpChat";
 import { GoogleAnalytics } from "@/components/marketing/GoogleAnalytics";
 import { MetaPixel } from "@/components/marketing/MetaPixel";
+import { IN_APP_SCRIPT } from "@/lib/android/in-app";
 import { helpChatEnabled } from "@/lib/help-chat/server";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL, baseOpenGraph, indexable } from "@/lib/seo/site";
 import "./globals.css";
@@ -41,7 +42,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${fredoka.variable} ${nunitoSans.variable}`}>
+    // The Android app marks <html data-app="android"> before React hydrates, hence suppressHydrationWarning.
+    <html lang="en" className={`${fredoka.variable} ${nunitoSans.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: IN_APP_SCRIPT }} />
+      </head>
       <body className="min-h-dvh antialiased">
         <ScrollToTop />
         <BackTrail />
