@@ -682,7 +682,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     status: "published",
     answer: [
       "Email us at admin@readli.ai. We're a small, friendly team and we read every message.",
-      "Our postal address is Readli.ai LLC, 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790.",
+      "Our postal address is Promptbox, LLC, 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790.",
     ],
     keywords: ["email", "support", "help", "address", "phone"],
     related: ["report-a-problem", "data-deletion"],
