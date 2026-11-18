@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { LoginForm } from "@/components/auth/LoginForm";
 
-/** The login page below the mascot: once the link is sent, "Check your email" becomes the page heading. */
+/** The login page below the mascot: once the code is sent, "Check your email" becomes the page heading. */
 export function LoginPanel({ next, linkError }: { next: string; linkError: boolean }) {
   const [sent, setSent] = useState(false);
   return (

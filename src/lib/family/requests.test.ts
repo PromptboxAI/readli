@@ -27,7 +27,7 @@ describe("story requests", () => {
     const { store } = fresh();
     expect(await requestStory(store, maya, "maya", BOOK, clock)).toEqual([BOOK]);
     expect(await requestStory(store, maya, "maya", BOOK, clock)).toEqual([BOOK]);
-    expect((await store.read()).requests).toHaveLength(1);
+    expect((await store.read()).requests!.filter((r) => r.resolvedAt === null)).toHaveLength(1);
     await expect(requestStory(store, maya, "leo", BOOK, clock)).rejects.toMatchObject({ status: 403 });
     expect(await childRequests(store, leo, "leo")).toEqual([]);
   });

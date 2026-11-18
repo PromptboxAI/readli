@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
 /** The recipient pressed play: returns a short-lived link to the approved preview. */
 export async function POST(req: Request) {
   const { token } = await jsonBody(req);
-  return withRecipient(req, async ({ db }) => {
-    const url = await playPreview(db, String(token ?? ""));
+  return withRecipient(req, async ({ db, deps }) => {
+    const url = await playPreview(db, deps, String(token ?? ""));
     return url ? NextResponse.json({ url }, { headers: { "cache-control": "no-store" } }) : fail(404, "not_found", "This preview isn't available any more.");
   });
 }

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { buttonPrimary } from "@/components/brand/buttons";
+import { parentPrimary } from "@/components/brand/buttons";
 import type { CreditPack } from "@/lib/family/plan";
 
 const n = (x: number) => x.toLocaleString("en-US");
@@ -21,6 +21,18 @@ export function CreditsPanel({ packs, need, returnTo, canBuy, simulated }: { pac
   const buy = async (pack: CreditPack) => {
     setBusy(pack.id);
     setMessage(null);
+    if (!simulated) {
+      // Real purchases go through Stripe Checkout; the credits are added once the payment is confirmed.
+      const res = await fetch("/api/billing/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ item: `credit_pack:${pack.id}` }) });
+      const body = (await res.json().catch(() => null)) as { url?: string; error?: { message?: string } } | null;
+      if (res.ok && body?.url) {
+        window.location.assign(body.url);
+        return;
+      }
+      setBusy(null);
+      setMessage(body?.error?.message ?? "Checkout couldn't start. Please try again.");
+      return;
+    }
     const res = await fetch("/api/family/narration-credits", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ packId: pack.id }) });
     const body = await res.json().catch(() => null);
     setBusy(null);
@@ -50,7 +62,7 @@ export function CreditsPanel({ packs, need, returnTo, canBuy, simulated }: { pac
           <li key={p.id} className={`flex flex-col gap-2 rounded-3xl bg-surface p-4 ring-2 ${p.credits >= need && need > 0 ? "ring-coral-deep" : "ring-ink/10"}`}>
             <span className="font-display text-2xl font-semibold">{n(p.credits)} credits</span>
             <span className="text-muted">{price(p.priceCents)}</span>
-            <button type="button" className={buttonPrimary} disabled={!canBuy || busy !== null} onClick={() => buy(p)}>
+            <button type="button" className={parentPrimary} disabled={!canBuy || busy !== null} onClick={() => buy(p)}>
               {busy === p.id ? "Adding…" : `Buy ${n(p.credits)}`}
             </button>
           </li>

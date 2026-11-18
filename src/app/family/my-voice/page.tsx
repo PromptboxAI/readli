@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { buttonSecondary } from "@/components/brand/buttons";
+import { parentSecondary } from "@/components/brand/buttons";
 import { FamilyOff, FamilyShell, NeedsGrownUp, PreviewNote } from "@/components/family/FamilyShell";
 import { AccountVoiceControls } from "@/components/family/AccountVoiceControls";
 import { MyVoiceSharing } from "@/components/family/MyVoiceSharing";
@@ -13,11 +13,12 @@ import { familyPage } from "@/lib/family/page-data";
 import { myVoices } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
 import { BackLink } from "@/components/family/BackLink";
+import { backFrom } from "@/lib/family/settings-nav";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "My voice | Readli" };
 
-export default async function MyVoicePage() {
+export default async function MyVoicePage({ searchParams }: { searchParams: Promise<{ from?: string }> }) {
   const page = await familyPage();
   if (!page.enabled) return <FamilyOff />;
   if (page.session?.actor.kind !== "adult") return <NeedsGrownUp text="Sign in to manage your voice." />;
@@ -34,7 +35,7 @@ export default async function MyVoicePage() {
   return (
     <FamilyShell>
       <PreviewNote />
-      <BackLink href="/family" label="Home" />
+      <BackLink {...backFrom((await searchParams).from, { href: "/family", label: "My Family" })} />
       <h1 className="font-display text-4xl font-semibold">My voice</h1>
       {model?.canUpgrade && <VoiceModelUpgrade />}
       {user && <AccountVoiceControls voice={recording && { status: recording.status, version: recording.version, updatedAt: recording.updatedAt }} />}
@@ -44,7 +45,7 @@ export default async function MyVoicePage() {
           <p className="max-w-2xl">
             Invite another family to connect your voice. Their parents choose which children hear you, and you can stop sharing at any time.
           </p>
-          <Link href="/voice/invite" className={buttonSecondary}>
+          <Link href="/voice/invite" className={parentSecondary}>
             Share my voice
           </Link>
           {parent && (
@@ -64,7 +65,7 @@ export default async function MyVoicePage() {
         who then choose, child by child, whether their kids can hear it. Being connected on a family tree never shares
         it. You can stop sharing at any time.
       </p>
-      <MyVoiceSharing initial={voices} />
+      <MyVoiceSharing initial={voices} recorded={Boolean(recording && recording.status !== "deleted")} />
     </FamilyShell>
   );
 }

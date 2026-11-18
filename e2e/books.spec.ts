@@ -27,4 +27,6 @@ test("full library editions list their real chapters", async ({ page }) => {
   await expect(page.getByTestId("public-opening")).toContainText("Here is Edward Bear, coming downstairs now, bump, bump, bump");
   await expect(page.getByTestId("public-coming-soon")).toHaveCount(0);
   await expect(page.getByTestId("public-prepare")).toBeVisible();
+  // The button leads into signed-in pages, so search engines are asked not to follow it.
+  await expect(page.getByTestId("public-prepare")).toHaveAttribute("rel", "nofollow");
 });

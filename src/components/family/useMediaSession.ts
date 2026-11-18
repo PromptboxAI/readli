@@ -20,7 +20,7 @@ const SKIP_SECONDS = 15;
 /**
  * Shows the story on the lock screen, in the notification shade, on headphones and in the car: the
  * book, who is reading and the cover, with play/pause, back and forward 15 seconds, and previous and
- * next sentence, just like the player's own buttons. `position` gives the chapter's progress bar while
+ * next track, which the players use for chapters (a sentence in a book without chapters). `position` gives the chapter's progress bar while
  * a chapter track plays. Browsers without Media Session simply don't show it.
  */
 export function useMediaSession(

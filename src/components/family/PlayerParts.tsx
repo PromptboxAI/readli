@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { PlayerChapter } from "@/lib/player/chapters";
 import { clock, pageCount, pageOf, pageRange, sentenceAt, timeline, type PlayerMode } from "@/lib/player/pages";
 
 /** Pieces shared by the Readli Kids player and the grown-up player, so both look and behave alike. */
@@ -23,6 +24,19 @@ const ICONS = {
     </>
   ),
   moon: <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="currentColor" stroke="none" />,
+  download: (
+    <>
+      <path d="M12 4v11" />
+      <path d="M7 10.5l5 5 5-5" />
+      <path d="M5 20h14" />
+    </>
+  ),
+  saved: (
+    <>
+      <path d="M5 20h14" />
+      <path d="M7 11l3.5 3.5L17 8" />
+    </>
+  ),
   restart: (
     <>
       <path d="M4 12a8 8 0 1 0 2.4-5.7" />
@@ -77,6 +91,107 @@ export function ModeToggle({ mode, onChange }: { mode: PlayerMode; onChange: (mo
   );
 }
 
+/** The sleep timer's moon button: "Sleep" when off, otherwise the minutes left or "Chapter". */
+export function SleepButton({ label, onClick, className }: { label: string | null; onClick: () => void; className: string }) {
+  const spoken = label === null ? "Off" : label === "Chapter" ? "End of chapter" : label;
+  return (
+    <button type="button" onClick={onClick} aria-label={`Sleep timer: ${spoken}`} className={`justify-self-start ${className}`}>
+      <Icon name="moon" className="size-6" />
+      {label ?? "Sleep"}
+    </button>
+  );
+}
+
+/**
+ * The chapter being read, centered like a chapter heading: under the title in Just listen, over the
+ * page in Read along. Tapping it opens the chapter sheet.
+ */
+export function ChapterPill({ chapter, open, onClick, mode }: { chapter: PlayerChapter; open: boolean; onClick: () => void; mode: PlayerMode }) {
+  const { soft } = playerTone(mode);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={open}
+      aria-controls="chapter-sheet"
+      data-testid="chapter-pill"
+      className={`inline-flex min-h-10 max-w-full items-center gap-1.5 self-center rounded-full py-1 pr-2.5 pl-3.5 font-display text-sm font-semibold sm:text-base ${soft}`}
+    >
+      <span className="truncate">
+        Chapter {chapter.number}
+        {chapter.title && <span className="font-medium"> · {chapter.title}</span>}
+      </span>
+      <span className="sr-only">, choose a chapter</span>
+      <Icon name="down" className="size-[18px] shrink-0" />
+    </button>
+  );
+}
+
+/**
+ * The chapter list the pill opens, in the same spot as the storyteller picker. Chapters the storyteller
+ * has read can be tapped and play from their start; the rest are greyed out with "Not read yet" and
+ * whatever `notReady` offers (asking a grown-up, or preparing it).
+ */
+export function ChapterSheet({
+  chapters,
+  current,
+  onPick,
+  onClose,
+  notReady,
+}: {
+  chapters: PlayerChapter[];
+  current: number | null;
+  onPick: (chapter: PlayerChapter) => void;
+  onClose: () => void;
+  notReady?: (chapter: PlayerChapter) => ReactNode;
+}) {
+  const here = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    here.current?.scrollIntoView({ block: "nearest" });
+  }, []);
+  return (
+    <div className="absolute inset-x-0 bottom-0 z-10 mx-auto flex max-h-full w-full max-w-xl flex-col gap-3 rounded-[28px] bg-surface p-4 text-ink shadow-lg ring-2 ring-ink/10">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-display text-xl font-semibold">Chapters</h2>
+        <button type="button" onClick={onClose} className="min-h-11 rounded-full px-4 font-display font-semibold hover:bg-ink/10">
+          Done
+        </button>
+      </div>
+      <ol id="chapter-sheet" aria-label="Chapters" className="-m-1 flex min-h-0 flex-col gap-2 overflow-y-auto p-1">
+        {chapters.map((c) => {
+          const playing = c.number === current;
+          const ready = c.status !== "none";
+          return (
+            <li key={c.number} ref={playing ? here : undefined} data-testid="chapter-row" data-status={c.status}>
+              <div className={`flex items-center gap-3 rounded-3xl p-2 pr-3 ${playing ? "bg-sunshine" : ready ? "bg-ivory ring-2 ring-ink/10" : "bg-ink/5"}`}>
+                <button
+                  type="button"
+                  disabled={!ready}
+                  aria-current={playing || undefined}
+                  onClick={() => onPick(c)}
+                  className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-not-allowed"
+                >
+                  <span className={`grid size-10 shrink-0 place-items-center rounded-full font-display text-lg font-semibold ${ready ? "bg-surface" : "bg-ink/10 text-ink/50"}`}>
+                    {c.number}
+                  </span>
+                  <span className={`flex min-w-0 flex-col ${ready ? "" : "text-ink/50"}`}>
+                    <span className="truncate font-display text-lg leading-tight font-semibold">{c.title || `Chapter ${c.number}`}</span>
+                    {!ready && <span className="text-sm font-bold">Not read yet</span>}
+                    {c.status === "partial" && <span className="text-sm font-bold text-muted">Read partway</span>}
+                  </span>
+                  {ready && !playing && <Icon name="play" className="ml-auto size-6 shrink-0" />}
+                  {playing && <span className="ml-auto shrink-0 text-sm font-bold">You&apos;re here</span>}
+                </button>
+                {!ready && notReady?.(c)}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
 /** Three small bars that bounce while a story plays. */
 export function PlayingBars() {
   return (
@@ -120,9 +235,16 @@ export function ListenStage({ coverUrl, title, byline }: { coverUrl: string | nu
 }
 
 /**
+ * How far the words may shrink to keep both sentences of a page on screen. Past this (long sentences on
+ * a phone), the page shows just the sentence being read, at full size, instead of tiny text.
+ */
+const PAIR_MIN_SCALE = 0.85;
+
+/**
  * Read-along mode: a small cover, the title, and the current page with the sentence being read
- * highlighted. The page always fits its card: the words get smaller, a step at a time, before anything
- * scrolls.
+ * highlighted. The page always fits its card: when its sentences are too long to sit together at a
+ * readable size, it shows them one at a time; only a single sentence too long for the card gets
+ * smaller, a step at a time, before anything scrolls.
  */
 export function ReadStage({
   coverUrl,
@@ -130,15 +252,23 @@ export function ReadStage({
   byline,
   sentences,
   sentence,
+  chapter,
 }: {
   coverUrl: string | null;
   title: string;
   byline: ReactNode;
   sentences: string[];
   sentence: number;
+  /** In a chapter book, the chapter pill, centered over the page like a chapter heading. */
+  chapter?: ReactNode;
 }) {
   const card = useRef<HTMLDivElement>(null);
   const [first, last] = pageRange(pageOf(sentence), sentences.length);
+  // The page (by its first sentence) that's showing one sentence at a time because the pair didn't fit.
+  const [splitPage, setSplitPage] = useState<number | null>(null);
+  const split = splitPage === first && last - first > 1;
+  const [from, to] = split ? [sentence, sentence + 1] : [first, last];
+  const size = useRef({ w: 0, h: 0 });
   useLayoutEffect(() => {
     const box = card.current;
     if (!box) return;
@@ -149,13 +279,21 @@ export function ReadStage({
         scale -= 0.05;
         box.style.setProperty("--fit", scale.toFixed(2));
       }
+      if (!split && last - first > 1 && scale < PAIR_MIN_SCALE) setSplitPage(first);
     };
     fit();
     void document.fonts.ready.then(fit);
-    const watch = new ResizeObserver(fit);
+    size.current = { w: box.clientWidth, h: box.clientHeight };
+    const watch = new ResizeObserver(() => {
+      // A bigger card (a rotated phone, a resized window) may fit the pair again, so measure it afresh.
+      const grew = box.clientWidth > size.current.w || box.clientHeight > size.current.h;
+      size.current = { w: box.clientWidth, h: box.clientHeight };
+      if (split && grew) setSplitPage(null);
+      else fit();
+    });
     watch.observe(box);
     return () => watch.disconnect();
-  }, [first, sentences]);
+  }, [first, last, from, sentences, split]);
 
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-4">
@@ -170,14 +308,15 @@ export function ReadStage({
           {byline}
         </div>
       </div>
+      {chapter && <div className="-mb-1 flex justify-center">{chapter}</div>}
       <div
         ref={card}
         data-testid="read-page"
         className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-3xl bg-surface p-[22px] ring-2 ring-ink/8 ring-inset sm:p-8 tall:rounded-[32px] tall:p-12"
       >
         <p className="my-auto font-display text-[length:calc(21px*var(--fit,1))] leading-[1.4] font-medium text-pretty sm:text-[length:calc(27px*var(--fit,1))] tall:text-[length:calc(34px*var(--fit,1))]">
-          {sentences.slice(first, last).map((s, k) => {
-            const i = first + k;
+          {sentences.slice(from, to).map((s, k) => {
+            const i = from + k;
             return (
               <span
                 key={i}
@@ -205,12 +344,18 @@ export function TimeBar({
   sentence,
   playing,
   onSeek,
+  rate = 1,
+  end,
 }: {
   mode: PlayerMode;
   seconds: number[];
+  /** One past the last prepared sentence the bar covers; the whole text when left out. */
+  end?: number;
   sentence: number;
   playing: boolean;
   onSeek: (sentence: number) => void;
+  /** Playback speed, so the bar keeps pace with faster or slower reading. */
+  rate?: number;
 }) {
   const [spent, setSpent] = useState(0);
   const [scrub, setScrub] = useState<number | null>(null);
@@ -222,15 +367,17 @@ export function TimeBar({
   }, [sentence, playing]);
   useEffect(() => {
     if (!playing) return;
-    const id = window.setInterval(() => setSpent((t) => Math.min(t + 1, seconds[sentenceRef.current] ?? 0)), 1000);
+    const id = window.setInterval(() => setSpent((t) => Math.min(t + rate, seconds[sentenceRef.current] ?? 0)), 1000);
     return () => window.clearInterval(id);
-  }, [playing, seconds]);
+  }, [playing, seconds, rate]);
 
   const { listen, faint } = playerTone(mode);
-  const starts = timeline(seconds);
+  // Only as far as the audio goes: a book prepared a chapter at a time ends at that chapter.
+  const shown = end === undefined ? seconds : seconds.slice(0, Math.max(end, sentence + 1));
+  const starts = timeline(shown);
   const total = starts[starts.length - 1] ?? 0;
   const elapsed = scrub ?? Math.min(total, (starts[sentence] ?? 0) + spent);
-  const pages = pageCount(seconds.length);
+  const pages = pageCount(shown.length);
   const shownPage = scrub === null ? pageOf(sentence) : pageOf(sentenceAt(starts, scrub));
   const percent = total ? (elapsed / total) * 100 : 0;
 

@@ -5,8 +5,9 @@ import { normalizeGiftCode } from "@/lib/gifting/codes";
 import { hashGiftCode } from "@/lib/gifting/codes.server";
 import { findCatalogBook } from "@/lib/library/catalog";
 import { ProviderRefCipher } from "@/lib/server/provider-ref";
+import { voiceSettings } from "@/lib/voice/elevenlabs";
 import type { VoiceProvider } from "@/lib/voice/provider";
-import { connectedEmail, invitationEmail, type Mailer } from "./email";
+import { connectedEmail, emailCoverUrl, invitationEmail, type Mailer } from "./email";
 import {
   DEFAULT_INVITATION_SETTINGS,
   REPORT_REASONS,
@@ -135,11 +136,33 @@ export interface ContributorVoice {
   status: string;
   version: number;
   providerVoiceId: string | null;
+  /** The reading model this voice narrates stories with; null means the default model. */
+  modelId?: string | null;
 }
 
 export interface PreviewDeps {
   provider: VoiceProvider;
   findVoice(ownerId: string): Promise<ContributorVoice | null>;
+  /** The model a voice with no saved model reads with, the same default narration uses. */
+  defaultModel?: string;
+}
+
+/** The model a contributor's voice reads stories with, so their preview sounds like their stories. */
+function readingModel(deps: PreviewDeps, voice: ContributorVoice): string | undefined {
+  return voice.modelId ?? deps.defaultModel ?? undefined;
+}
+
+/**
+ * A short fingerprint of how a preview was read (model and voice settings), kept in its storage key.
+ * A preview whose fingerprint no longer matches the voice's stories is read again before it plays.
+ */
+export function previewConfigTag(modelId: string | undefined): string {
+  const config = { modelId: modelId ?? "default", outputFormat: "mp3_44100_128", voiceSettings: modelId ? voiceSettings(modelId) : null };
+  return `c${createHash("sha256").update(JSON.stringify(config)).digest("hex").slice(0, 10)}`;
+}
+
+function previewKey(userId: string, modelId: string | undefined): string {
+  return `${userId}/${randomUUID()}.${previewConfigTag(modelId)}.mp3`;
 }
 
 export interface PreviewView {
@@ -225,8 +248,9 @@ export async function generatePreview(db: SupabaseClient, deps: PreviewDeps, use
   if ((await previewsLastHour(db, userId, now)) >= PREVIEWS_PER_HOUR) {
     throw new InvitationError(429, "generation_limit", "You've made a lot of previews in the last hour. Try again a little later.");
   }
-  const audio = await deps.provider.synthesize({ voiceId: voice.providerVoiceId, text: passage.text });
-  const key = `${userId}/${randomUUID()}.mp3`;
+  const modelId = readingModel(deps, voice);
+  const audio = await deps.provider.synthesize({ voiceId: voice.providerVoiceId, text: passage.text, modelId });
+  const key = previewKey(userId, modelId);
   const { error } = await db.storage.from(PREVIEWS_BUCKET).upload(key, new Blob([audio.audio], { type: audio.contentType }), { contentType: audio.contentType, upsert: false });
   if (error) throw new Error(`upload preview: ${error.message}`);
   const old = await q(db.from("voice_previews").select("id, storage_key").eq("owner_id", userId).is("approved_at", null).is("retired_at", null), "read drafts");
@@ -279,10 +303,47 @@ export async function previewAudioUrl(db: SupabaseClient, storageKey: string, se
   return data.signedUrl;
 }
 
+/**
+ * A link to a stored preview, first reading the same passage again if the clip was made with a
+ * different model or settings than the voice's stories (older previews were read with the server's
+ * default model, not the voice's own). Same voice, same passage, so the approval still stands.
+ * If the new read fails, the existing clip plays.
+ */
+export async function currentPreviewAudioUrl(db: SupabaseClient, deps: PreviewDeps, preview: Row): Promise<string> {
+  const key = preview.storage_key as string;
+  try {
+    const owner = preview.owner_id as string;
+    const voice = await deps.findVoice(owner);
+    const passage = findPassage(preview.passage_id as string);
+    if (voice?.providerVoiceId && voice.status === "ready" && Number(preview.voice_version) === voice.version && passage) {
+      const modelId = readingModel(deps, voice);
+      if (!key.includes(`.${previewConfigTag(modelId)}.`)) {
+        const audio = await deps.provider.synthesize({ voiceId: voice.providerVoiceId, text: passage.text, modelId });
+        const fresh = previewKey(owner, modelId);
+        const { error } = await db.storage.from(PREVIEWS_BUCKET).upload(fresh, new Blob([audio.audio], { type: audio.contentType }), { contentType: audio.contentType, upsert: false });
+        if (error) throw new Error(`upload preview: ${error.message}`);
+        const swapped = await q(
+          db.from("voice_previews").update({ storage_key: fresh, content_type: audio.contentType }).eq("id", preview.id as string).eq("storage_key", key).is("retired_at", null).select("id"),
+          "refresh preview",
+        );
+        if (swapped.length) {
+          await removeStored(db, [key]);
+          console.info(JSON.stringify({ event: "invite_preview_refreshed", preview: preview.id, model: audio.modelId ?? modelId ?? "default" }));
+          return previewAudioUrl(db, fresh);
+        }
+        await removeStored(db, [fresh]);
+      }
+    }
+  } catch (err) {
+    console.error("refresh preview failed; playing the stored clip", err);
+  }
+  return previewAudioUrl(db, key);
+}
+
 /** The owner hearing their own draft or approved preview. */
-export async function ownPreviewAudioUrl(db: SupabaseClient, userId: string, previewId: string): Promise<string | null> {
-  const [row] = await q(db.from("voice_previews").select("storage_key").eq("id", previewId).eq("owner_id", userId).is("retired_at", null).limit(1), "read preview");
-  return row ? previewAudioUrl(db, row.storage_key as string) : null;
+export async function ownPreviewAudioUrl(db: SupabaseClient, deps: PreviewDeps, userId: string, previewId: string): Promise<string | null> {
+  const [row] = await q(db.from("voice_previews").select("*").eq("id", previewId).eq("owner_id", userId).is("retired_at", null).limit(1), "read preview");
+  return row ? currentPreviewAudioUrl(db, deps, row) : null;
 }
 
 /** The contributor's current approved preview, if it still matches their voice. Gift emails reuse it too. */
@@ -313,7 +374,7 @@ export interface SendInput {
   shareConsent: boolean;
 }
 
-function links(ctx: SendContext, invitationId: string, token: string) {
+export function invitationLinks(ctx: { secret: string; origin: string }, invitationId: string, token: string) {
   const base = ctx.origin.replace(/\/$/, "");
   const respond = respondToken(ctx.secret, invitationId);
   return {
@@ -331,8 +392,9 @@ async function deliver(db: SupabaseClient, ctx: SendContext, invitation: { id: s
     recipientName: invitation.name,
     message: invitation.message,
     bookTitle: sender.book ? (findCatalogBook(sender.book)?.title ?? null) : null,
+    coverUrl: emailCoverUrl(sender.book),
     linkDays,
-    ...links(ctx, invitation.id, invitation.token),
+    ...invitationLinks(ctx, invitation.id, invitation.token),
   });
   let delivery: "sent" | "failed" = "sent";
   let providerId: string | null = null;
@@ -447,11 +509,43 @@ export interface InvitationRow {
   expiresAt: string;
   canResend: boolean;
   canRevoke: boolean;
+  /** The latest email's delivery: from the send itself, then Resend's webhook events when they arrive. */
+  delivery: InvitationDelivery;
+}
+
+export type InvitationDelivery = "sending" | "sent" | "delivered" | "bounced" | "failed";
+
+/** Latest send per invitation, upgraded by Resend's delivered / bounced / complained events. */
+async function deliveries(db: SupabaseClient, ids: string[]): Promise<Map<string, InvitationDelivery>> {
+  const out = new Map<string, InvitationDelivery>();
+  if (!ids.length) return out;
+  const sends = await q(db.from("voice_invitation_sends").select("invitation_id, delivery, provider_message_id, sent_at").in("invitation_id", ids).order("sent_at", { ascending: false }), "read sends").catch(() => [] as Row[]);
+  const latest = new Map<string, Row>();
+  for (const s of sends) if (!latest.has(s.invitation_id as string)) latest.set(s.invitation_id as string, s);
+  const refs = [...latest.values()].map((s) => s.provider_message_id as string | null).filter((r): r is string => Boolean(r));
+  const events = refs.length ? await q(db.from("email_events").select("type, provider_ref").in("provider_ref", refs), "read email events").catch(() => [] as Row[]) : [];
+  for (const [id, send] of latest) {
+    const types = events.filter((e) => e.provider_ref === send.provider_message_id).map((e) => String(e.type));
+    out.set(
+      id,
+      types.some((t) => t === "email.bounced" || t === "email.complained")
+        ? "bounced"
+        : types.includes("email.delivered")
+          ? "delivered"
+          : send.delivery === "failed"
+            ? "failed"
+            : send.delivery === "sent"
+              ? "sent"
+              : "sending",
+    );
+  }
+  return out;
 }
 
 export async function listInvitations(db: SupabaseClient, secret: string, userId: string, settings: InvitationSettings, now = new Date()): Promise<InvitationRow[]> {
   const rows = await q(db.from("voice_invitations").select("*").eq("contributor_id", userId).order("created_at", { ascending: false }).limit(200), "read invitations");
   const cipher = new ProviderRefCipher(secret);
+  const delivery = await deliveries(db, rows.map((r) => r.id as string));
   return rows.map((r) => {
     const status = invitationStatus(r as never, now);
     let email = "";
@@ -472,6 +566,7 @@ export async function listInvitations(db: SupabaseClient, secret: string, userId
       expiresAt: r.expires_at as string,
       canResend: open && Number(r.sent_count ?? 1) - 1 < settings.maxResends,
       canRevoke: open,
+      delivery: delivery.get(r.id as string) ?? "sent",
     };
   });
 }
@@ -532,8 +627,25 @@ export async function markOpened(db: SupabaseClient, token: string, now = new Da
   return true;
 }
 
+/** What the invitation page reports as the recipient moves on: listened to the end, or chose a path. */
+export const RECIPIENT_EVENTS = {
+  audio_completed: "invite_audio_completed",
+  family_cta: "invite_family_cta_clicked",
+  connect_cta: "invite_connect_cta_clicked",
+} as const;
+
+/** Records one recipient event against a usable invitation. Adult-only: the invitation and contributor, nothing about a child. */
+export async function recipientEvent(db: SupabaseClient, token: string, event: string, now = new Date()): Promise<boolean> {
+  const name = RECIPIENT_EVENTS[event as keyof typeof RECIPIENT_EVENTS];
+  if (!name) return false;
+  const inv = await invitationByToken(db, token);
+  if (!inv || !usable(invitationStatus(inv as never, now))) return false;
+  await track(db, name, { invitation_id: inv.id, contributor_id: inv.contributor_id });
+  return true;
+}
+
 /** A person pressed play: the strongest sign of a human. Returns a short-lived audio link. */
-export async function playPreview(db: SupabaseClient, token: string, now = new Date()): Promise<string | null> {
+export async function playPreview(db: SupabaseClient, deps: PreviewDeps, token: string, now = new Date()): Promise<string | null> {
   const inv = await invitationByToken(db, token);
   if (!inv || !usable(invitationStatus(inv as never, now))) return null;
   const preview = await approvedPreviewFor(db, inv.contributor_id as string);
@@ -541,7 +653,7 @@ export async function playPreview(db: SupabaseClient, token: string, now = new D
   const at = now.toISOString();
   await q(db.from("voice_invitations").update({ played_at: at, opened_at: (inv.opened_at as string | null) ?? at }).eq("id", inv.id as string), "mark played");
   await track(db, "invite_audio_played", { invitation_id: inv.id, contributor_id: inv.contributor_id, book: preview.book_slug });
-  return previewAudioUrl(db, preview.storage_key as string);
+  return currentPreviewAudioUrl(db, deps, preview);
 }
 
 export type InvitationResponse = "decline" | "unsubscribe" | "report";
@@ -617,6 +729,18 @@ async function tellContributor(db: SupabaseClient, mailer: Mailer, origin: strin
   }
 }
 
+/**
+ * A child in a family that accepted an invitation played a prepared chapter in the storyteller's
+ * voice: the invite funnel's last step, noted once per invitation. Nothing about the child is stored.
+ */
+export async function noteInvitedStoryPlayed(db: SupabaseClient, contributorId: string, householdId: string): Promise<void> {
+  const [inv] = await q(db.from("voice_invitations").select("id").eq("contributor_id", contributorId).eq("household_id", householdId).not("accepted_at", "is", null).limit(1), "read invitation for play");
+  if (!inv) return;
+  const { count } = await db.from("analytics_events").select("id", { count: "exact", head: true }).eq("name", "invite_first_story_played").contains("properties", { invitation_id: inv.id });
+  if (count) return;
+  await track(db, "invite_first_story_played", { invitation_id: inv.id, contributor_id: contributorId, household_id: householdId });
+}
+
 /** The invitation id behind a preview token, for Checkout metadata. */
 export async function invitationIdForToken(db: SupabaseClient, token: string): Promise<string | null> {
   return ((await invitationByToken(db, token))?.id as string | undefined) ?? null;
@@ -670,10 +794,10 @@ export async function giftPreview(db: SupabaseClient, code: string): Promise<Gif
 }
 
 /** The gift's recipient pressed play: a short-lived link to the giver's approved preview. */
-export async function playGiftPreview(db: SupabaseClient, code: string): Promise<string | null> {
+export async function playGiftPreview(db: SupabaseClient, deps: PreviewDeps, code: string): Promise<string | null> {
   const gift = await giftGiver(db, code);
   const preview = gift ? await approvedPreviewFor(db, gift.giverId) : null;
   if (!gift || !preview) return null;
   await track(db, "gift_preview_played", { gift_id: gift.id, contributor_id: gift.giverId, book: preview.book_slug });
-  return previewAudioUrl(db, preview.storage_key as string);
+  return currentPreviewAudioUrl(db, deps, preview);
 }

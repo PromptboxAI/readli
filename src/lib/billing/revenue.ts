@@ -7,7 +7,7 @@
 export interface RevenueRow {
   household_id: string | null;
   payer_id: string | null;
-  kind: "subscription" | "narrator_slot" | "credit_pack" | "gift";
+  kind: "subscription" | "narrator_slot" | "credit_pack" | "gift" | "sponsorship";
   amount_cents: number;
   currency: string;
   billing_interval: "month" | "year" | null;
@@ -18,6 +18,8 @@ export interface RevenueRow {
   provider_ref: string;
   livemode: boolean;
   occurred_at: string;
+  /** Sponsorship rows only, so other rows still insert before the sponsorship migration runs. */
+  sponsorship_id?: string | null;
 }
 
 type Obj = Record<string, unknown>;
@@ -28,8 +30,9 @@ const iso = (s: unknown): string | null => (num(s) === null ? null : new Date((s
 const ref = (v: unknown): string | null => str(v) ?? str(o(v).id);
 
 /** Readli's lookup keys say what a price is for (src/lib/billing/catalog.ts). */
-function recurringKind(lookupKey: string | null): { kind: "subscription" | "narrator_slot"; interval: "month" | "year" } | null {
+function recurringKind(lookupKey: string | null): { kind: "subscription" | "narrator_slot" | "sponsorship"; interval: "month" | "year" } | null {
   if (!lookupKey) return null;
+  if (lookupKey.startsWith("readli_sponsored_family_monthly_")) return { kind: "sponsorship", interval: "month" };
   if (lookupKey.startsWith("readli_extra_slot_")) return { kind: "narrator_slot", interval: "month" };
   if (lookupKey.startsWith("readli_family_annual_")) return { kind: "subscription", interval: "year" };
   if (lookupKey.startsWith("readli_family_monthly_")) return { kind: "subscription", interval: "month" };
@@ -39,7 +42,7 @@ function recurringKind(lookupKey: string | null): { kind: "subscription" | "narr
 /** Household and payer from wherever this API version put the subscription's metadata. */
 function invoiceMetadata(invoice: Obj, line: Obj): Obj {
   for (const m of [o(line.metadata), o(o(invoice.subscription_details).metadata), o(o(o(invoice.parent).subscription_details).metadata)]) {
-    if (str(m.household_id)) return m;
+    if (str(m.household_id) || str(m.sponsorship_id)) return m;
   }
   return {};
 }
@@ -64,10 +67,12 @@ export function revenueRows(event: { type: string; livemode?: boolean; created?:
       if (!kind || !id || amount === null || amount <= 0) return [];
       const meta = invoiceMetadata(obj, line);
       const period = o(line.period);
+      const sponsored = kind.kind === "sponsorship";
       return [
         {
-          household_id: str(meta.household_id),
-          payer_id: str(meta.adult_id),
+          // A sponsor pays for families they don't belong to: the row is the sponsor's, never a household's.
+          household_id: sponsored ? null : str(meta.household_id),
+          payer_id: str(sponsored ? meta.sponsor_id : meta.adult_id),
           kind: kind.kind,
           amount_cents: amount,
           currency,
@@ -79,6 +84,7 @@ export function revenueRows(event: { type: string; livemode?: boolean; created?:
           provider_ref: id,
           livemode,
           occurred_at: paidAt,
+          ...(sponsored ? { sponsorship_id: str(meta.sponsorship_id) } : {}),
         },
       ];
     });
@@ -86,6 +92,7 @@ export function revenueRows(event: { type: string; livemode?: boolean; created?:
 
   if (event.type === "checkout.session.completed" && obj.mode === "payment" && obj.payment_status === "paid") {
     const meta = o(obj.metadata);
+    if (meta.readli_kind === "sponsorship") return sponsorshipPayment(obj, meta, livemode, when, currency);
     const item = str(meta.item) ?? "";
     const kind = item.startsWith("credit_pack:") ? "credit_pack" : str(meta.gift_id) || item.startsWith("gift") ? "gift" : null;
     const id = ref(obj.payment_intent) ?? str(obj.id);
@@ -114,11 +121,15 @@ export function revenueRows(event: { type: string; livemode?: boolean; created?:
     const meta = o(obj.metadata);
     const item = str(meta.item) ?? "";
     const refunds = (o(obj.refunds).data as Obj[] | undefined) ?? [];
+    const sponsorship = meta.readli_kind === "sponsorship";
     const oneTime = item.startsWith("credit_pack:") ? "credit_pack" : str(meta.gift_id) || item.startsWith("gift") ? "gift" : null;
     return refunds.flatMap<RevenueRow>((r) => {
       const id = str(r.id);
       const amount = num(r.amount);
       if (!id || !amount || (str(r.status) && r.status !== "succeeded")) return [];
+      if (sponsorship) {
+        return [{ ...sponsorshipRow(meta, livemode, -amount, str(r.currency) ?? currency, id, iso(r.created) ?? when), period_start: null, period_end: null }];
+      }
       return [
         {
           household_id: str(meta.household_id),
@@ -141,4 +152,31 @@ export function revenueRows(event: { type: string; livemode?: boolean; created?:
   }
 
   return [];
+}
+
+/** The sponsor's first payment: the year or first month, with the paid access it covers. */
+function sponsorshipPayment(obj: Obj, meta: Obj, livemode: boolean, when: string, currency: string): RevenueRow[] {
+  const id = ref(obj.payment_intent) ?? str(obj.id);
+  const amount = num(obj.amount_total);
+  if (!id || !amount) return [];
+  return [sponsorshipRow(meta, livemode, amount, currency, id, when)];
+}
+
+function sponsorshipRow(meta: Obj, livemode: boolean, amount: number, currency: string, providerRef: string, occurredAt: string): RevenueRow {
+  return {
+    household_id: null,
+    payer_id: str(meta.sponsor_id),
+    kind: "sponsorship",
+    amount_cents: amount,
+    currency,
+    billing_interval: meta.plan === "annual" ? "year" : "month",
+    quantity: 1,
+    period_start: str(meta.deliver_at),
+    period_end: str(meta.paid_through),
+    provider: "stripe",
+    provider_ref: providerRef,
+    livemode,
+    occurred_at: occurredAt,
+    sponsorship_id: str(meta.sponsorship_id),
+  };
 }

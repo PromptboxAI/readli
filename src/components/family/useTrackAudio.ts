@@ -42,6 +42,7 @@ export function useTrackAudio(handlers: Handlers) {
   const lastTick = useRef(0);
   const frame = useRef<number | null>(null);
   const acted = useRef(0);
+  const speed = useRef(1);
   const own = () => Date.now() - acted.current < OWN_MS;
 
   const follow = useCallback(() => {
@@ -76,6 +77,7 @@ export function useTrackAudio(handlers: Handlers) {
     if (el.current) return el.current;
     const a = new Audio();
     a.preload = "auto";
+    a.defaultPlaybackRate = speed.current;
     a.addEventListener("timeupdate", follow);
     a.addEventListener("seeked", follow);
     a.addEventListener("playing", watch);
@@ -128,6 +130,7 @@ export function useTrackAudio(handlers: Handlers) {
       const from = (startOf(next, at) ?? 0) / 1000;
       a.addEventListener("loadedmetadata", () => Math.abs(a.currentTime - from) > 0.25 && (a.currentTime = from), { once: true });
       a.src = `${next.url}#t=${from.toFixed(3)}`;
+      a.playbackRate = speed.current;
       await a.play();
     },
     [element],
@@ -167,6 +170,15 @@ export function useTrackAudio(handlers: Handlers) {
     return { duration: t.track.durationMs / 1000, position: Math.min(a.currentTime, t.track.durationMs / 1000), playbackRate: a.playbackRate || 1 };
   }, []);
 
+  /** Sets the playback speed, now and for every track after. */
+  const rate = useCallback((r: number) => {
+    speed.current = r;
+    const a = el.current;
+    if (!a) return;
+    a.defaultPlaybackRate = r;
+    a.playbackRate = r;
+  }, []);
+
   /** Forgets the loaded track, after a storyteller change or when sentence-by-sentence playback takes over. */
   const clear = useCallback(() => {
     const a = el.current;
@@ -193,5 +205,5 @@ export function useTrackAudio(handlers: Handlers) {
     [],
   );
 
-  return useMemo(() => ({ unlock, has, load, seek, pause, skip, position, clear }), [unlock, has, load, seek, pause, skip, position, clear]);
+  return useMemo(() => ({ unlock, has, load, seek, pause, skip, position, clear, rate }), [unlock, has, load, seek, pause, skip, position, clear, rate]);
 }

@@ -12,7 +12,7 @@ import {
   setHouseholdShare,
   startListening,
 } from "@/lib/family/service";
-import type { SynthesizedAudio, VoiceProvider } from "@/lib/voice/provider";
+import { VoiceProviderError, type SynthesizedAudio, type VoiceProvider } from "@/lib/voice/provider";
 import { toneWav } from "@/lib/voice/stub";
 import { ELEVENLABS_PLANS, modelCost, usdPerMinute } from "./costs";
 import {
@@ -25,9 +25,13 @@ import {
   libraryStatus,
   listenView,
   prepareView,
+  quote,
   readPlayback,
   requestGeneration,
   runJob,
+  voiceRefused,
+  WELCOME_BOOK,
+  welcomeBookOnUs,
 } from "./narration";
 import { creditBalance } from "./credits";
 import { bookText, withoutTheEnd } from "./text";
@@ -70,7 +74,7 @@ function family(plan: PlanConfig = DEFAULT_PLAN) {
 /** A second paying household where Grandma June is also a member; her voice is shared there too. */
 async function addSecondHousehold(state: FamilyState, store: MemoryFamilyStore) {
   state.households.push({ id: H2, name: "Kim's family" });
-  state.adults.push({ id: "kim", displayName: "Kim", relationship: "June's daughter-in-law", avatarUrl: null, tint: "bg-mint" });
+  state.adults.push({ id: "kim", displayName: "Kim", avatarUrl: null, tint: "bg-mint" });
   state.members.push(
     { householdId: H2, adultId: "kim", role: "guardian", joinedAt: "2026-10-01T00:00:00Z", removedAt: null },
     { householdId: H2, adultId: "june", role: "member", joinedAt: "2026-10-01T00:00:00Z", removedAt: null },
@@ -174,6 +178,38 @@ describe("narration libraries (required tests)", () => {
     expect(claims(sara).sid).toBe(claims(june).sid);
     expect(claims(sara).v).toBe("voice-sara");
     expect(state.plays.map((p) => p.sentenceId)).toEqual([text.sentences[4]!.id, text.sentences[4]!.id]);
+  });
+
+  it("stops at once when the voice service refuses the voice, and says recording again fixes it", async () => {
+    const { state, store } = family();
+    const refusing = new CountingProvider();
+    refusing.synthesize = async (input) => {
+      refusing.calls.push(input.text);
+      throw new VoiceProviderError(`ElevenLabs POST /text-to-speech/abc failed: 403 {"detail":{"type":"authorization_error","code":"voice_access_denied"}}`, 403);
+    };
+    const { job } = await prepareJune(store, refusing);
+    expect(job!.status).toBe("failed");
+    // One sentence tried once, not every sentence over and over.
+    expect(refusing.calls).toHaveLength(1);
+    // Nothing was charged.
+    expect(state.ledger.filter((e) => e.kind === "commit")).toHaveLength(0);
+    const june = (await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-june")!;
+    expect(june.voiceRefused).toBe(true);
+    expect(june.lastFailure).toMatch(/Recording the voice again/);
+    expect(june.lastFailure).not.toMatch(/ElevenLabs/);
+    // Setup's Voice step offers a new recording until there is one.
+    expect(voiceRefused(state, "voice-june")).toBe(true);
+    state.voices.find((v) => v.id === "voice-june")!.version += 1;
+    expect(voiceRefused(state, "voice-june")).toBe(false);
+  });
+
+  it("an ordinary failure isn't blamed on the voice", async () => {
+    const { state, store } = family();
+    await prepareJune(store, new CountingProvider((t) => t === text.sentences[2]!.text));
+    const june = (await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-june")!;
+    expect(june.voiceRefused).toBe(false);
+    expect(june.lastFailure).toMatch(/couldn't finish preparing/);
+    expect(voiceRefused(state, "voice-june")).toBe(false);
   });
 
   it("unprepared narration is never labeled Ready, and partial preparation exposes only stored sentences", async () => {
@@ -346,7 +382,7 @@ describe("prepare page", () => {
     const { state, store } = family();
     expect((await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-sara")!.fix).toBeNull();
     for (const e of state.entitlements) e.endsAt = "2026-01-01T00:00:00Z";
-    expect((await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-sara")!.fix?.href).toBe("/family/billing");
+    expect((await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-sara")!.fix?.href).toBe("/family/settings/plan");
   });
 
   it("calls a book prepared before The End was added Ready, everywhere, with nothing left to pay", async () => {
@@ -432,3 +468,46 @@ describe("grown-up listening", () => {
   });
 });
 
+
+describe("a new family's first book is on Readli", () => {
+  it("setup's welcome book costs nothing the first time, and only then", async () => {
+    const { state, store } = family();
+    const first = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: BOOK, scope: "book", welcome: true }, clock);
+    expect(first.quote.free).toBe(true);
+    expect(first.quote.credits).toBe(0);
+    expect(charged(state, H)).toBe(0);
+    await runJob(store, new CountingProvider(), first.job!.id, clock);
+    expect(welcomeBookOnUs(state, H, WELCOME_BOOK)).toBe(false);
+  });
+
+  it("is charged without the setup flag, for another book, or once something else was prepared", async () => {
+    const { state, store } = family();
+    expect(quote(state, DEFAULT_PLAN, H, { voiceId: "voice-june", bookSlug: BOOK, scope: "book" }).free).toBe(false);
+    expect(welcomeBookOnUs(state, H, "the-tale-of-peter-rabbit")).toBe(false);
+    await prepareJune(store);
+    expect(charged(state, H)).toBeGreaterThan(0);
+    expect(welcomeBookOnUs(state, H, WELCOME_BOOK)).toBe(false);
+  });
+
+  it("a failed free first book never talks about returning credits", async () => {
+    const { state, store } = family();
+    const { job } = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: BOOK, scope: "book", welcome: true }, clock);
+    await runJob(store, new CountingProvider(() => true), job!.id, clock);
+    const notice = state.notifications.at(-1)!.text;
+    expect(notice).toMatch(/We couldn't finish preparing/);
+    expect(notice).not.toMatch(/credits/);
+    const june = (await prepareView(store, mom, H, BOOK, clock)).voices.find((v) => v.voiceId === "voice-june")!;
+    expect(june.lastFailure).not.toMatch(/credits/);
+    // A paid one still says so.
+    const paid = family();
+    await prepareJune(paid.store, new CountingProvider(() => true));
+    expect(paid.state.notifications.at(-1)!.text).toMatch(/Unused credits were returned/);
+  });
+
+  it("can be tried again after a stopped first try", async () => {
+    const { state, store } = family();
+    const { job } = await requestGeneration(store, mom, H, { voiceId: "voice-june", bookSlug: BOOK, scope: "book", welcome: true }, clock);
+    await cancelGeneration(store, mom, job!.id, clock);
+    expect(welcomeBookOnUs(state, H, WELCOME_BOOK)).toBe(true);
+  });
+});

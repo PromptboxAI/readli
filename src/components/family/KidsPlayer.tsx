@@ -1,20 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { isTheEnd, THE_END_PAUSE_MS } from "@/lib/content/the-end";
 import type { NarratorView } from "@/lib/family/service";
 import type { BookTexts, KidsNarratorReadiness } from "@/lib/narration/narration";
 import { mapPosition } from "@/lib/narration/positions";
-import { nextSleep, parseMode, type PlayerMode, type SleepMinutes } from "@/lib/player/pages";
+import { chapterAt, chapterList, hasChapters, nextChapterStart, previousChapterStart } from "@/lib/player/chapters";
+import { parseMode, preparedEnd, type PlayerMode } from "@/lib/player/pages";
 import { chapterReady, type Track } from "@/lib/player/tracks";
-import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, TimeBar } from "./PlayerParts";
+import { ChapterPill, ChapterSheet, Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, SleepButton, TimeBar } from "./PlayerParts";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 import { AHEAD, useGaplessAudio } from "./useGaplessAudio";
 import { useMediaSession } from "./useMediaSession";
 import { usePlaceSaver } from "./usePlaceSaver";
+import { useSleepTimer } from "./useSleepTimer";
 import { useTrackAudio } from "./useTrackAudio";
+import { checkDownloads, offlineTrack, readDownloads } from "./offline";
+import { DownloadButton } from "./DownloadButton";
+import { AskButton } from "./AskButton";
+import { findDownload } from "@/lib/offline/manifest";
+import { useBack } from "@/components/nav/BackTrail";
 
 const REFRESH_MS = 10_000;
 const MODE_KEY = "readli-player-mode";
@@ -70,15 +77,16 @@ export function KidsPlayer({
     const r = revisionOf(voiceId);
     return texts[r] ? r : initialTexts.current;
   });
-  const { sentences, sentenceIds, seconds: sentenceSeconds } = texts[shown] ?? texts[initialTexts.current]!;
+  const { sentences, sentenceIds, chapters, chapterTitles, seconds: sentenceSeconds } = texts[shown] ?? texts[initialTexts.current]!;
   const [sentence, setSentence] = useState(Math.max(0, Math.min(resume.sentence, sentences.length - 1)));
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [picker, setPicker] = useState(false);
+  const [chapterSheet, setChapterSheet] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // The story reached the end of what's prepared, so the child can ask a grown-up for the next chapter.
+  const [askMore, setAskMore] = useState(false);
   const [mode, setMode] = useState<PlayerMode>("listen");
-  const [sleep, setSleep] = useState<{ minutes: SleepMinutes; until: number | null }>({ minutes: null, until: null });
-  const [now, setNow] = useState(() => Date.now());
   const voiceRef = useRef(voiceId);
   voiceRef.current = voiceId;
   const sentenceRef = useRef(sentence);
@@ -149,6 +157,23 @@ export function KidsPlayer({
   const readyAt = (id: string | null, at: number) =>
     Boolean(id && readiness.find((r) => r.voiceId === id)?.readySentenceIds.includes(sentenceIds[at] ?? ""));
 
+  // The chapters of the text on screen, and which of them this storyteller has read, for the chapter pill and sheet.
+  const chapterReadySet = useMemo(() => new Set(readiness.find((r) => r.voiceId === voiceId)?.readySentenceIds ?? []), [readiness, voiceId]);
+  const chapterRows = useMemo(
+    () => (hasChapters(chapters) ? chapterList(chapters, chapterTitles, (at) => chapterReadySet.has(sentenceIds[at] ?? "")) : []),
+    [chapters, chapterTitles, sentenceIds, chapterReadySet],
+  );
+  const chapterNow = chapterAt(chapterRows, sentence);
+  const chapterRowsRef = useRef(chapterRows);
+  chapterRowsRef.current = chapterRows;
+
+  /** Whether every sentence of the reading this narrator's audiobook gives is prepared, so it can be downloaded. */
+  const wholeReady = (id: string) => {
+    const t = texts[revisionOf(id)];
+    const ready = new Set(readiness.find((r) => r.voiceId === id)?.readySentenceIds ?? []);
+    return Boolean(t && t.sentenceIds.length && t.sentenceIds.every((sid) => ready.has(sid)));
+  };
+
   /** Whether a narrator has audio here, at the same place in the text they read. */
   const readyHere = (id: string) => {
     const r = revisionOf(id);
@@ -189,62 +214,8 @@ export function KidsPlayer({
 
   useEffect(() => endSession, [endSession]);
 
-  // The sleep timer is a deadline on the clock, kept on this device, so it holds across a reload and
-  // fires on time with the screen locked: it is checked every second on screen, and with every update
-  // of the story's audio in the background.
-  const sleepKey = `readli-sleep:${childId}`;
-  const sleepRef = useRef(sleep);
-  sleepRef.current = sleep;
-  const setSleepTimer = useCallback(
-    (next: { minutes: SleepMinutes; until: number | null }) => {
-      setSleep(next);
-      sleepRef.current = next;
-      try {
-        if (next.until === null) window.localStorage.removeItem(sleepKey);
-        else window.localStorage.setItem(sleepKey, JSON.stringify(next));
-      } catch {
-        // Not kept across a reload this time.
-      }
-    },
-    [sleepKey],
-  );
-  const checkSleep = useCallback(() => {
-    const { until } = sleepRef.current;
-    const t = Date.now();
-    setNow(t);
-    if (until === null || t < until) return false;
-    halt();
-    setSleepTimer({ minutes: null, until: null });
-    setNotice("The sleep timer paused the story. Night night!");
-    return true;
-  }, [halt, setSleepTimer]);
-
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(window.localStorage.getItem(sleepKey) ?? "null") as { minutes: SleepMinutes; until: number } | null;
-      if (saved && saved.until > Date.now()) setSleepTimer(saved);
-      else window.localStorage.removeItem(sleepKey);
-    } catch {
-      // Storage can be blocked; the timer starts off.
-    }
-  }, [sleepKey, setSleepTimer]);
-
-  useEffect(() => {
-    if (sleep.until === null) return;
-    const id = window.setInterval(checkSleep, 1000);
-    document.addEventListener("visibilitychange", checkSleep);
-    return () => {
-      window.clearInterval(id);
-      document.removeEventListener("visibilitychange", checkSleep);
-    };
-  }, [sleep.until, checkSleep]);
-
-  const cycleSleep = () => {
-    const minutes = nextSleep(sleep.minutes);
-    const t = Date.now();
-    setNow(t);
-    setSleepTimer({ minutes, until: minutes === null ? null : t + minutes * 60_000 });
-  };
+  const sleep = useSleepTimer(`readli-sleep:${childId}`, halt, setNotice);
+  const checkSleep = sleep.check;
 
   // Each child keeps their own place and narrator in every book. Opening a book saves nothing; a place
   // this device couldn't save last time is sent first, and picked up if it's the newest.
@@ -340,9 +311,11 @@ export function KidsPlayer({
   };
 
   /** Counts against the family's concurrent stories; refreshed by each sentence request. */
-  const startSession = async () => {
+  const startSession = async (offline = false) => {
     if (listening.current) return true;
     const session = await fetch(`/api/kids/${childId}/listening`, { method: "POST" }).catch(() => null);
+    // No connection, but this story is downloaded: it plays from the device. The session starts once back online.
+    if (!session && offline) return true;
     if (!session?.ok) {
       const body = (await session?.json().catch(() => null)) as { error?: { message?: string } } | null;
       halt();
@@ -365,6 +338,7 @@ export function KidsPlayer({
       setNotice(PAUSED);
     } else if (code === "not_prepared") {
       setNotice(`${nameOf(voice)}'s reading stops here for now. Pick another storyteller, or ask a grown-up to prepare more.`);
+      setAskMore(true);
     } else if (code === "voice_not_available") {
       // refresh() drops the narrator and explains if access really was removed.
       if (await refresh()) setNotice(PAUSED);
@@ -375,6 +349,7 @@ export function KidsPlayer({
 
   const play = async (at: number, voice: string): Promise<void> => {
     setNotice(null);
+    setAskMore(false);
     const text = textsRef.current[shownRef.current];
     const ready = readinessRef.current.find((r) => r.voiceId === voice)?.readySentenceIds ?? [];
     if (text && chapterReady(text, ready, at) && !noTrack.current.has(trackKey(voice, at))) return playTrack(at, voice);
@@ -408,6 +383,21 @@ export function KidsPlayer({
     }
   };
 
+  /** Blob URL of the downloaded chapter playing now, if any, so it can be released. */
+  const offlineUrl = useRef<string | null>(null);
+  useEffect(() => () => void (offlineUrl.current && URL.revokeObjectURL(offlineUrl.current)), []);
+
+  /** This child's download of this book in `voice`, for the text on screen, while its offline week lasts. */
+  const downloadFor = (voice: string) => {
+    const d = findDownload(readDownloads(), childId, book.slug, voice);
+    return d && d.revision === shownRef.current ? d : null;
+  };
+
+  // Downloads are checked against what this child may hear now; a storyteller no longer shared is removed.
+  useEffect(() => {
+    void checkDownloads(childId);
+  }, [childId, narrators]);
+
   /** A signed URL for the chapter track holding sentence `at`; every permission gate is checked on the server. */
   const fetchTrack = (at: number, voice: string) =>
     fetch("/api/kids/narrations/track", {
@@ -422,12 +412,27 @@ export function KidsPlayer({
     audio.pause();
     audio.clear();
     try {
-      if (track.has(key, at) && listening.current) {
+      if (track.has(key, at) && (listening.current || offlineUrl.current)) {
         await track.seek(at);
       } else {
         setLoading(true);
-        if (!(await startSession())) return;
+        const saved = downloadFor(voice);
+        if (!(await startSession(Boolean(saved)))) return;
         let res = await fetchTrack(at, voice).catch(() => null);
+        if (!res && saved) {
+          // No connection: play the copy on this device.
+          const chapter = textsRef.current[shownRef.current]?.chapters[at];
+          const local = chapter === undefined ? null : await offlineTrack(saved, chapter);
+          if (voiceRef.current !== voice) return;
+          if (local) {
+            if (offlineUrl.current) URL.revokeObjectURL(offlineUrl.current);
+            offlineUrl.current = local.url;
+            await track.load(key, local, at);
+            setPlaying(true);
+            setLoading(false);
+            return;
+          }
+        }
         let code = res && !res.ok ? await errorCode(res) : undefined;
         if (code === "no_listening_session") {
           listening.current = false;
@@ -441,6 +446,8 @@ export function KidsPlayer({
           return play(at, voice);
         }
         if (!res.ok) return explain(code, voice);
+        if (offlineUrl.current) URL.revokeObjectURL(offlineUrl.current);
+        offlineUrl.current = null;
         await track.load(key, (await res.json()) as Track, at);
       }
       setPlaying(true);
@@ -501,6 +508,11 @@ export function KidsPlayer({
     if (checkSleep()) return;
     const at = sentenceRef.current;
     const voice = voiceRef.current;
+    if (sleep.chapterEnd(chapters, at)) {
+      setSentence(at + 1);
+      sentenceRef.current = at + 1;
+      return;
+    }
     // A book prepared before "The End." was added simply finishes without it.
     if (isTheEnd(sentences, at + 1) && !readyAt(voice, at + 1)) {
       setPlaying(false);
@@ -512,6 +524,7 @@ export function KidsPlayer({
       setSentence(at + 1);
       halt();
       setNotice(`${nameOf(voice)}'s reading stops here for now. Pick another storyteller, or ask a grown-up to prepare more.`);
+      setAskMore(true);
       return;
     }
     if (at + 1 < sentences.length && voice) {
@@ -527,6 +540,9 @@ export function KidsPlayer({
 
   const choose = (id: string) => {
     setPicker(false);
+    // The end-of-what's-prepared notice was about the storyteller before.
+    setNotice(null);
+    setAskMore(false);
     setVoiceId(id);
     voiceRef.current = id;
     audio.clear();
@@ -570,8 +586,17 @@ export function KidsPlayer({
         if (!playingRef.current && voiceRef.current) void play(sentenceRef.current, voiceRef.current);
       },
       pause: () => halt(),
-      previous: () => sentenceRef.current > 0 && goTo(sentenceRef.current - 1),
-      next: () => sentenceRef.current + 1 < sentences.length && goTo(sentenceRef.current + 1),
+      // A chapter at a time, as in audiobook apps; a book without chapters steps a sentence.
+      previous: () => {
+        if (!chapterRowsRef.current.length) return sentenceRef.current > 0 && goTo(sentenceRef.current - 1);
+        const at = previousChapterStart(chapterRowsRef.current, sentenceRef.current);
+        if (at !== null) goTo(at);
+      },
+      next: () => {
+        if (!chapterRowsRef.current.length) return sentenceRef.current + 1 < sentences.length && goTo(sentenceRef.current + 1);
+        const at = nextChapterStart(chapterRowsRef.current, sentenceRef.current);
+        if (at !== null) goTo(at);
+      },
       skip: (seconds) => {
         if (!track.skip(seconds)) goTo(Math.max(0, Math.min(sentences.length - 1, sentenceRef.current + Math.sign(seconds))));
       },
@@ -584,10 +609,11 @@ export function KidsPlayer({
   );
 
   const current = narrators.find((n) => n.voiceId === voiceId) ?? null;
+  const way = useBack({ href: "/kids", label: "My stories" });
   const back = (
-    <Link href="/kids" className="grid size-12 shrink-0 place-items-center rounded-full bg-current/10">
+    <Link href={way.href} onClick={way.onClick} className="grid size-12 shrink-0 place-items-center rounded-full bg-current/10" data-testid="back-link">
       <Icon name="left" />
-      <span className="sr-only">My stories</span>
+      <span className="sr-only">{way.label}</span>
     </Link>
   );
 
@@ -607,13 +633,37 @@ export function KidsPlayer({
 
   const currentReady = readyAt(voiceId, sentence);
   const { listen, soft, faint, main, round, side } = playerTone(mode);
-  const sleepLeft = sleep.until === null ? null : Math.max(1, Math.ceil((sleep.until - now) / 60_000));
 
+  // Only the next chapter not read yet offers asking, as at the end of what's prepared.
+  const firstUnread = chapterRows.find((c) => c.status === "none")?.number;
+  const pill = chapterNow && (
+    <ChapterPill
+      chapter={chapterNow}
+      open={chapterSheet}
+      mode={mode}
+      onClick={() => {
+        setPicker(false);
+        setChapterSheet((o) => !o);
+      }}
+    />
+  );
   const reading = current && (
-    <p className={`flex items-center gap-2 font-bold ${faint}`}>
-      <StorytellerAvatar name={current.name} avatarUrl={current.avatarUrl} tint={current.tint} size="xs" />
-      {current.name} is reading
-    </p>
+    <span className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${listen ? "justify-center" : ""}`}>
+      <span className={`flex items-center gap-2 font-bold ${faint}`}>
+        <StorytellerAvatar name={current.name} avatarUrl={current.avatarUrl} tint={current.tint} size="xs" />
+        {current.name} is reading
+      </span>
+      {wholeReady(current.voiceId) && (
+        <DownloadButton
+          key={`${current.voiceId}:${revisionOf(current.voiceId)}`}
+          childId={childId}
+          book={book}
+          voiceId={current.voiceId}
+          narrator={current.name}
+          className={`inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 font-display text-sm font-semibold ${soft}`}
+        />
+      )}
+    </span>
   );
 
   return (
@@ -624,7 +674,10 @@ export function KidsPlayer({
           <ModeToggle mode={mode} onChange={switchMode} />
           <button
             type="button"
-            onClick={() => setPicker((p) => !p)}
+            onClick={() => {
+              setChapterSheet(false);
+              setPicker((p) => !p);
+            }}
             aria-expanded={picker}
             aria-controls="narrator-picker"
             className={`flex min-h-12 shrink-0 items-center gap-1.5 rounded-full py-1 pr-2.5 pl-1 font-display font-semibold ${soft}`}
@@ -640,9 +693,32 @@ export function KidsPlayer({
 
         <div className="relative flex min-h-0 flex-1 flex-col">
           {listen ? (
-            <ListenStage coverUrl={book.coverUrl} title={book.title} byline={reading} />
+            <ListenStage coverUrl={book.coverUrl} title={book.title} byline={<>{reading}{pill}</>} />
           ) : (
-            <ReadStage coverUrl={book.coverUrl} title={book.title} byline={reading} sentences={sentences} sentence={sentence} />
+            <ReadStage coverUrl={book.coverUrl} title={book.title} byline={reading} chapter={pill} sentences={sentences} sentence={sentence} />
+          )}
+
+          {chapterSheet && chapterRows.length > 0 && (
+            <ChapterSheet
+              chapters={chapterRows}
+              current={chapterNow?.number ?? null}
+              onClose={() => setChapterSheet(false)}
+              onPick={(c) => {
+                setChapterSheet(false);
+                setNotice(null);
+                setAskMore(false);
+                track.unlock();
+                audio.clear();
+                setSentence(c.start);
+                sentenceRef.current = c.start;
+                if (voiceId) void play(c.start, voiceId);
+              }}
+              notReady={(c) =>
+                !preview && c.number === firstUnread ? (
+                  <AskButton childId={childId} bookSlug={book.slug} title={book.title} initial={false} label="Ask for it" />
+                ) : null
+              }
+            />
           )}
 
           {picker && (
@@ -653,7 +729,7 @@ export function KidsPlayer({
                   Done
                 </button>
               </div>
-              <div id="narrator-picker" role="group" aria-label="Choose a storyteller" className="flex gap-3 overflow-x-auto pb-1">
+              <div id="narrator-picker" role="group" aria-label="Choose a storyteller" className="-m-1 flex gap-3 overflow-x-auto p-1 pb-2">
                 {narrators.map((n) => {
                   const ready = readyHere(n.voiceId);
                   return (
@@ -676,25 +752,37 @@ export function KidsPlayer({
           )}
         </div>
 
-        {!currentReady && current && !playing && (
+        {/* At the end of what's prepared, the notice below already says so and offers asking for more. */}
+        {!currentReady && current && !playing && !askMore && (
           <p className="rounded-2xl bg-sunshine p-3 font-semibold text-ink" data-testid="not-prepared">
             {current.name}&apos;s reading isn&apos;t prepared here yet. Pick another storyteller, or ask a grown-up to prepare it.
           </p>
         )}
 
-        {notice && (
-          <p role="alert" className="rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold text-ink">
-            {notice}
-          </p>
+        {/* At the end of what's prepared, a child just gets the button to ask for more. */}
+        {notice && askMore && !preview ? (
+          <div role="status" className="flex flex-col" data-testid="ask-more">
+            <AskButton childId={childId} bookSlug={book.slug} title={book.title} initial={false} label="Ask for the next chapter" />
+          </div>
+        ) : (
+          notice && (
+            <div role="alert" className="flex flex-col gap-3 rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold text-ink">
+              <p>{notice}</p>
+            </div>
+          )
         )}
 
-        <TimeBar mode={mode} seconds={sentenceSeconds} sentence={sentence} playing={playing} onSeek={goTo} />
+        <TimeBar
+          mode={mode}
+          seconds={sentenceSeconds}
+          sentence={sentence}
+          playing={playing}
+          onSeek={goTo}
+          end={preparedEnd(sentenceIds, new Set(readiness.find((r) => r.voiceId === voiceId)?.readySentenceIds ?? []), sentence)}
+        />
 
         <div className="mx-auto grid w-full max-w-[640px] grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-3.5 sm:gap-7">
-          <button type="button" onClick={cycleSleep} aria-label={`Sleep timer: ${sleepLeft === null ? "Off" : `${sleepLeft}m`}`} className={`justify-self-start ${side}`}>
-            <Icon name="moon" className="size-6" />
-            {sleepLeft === null ? "Sleep" : `${sleepLeft}m`}
-          </button>
+          <SleepButton label={sleep.label} onClick={() => sleep.cycle(new Set(chapters).size > 1)} className={side} />
           <button type="button" aria-label="Back" disabled={sentence === 0} onClick={() => goTo(sentence - 1)} className={round}>
             <Icon name="prev" className="size-[26px]" />
           </button>

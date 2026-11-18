@@ -1,14 +1,13 @@
 /**
- * Readli Accessibility Statement, from Kevin's draft "Readli_Accessibility_Statement_DRAFT.docx" (2026-10-10).
- * Not published from the draft: the [IMPLEMENTATION CHECK] note (set up a process to log, answer and fix
+ * Readli Accessibility Statement, from Kevin's draft "Readli_Accessibility_Statement_DRAFT.docx" (2026-10-10),
+ * finalized for publication on 2026-11-11 (Draft badge removed, effective date set). Not published from the draft: the [IMPLEMENTATION CHECK] note (set up a process to log, answer and fix
  * accessibility requests) and the closing pre-publication testing checklist. Never label this WCAG certified
  * or fully ADA compliant without substantiation.
  */
 
 import type { PolicySection } from "@/lib/content/privacy-policy";
 
-/** The draft says to set the real effective date when it is published. */
-export const ACCESSIBILITY_EFFECTIVE_DATE = "October 10, 2026";
+export const ACCESSIBILITY_EFFECTIVE_DATE = "November 11, 2026";
 
 export const ACCESSIBILITY_INTRO: string[] = [
   "At Readli, we want stories to be enjoyable and accessible to families with a wide range of needs and abilities. This statement covers readli.ai and Readli’s web-based experiences. It describes our accessibility goals and how to contact us for help. This is a commitment and feedback statement, not a certification that every feature currently meets an accessibility standard.",
@@ -83,7 +82,7 @@ export const ACCESSIBILITY_SECTIONS: PolicySection[] = [
     title: "Updates",
     paragraphs: [
       {
-        text: "We will revise this statement when our accessibility practices, supported features, or testing results materially change. Last updated: October 10, 2026.",
+        text: "We will revise this statement when our accessibility practices, supported features, or testing results materially change. Last updated: November 11, 2026.",
       },
     ],
   },

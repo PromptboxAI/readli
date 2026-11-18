@@ -19,12 +19,35 @@ export function pageRange(page: number, sentences: number): [number, number] {
   return [start, Math.min(sentences, start + SENTENCES_PER_PAGE)];
 }
 
-/** The sleep timer cycles off, 15, 30, 45 minutes and back to off. */
-export const SLEEP_STEPS = [null, 15, 30, 45] as const;
+/**
+ * The sleep timer cycles off, 15, 30, 45 minutes, then "end of chapter" (only in books with more than
+ * one chapter, since a one-chapter story simply ends) and back to off.
+ */
+export const SLEEP_STEPS = [null, 15, 30, 45, "chapter"] as const;
 export type SleepMinutes = (typeof SLEEP_STEPS)[number];
 
-export function nextSleep(current: SleepMinutes): SleepMinutes {
-  return SLEEP_STEPS[(SLEEP_STEPS.indexOf(current) + 1) % SLEEP_STEPS.length]!;
+export function nextSleep(current: SleepMinutes, chapters = false): SleepMinutes {
+  const steps: readonly SleepMinutes[] = chapters ? SLEEP_STEPS : SLEEP_STEPS.filter((s) => s !== "chapter");
+  return steps[(steps.indexOf(current) + 1) % steps.length] ?? null;
+}
+
+/** True when sentence `at` is the last one of its chapter (or of the book), where "end of chapter" stops. */
+export function endsChapter(chapters: readonly number[], at: number): boolean {
+  return at + 1 >= chapters.length || chapters[at + 1] !== chapters[at];
+}
+
+/** Playback speeds a grown-up can pick, cycled in this order from normal. */
+export const SPEEDS = [1, 1.2, 0.8] as const;
+export type Speed = (typeof SPEEDS)[number];
+
+export function nextSpeed(current: number): Speed {
+  const i = SPEEDS.indexOf(current as Speed);
+  return SPEEDS[(i + 1) % SPEEDS.length]!;
+}
+
+/** A remembered speed, or normal for anything unknown. */
+export function parseSpeed(value: string | null | undefined): Speed {
+  return SPEEDS.find((s) => String(s) === value) ?? 1;
 }
 
 export type PlayerMode = "listen" | "read";
@@ -56,4 +79,17 @@ export function clock(seconds: number): string {
   const m = Math.floor((t % 3600) / 60);
   const s = String(t % 60).padStart(2, "0");
   return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+}
+
+/**
+ * Where the prepared run of sentences holding `at` ends (one past its last sentence), so a player
+ * shows pages and time only up to where its audio stops, such as the end of a prepared chapter. The
+ * whole book when `at` isn't prepared or the run reaches the end (a missing closing "The End." aside).
+ */
+export function preparedEnd(sentenceIds: readonly string[], ready: ReadonlySet<string>, at: number): number {
+  const total = sentenceIds.length;
+  if (!ready.has(sentenceIds[at] ?? "")) return total;
+  let end = at;
+  while (end < total && ready.has(sentenceIds[end]!)) end += 1;
+  return end >= total - 1 ? total : end;
 }

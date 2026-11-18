@@ -17,13 +17,16 @@ export type VoiceStatus = "processing" | "ready" | "deleted";
 export interface Household {
   id: string;
   name: string;
+  /**
+   * The grown-up who started the family and pays for its plan. Other parents (co-parents) share
+   * everything else but not billing. Unset on older snapshots: the first parent to join stands in.
+   */
+  ownerId?: string | null;
 }
 
 export interface Adult {
   id: string;
   displayName: string;
-  /** Display-only relationship label from the family tree (Amendment 001 F-8). Grants nothing. */
-  relationship: string;
   avatarUrl: string | null;
   /** Tailwind background class for the initials avatar when there is no selfie. */
   tint: string;
@@ -37,6 +40,11 @@ export interface HouseholdMember {
   removedAt: string | null;
   /** What this family calls the member, such as "Mommy". Display only, set by the family's parents. */
   nickname?: string | null;
+  /**
+   * How this family describes the member, such as "Grandma". Display only and per family (Amendment 001 F-8):
+   * the same person can be "Grandma" in one household and "Mom" in another. Grants nothing.
+   */
+  relationship?: string | null;
   /** Home's narration notice is hidden for this adult up to here (they dismissed it). */
   noticesSeenThrough?: string | null;
 }
@@ -159,7 +167,7 @@ export interface HouseholdEntitlement {
    * A trial gives Family access for its days, with the trial narration allowance instead of the monthly one.
    * "tester" is a free Family plan an admin gave a tester household before payments are on.
    */
-  source: "subscription" | "gift" | "donated" | "trial" | "tester";
+  source: "subscription" | "gift" | "donated" | "trial" | "tester" | "sponsored";
   status: "active" | "canceled";
   /** Narrator slots bought on top of the plan's included slots. */
   extraNarratorSlots: number;
@@ -167,6 +175,20 @@ export interface HouseholdEntitlement {
   extraStreams: number;
   startsAt: string;
   endsAt: string | null;
+  /**
+   * A sponsored plan (Kevin, 2026-10-26): someone outside the household pays, and the household gets
+   * its own limits below. The sponsor's own voice doesn't use one of the household's narrator slots.
+   */
+  sponsorshipId?: string | null;
+  sponsorUserId?: string | null;
+  /** Per-plan limits. Null or missing means the plan settings' value. */
+  monthlyCredits?: number | null;
+  /** The credit share from the billing month starting at or after nextCreditsFrom. */
+  nextMonthlyCredits?: number | null;
+  nextCreditsFrom?: string | null;
+  includedNarratorSlots?: number | null;
+  includedStreams?: number | null;
+  maxChildProfiles?: number | null;
 }
 
 /** The household activating one shared voice into one of its narrator slots. */

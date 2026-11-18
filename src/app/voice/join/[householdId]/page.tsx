@@ -1,14 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow } from "@/components/invites/AdultPage";
 import { JoinSteps } from "@/components/invites/JoinSteps";
 import { currentAdult } from "@/lib/auth/adult";
 import { familyPage } from "@/lib/family/page-data";
+import { VOICE_SETUP_LATER_COOKIE, chosenBy } from "@/lib/family/setup-cookie";
 import { isActiveMember } from "@/lib/family/permissions";
+import { isParent } from "@/lib/family/storyteller";
 import { myVoices } from "@/lib/family/service";
 import { familyStore } from "@/lib/family/session";
+import { serverConfig } from "@/lib/server/config";
+import { accountVoiceDeps } from "@/lib/voice/account-voices";
+import { shareKeptVoice } from "@/lib/invites/share-on-keep";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const metadata: Metadata = { title: "Your storyteller steps | Readli Voice", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -18,11 +25,14 @@ export const dynamic = "force-dynamic";
  * that family. Only the voice owner sees this; the family's parents still add them to a slot and
  * approve each child themselves.
  */
-export default async function JoinStepsPage({ params }: { params: Promise<{ householdId: string }> }) {
+export default async function JoinStepsPage({ params, searchParams }: { params: Promise<{ householdId: string }>; searchParams: Promise<{ from?: string }> }) {
   const { householdId } = await params;
+  const fromSetup = (await searchParams).from === "setup";
   const here = `/voice/join/${householdId}`;
   const user = await currentAdult();
   if (!user) redirect(`/login?next=${encodeURIComponent(here)}`);
+  // A voice kept before keeping also shared it reaches this family now, with no separate step.
+  await shareKeptVoice();
   const page = await familyPage();
   const store = page.enabled && page.session?.account && page.session.actor.kind === "adult" ? await familyStore(page.session) : null;
   const state = page.enabled ? page.state : null;
@@ -42,9 +52,19 @@ export default async function JoinStepsPage({ params }: { params: Promise<{ hous
   }
   const voice = (await myVoices(store, { kind: "adult", adultId: user.id }))[0] ?? null;
   const shared = voice?.households.find((h) => h.id === householdId)?.shared ?? false;
+  // Recorded but never kept: the voice isn't saved yet, and the family still sees no voice.
+  const deps = voice ? null : accountVoiceDeps(serverConfig());
+  const waiting = deps ? Boolean(await deps.store.findCandidate(user.id).catch(() => null)) : false;
+  // Someone new to Readli, who hasn't recorded yet, gets the welcome page and the storyteller steps first.
+  // A parent of another family stays here: storyteller setup would send them on to their own family's
+  // setup, away from this invitation, and recording from here brings them back with it shared.
+  if (!voice && !waiting && !fromSetup && !isParent(state, user.id) && !chosenBy((await cookies()).get(VOICE_SETUP_LATER_COOKIE)?.value, user.id)) redirect("/voice/setup");
   return (
     <AdultPage>
       <header className="flex flex-col gap-2">
+        {fromSetup && (
+          <BackTo fallback={{ href: "/voice/setup?step=share", label: "Back to setup" }} className="w-fit font-display font-semibold underline-offset-4 hover:underline" />
+        )}
         <Eyebrow>Joining {family.name}</Eyebrow>
         <h1 className="font-display text-4xl font-semibold sm:text-5xl">Your storyteller steps</h1>
       </header>
@@ -53,9 +73,15 @@ export default async function JoinStepsPage({ params }: { params: Promise<{ hous
         familyName={family.name}
         voice={voice ? { id: voice.voiceId, ready: voice.status === "ready" } : null}
         shared={shared}
+        waitingRecording={waiting}
         nickname={state.members.find((m) => m.householdId === householdId && m.adultId === user.id && m.removedAt === null)?.nickname ?? ""}
-        recordHref={`/voice/record?next=${encodeURIComponent(here)}`}
+        recordHref={`/voice/record?next=${encodeURIComponent(fromSetup ? "/voice/setup?step=share" : here)}`}
       />
+      {fromSetup && shared && (
+        <Link href="/voice/setup?step=listen" className={`${buttonPrimary} self-start`} data-testid="join-setup-next">
+          Next: hear it read a story
+        </Link>
+      )}
     </AdultPage>
   );
 }

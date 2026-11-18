@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
 import { requireAdmin } from "@/lib/admin/access";
@@ -10,6 +9,8 @@ import { loadInvitationFunnel, openReports, type InvitationFunnel, type Invitati
 import { invitationSettings } from "@/lib/invitations/server";
 import { findCatalogBook } from "@/lib/library/catalog";
 import { reviewReportAction, saveInvitationSettingsAction } from "./actions";
+import { adminDateTime } from "@/lib/admin/time";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const metadata: Metadata = { title: "Family invitations | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -49,9 +50,7 @@ export default async function AdminInvitationsPage({ searchParams }: { searchPar
         <Eyebrow>Admin</Eyebrow>
         <h1 className="font-display text-4xl font-semibold">Family invitations</h1>
         <p className="text-lg">Readli Voice contributors inviting adult family members to hear their voice and start Readli Family.</p>
-        <Link href="/admin" className="text-sm underline underline-offset-4">
-          Back to the admin overview
-        </Link>
+        <BackTo fallback={{ href: "/admin", label: "the admin overview" }} look="back-to" className="text-sm underline underline-offset-4" />
       </header>
       {typeof p.ok === "string" && <p className="rounded-2xl bg-mint/60 px-4 py-3">{p.ok}</p>}
       {typeof p.err === "string" && (
@@ -137,7 +136,7 @@ export default async function AdminInvitationsPage({ searchParams }: { searchPar
                   <span className="font-semibold">{REPORT_REASONS[r.reason as ReportReason] ?? r.reason}</span>
                   {r.details && <span className="text-sm">{r.details}</span>}
                   <span className="text-sm text-muted">
-                    {new Date(r.createdAt).toLocaleString("en-US")} · contributor {r.contributorId?.slice(0, 8) ?? "deleted"}
+                    {adminDateTime(r.createdAt, true)} · contributor {r.contributorId?.slice(0, 8) ?? "deleted"}
                   </span>
                 </div>
                 <form action={reviewReportAction}>

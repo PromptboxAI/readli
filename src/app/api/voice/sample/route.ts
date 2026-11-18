@@ -1,7 +1,12 @@
 import { currentAdult } from "@/lib/auth/adult";
 import { serverConfig } from "@/lib/server/config";
+import { welcomeStoryText } from "@/lib/content/welcome-stories";
 import { fail } from "@/lib/server/http";
 import { AccountVoiceError, accountVoiceDeps, accountVoiceSample } from "@/lib/voice/account-voices";
+import { accountDb } from "@/lib/family/account-store";
+import { markStoryHeard } from "@/lib/voice/home-progress";
+import { voiceRefusedError } from "@/lib/voice/provider";
+import { alertVoiceRefused } from "@/lib/voice/refused-alert";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -9,7 +14,7 @@ export const maxDuration = 60;
 /**
  * A short line in the signed-in grown-up's own voice, so they can check it before sharing it.
  * `?candidate=1` plays the new recording they haven't kept yet; `?latest=1` plays their voice on the
- * newest reading model, so they can decide whether to switch. Samples are on Readli.
+ * newest reading model, so they can decide whether to switch. `?book=<slug>` reads a demo book instead (a short one whole). Samples are on Readli.
  */
 export async function POST(req: Request) {
   const deps = accountVoiceDeps(serverConfig());
@@ -18,12 +23,24 @@ export async function POST(req: Request) {
   if (!user) return fail(401, "sign_in_required", "Please sign in to hear your voice.");
   try {
     const params = new URL(req.url).searchParams;
-    const sample = await accountVoiceSample(deps, user.id, { candidate: params.get("candidate") === "1", latest: params.get("latest") === "1" });
+    // `?book=<slug>` reads the opening of one of the demo books, as the /try bookshelf does for guests.
+    const slug = params.get("book");
+    const story = slug ? welcomeStoryText(slug) : null;
+    if (slug && !story) return fail(404, "no_book", "That story isn't available to hear yet.");
+    const text = story ?? undefined;
+    const sample = await accountVoiceSample(deps, user.id, { candidate: params.get("candidate") === "1", latest: params.get("latest") === "1", text });
+    // A story heard on a free account's Home ticks "Hear another story" (it counts only once they've opened Home).
+    if (story) await markStoryHeard(accountDb(), user.id);
     return new Response(sample.audio, {
       headers: { "content-type": sample.contentType, "cache-control": "no-store", "x-readli-stand-in": sample.standIn ? "1" : "0" },
     });
   } catch (err) {
     if (err instanceof AccountVoiceError) return fail(err.status, err.code, err.userMessage);
+    // The voice service won't read in this recording (often a safety check only Readli could clear): say so plainly, so they record again.
+    if (voiceRefusedError(err)) {
+      await alertVoiceRefused({ label: `the voice of user ${user.id}`, key: `user-${user.id}`, where: "sample", error: err instanceof Error ? err.message : String(err) });
+      return fail(422, "voice_refused", "We couldn't make a Readli voice from this recording. Please tap Record Again and read the story once more.");
+    }
     throw err;
   }
 }

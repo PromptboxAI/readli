@@ -1,11 +1,9 @@
-import Link from "next/link";
+import { BackTo } from "@/components/nav/BackTrail";
 
-/** The way back up from a Readli Family page, named for where it goes. */
+/**
+ * The way back from a Readli Family page: to the page the visitor came from, or, when they arrived here
+ * directly, to `href`, named `label`.
+ */
 export function BackLink({ href, label }: { href: string; label: string }) {
-  return (
-    <Link href={href} className="flex min-h-11 w-fit items-center font-display font-semibold underline-offset-4 hover:underline" data-testid="back-link">
-      <span aria-hidden="true">←&nbsp;</span>
-      {label}
-    </Link>
-  );
+  return <BackTo fallback={{ href, label }} className="flex min-h-11 w-fit items-center font-display font-semibold underline-offset-4 hover:underline" />;
 }

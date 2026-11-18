@@ -6,12 +6,15 @@
 
 export type EmailCategory = "transactional" | "relationship" | "commercial";
 
-/** Optional email a grown-up can turn off. Marketing is off until they opt in. */
+/**
+ * Optional email a grown-up can turn off. Marketing is off until they opt in. Invitation reminders go
+ * to people who usually have no account yet, so they're stopped with the invitation's own "Stop all
+ * Readli invitations" link rather than a setting here.
+ */
 export type PreferenceTopic = "setup_reminders" | "invitation_reminders" | "feedback_requests" | "marketing";
 
 export const PREFERENCE_TOPICS: { topic: PreferenceTopic; label: string; hint: string }[] = [
   { topic: "setup_reminders", label: "Setup reminders", hint: "A few short emails in your first days, until your voice, storytellers and kids' tablet are set up." },
-  { topic: "invitation_reminders", label: "Invitation reminders", hint: "A reminder when an invitation someone sent you is still waiting." },
   { topic: "feedback_requests", label: "Feedback requests", hint: "Now and then, one question about how Readli is going." },
   { topic: "marketing", label: "Bedtime Thursdays and Readli news", hint: "A weekly email with two new stories, and occasional news. Off unless you turn it on." },
 ];
@@ -19,7 +22,7 @@ export const PREFERENCE_TOPICS: { topic: PreferenceTopic; label: string; hint: s
 export interface EmailDefinition {
   id: string;
   name: string;
-  sequence: "family_onboarding" | "contributor_onboarding" | "invitation_reminders" | "guest_demo" | "bedtime_thursdays" | "trial" | "billing" | "checkout" | "feedback" | "win_back";
+  sequence: "family_onboarding" | "contributor_onboarding" | "invitation_reminders" | "guest_demo" | "bedtime_thursdays" | "trial" | "billing" | "checkout" | "feedback" | "win_back" | "sponsorship" | "donations" | "complimentary";
   category: EmailCategory;
   /** The preference that turns it off; transactional email has none. */
   topic: PreferenceTopic | null;
@@ -38,6 +41,7 @@ export const EMAILS: EmailDefinition[] = [
   { id: "I1", name: "Family invitation reminder", sequence: "invitation_reminders", category: "relationship", topic: "invitation_reminders" },
   { id: "I2", name: "Voice invitation reminder", sequence: "invitation_reminders", category: "relationship", topic: "invitation_reminders" },
   { id: "I3", name: "Storyteller hasn't recorded (to the parent)", sequence: "invitation_reminders", category: "relationship", topic: "setup_reminders" },
+  { id: "I4", name: "Someone accepted your parent invitation (to the inviter)", sequence: "invitation_reminders", category: "transactional", topic: null },
   { id: "G1", name: "Email me my demo", sequence: "guest_demo", category: "transactional", topic: null },
   { id: "BT1", name: "Bedtime Thursdays", sequence: "bedtime_thursdays", category: "commercial", topic: "marketing" },
   { id: "T1", name: "Trial ends in 3 days", sequence: "trial", category: "transactional", topic: null },
@@ -45,11 +49,29 @@ export const EMAILS: EmailDefinition[] = [
   { id: "B1", name: "Yearly or prepaid renewal notice", sequence: "billing", category: "transactional", topic: null },
   { id: "B2", name: "Gift ending (to the recipient)", sequence: "billing", category: "transactional", topic: null },
   { id: "B3", name: "Price change notice", sequence: "billing", category: "transactional", topic: null },
+  { id: "B4", name: "Plan canceled, with the last day", sequence: "billing", category: "transactional", topic: null },
+  { id: "B5", name: "Plan ended", sequence: "billing", category: "transactional", topic: null },
   { id: "K1", name: "Abandoned checkout", sequence: "checkout", category: "commercial", topic: "marketing" },
   { id: "K2", name: "Abandoned gift checkout", sequence: "checkout", category: "commercial", topic: "marketing" },
   { id: "FB1", name: "How are bedtimes going?", sequence: "feedback", category: "relationship", topic: "feedback_requests" },
   { id: "W1", name: "Win-back: new stories", sequence: "win_back", category: "commercial", topic: "marketing" },
   { id: "W2", name: "Win-back: last check-in", sequence: "win_back", category: "commercial", topic: "marketing" },
+  { id: "S1", name: "Family gift invitation (sponsored)", sequence: "sponsorship", category: "transactional", topic: null },
+  { id: "S2", name: "Your gift has arrived (to the sponsor)", sequence: "sponsorship", category: "transactional", topic: null },
+  { id: "S3", name: "Gift renewal payment failed (to the sponsor)", sequence: "sponsorship", category: "transactional", topic: null },
+  { id: "S4", name: "Gift year ending (to the sponsor)", sequence: "sponsorship", category: "transactional", topic: null },
+  { id: "S5", name: "Gift ending (to the family)", sequence: "sponsorship", category: "transactional", topic: null },
+  { id: "S6", name: "A family asked for more credits (to the sponsor)", sequence: "sponsorship", category: "transactional", topic: null },
+  { id: "S7", name: "Gift credit share changing (to the family)", sequence: "sponsorship", category: "transactional", topic: null },
+  { id: "D1", name: "Readli Gives Back: request received", sequence: "donations", category: "transactional", topic: null },
+  { id: "D2", name: "Readli Gives Back: donation approved", sequence: "donations", category: "transactional", topic: null },
+  { id: "D3", name: "Readli Gives Back: more information needed", sequence: "donations", category: "transactional", topic: null },
+  { id: "D4", name: "Readli Gives Back: not approved", sequence: "donations", category: "transactional", topic: null },
+  { id: "D6", name: "Readli Gives Back: winner welcome", sequence: "donations", category: "transactional", topic: null },
+  { id: "M1", name: "Complimentary membership (to the recipient)", sequence: "complimentary", category: "transactional", topic: null },
+  { id: "M3", name: "Complimentary memberships to give away (to the organizer)", sequence: "complimentary", category: "transactional", topic: null },
+  { id: "M2", name: "Complimentary membership sent (to the event organizer)", sequence: "complimentary", category: "transactional", topic: null },
+  { id: "D8", name: "Readli Gives Back: request to review (to admins)", sequence: "donations", category: "transactional", topic: null },
 ];
 
 const BY_ID = new Map(EMAILS.map((e) => [e.id, e]));

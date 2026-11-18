@@ -1,10 +1,11 @@
 import { CATALOG, NEW_BOOKS, MORE_BOOKS_ON_PHONES, findCatalogBook } from "@/lib/library/catalog";
 import { THE_END } from "@/lib/content/the-end";
-import { bookMinutes, narrationFor } from "@/lib/narration/narration";
+import { bookMinutes, listenable, listenableAt, narrationFor } from "@/lib/narration/narration";
 import { bookText } from "@/lib/narration/text";
 import type { Adult, FamilyState } from "./model";
 import { calledIn } from "./names";
 import { activeApproval, activeChild, activeShare, activeSlot, childVoiceAccess, isActiveMember } from "./permissions";
+import { isNewOnFamilyShelf } from "./newest";
 import { DEFAULT_PLAN, type PlanConfig } from "./plan";
 
 /** Who a card shows: a selfie when there is one, else tinted initials. */
@@ -55,6 +56,8 @@ export interface ShelfBook {
   tint: string;
   /** The grown-up player, which never moves a child's place. */
   href: string;
+  /** The book's page, where a grown-up changes its voice or sees its details. */
+  bookHref: string;
   state: ShelfState;
   narrators: HomePerson[];
   minutes: number;
@@ -62,6 +65,25 @@ export interface ShelfBook {
   kids: ShelfKid[];
   /** Latest listening by any child, for ordering. */
   touchedAt: string | null;
+  /** When its narrations could first be played from the start, so a just-prepared book can say it's new. */
+  preparedAt: string | null;
+  /** A narrator has the whole book; otherwise it's on the shelf with only its first chapters prepared. */
+  complete: boolean;
+}
+
+/** A book being prepared right now in a family voice, so a grown-up can find it again after closing its page. */
+export interface PreparingBook {
+  slug: string;
+  title: string;
+  coverUrl: string | null;
+  tint: string;
+  narrators: HomePerson[];
+  /** 0 to 100: how much of what was asked for is ready. */
+  percent: number;
+  /** When the newest preparation started, for ordering newest first. */
+  startedAt: string;
+  /** The book's page, which shows the preparation as it goes. */
+  href: string;
 }
 
 /** A book prepared in a family voice that no child here can hear yet, with what's missing. */
@@ -91,7 +113,8 @@ export interface HomeBook {
   voices: HomePerson[];
 }
 
-export type StorytellerTone = "family" | "some" | "none" | "waiting";
+export type StorytellerTone = "family" | "some" | "none" | "waiting" | "joined";
+const TONE_ORDER: StorytellerTone[] = ["family", "some", "none", "waiting", "joined"];
 
 export interface HomeStoryteller {
   voiceId: string;
@@ -115,6 +138,8 @@ export interface HomeRequest {
   at: string;
   /** The book's page, where a grown-up chooses a narrator and prepares it. */
   href: string;
+  /** The child already has the start of this book and asked for more, such as its next chapter. */
+  more: boolean;
 }
 
 export interface FamilyHomeView {
@@ -122,6 +147,8 @@ export interface FamilyHomeView {
   continueListening: HomeBook[];
   ready: HomeBook[];
   fresh: HomeBook[];
+  /** Books being prepared now, newest first; they lead the Family bookshelf until they're done. */
+  preparing: PreparingBook[];
   /** Every prepared audiobook a child of this family may hear, one entry per book. */
   shelf: ShelfBook[];
   /** Prepared audiobooks no child here can hear yet, so they don't go missing. */
@@ -136,7 +163,7 @@ function person(adult: Adult | undefined): HomePerson {
 }
 
 /** A child's saved place on its last sentence (or the one before a closing "The End.") means they reached the end. */
-function finished(sentences: readonly { text: string }[], sentence: number): boolean {
+export function finished(sentences: readonly { text: string }[], sentence: number): boolean {
   const last = sentences.at(-1)?.text === THE_END ? sentences.length - 2 : sentences.length - 1;
   return sentence >= last;
 }
@@ -151,7 +178,7 @@ function names(list: string[]): string {
  * in a voice one of the kids may hear now, the newest books, and the family's storytellers with who may hear them.
  * `viewerId` is the signed-in adult, so their own voice reads as theirs rather than someone else's.
  */
-export function familyHome(state: FamilyState, householdId: string, plan: PlanConfig = DEFAULT_PLAN, viewerId?: string): FamilyHomeView {
+export function familyHome(state: FamilyState, householdId: string, plan: PlanConfig = DEFAULT_PLAN, viewerId?: string, now: number = Date.now()): FamilyHomeView {
   const kids = state.children.filter((c) => c.householdId === householdId && activeChild(state, c.id));
   const kidIds = new Set(kids.map((k) => k.id));
   const adultById = new Map(state.adults.map((a) => [a.id, calledIn(state, a, householdId)!]));
@@ -208,7 +235,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       if (!voice || owners.has(voice.id)) continue;
       // Ready means a child can play it now: shared, in a slot, on a live plan and approved for someone.
       if (!kids.some((k) => childVoiceAccess(state, k.id, voice.id, plan).allowed)) continue;
-      if (narrationFor(state, plan, voice.id, text, householdId).status.readiness === "ready") owners.set(voice.id, adultById.get(voice.ownerId));
+      if (listenable(narrationFor(state, plan, voice.id, text, householdId))) owners.set(voice.id, adultById.get(voice.ownerId));
     }
     if (!owners.size) continue;
     const who = [...owners.values()].map((a) => a?.displayName ?? "a storyteller");
@@ -223,6 +250,8 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     if (!text) continue;
     const narrators = new Map<string, Adult | undefined>();
     const hearers = new Set<string>();
+    let preparedAt: string | null = null;
+    let complete = false;
     for (const lib of state.libraries) {
       if (lib.bookSlug !== book.slug || !activeShare(state, lib.voiceId, householdId)) continue;
       // Any recording of the voice: an audiobook made before it was re-recorded keeps playing.
@@ -231,12 +260,16 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       const allowed = kids.filter((k) => childVoiceAccess(state, k.id, voice.id, plan).allowed);
       if (!allowed.length) continue;
       // What the family hears in this voice, which may be a finished audiobook of an earlier text.
-      const status = narrationFor(state, plan, voice.id, text, householdId).status;
-      // A partly prepared reading stays on the shelf only while a child is already part way through it.
+      const heard = narrationFor(state, plan, voice.id, text, householdId);
+      // A partly prepared reading is on the shelf once it plays from the start (its first chapter is
+      // prepared), or while a child is already part way through it.
       const started = allowed.some((k) => state.progress.some((p) => p.childId === k.id && p.bookSlug === book.slug && p.voiceId === voice.id && p.sentence > 0));
-      if (status.readiness !== "ready" && !(started && status.ready > 0)) continue;
+      if (!listenable(heard) && !(started && heard.status.ready > 0)) continue;
+      if (heard.status.readiness === "ready") complete = true;
       narrators.set(voice.id, adultById.get(voice.ownerId));
       for (const k of allowed) hearers.add(k.id);
+      const readyAt = listenableAt(state, heard);
+      if (readyAt && (!preparedAt || readyAt > preparedAt)) preparedAt = readyAt;
     }
     if (!narrators.size) continue;
     const shelfKids: ShelfKid[] = kids
@@ -256,11 +289,14 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       coverUrl: book.coverUrl,
       tint: book.tint,
       href: `/family/books/${book.slug}/listen`,
+      bookHref: `/family/books/${book.slug}?from=bookshelf`,
       state: shelfState,
       narrators: [...narrators.values()].map(person),
       minutes: Math.max(1, Math.round(bookMinutes(text, plan))),
       kids: shelfKids,
       touchedAt,
+      preparedAt,
+      complete,
     });
   }
   // Prepared, but in a voice no child here may hear yet: a grown-up still has a step to take. Another
@@ -284,7 +320,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       if (!voice || narrators.has(voice.id) || !isActiveMember(state, voice.ownerId, householdId)) continue;
       if (voice.ownerId !== viewerId && !activeShare(state, voice.id, householdId)) continue;
       if (kids.some((k) => childVoiceAccess(state, k.id, voice.id, plan).allowed)) continue;
-      if (narrationFor(state, plan, voice.id, text, householdId).status.readiness !== "ready") continue;
+      if (!listenable(narrationFor(state, plan, voice.id, text, householdId))) continue;
       const owner = adultById.get(voice.ownerId);
       narrators.set(voice.id, owner);
       const reason = kids.length ? childVoiceAccess(state, kids[0]!.id, voice.id, plan).reason : "no_child";
@@ -303,19 +339,67 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     });
   }
 
+  // Being prepared: every queued or running preparation in this family, one entry per book, newest
+  // first, whoever asked for it and whether or not a child may hear that voice yet (Kevin, 2026-11-03).
+  const preparingBySlug = new Map<string, PreparingBook & { asked: number; done: number }>();
+  const preparingVoices = new Map<string, Set<string>>();
+  const jobs = state.jobs.filter((j) => j.householdId === householdId && (j.status === "queued" || j.status === "running")).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  for (const job of jobs) {
+    const lib = state.libraries.find((l) => l.key === job.libraryKey);
+    const book = lib ? findCatalogBook(lib.bookSlug) : null;
+    if (!lib || !book) continue;
+    const entry =
+      preparingBySlug.get(book.slug) ??
+      preparingBySlug
+        .set(book.slug, { slug: book.slug, title: book.title, coverUrl: book.coverUrl, tint: book.tint, narrators: [], percent: 0, startedAt: job.createdAt, href: `/family/books/${book.slug}`, asked: 0, done: 0 })
+        .get(book.slug)!;
+    const wanted = new Set(job.sentenceIds);
+    entry.asked += wanted.size;
+    entry.done += state.segments.filter((x) => x.libraryKey === job.libraryKey && wanted.has(x.sentenceId) && x.status === "ready").length;
+    const voice = state.voices.find((v) => v.id === lib.voiceId);
+    const owner = voice ? adultById.get(voice.ownerId) : undefined;
+    const seen = preparingVoices.get(book.slug) ?? preparingVoices.set(book.slug, new Set()).get(book.slug)!;
+    if (voice && !seen.has(voice.id)) {
+      seen.add(voice.id);
+      entry.narrators.push(person(owner));
+    }
+  }
+  const preparing: PreparingBook[] = [...preparingBySlug.values()].map(({ asked, done, ...b }) => ({
+    ...b,
+    percent: asked ? Math.min(99, Math.round((done / asked) * 100)) : 0,
+  }));
+
+  // Books just prepared that not every child has finished lead the shelf, newest first, so a grown-up finds what
+  // they just made ready (Kevin, 2026-11-08). After those, within each state, the newest activity comes
+  // first: a child's latest listening, or else when the book last finished preparing in this family.
+  const preparedAt = new Map<string, string>();
+  for (const job of state.jobs) {
+    if (job.householdId !== householdId || job.status !== "done" || !job.finishedAt) continue;
+    const slug = state.libraries.find((l) => l.key === job.libraryKey)?.bookSlug;
+    if (slug && (preparedAt.get(slug) ?? "") < job.finishedAt) preparedAt.set(slug, job.finishedAt);
+  }
+  const latest = (b: ShelfBook) => [b.touchedAt ?? "", preparedAt.get(b.slug) ?? "", b.preparedAt ?? ""].reduce((x, y) => (y > x ? y : x));
   const order: ShelfState[] = ["progress", "ready", "done"];
-  shelf.sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state) || (b.touchedAt ?? "").localeCompare(a.touchedAt ?? "") || a.minutes - b.minutes);
+  const isNew = (b: ShelfBook) => isNewOnFamilyShelf(b.preparedAt, b.kids.map((k) => k.percent), now);
+  shelf.sort((a, b) => Number(isNew(b)) - Number(isNew(a)) || order.indexOf(a.state) - order.indexOf(b.state) || latest(b).localeCompare(latest(a)) || a.minutes - b.minutes);
 
   // A request drops off Home once the book is on that child's shelf, as well as when a grown-up clears it.
+  // A book on the shelf with only its first chapters prepared keeps a request made after that preparation:
+  // the child reached the end of what's ready and asked for the next chapter.
+  const onShelf = (r: { bookSlug: string; childId: string }) => shelf.find((b) => b.slug === r.bookSlug && b.kids.some((k) => k.id === r.childId));
+  const wantsMore = (r: { bookSlug: string; childId: string; at: string }) => {
+    const b = onShelf(r);
+    return Boolean(b && !b.complete && r.at > (preparedAt.get(r.bookSlug) ?? ""));
+  };
   const requests: HomeRequest[] = (state.requests ?? [])
     .filter((r) => r.householdId === householdId && r.resolvedAt === null && kidIds.has(r.childId))
-    .filter((r) => !shelf.some((b) => b.slug === r.bookSlug && b.kids.some((k) => k.id === r.childId)))
+    .filter((r) => !onShelf(r) || wantsMore(r))
     .sort((a, b) => b.at.localeCompare(a.at))
     .flatMap((r) => {
       const book = findCatalogBook(r.bookSlug);
       const kid = kids.find((k) => k.id === r.childId);
       if (!book || !kid) return [];
-      return [{ id: r.id, childName: kid.nickname, slug: book.slug, title: book.title, coverUrl: book.coverUrl, tint: book.tint, at: r.at, href: `/family/books/${book.slug}` }];
+      return [{ id: r.id, childName: kid.nickname, slug: book.slug, title: book.title, coverUrl: book.coverUrl, tint: book.tint, at: r.at, href: `/family/books/${book.slug}`, more: wantsMore(r) }];
     });
 
   const fresh: HomeBook[] = [...NEW_BOOKS, ...MORE_BOOKS_ON_PHONES]
@@ -327,26 +411,39 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
       return { slug: b.slug, title: b.title, coverUrl: b.coverUrl, tint: inCatalog?.tint ?? "bg-sunshine", href: inCatalog ? `/family/books/${b.slug}` : "/family/books", detail: b.author, percent: null, voices: [] };
     });
 
-  const approveHref = kids.length === 1 ? `/family/kids/${kids[0]!.id}/storytellers` : "/family/kids";
   const storytellers: HomeStoryteller[] = state.voices
     .filter((v) => v.deletedAt === null && v.status === "ready" && isActiveMember(state, v.ownerId, householdId))
-    .map((v) => {
+    .map((v): HomeStoryteller => {
       const owner = adultById.get(v.ownerId);
       const card = { voiceId: v.id, person: person(owner), mine: v.ownerId === viewerId, href: "/family/narrators" };
       if (!activeShare(state, v.id, householdId)) {
         // Only the owner can share a voice, so your own unshared voice gets a way to do it.
         return v.ownerId === viewerId
-          ? { ...card, tone: "waiting" as const, detail: "Your voice: share it with your family", href: "/family/my-voice" }
+          ? { ...card, tone: "waiting" as const, detail: "Your voice: share it with your family", href: "/family/my-voice?from=/home" }
           : { ...card, tone: "waiting" as const, detail: "Waiting for their permission to share" };
       }
       const approved = kids.filter((k) => activeApproval(state, v.id, k.id, plan)).map((k) => k.nickname);
       if (approved.length && approved.length === kids.length) return { ...card, tone: "family" as const, detail: "Approved for every child" };
       if (approved.length) return { ...card, tone: "some" as const, detail: `Approved for ${names(approved)}` };
       // In a slot but no child may hear them yet: the card goes to where a parent approves them.
-      const next = activeSlot(state, v.id, householdId, plan) ? approveHref : "/family/narrators";
+      const next = activeSlot(state, v.id, householdId, plan) ? `/family/narrators?choose=${encodeURIComponent(v.id)}` : "/family/narrators";
       return { ...card, tone: "none" as const, detail: "Not approved for a child yet", href: next };
     })
-    .sort((a, b) => ["family", "some", "none", "waiting"].indexOf(a.tone) - ["family", "some", "none", "waiting"].indexOf(b.tone));
+    .concat(
+      // Someone who joined (a co-parent or storyteller) but hasn't recorded is still one of the family's storytellers.
+      state.members
+        .filter((m) => m.householdId === householdId && m.removedAt === null && m.adultId !== viewerId)
+        .filter((m) => !state.voices.some((v) => v.ownerId === m.adultId && v.deletedAt === null))
+        .map((m): HomeStoryteller => ({
+          voiceId: `joined-${m.adultId}`,
+          person: person(adultById.get(m.adultId)),
+          mine: false,
+          href: "/family/narrators",
+          tone: "joined" as const,
+          detail: "Joined, hasn't recorded yet",
+        })),
+    )
+    .sort((a, b) => TONE_ORDER.indexOf(a.tone) - TONE_ORDER.indexOf(b.tone));
 
   return {
     kids: kids.map((k) => {
@@ -379,6 +476,7 @@ export function familyHome(state: FamilyState, householdId: string, plan: PlanCo
     continueListening,
     ready,
     fresh,
+    preparing,
     shelf,
     unassigned,
     requests,
@@ -400,6 +498,10 @@ export interface HomeNotice {
 }
 
 const READY = /^(.+)'s reading of (.+) is ready\.$/;
+/** "Kevin's reading of X is ready." or "... is partly ready.": the storyteller. */
+const FINISHED = /^(.+)'s reading of .+ is (?:partly )?ready\.$/;
+/** "We couldn't finish preparing X in Kevin." (with or without the credits sentence): the storyteller. */
+const FAILED = /^We couldn't finish preparing .+ in (.+?)\.(?: Unused credits were returned\.)?$/;
 
 /**
  * One combined notice for the adult's household: the narration updates from the last seven days that
@@ -408,7 +510,12 @@ const READY = /^(.+)'s reading of (.+) is ready\.$/;
 export function homeNotice(state: FamilyState, householdId: string, adultId: string, now: Date = new Date()): HomeNotice | null {
   const since = new Date(now.getTime() - NOTICE_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const seen = state.members.find((m) => m.householdId === householdId && m.adultId === adultId && m.removedAt === null)?.noticesSeenThrough ?? null;
-  const notes = state.notifications.filter((n) => n.householdId === householdId && n.at > since && (!seen || n.at > seen));
+  const fresh = state.notifications.filter((n) => n.householdId === householdId && n.at > since && (!seen || n.at > seen));
+  // A failure that a later reading of the same book, by the same storyteller, put right isn't news any more.
+  const notes = fresh.filter((n) => {
+    const failed = FAILED.exec(n.text)?.[1];
+    return !failed || !fresh.some((o) => o.href === n.href && o.at > n.at && FINISHED.exec(o.text)?.[1] === failed);
+  });
   if (!notes.length) return null;
   const titles: string[] = [];
   const narrators: string[] = [];
@@ -426,12 +533,25 @@ export function homeNotice(state: FamilyState, householdId: string, adultId: str
   return { titles, narrators, other, through: notes.reduce((a, n) => (n.at > a ? n.at : a), notes[0]!.at) };
 }
 
-/** "2 new readings ready: A and B, read by Daddy." */
-export function noticeText(n: HomeNotice): string {
-  const parts: string[] = [];
+/** How many titles the readings line names before it says "and N more". */
+const NOTICE_TITLES = 3;
+
+/**
+ * Home's notice as separate lines: one for the readings that finished, then each other update in its
+ * own words, newest first. The card shows the first lines and folds the rest away, so a busy week never
+ * turns into a wall of text (Kevin, 2026-11-03).
+ */
+export function noticeLines(n: HomeNotice): string[] {
+  const lines: string[] = [];
   if (n.titles.length) {
     const lead = n.titles.length === 1 ? "New reading ready" : `${n.titles.length} new readings ready`;
-    parts.push(`${lead}: ${names(n.titles)}, read by ${names(n.narrators)}.`);
+    const shown = n.titles.length > NOTICE_TITLES ? [...n.titles.slice(0, NOTICE_TITLES - 1), `${n.titles.length - (NOTICE_TITLES - 1)} more`] : n.titles;
+    lines.push(`${lead}: ${names(shown)}, read by ${names(n.narrators)}.`);
   }
-  return [...parts, ...n.other].join(" ");
+  return [...lines, ...[...n.other].reverse()];
+}
+
+/** "2 new readings ready: A and B, read by Daddy." */
+export function noticeText(n: HomeNotice): string {
+  return noticeLines(n).join(" ");
 }

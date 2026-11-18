@@ -1,0 +1,44 @@
+/**
+ * Routes for Save My Voice Free, the free Readli Voice signup that follows the /try demo. It never
+ * leads to Stripe, Family signup or a family dashboard: a signed-in grown-up goes to make their voice
+ * (from the demo take while it lasts), and once it's kept, straight on to choosing a story to share.
+ */
+
+export interface VoiceSignupFrom {
+  /** Came from the /try demo. */
+  fromTry: boolean;
+  /** The noise clean-up setting the demo stories were heard with. */
+  cleanUp: boolean;
+  /** The demo take is still kept for this browser (24 hours after recording). */
+  takeKept: boolean;
+}
+
+/** Where signing in continues to: making the voice, from the demo take when it's still there. */
+export function voiceRecordPath({ fromTry, cleanUp, takeKept }: VoiceSignupFrom): string {
+  // From the demo, the account is marked as free Readli Voice on the way (/start/free), so Home and the menu
+  // never take it into the family welcome before its voice is kept. The demo take is used while it lasts;
+  // once it's gone, the record page says so and records afresh.
+  if (fromTry) return keepAsVoice(takeKept ? `/voice/record?from=try${cleanUp ? "&cleanup=1" : ""}` : "/voice/record?from=try&expired=1");
+  // Someone who hasn't tried the demo goes through the signup welcome (name, family, voice, a story, then the
+  // plans, where free Readli Voice is one choice). Home sends a new account there and anyone else to their own home.
+  return "/home";
+}
+
+function keepAsVoice(next: string): string {
+  return `/start/free?next=${encodeURIComponent(next)}`;
+}
+
+/** The way back from signup: to the demo stories in the voice already made, or to choosing an account. */
+export function voiceSignupBack({ fromTry, cleanUp }: Pick<VoiceSignupFrom, "fromTry" | "cleanUp">): string {
+  return fromTry ? `/try?resume=1${cleanUp ? "&cleanup=1" : ""}` : "/signup";
+}
+
+/**
+ * Someone already signed in skips the form. From the demo they always go on to save that voice (a new
+ * account interrupted before saving picks up where it left off; an existing voice keeps working until
+ * they keep the new one). Otherwise a grown-up who already has a voice goes Home.
+ */
+export function signedInVoiceSignup(from: VoiceSignupFrom, hasVoice: boolean): string {
+  if (!from.fromTry && hasVoice) return "/home";
+  return voiceRecordPath(from);
+}

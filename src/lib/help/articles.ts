@@ -24,6 +24,8 @@ export type HelpArticle = {
   slug: string;
   category: string;
   question: string;
+  /** A shorter page title for search, when the question is too long for one (over about 45 characters). */
+  seoTitle?: string;
   /** Short paragraphs. */
   answer: string[];
   status: HelpStatus;
@@ -63,6 +65,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "readli-family-voice-kids",
     category: "getting-started",
     question: "What's the difference between Readli Family, Readli Voice, and Readli Kids?",
+    seoTitle: "Readli Family, Voice and Kids: what's the difference?",
     status: "published",
     answer: [
       "Readli Family is the paid household plan. Parents manage the library, their children's profiles and which storytellers each child can hear.",
@@ -76,9 +79,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "create-a-family-account",
     category: "getting-started",
     question: "How do I create a family account?",
-    status: "draft",
+    status: "published",
     answer: [
-      "Choose Create a Family on the [sign-up page](/signup), enter your details and choose your plan. Once you're in, you can add your children and invite the people you'd love them to hear.",
+      "Go to the [sign-up page](/signup) and choose Readli Family. Enter your email and type the code we send you (or continue with Google), then choose your plan. Readli then walks you through setup one screen at a time: record your own voice, add your kids, invite your partner or co-parent and any grandparents or other storytellers (optional), prepare their first book, then listen to it together. Claiming a gift takes you to the same walkthrough. You can skip any step, and until the essentials are done, Family Home shows how far you've got and takes you back.",
     ],
     keywords: ["sign up", "register", "join", "start"],
     related: ["add-a-child", "invite-relatives-elsewhere", "family-plan-included"],
@@ -87,9 +90,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "add-a-child",
     category: "getting-started",
     question: "How do I add a child?",
-    status: "draft",
+    status: "published",
     answer: [
-      "In Readli Family, open Kids Profiles and choose Add a child. A nickname is all we need. You can add up to six children on one plan at no extra cost.",
+      "In Readli Family, open the Family tab, then Kids profiles, and choose Add a child. A nickname is all we need. You can add up to six children on one plan at no extra cost.",
       "Each child gets their own bookshelf, listening progress and list of approved storytellers.",
     ],
     keywords: ["child profile", "kids profile", "add kid", "children", "sibling"],
@@ -99,13 +102,28 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "invite-relatives-elsewhere",
     category: "getting-started",
     question: "Can I invite grandparents or relatives who live elsewhere?",
-    status: "draft",
+    status: "published",
     answer: [
       "Yes. Send an invitation from Readli Family and they'll get a link to join and record their voice from their own phone or computer, wherever they live.",
       "An invitation never shares anyone's voice on its own. They choose whether to share it with your family, and you then choose which of your children can hear it.",
     ],
     keywords: ["invite", "grandma", "grandpa", "far away", "relatives", "long distance"],
     related: ["grandpa-pay-to-share", "invitation-link-not-working", "who-controls-my-voice"],
+  }),
+  A({
+    slug: "after-i-try-my-voice",
+    category: "getting-started",
+    question: "What happens after I try my voice?",
+    status: "published",
+    answer: [
+      "Once you've heard a story in your voice, you can keep it. Make a free Readli Voice account within 24 hours and your recording comes with you, so you don't read the story again. If you don't, the recording and voice are deleted.",
+      "Next, pick a short passage from a storybook and listen to it in your voice. When you're happy with it, approve it. This is what your family hears first.",
+      "Then invite your grown-up children, or any parents you read to, by email. Readli sends them a link from you.",
+      "The link plays your passage straight away, with no account needed. If they'd like more, they connect your voice to their Readli Family, or start one with a free trial, and choose which of their children can hear you.",
+      "It never costs you anything, and you can stop sharing with any family at any time. See [the grandparents' guide](/grandparents).",
+    ],
+    keywords: ["after demo", "invite kids", "share link", "what do my kids see", "grandparent", "next steps", "save voice"],
+    related: ["grandpa-pay-to-share", "invite-relatives-elsewhere", "who-controls-my-voice"],
   }),
 
   // Voices & Sharing
@@ -160,7 +178,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "share-with-more-than-one-family",
     category: "voices-and-sharing",
     question: "Can I share my voice with more than one family?",
-    status: "draft",
+    status: "published",
     answer: [
       "Yes. You record once and can share your voice with several households, for example with each of your children's families. You choose each family separately and can stop sharing with one without affecting the others.",
     ],
@@ -171,9 +189,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "replace-or-delete-my-voice",
     category: "voices-and-sharing",
     question: "Can I replace or delete my voice?",
-    status: "draft",
+    status: "published",
     answer: [
-      "Yes. In Readli Family, open My voice and choose Record again to replace your voice with a better take (a quiet room helps). Deleting a voice yourself is paused while we update how finished stories are kept; email admin@readli.ai and we'll delete it for you.",
+      "Yes. In Readli Family, open My voice and choose Record again to replace your voice with a better take (a quiet room helps).",
+      "To delete your voice, email admin@readli.ai from the address on your account. We delete it within 48 hours of confirming it's you, and email you to say what was deleted. (Deleting a voice yourself in the app is paused while we update how finished stories are kept.)",
     ],
     keywords: ["re-record", "remove", "delete voice", "redo"],
     related: ["revoke-sharing", "data-deletion", "record-my-voice"],
@@ -182,11 +201,11 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "voice-not-available-to-child",
     category: "voices-and-sharing",
     question: "Why isn't a family member's voice available to my child?",
-    status: "draft",
+    status: "published",
     answer: [
       "A family voice only appears for a child when everything below is true:",
       "The voice owner has shared their voice with your family. Your family has a free narrator slot for it. You've approved that storyteller for this particular child.",
-      "If any of these is missing, the voice stays hidden from your child. Check Manage Storytellers in Readli Family to see what's needed.",
+      "If any of these is missing, the voice stays hidden from your child. Open Manage storytellers for that child in Readli Family (Family tab, then Kids profiles) to see what's needed.",
     ],
     keywords: ["missing", "not showing", "can't find", "storyteller missing"],
     related: ["approve-narrators-per-child", "additional-narrator-slots", "narrator-not-ready"],
@@ -195,9 +214,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "approve-narrators-per-child",
     category: "voices-and-sharing",
     question: "How do I approve narrators for individual children?",
-    status: "draft",
+    status: "published",
     answer: [
-      "In Readli Family, open Kids Profiles, choose a child and then Manage Storytellers. Switch on the voices you're happy for that child to hear.",
+      "In Readli Family, open the Family tab, then Kids profiles, and choose Manage storytellers under your child's name. Switch on the voices you're happy for that child to hear.",
       "Every newly shared voice starts switched off for every child, and each child's list is separate, so you can make different choices for each of them.",
     ],
     keywords: ["approve", "storytellers", "parental controls", "toggle"],
@@ -206,12 +225,111 @@ export const HELP_ARTICLES: HelpArticle[] = [
 
   // Books & Listening
   A({
+    slug: "whats-in-the-library",
+    category: "books-and-listening",
+    question: "What books are in the Readli library?",
+    status: "published",
+    answer: [
+      "Classic children's stories: fairy tales, fables, nursery favorites, bedtime poems and longer chapter books like Winnie-the-Pooh and Heidi. They are public-domain books, so they are free for everyone to read.",
+      "Anyone can [browse the library](/books) without an account. Each book's page shows how long it takes to read aloud, its chapters, and how the story starts. Stories run from under a minute to a few hours, and we add new books regularly.",
+    ],
+    keywords: ["books", "stories", "catalog", "titles", "how long", "length", "minutes", "chapters"],
+    related: ["changed-words-in-old-stories", "what-is-readli"],
+  }),
+  A({
+    slug: "changed-words-in-old-stories",
+    category: "books-and-listening",
+    question: "Why do some stories use different words than the original?",
+    status: "published",
+    answer: [
+      "Many of our stories are more than a hundred years old, and a few of their words have changed meaning or are hurtful today. Before a book joins the library, we read it for those words and swap them for gentle ones that keep the story's sense.",
+      "That's why Edward Lear's poem is called The Owl and the Kitty-Cat in Readli. Everything else in the story stays as the author wrote it.",
+    ],
+    keywords: ["changed", "different", "original", "words", "edited", "pussy-cat", "kitty-cat", "language"],
+    related: ["whats-in-the-library"],
+  }),
+  A({
+    slug: "sleep-timer-and-speed",
+    category: "books-and-listening",
+    question: "Is there a sleep timer, and can I change the reading speed?",
+    status: "published",
+    answer: [
+      "Yes. Tap the moon in the player, in Readli Kids or in Readli Family, to set a sleep timer for 15, 30 or 45 minutes. In books with chapters, keep tapping for End of chapter: the story stops after the chapter's last sentence, and Play picks up at the start of the next one. Tap again until it says Sleep to turn it off. The timer keeps running if the screen locks or the page reloads.",
+      "In the Readli Family player, tap Speed to switch between normal, a little faster (1.2×) and a little slower (0.8×). Slower is handy for early readers following the highlighted words. Your choice is remembered on that device.",
+    ],
+    keywords: ["sleep timer", "bedtime", "stop", "moon", "end of chapter", "speed", "faster", "slower", "playback speed"],
+    related: ["whats-in-the-library", "switch-narrators-during-story"],
+  }),
+  A({
+    slug: "family-activity",
+    category: "books-and-listening",
+    question: "Where can I see what my kids have been listening to?",
+    status: "published",
+    answer: [
+      "Open [Family activity](/family/activity) from Family Home. Reading together lists the books each child has finished, and the ones they're part way through, with whose voice read them and when they last listened.",
+      "Above that, Notices keeps a month of updates, such as a story that's ready or a storyteller whose voice is ready, each with a button to act on it. A child's place only moves when they listen in Readli Kids, so books you play yourself in Readli Family don't show up here.",
+    ],
+    keywords: ["history", "timeline", "activity", "notices", "notifications", "finished", "what did they listen to"],
+    related: ["sleep-timer-and-speed", "whats-in-the-library"],
+  }),
+  A({
+    slug: "readli-kids-on-ipad",
+    category: "getting-started",
+    question: "How do I set up Readli Kids on an iPad or iPhone?",
+    status: "published",
+    answer: [
+      "On the iPad, open Safari and sign in to Readli. Go to Settings, then Kids Mode, choose which kids use this iPad, give it a name like Family iPad, and tap Start Readli Kids here. Set a family PIN first, so a grown-up can leave Readli Kids later.",
+      "When the bookshelf opens, tap the Share button, then Add to Home Screen. The Readli Kids icon then opens straight to the bookshelf, full screen, and your kids pick who's listening.",
+      "The iPad stays in Readli Kids until a grown-up enters the PIN, or you end it from Kids Mode on another device.",
+    ],
+    keywords: ["ipad", "iphone", "tablet", "home screen", "app", "install", "kids mode", "safari", "set up"],
+    related: ["readli-kids-on-android", "listen-in-the-car", "parents-control-voices"],
+  }),
+  A({
+    slug: "readli-kids-on-android",
+    category: "getting-started",
+    question: "How do I set up Readli Kids on an Android or Fire tablet?",
+    status: "published",
+    answer: [
+      "Open the tablet's web browser (Chrome on Android, Silk on a Fire tablet) and sign in to Readli. Go to Settings, then Kids Mode, choose which kids use this tablet, name it, and tap Start Readli Kids here. Set a family PIN first, so a grown-up can leave Readli Kids later.",
+      "When the bookshelf opens, open the browser menu and choose Add to Home screen (Chrome may call it Install app). The Readli Kids icon then opens straight to the bookshelf.",
+      "The tablet stays in Readli Kids until a grown-up enters the PIN, or you end it from Kids Mode on another device.",
+    ],
+    keywords: ["android", "fire", "kindle", "amazon", "tablet", "chrome", "silk", "home screen", "install", "kids mode", "set up"],
+    related: ["readli-kids-on-ipad", "listen-in-the-car", "parents-control-voices"],
+  }),
+  A({
+    slug: "listen-in-the-car",
+    category: "books-and-listening",
+    question: "Can we listen in the car or on a speaker?",
+    status: "published",
+    answer: [
+      "Yes. Connect your phone or tablet to the car or speaker by Bluetooth, or AirPlay from an iPhone or iPad, then press Play in Readli. The car screen and your lock screen show the book's cover and who's reading, like \"Read by Grandma\", and the car, headphone and lock-screen buttons pause, play and skip.",
+      "No signal on the way? [Download the story](/help/listen-offline) at home first, and it plays without internet.",
+    ],
+    keywords: ["car", "carplay", "android auto", "bluetooth", "speaker", "airplay", "road trip", "lock screen", "headphones"],
+    related: ["listen-offline", "sleep-timer-and-speed", "audiobook-not-playing", "readli-kids-on-ipad"],
+  }),
+  A({
+    slug: "listen-offline",
+    category: "books-and-listening",
+    question: "Can my kids listen without internet, like on a plane?",
+    status: "published",
+    answer: [
+      "Yes. While you're online, open the story in Readli Kids on the device your child will use and tap Download at the top of the player. Once it says Saved, the story plays with no connection, in that storyteller's voice. Saved stories show a Saved tag on the bookshelf. A story can be downloaded once it's fully prepared in that voice.",
+      "Downloads are for your family only, so they need to check in. Each time the device goes online, Readli checks that the storyteller is still sharing their voice with your family, and a download keeps working for 7 days after the last check. If a storyteller stops sharing, or that voice is no longer approved for your child, their downloaded stories are removed from the device the next time it's online.",
+      "To remove a download, tap Saved in the player. Before a long trip, open Readli Kids once while you're online so the 7 days start fresh.",
+    ],
+    keywords: ["offline", "download", "plane", "flight", "no internet", "no wifi", "airplane mode", "car", "road trip", "save"],
+    related: ["listen-in-the-car", "readli-kids-on-ipad", "revoke-sharing"],
+  }),
+  A({
     slug: "prepare-a-book",
     category: "books-and-listening",
     question: "How do I prepare a book in a family member's voice?",
-    status: "draft",
+    status: "published",
     answer: [
-      "Open a book in Readli Family and pick one of your family's storytellers. Readli shows how long the narration is and how many narration credits it will use. Confirm, and Readli prepares it in the background. We'll let you know when it's ready.",
+      "Open a book in Readli Family and pick one of your family's storytellers. Readli shows how long the narration is and how many narration credits it will use. Confirm, and Readli prepares it in the background. The book's page shows when it's ready to play, and it appears on the bookshelf of every child you've approved for that storyteller.",
     ],
     keywords: ["generate", "create narration", "prepare narration", "make audiobook"],
     related: ["monthly-narration-credits", "generate-one-chapter", "preparation-failed"],
@@ -220,7 +338,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "switch-narrators-during-story",
     category: "books-and-listening",
     question: "Can my child switch narrators during a story?",
-    status: "draft",
+    status: "published",
     answer: [
       "Yes. Your child can switch between their approved storytellers whenever the next part of the story is ready in that voice. The story carries on from the same sentence, so they never lose their place.",
     ],
@@ -231,7 +349,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "narrator-not-ready",
     category: "books-and-listening",
     question: "Why is a narrator showing as \"Not Ready\"?",
-    status: "draft",
+    status: "published",
     answer: [
       "It means that book hasn't been prepared in that voice yet, or it's still being prepared. A parent can prepare it from the book's page in Readli Family. Your child can keep listening with another storyteller in the meantime.",
     ],
@@ -242,7 +360,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "not-enough-credits",
     category: "books-and-listening",
     question: "What happens when a book requires more narration credits than I have?",
-    status: "draft",
+    seoTitle: "Not enough narration credits for a book?",
+    status: "published",
     answer: [
       "Readli tells you how many credits the whole book needs before anything starts. If you don't have enough, you can prepare a single chapter (in books with chapters) or a shorter story instead, or wait for next month's credits.",
     ],
@@ -253,7 +372,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "generate-one-chapter",
     category: "books-and-listening",
     question: "Can I generate one chapter instead of an entire book?",
-    status: "draft",
+    status: "published",
     answer: [
       "Yes. For books with chapters you can prepare them one at a time, which uses fewer credits up front. Chapters you've already prepared are kept and never charged again.",
     ],
@@ -264,7 +383,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "replays-use-credits",
     category: "books-and-listening",
     question: "Do replays consume narration credits?",
-    status: "draft",
+    status: "published",
     answer: [
       "No. Credits are only used when a new narration is prepared. Listening again, by any of your children, as many times as they like, is always free.",
     ],
@@ -275,7 +394,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "preparation-failed",
     category: "books-and-listening",
     question: "What happens if preparation fails?",
-    status: "draft",
+    status: "published",
     answer: [
       "Anything that was finished is kept, and any credits for parts that didn't finish are returned to your balance automatically. You can try again from the book's page.",
     ],
@@ -286,7 +405,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "multiple-children-listening",
     category: "books-and-listening",
     question: "Can multiple children listen simultaneously?",
-    status: "draft",
+    status: "published",
     answer: [
       "Yes. Up to three children can listen at the same time on the Readli Family plan, each with their own book, storyteller and place in the story.",
     ],
@@ -301,9 +420,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     question: "What's included in the $19.99 Readli Family plan?",
     status: "published",
     answer: [
-      "Readli Family will be $19.99 a month, or $179.99 a year. It includes two family storyteller slots, 40 narration credits each month, up to six child profiles, three children listening at the same time, the Readli Kids library, parent-managed storyteller approvals and unlimited family invitations. New families start with a 14-day free trial that includes 10 narration credits.",
+      "Readli Family is $19.99 a month, or $179.99 a year. It includes two family storyteller slots, 40 narration credits each month, up to six child profiles, three children listening at the same time, the Readli Kids library, parent-managed storyteller approvals and unlimited family invitations.",
       "See [Pricing](/pricing) for extra storytellers and credit packs.",
-      "Each child keeps their own listening history, favorites and progress. Family plans aren't open for sign-up just yet.",
+      "Each child keeps their own listening history, favorites and progress.",
     ],
     keywords: ["price", "cost", "plan", "subscription", "monthly"],
     related: ["readli-family-voice-kids", "additional-narrator-slots", "monthly-narration-credits"],
@@ -312,10 +431,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "additional-narrator-slots",
     category: "billing-credits-and-gifts",
     question: "How do additional narrator slots work?",
-    status: "draft",
+    status: "published",
     answer: [
       "Your plan includes two storyteller slots. Each shared voice you want your children to hear uses one slot. If your family would like more storytellers, you can add extra slots for $5.99 a month each.",
-      "Extra slots don't add narration credits, and the relative sharing their voice never pays anything. You can remove an extra slot at any time from your subscription settings.",
+      "Extra slots don't add narration credits, and the relative sharing their voice never pays anything. The parent who manages your plan can add or remove extra slots at any time from My Family, then Family storytellers. Adding one charges the rest of the current billing period; removing one needs an empty slot and credits the unused time on your next bill.",
     ],
     keywords: ["slots", "more storytellers", "third voice"],
     related: ["family-plan-included", "voice-not-available-to-child"],
@@ -324,7 +443,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "monthly-narration-credits",
     category: "billing-credits-and-gifts",
     question: "How do monthly narration credits work?",
-    status: "draft",
+    status: "published",
     answer: [
       "Your plan comes with 40 narration credits each month, shared by your whole household. One credit prepares 1,000 characters of new narration in your family's voices. Readli shows exactly how many credits a book or chapter will use before you confirm.",
       "Monthly credits refresh each billing cycle and don't roll over. On the annual plan you still get 40 credits each month. Listening to stories you've already prepared never uses credits.",
@@ -336,9 +455,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "buy-more-credits",
     category: "billing-credits-and-gifts",
     question: "How can I purchase more credits?",
-    status: "draft",
+    status: "published",
     answer: [
-      "From Narration Credits in Readli Family, choose Get More Narration Credits and pick a pack: 20 credits for $6.99, 50 for $14.99 or 100 for $24.99. If you were preparing a book, you'll go straight back to it afterwards.",
+      "In Readli Family, open Settings, then Plan & credits, and under Get more narration credits pick a pack: 20 credits for $6.99, 50 for $14.99 or 100 for $24.99. If you were preparing a book, you'll go straight back to it afterwards.",
       "Credit packs are one-time purchases for Readli Family households. Your monthly credits are used first.",
     ],
     keywords: ["buy", "top up", "credit pack", "purchase"],
@@ -348,20 +467,32 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "manage-or-cancel-subscription",
     category: "billing-credits-and-gifts",
     question: "How do I manage or cancel my subscription?",
-    status: "draft",
+    status: "published",
     answer: [
-      "Go to Billing in Readli Family to update your payment details or cancel. If you cancel, your plan stays active until the end of the period you've paid for and won't renew.",
+      "In Readli Family, open Settings, then Plan & credits, and choose Manage billing. That opens our payment provider's page, where you can update your card or cancel. If you cancel, your plan stays active until the end of the period you've paid for and won't renew.",
     ],
     keywords: ["cancel", "billing", "payment method", "stop subscription"],
-    related: ["cancel-what-happens-to-voice", "family-plan-included"],
+    related: ["cancel-what-happens-to-voice", "family-plan-included", "money-back-guarantee"],
+  }),
+  A({
+    slug: "money-back-guarantee",
+    category: "billing-credits-and-gifts",
+    question: "Is there a money-back guarantee?",
+    status: "published",
+    answer: [
+      "Yes. If your family isn't happy with Readli Family, email admin@readli.ai within 14 days of your first subscription payment, monthly or yearly, and we'll refund that payment in full. Your plan ends when the refund is made.",
+      "The guarantee is once per household and covers your first Readli Family payment only, not renewals, extra storyteller slots or credit packs. Gifts have their own refund terms, shown when you buy. The full details are in our [Terms](/terms).",
+    ],
+    keywords: ["refund", "money back", "guarantee", "14 days", "not happy", "return"],
+    related: ["manage-or-cancel-subscription", "family-plan-included"],
   }),
   A({
     slug: "gift-memberships",
     category: "billing-credits-and-gifts",
     question: "How do gift memberships work?",
-    status: "draft",
+    status: "published",
     answer: [
-      "With Invite & Gift you can pay for another family's Readli plan, either for a set time or as a monthly sponsorship. You pay; they manage their own account, children and storytellers. Gifting never gives you access to their family or voices.",
+      "With Invite & Gift on Family Home, you can pay for another family's Readli plan, either for a set time or as a monthly sponsorship. You pay; they manage their own account, children and storytellers. Gifting never gives you access to their family or voices.",
     ],
     keywords: ["gift", "sponsor", "present", "pay for someone"],
     related: ["redeem-a-gift", "manage-or-cancel-subscription"],
@@ -370,7 +501,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "redeem-a-gift",
     category: "billing-credits-and-gifts",
     question: "How do I redeem a gift or complimentary membership?",
-    status: "draft",
+    status: "published",
     answer: [
       "Open the gift link you received, or go to [Redeem a gift](/gift/open) and enter your code. Sign in or create your family account and the membership is added straight away.",
     ],
@@ -381,7 +512,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "referral-rewards",
     category: "billing-credits-and-gifts",
     question: "How do referral rewards work?",
-    status: "draft",
+    status: "published",
     answer: [
       "Readli Rewards celebrates getting started, like setting up your library and inviting a storyteller. When a family you refer starts a qualifying plan, you may earn a reward. Eligibility rules will be published before rewards launch.",
     ],
@@ -397,6 +528,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     status: "published",
     answer: [
       "Yes. Every family voice is private by default. Recording a voice, joining a family circle or being invited doesn't share it with anyone. Private family voices are never made public.",
+      "Your voice is made by the voice company Readli works with, which we name on our family privacy & safety page, and is only used to read stories for the families you choose. Readli never uses your recordings or your voice to train AI, and never sells or licenses them.",
       "Read more about [family privacy & safety](/parents/safety) or our [Privacy Policy](/privacy).",
     ],
     keywords: ["private", "public", "secure", "who can hear"],
@@ -431,7 +563,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     question: "What happens if I revoke sharing permission?",
     status: "published",
     answer: [
-      "Your voice is removed from that family straight away. Their children can no longer choose you as a storyteller, no new stories are prepared in your voice, and stories already prepared in your voice stop playing for them.",
+      "Your voice is removed from that family straight away. Their children can no longer choose you as a storyteller, no new stories are prepared in your voice, and stories already prepared in your voice stop playing for them. A story they downloaded for listening without internet is removed the next time their device is online, and can't play for more than 7 days after the device last checked in.",
       "If you share again later, every child starts switched off until a parent approves you again.",
     ],
     keywords: ["revoke", "stop sharing", "withdraw", "remove access"],
@@ -441,7 +573,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "cancel-what-happens-to-voice",
     category: "privacy-and-child-safety",
     question: "What happens to my voice and saved narrations if I cancel?",
-    status: "draft",
+    status: "published",
     answer: [
       "If your family plan ends, your children stop listening to family narrations, but your family's own voices still belong to the people who recorded them. Anyone can delete their voice at any time. How long other information is kept is explained in our [Privacy Policy](/privacy).",
     ],
@@ -449,12 +581,25 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ["data-deletion", "manage-or-cancel-subscription", "replace-or-delete-my-voice"],
   }),
   A({
+    slug: "what-if-readli-goes-away",
+    category: "privacy-and-child-safety",
+    question: "What happens to my voice if Readli goes away?",
+    status: "published",
+    answer: [
+      "If Readli is ever sold, the new owner has to keep our [Privacy Policy](/privacy) and every permission your family set, and family voices can never be sold on their own.",
+      "If Readli ever closes, we'll email every family before we do, then delete every voice and every recording. Until then, your voice is yours to share, stop sharing or delete whenever you like.",
+    ],
+    keywords: ["shut down", "close", "sold", "acquired", "goes away", "out of business"],
+    related: ["cancel-what-happens-to-voice", "data-deletion", "replace-or-delete-my-voice"],
+  }),
+  A({
     slug: "data-deletion",
     category: "privacy-and-child-safety",
     question: "How do I request deletion of personal data?",
     status: "published",
     answer: [
-      "Email admin@readli.ai from the address on your account and tell us what you'd like deleted, such as a voice recording, a child's profile or your whole account. We may need to confirm it's you, or that you're the child's parent or guardian, before we act.",
+      "To delete everything, open Account settings and choose Delete my account. It happens straight away: Readli deletes your voice at our voice company, every recording you made, every story read in your voice in any family, and then your account.",
+      "To delete just your voice or a child's profile, email admin@readli.ai from the address on your account. We may need to confirm it's you, or that you're the child's parent or guardian, before we act. A voice is deleted within 48 hours of confirming it's you, and we email you to say what was deleted.",
       "Our [Privacy Policy](/privacy) explains what we keep and for how long.",
     ],
     keywords: ["delete", "erase", "remove data", "gdpr", "privacy request"],
@@ -466,9 +611,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "cant-sign-in",
     category: "account-and-troubleshooting",
     question: "I can't sign in.",
-    status: "draft",
+    status: "published",
     answer: [
-      "Check you're using the same email or Google account you signed up with. If you've forgotten your password, choose Forgot password on the sign-in page. Still stuck? Email admin@readli.ai and we'll help.",
+      "Readli doesn't use passwords. On the sign-in page, enter the email you signed up with and we'll email you a 6-digit code to type in, or continue with Google if that's how you joined. Check the email address is the same one you used before, and look in your spam folder if the code doesn't arrive. Still stuck? Email admin@readli.ai and we'll help.",
     ],
     keywords: ["login", "password", "locked out", "sign in"],
     related: ["contact-readli", "invitation-link-not-working"],
@@ -477,7 +622,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "invitation-link-not-working",
     category: "account-and-troubleshooting",
     question: "My invitation link isn't working.",
-    status: "draft",
+    status: "published",
     answer: [
       "Invitation links can expire or be cancelled by the person who sent them. Ask them to send a new invitation from Readli Family. If you already have a Readli account, sign in first and then open the link.",
     ],

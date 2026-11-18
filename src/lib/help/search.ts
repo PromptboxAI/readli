@@ -84,3 +84,8 @@ export function searchHelp(query: string, drafts = showDrafts()): HelpArticle[] 
     .sort((x, y) => y.score - x.score || x.index - y.index)
     .map((s) => s.a);
 }
+
+/** Every article visible in this build, by slug: its page and question. Built into the app for in-app help links. */
+export function helpLinkMap(drafts = showDrafts()): Record<string, { href: string; question: string }> {
+  return Object.fromEntries(visibleArticles(drafts).map((a) => [a.slug, { href: articleHref(a), question: a.question }]));
+}

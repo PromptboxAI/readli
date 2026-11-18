@@ -1,41 +1,44 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { ContributorDashboard } from "@/components/accounts/ContributorDashboard";
-import { buttonSecondary } from "@/components/brand/buttons";
+import { AskName } from "@/components/account/AskName";
 import { AccountVoiceControls } from "@/components/family/AccountVoiceControls";
 import { MyVoiceSharing } from "@/components/family/MyVoiceSharing";
+import { InvitationList } from "@/components/invitations/InvitationList";
 import { VoiceModelUpgrade } from "@/components/family/VoiceModelUpgrade";
-import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
+import { AdultPage, Eyebrow } from "@/components/invites/AdultPage";
+import { chosenName } from "@/lib/account/names";
 import { currentAdult } from "@/lib/auth/adult";
 import { familyPage } from "@/lib/family/page-data";
+import { isParent, isStorytellerOnly } from "@/lib/family/storyteller";
+import { START_CHOSE_VOICE_COOKIE } from "@/lib/onboarding/start";
+import { VOICE_SETUP_LATER_COOKIE, chosenBy } from "@/lib/family/setup-cookie";
 import { myVoices } from "@/lib/family/service";
 import { familyAccountsEnabled, familyStore } from "@/lib/family/session";
-import { isParent } from "@/lib/family/storyteller";
+import { invitationContext } from "@/lib/invitations/context";
+import { invitationSettings, listInvitations } from "@/lib/invitations/server";
 import { pendingJoinPath } from "@/lib/invites/pending";
 import { serverConfig } from "@/lib/server/config";
 import { accountVoiceDeps, voiceModelStatus } from "@/lib/voice/account-voices";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const metadata: Metadata = { title: "My voice | Readli Voice", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 /**
- * The free storyteller's home: their voice and the families using it. No family setup, children,
- * plans or credits: those belong to each family's own account. Parents manage their voice inside
- * Readli Family instead. Older invitation links (/voice?invite=) go to the join page.
+ * A free storyteller's voice settings: the recording, the reading model, and which families may use it.
+ * Their Home (/home) is where they hear stories, send them and see how invitations are doing; this page is
+ * "Manage my voice" from there. Parents manage their voice inside Readli Family instead. Signed-out
+ * visitors go to sign in and come back here. Older invitation links (/voice?invite=) go to the join page
+ * first, so they keep working signed out.
  */
 export default async function VoiceHomePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const p = await searchParams;
   if (typeof p.invite === "string" && p.invite) redirect(`/voice/join?invite=${encodeURIComponent(p.invite)}`);
   const user = familyAccountsEnabled() ? await currentAdult() : null;
-  if (!user) {
-    return (
-      <AdultPage>
-        <PreviewNote>This is an example Readli Voice dashboard. Nothing here changes a real voice.</PreviewNote>
-        <ContributorDashboard invited={false} />
-      </AdultPage>
-    );
-  }
+  // Signed out: sign in first, then come back here.
+  if (!user) redirect("/login?next=/voice");
   const page = await familyPage();
   if (!page.enabled || !page.session || page.session.actor.kind !== "adult") return redirect("/login?next=/voice");
   const { session, state } = page;
@@ -48,37 +51,45 @@ export default async function VoiceHomePage({ searchParams }: { searchParams: Pr
   const deps = accountVoiceDeps(serverConfig());
   const recording = deps ? await deps.store.findVoice(user.id).catch(() => null) : null;
   const model = deps ? await voiceModelStatus(deps, user.id).catch(() => null) : null;
+  // A new storyteller with no voice yet, recorded or waiting to be kept, starts with the welcome page and steps.
+  const candidate = deps && !recording && voices.length === 0 ? await deps.store.findCandidate(user.id).catch(() => null) : null;
+  const jar = await cookies();
+  if (deps && !recording && !candidate && voices.length === 0 && !chosenBy(jar.get(VOICE_SETUP_LATER_COOKIE)?.value, user.id)) {
+    // Someone brand new (no family invited them, and they haven't picked free Readli Voice in the signup welcome)
+    // goes through the signup welcome, the same as signing in anywhere else. Storytellers get their own steps.
+    const fresh = !isStorytellerOnly(state, user.id) && !chosenBy(jar.get(START_CHOSE_VOICE_COOKIE)?.value, user.id);
+    redirect(fresh ? "/start" : "/voice/setup");
+  }
+  const me = state?.adults.find((a) => a.id === user.id);
+  const named = Boolean(chosenName(me?.displayName ?? user.name, user.email, user.named));
+  // Invitations sent and how each is doing: sent, opened, connected.
+  const ctx = invitationContext();
+  const invitations = ctx ? await listInvitations(ctx.db, ctx.secret, user.id, await invitationSettings(ctx.db)).catch(() => []) : [];
+  const ready = recording?.status === "ready";
   return (
     <AdultPage>
       <header className="flex flex-col gap-2">
+        <BackTo fallback={{ href: "/home", label: "Home" }} className="w-fit font-display font-semibold underline-offset-4 hover:underline" />
         <Eyebrow>Readli Voice · Free storyteller account</Eyebrow>
-        <h1 className="font-display text-4xl font-semibold sm:text-5xl">Your voice</h1>
+        <h1 className="font-display text-4xl font-semibold sm:text-5xl">My Voice</h1>
       </header>
+      {!named && <AskName label="What should families call you?" hint="Invitations use this name, like “Grandpa Joe has a bedtime story for your family.”" placeholder="Grandpa Joe, Nana, Aunt Sue…" />}
       {model?.canUpgrade && <VoiceModelUpgrade />}
       <AccountVoiceControls voice={recording && { status: recording.status, version: recording.version, updatedAt: recording.updatedAt }} />
       <section className="flex flex-col gap-3" aria-labelledby="families-h">
-        <h2 id="families-h" className="font-display text-2xl font-semibold">
-          Families using your voice
-        </h2>
-        <MyVoiceSharing initial={voices} storyteller />
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="families-h" className="font-display text-2xl font-semibold">
+            Families using your voice
+          </h2>
+          {ready && (
+            <Link href="/voice/invite" className="font-display font-semibold underline underline-offset-4" data-testid="invite-family">
+              Invite a family
+            </Link>
+          )}
+        </div>
+        <MyVoiceSharing initial={voices} storyteller recorded={Boolean(recording && recording.status !== "deleted")} />
       </section>
-      {recording?.status === "ready" && (
-        <section className="flex flex-col items-start gap-3 rounded-[var(--radius-panel)] bg-sky/40 p-6" data-testid="invite-family-card">
-          <h2 className="font-display text-2xl font-semibold">Share your voice with another family</h2>
-          <p className="max-w-2xl">
-            Send a family a link. They use their own Readli Family account, which they pay for, then add you as a narrator. You won&apos;t
-            record again.
-          </p>
-          <Link href="/voice/invite" className={buttonSecondary}>
-            Share my voice
-          </Link>
-        </section>
-      )}
-      <form action="/auth/signout" method="post">
-        <button type="submit" className={buttonSecondary}>
-          Sign out
-        </button>
-      </form>
+      {invitations.length > 0 && <InvitationList items={invitations} />}
     </AdultPage>
   );
 }

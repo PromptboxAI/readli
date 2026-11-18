@@ -2,17 +2,19 @@
 
 import { useState, useTransition } from "react";
 import type { IssuedGift, IssuedStatus } from "@/lib/admin/complimentary";
-import { revealCodeAction, revokeAndReplaceAction, type RowResult } from "../actions";
+import { emailMembershipAction, revealCodeAction, revokeAndReplaceAction, type RowResult } from "../actions";
+import { adminDate } from "@/lib/admin/time";
 
 const STATUS: Record<IssuedStatus, { label: string; tone: string }> = {
   unclaimed: { label: "Unclaimed", tone: "bg-sunshine" },
   claimed: { label: "Claimed", tone: "bg-mint" },
+  cancelled: { label: "Cancelled", tone: "bg-ink/10" },
   revoked: { label: "Revoked", tone: "bg-ink/10" },
   expired: { label: "Expired", tone: "bg-ink/10" },
 };
 
 const chip = "inline-flex min-h-11 items-center rounded-xl bg-ivory px-3 font-bold ring-2 ring-ink/20 hover:ring-ink";
-const short = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+const short = (iso: string) => adminDate(iso, false);
 
 function Downloads({ id }: { id: string }) {
   const files = [
@@ -65,6 +67,11 @@ function Row({ batchId, gift }: { batchId: string; gift: IssuedGift }) {
     });
   }
 
+  function email() {
+    if (!window.confirm(`Email the claim link for ${gift.certificate} to ${gift.recipientEmail}?`)) return;
+    start(async () => setResult(await emailMembershipAction(batchId, gift.id)));
+  }
+
   function revoke() {
     if (!window.confirm(`Revoke ${gift.certificate}? Its link, QR code and certificate stop working, and a replacement with a new code is issued.`)) return;
     start(async () => setResult(await revokeAndReplaceAction(batchId, gift.id)));
@@ -90,6 +97,11 @@ function Row({ batchId, gift }: { batchId: string; gift: IssuedGift }) {
                   {copied ? "Link copied" : "Copy link"}
                 </button>
               )}
+              {open && gift.recipientEmail && (
+                <button type="button" className={chip} onClick={email} disabled={pending}>
+                  Email it
+                </button>
+              )}
             </>
           ) : (
             <span className="text-sm text-muted">Only a scrambled copy was kept, so this code can&apos;t be shown or printed again.</span>
@@ -101,6 +113,12 @@ function Row({ batchId, gift }: { batchId: string; gift: IssuedGift }) {
           </button>
         )}
       </div>
+      {gift.recipientName && (
+        <p className="text-sm">
+          For {gift.recipientName}
+          {gift.recipientEmail ? <span className="break-all text-muted"> · {gift.recipientEmail}</span> : null}
+        </p>
+      )}
       {open && gift.hasArtwork && (
         <div className="flex flex-wrap items-center gap-3 text-sm">
           {shown ? (

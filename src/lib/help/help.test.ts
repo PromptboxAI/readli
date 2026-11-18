@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { HELP_ARTICLES, HELP_CATEGORIES } from "./articles";
 import { getArticle, relatedArticles, searchHelp, showDrafts, visibleArticles } from "./search";
 
@@ -19,10 +19,27 @@ describe("help content", () => {
     for (const a of HELP_ARTICLES) expect(a.question + a.answer.join(" ")).not.toMatch(banned);
   });
 
-  it("covers every topic in Kevin's list (42 questions)", () => {
-    expect(HELP_ARTICLES).toHaveLength(42);
-    expect(visibleArticles(true)).toHaveLength(42);
-    expect(visibleArticles(false).length).toBeLessThan(42);
+  it("covers every topic in Kevin's list (42 questions) plus the library articles, what happens after the demo, the sleep timer, the device guides, family activity and offline listening, what happens if Readli goes away and the money-back guarantee", () => {
+    expect(HELP_ARTICLES).toHaveLength(53);
+    expect(visibleArticles(true)).toHaveLength(53);
+    expect(visibleArticles(false)).toHaveLength(53);
+  });
+
+  it("explains the 14-day money-back guarantee on the first payment", () => {
+    const answer = HELP_ARTICLES.find((a) => a.slug === "money-back-guarantee")!.answer.join(" ");
+    expect(answer).toMatch(/within 14 days of your first subscription payment/);
+    expect(answer).toMatch(/once per household/);
+  });
+
+  it("states a timeframe for deleting a voice by email", () => {
+    const answer = HELP_ARTICLES.find((a) => a.slug === "replace-or-delete-my-voice")!.answer.join(" ");
+    expect(answer).toMatch(/within 48 hours/);
+  });
+});
+
+describe("live topics", () => {
+  it("gives every Help Center topic at least one live article", () => {
+    for (const c of HELP_CATEGORIES) expect(visibleArticles(false).some((a) => a.category === c.slug)).toBe(true);
   });
 });
 
@@ -37,9 +54,14 @@ describe("drafts", () => {
   });
 
   it("does not find, link or search drafts when they are hidden", () => {
+    // Every article is published today, so mark one as a draft for this test.
+    const gift = HELP_ARTICLES.find((a) => a.slug === "gift-memberships")!;
+    gift.status = "draft";
+    onTestFinished(() => void (gift.status = "published"));
     expect(getArticle("billing-credits-and-gifts", "gift-memberships", false)).toBeUndefined();
     expect(getArticle("billing-credits-and-gifts", "gift-memberships", true)).toBeDefined();
-    expect(searchHelp("gift", false).every((a) => a.status === "published")).toBe(true);
+    expect(searchHelp("gift", false).some((a) => a.slug === "gift-memberships")).toBe(false);
+    expect(searchHelp("gift", true).some((a) => a.slug === "gift-memberships")).toBe(true);
     const what = getArticle("getting-started", "what-is-readli", false)!;
     expect(relatedArticles(what, false).every((a) => a.status === "published")).toBe(true);
   });

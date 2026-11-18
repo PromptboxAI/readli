@@ -1,16 +1,19 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
-import { checkoutRequest } from "@/lib/billing/checkout";
-import { billingConfig } from "@/lib/billing/config";
+import { after, NextResponse } from "next/server";
+import { checkoutRequest, checkoutReturn, deferredStart } from "@/lib/billing/checkout";
+import { billingConfig, customerForMode } from "@/lib/billing/config";
 import { StripeApi, StripeError } from "@/lib/billing/stripe-api";
-import { catalogItem } from "@/lib/billing/catalog";
+import { slotItemFor } from "@/lib/billing/catalog";
 import { effectivePlan } from "@/lib/billing/price-settings";
 import { accountDb } from "@/lib/family/account-store";
 import { jsonBody, withFamily } from "@/lib/family/http";
 import { activeEntitlement } from "@/lib/family/permissions";
-import { guardianHousehold } from "@/lib/family/service";
+import { guardianHousehold, isPlanOwner } from "@/lib/family/service";
 import { requireFullSignIn } from "@/lib/family/session";
+import { carriedInvitationToken, invitationContext } from "@/lib/invitations/context";
+import { landingFor, track } from "@/lib/invitations/server";
 import { fail } from "@/lib/server/http";
+import { attributionFrom, attributionMetadata, eventIdFrom, sendCapiEvent } from "@/lib/server/meta-capi";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -18,14 +21,30 @@ export const runtime = "nodejs";
 /**
  * Starts a Stripe Checkout for Readli Family ({ item: "family_monthly" | "family_annual", extraSlots })
  * or a credit pack ({ item: "credit_pack:<id>" }) and returns its URL. A Family checkout may name the
- * storyteller invitation (invitationId) that brought the household in. Answers 404 while payments are
- * off. Plans and credits are granted from the webhook, never from here.
+ * storyteller invitation (invitationId) that brought the household in, and from: "signup" (or "start",
+ * the new-signup welcome) to come back to setup instead of Plan and billing. With that invitation, returnPath "/v/<token>/connect" comes back
+ * to the storyteller's guided steps instead. Answers 404 while payments are off. Plans and credits are
+ * granted from the webhook, never from here. Unless the browser opted out, Meta hears InitiateCheckout
+ * (sharing metaEventId with the pixel), and the browser's ad details ride in the session's metadata so
+ * the webhook can report the purchase.
  */
 /** The invitation id from the request, only when that invitation was accepted into this household. */
 async function acceptedInvitation(db: SupabaseClient, householdId: string, id: unknown): Promise<string | null> {
   if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) return null;
   const { data } = await db.from("voice_invitations").select("id").eq("id", id).eq("household_id", householdId).maybeSingle();
   return (data?.id as string | undefined) ?? null;
+}
+
+/**
+ * The invitation this browser carried in from a storyteller's invitation page, while it's still open: a new
+ * signup goes through the welcome and checks out before the storyteller is connected (setup connects them once
+ * the plan is on), so the payment is still credited to the invitation that brought the family in.
+ */
+async function carriedOpenInvitation(): Promise<string | null> {
+  const token = await carriedInvitationToken();
+  const ctx = token ? invitationContext() : null;
+  const landing = token && ctx ? await landingFor(ctx.db, ctx.secret, token).catch(() => null) : null;
+  return landing && (landing.status === "pending" || landing.status === "opened") ? landing.id : null;
 }
 
 export async function POST(req: Request) {
@@ -40,42 +59,70 @@ export async function POST(req: Request) {
     if (!db || !session.account) return fail(503, "no_account", "Sign in with a Readli account to check out.");
 
     const state = await store.read();
+    if (!isPlanOwner(state, actor.adultId, householdId)) return fail(403, "not_owner", "Only the parent who manages your family's plan can buy Readli Family or credits.");
     const plan = await effectivePlan(db, store.plan);
     const request = checkoutRequest(plan, activeEntitlement(state, householdId), String(body.item ?? ""), body.extraSlots);
     if (!request.ok) return fail(request.status, request.code, request.message);
 
-    const { data: customer } = await db.from("billing_customers").select("customer_ref").eq("household_id", householdId).maybeSingle();
+    const { data: saved } = await db.from("billing_customers").select("customer_ref, livemode").eq("household_id", householdId).maybeSingle();
+    const customerRef = customerForMode(saved, config.mode);
     const origin = new URL(req.url).origin;
-    const invitationId = request.mode === "subscription" ? await acceptedInvitation(db, householdId, body.invitationId) : null;
+    const invitationId = request.mode === "subscription" ? ((await acceptedInvitation(db, householdId, body.invitationId)) ?? (await carriedOpenInvitation())) : null;
     const metadata = {
       household_id: householdId,
       adult_id: actor.adultId,
       item: request.mode === "subscription" ? request.plan.id : request.pack.id,
       // The credits paid for, so a later admin change to the packs can't change what this purchase grants.
       ...(request.mode === "payment" ? { credits: String(request.pack.credits ?? 0) } : {}),
-      // The storyteller invitation that brought this family in, so the webhook credits its trial and payment.
+      // The storyteller invitation that brought this family in, so the webhook credits its payment.
       ...(invitationId ? { invitation_id: invitationId } : {}),
     };
+    const deferred = request.mode === "subscription" ? deferredStart(request.startsAfter) : {};
+    const fromSignup = request.mode === "subscription" && body.from === "signup";
+    const fromStart = request.mode === "subscription" && body.from === "start";
+    const fromTry = fromSignup && body.fromTry === true ? { cleanUp: body.cleanUp === true } : null;
+    const back = checkoutReturn(origin, { fromSignup, fromStart, fromTry, invitationId, returnPath: body.returnPath });
+    const attribution = attributionFrom(req);
     const stripe = new StripeApi(config);
     try {
       const lineItems =
         request.mode === "subscription"
           ? [
               { price: await stripe.priceFor(request.plan), quantity: 1 },
-              ...(request.extraSlots ? [{ price: await stripe.priceFor(catalogItem(plan, "extra_slot")!), quantity: request.extraSlots }] : []),
+              ...(request.extraSlots ? [{ price: await stripe.priceFor(slotItemFor(plan, request.plan.interval === "year" ? "year" : "month")), quantity: request.extraSlots }] : []),
             ]
           : [{ price: await stripe.priceFor(request.pack), quantity: 1 }];
       const checkout = await stripe.createCheckoutSession({
         mode: request.mode,
         line_items: lineItems,
         client_reference_id: householdId,
-        customer: customer?.customer_ref ?? undefined,
-        customer_email: customer ? undefined : (session.account.email ?? undefined),
-        metadata,
-        ...(request.mode === "subscription" ? { subscription_data: { metadata } } : { payment_intent_data: { metadata } }),
-        success_url: `${origin}/family/billing?checkout=success`,
-        cancel_url: `${origin}/family/billing?checkout=canceled`,
+        customer: customerRef,
+        customer_email: customerRef ? undefined : (session.account.email ?? undefined),
+        metadata: { ...metadata, ...attributionMetadata(attribution) },
+        ...(request.mode === "subscription"
+          ? { subscription_data: { metadata: { ...metadata, ...deferred.metadata }, trial_end: deferred.trial_end } }
+          : { payment_intent_data: { metadata } }),
+        success_url: back.success,
+        cancel_url: back.cancel,
       });
+      if (invitationId) await track(db, "invite_checkout_started", { invitation_id: invitationId, household_id: householdId, item: metadata.item }, actor.adultId);
+      if (attribution) {
+        const cents =
+          request.mode === "subscription"
+            ? request.plan.amountCents + (request.extraSlots ? slotItemFor(plan, request.plan.interval === "year" ? "year" : "month").amountCents * request.extraSlots : 0)
+            : request.pack.amountCents;
+        const email = session.account.email;
+        after(() =>
+          sendCapiEvent({
+            name: "InitiateCheckout",
+            eventId: eventIdFrom(body.metaEventId) ?? `checkout_${checkout.id}`,
+            attribution,
+            email,
+            externalId: actor.adultId,
+            customData: { value: cents / 100, currency: "USD", content_name: metadata.item },
+          }),
+        );
+      }
       return NextResponse.json({ url: checkout.url });
     } catch (err) {
       if (err instanceof StripeError) return fail(502, "stripe_error", "Checkout couldn't start. Please try again.");

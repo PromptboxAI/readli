@@ -233,12 +233,12 @@ export async function deleteAccountVoice(deps: AccountVoiceDeps, ownerId: string
 export async function accountVoiceSample(
   deps: AccountVoiceDeps,
   ownerId: string,
-  { candidate = false, latest = false }: { candidate?: boolean; latest?: boolean } = {},
+  { candidate = false, latest = false, text = SAMPLE_TEXT }: { candidate?: boolean; latest?: boolean; text?: string } = {},
 ): Promise<SynthesizedAudio> {
   if (candidate) {
     const c = await deps.store.findCandidate(ownerId);
     if (!c) throw new AccountVoiceError(404, "no_candidate", "Record your voice first, then you can hear a sample.");
-    return deps.provider.synthesize({ voiceId: c.providerVoiceId, text: SAMPLE_TEXT, modelId: latestModel(deps) });
+    return deps.provider.synthesize({ voiceId: c.providerVoiceId, text, modelId: latestModel(deps) });
   }
   const voice = await deps.store.findVoice(ownerId);
   if (!voice?.providerVoiceId || voice.status !== "ready") {
@@ -246,7 +246,7 @@ export async function accountVoiceSample(
   }
   // `latest` previews the voice on the newest model before the owner decides to switch.
   const modelId = latest ? latestModel(deps) : (voice.modelId ?? undefined);
-  return deps.provider.synthesize({ voiceId: voice.providerVoiceId, text: SAMPLE_TEXT, modelId });
+  return deps.provider.synthesize({ voiceId: voice.providerVoiceId, text, modelId });
 }
 
 /** Whether the owner's voice could move to a newer reading model, and which. */

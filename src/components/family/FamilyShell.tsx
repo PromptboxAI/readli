@@ -10,15 +10,16 @@ import { currentSession } from "@/lib/family/session";
 import { accountBadge, accountInitials, accountLinks, navState } from "@/lib/auth/nav-state";
 
 /**
- * Family pages. A grown-up with a live Readli Family plan gets the Parent Portal's app navigation;
+ * Family pages. A grown-up with a live (or ended) Readli Family plan gets the Parent Portal's app navigation;
  * everyone else (no plan yet, a kids device, a visitor) keeps the public site header. Pages a kids
  * device can reach pass portal={false}, so the Parent Portal never shows there.
  */
 export async function FamilyShell({ children, portal = true, wide = false }: { children: React.ReactNode; portal?: boolean; wide?: boolean }) {
   const width = wide ? "max-w-6xl" : "max-w-4xl";
   const nav = portal ? await navState() : null;
-  if (nav?.kind === "adult" && nav.family.plan !== "none") {
-    const account = { name: nav.name, email: nav.email, initials: accountInitials(nav.name), avatarUrl: nav.avatarUrl ?? null, badge: accountBadge(nav), links: accountLinks(nav) };
+  // A family whose plan ended keeps the portal too, so their kids, books and voices stay where they left them.
+  if (nav?.kind === "adult" && (nav.family.plan !== "none" || nav.family.hadFamily)) {
+    const account = { name: nav.name, email: nav.email, initials: accountInitials(nav.name, nav.email), avatarUrl: nav.avatarUrl ?? null, badge: accountBadge(nav), links: accountLinks(nav) };
     return (
       <>
         <ReloadOnRestore />
@@ -80,7 +81,7 @@ export function NeedsGrownUp({ text }: { text: string }) {
 export function GrownUpSignIn() {
   if (!authConfigured()) return <PreviewKidsExit />;
   return (
-    <Link href="/login?next=/family" className={`${buttonPrimary} self-start`}>
+    <Link href="/login?next=/home" className={`${buttonPrimary} self-start`}>
       Grown-ups: sign in
     </Link>
   );

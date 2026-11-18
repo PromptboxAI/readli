@@ -114,3 +114,30 @@ export function oneClickUnsubscribeUrl(base: string, secret: string, userId: str
 export function unsubscribeHeaders(base: string, secret: string, userId: string, topic: PreferenceTopic): Record<string, string> {
   return { "List-Unsubscribe": `<${oneClickUnsubscribeUrl(base, secret, userId, topic)}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" };
 }
+
+const contactMac = (secret: string, hash: string) => createHmac("sha256", `readli-email-contact:${secret}`).update(hash).digest("base64url").slice(0, 32);
+
+/** A link token for someone without an account who asked for Readli news (email_marketing_contacts). */
+export const contactToken = (secret: string, emailHash: string) => `${emailHash}.${contactMac(secret, emailHash)}`;
+
+export function contactFromToken(secret: string, token: unknown): string | null {
+  if (typeof token !== "string") return null;
+  const [hash, given] = token.split(".");
+  if (!hash || !given || !/^[0-9a-f]{64}$/.test(hash)) return null;
+  const a = Buffer.from(given);
+  const b = Buffer.from(contactMac(secret, hash));
+  return a.length === b.length && timingSafeEqual(a, b) ? hash : null;
+}
+
+export const contactUnsubscribeUrl = (base: string, secret: string, emailHash: string) =>
+  `${base.replace(/\/$/, "")}/api/email/unsubscribe?c=${encodeURIComponent(contactToken(secret, emailHash))}`;
+
+/** Stops Bedtime Thursdays and news for someone without an account, and records it. */
+export async function unsubscribeContact(db: SupabaseClient, emailHash: string, source: ConsentSource, now = new Date()): Promise<void> {
+  const at = now.toISOString();
+  const { data, error } = await db.from("email_marketing_contacts").update({ unsubscribed_at: at }).eq("email_hash", emailHash).is("unsubscribed_at", null).select("email_hash");
+  if (error) throw new Error(`unsubscribe contact: ${error.message}`);
+  if (!(data ?? []).length) return;
+  const { error: logError } = await db.from("email_consent_events").insert({ email_hash: emailHash, topic: "marketing", granted: false, source, created_at: at });
+  if (logError) throw new Error(`record email consent: ${logError.message}`);
+}

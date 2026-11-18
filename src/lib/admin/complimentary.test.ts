@@ -6,9 +6,16 @@ import { GiftCodeCipher } from "@/lib/gifting/code-cipher";
 import { complimentaryHeadline, certificateHeadline, presentedLine, recipientLine } from "@/lib/gifting/complimentary-copy";
 import {
   batchPrefix,
+  cancelMembership,
   certificateLabel,
   claimLink,
+  emailBatch,
+  emailMembership,
+  filterMemberships,
   issueComplimentary,
+  listMemberships,
+  organizerEmail,
+  withClaimers,
   issuedStatus,
   membershipArtwork,
   revealCode,
@@ -17,6 +24,7 @@ import {
   type ComplimentaryRequest,
 } from "./complimentary";
 import { AdminActionError } from "./tester-plans";
+import type { QueuedEmail } from "@/lib/email/outbox";
 
 type Row = Record<string, unknown>;
 
@@ -59,6 +67,11 @@ function fakeDb(tables: Record<string, Row[]> = {}) {
   };
   const rpc = async (name: string, args: Row) => {
     rpcCalls.push({ name, args });
+    if (name === "cancel_complimentary_gift") {
+      const g = t("gifts").find((r) => r.id === args.p_gift)!;
+      Object.assign(g, { status: "ended", revoked_at: "2026-11-03T00:00:00Z" });
+      return { data: [t("cancel_result")[0] ?? {}], error: null };
+    }
     const batch = args.p_batch as Row;
     const existing = t("complimentary_batches").find((b) => b.request_key === batch.request_key);
     if (existing) return { data: [{ batch_id: existing.id, created: false }], error: null };
@@ -108,10 +121,14 @@ describe("complimentary membership copy", () => {
     expect(complimentaryHeadline({ months: 12, occasion: "raffle" })).toBe("You've won a year of Readli Family!");
     expect(complimentaryHeadline({ months: 3, occasion: "school" })).toBe("Enjoy 3 months of Readli Family!");
     expect(presentedLine({ sponsorName: "Readli", sponsorIsReadli: true, eventName: "Mount Elementary Basket Dinner" })).toBe(
-      "Donated by Readli for the Mount Elementary Basket Dinner.",
+      "Donated by Readli for Mount Elementary Basket Dinner.",
     );
     expect(presentedLine({ sponsorName: "Oak Street PTA", sponsorIsReadli: false, eventName: "The Spring Fair" })).toBe("Presented by Oak Street PTA for The Spring Fair.");
     expect(presentedLine({ sponsorName: "Readli", sponsorIsReadli: true, eventName: null })).toBe("Donated by Readli.");
+    expect(presentedLine({ sponsorName: "Readli", sponsorIsReadli: true, eventName: "Bella's Breakfast with Santa" })).toBe(
+      "Donated by Readli for Bella's Breakfast with Santa.",
+    );
+    expect(presentedLine({ sponsorName: "Readli", sponsorIsReadli: true, eventName: "the Fall Gala" })).toBe("Donated by Readli for the Fall Gala.");
     expect(recipientLine(null)).toBeNull();
     expect(recipientLine("  ")).toBeNull();
     expect(recipientLine("Maya Garcia")).toBe("For Maya Garcia");
@@ -243,5 +260,184 @@ describe("issued memberships", () => {
     tables.gifts![1]!.redeemed_at = "2026-10-23";
     await expect(revokeAndReplace(db, admin, cipher, tables.gifts![1]!.id as string, AT)).rejects.toBeInstanceOf(AdminActionError);
     expect(tables.admin_actions!.filter((a) => a.action === "complimentary_revoked")).toHaveLength(1);
+  });
+
+  it("email a named adult their claim link, and log it without the code or address", async () => {
+    const { db, tables } = fakeDb();
+    await issueComplimentary(
+      db,
+      admin,
+      raffle({ count: 1, recipient: "named", recipientName: "Kristin Scher", recipientEmail: "Kristin@Example.com", occasion: "promotion", eventName: "" }),
+      cipher,
+      AT,
+    );
+    const gift = tables.gifts![0]!;
+    const sent: QueuedEmail[] = [];
+    const result = await emailMembership(db, admin, cipher, "https://readli.ai/", gift.id as string, async (e) => (sent.push(e), "sent"), AT);
+    expect(result.outcome).toBe("sent");
+    expect(sent).toHaveLength(1);
+    const code = cipher.decrypt(gift.code_encrypted as string)!;
+    expect(sent[0]).toMatchObject({ emailId: "M1", to: { email: "kristin@example.com" } });
+    expect(sent[0]!.message.text).toContain(`https://readli.ai/claim#${code}`);
+    expect(sent[0]!.message.text).toContain("Hi Kristin,");
+    expect(sent[0]!.message.subject).toBe("Readli gave you a year of Readli Family");
+    const log = tables.admin_actions!.at(-1)!;
+    expect(log).toMatchObject({ action: "complimentary_emailed", detail: { certificate: "REA-001", outcome: "sent" } });
+    expect(JSON.stringify(tables.admin_actions)).not.toContain(code);
+    expect(JSON.stringify(tables.admin_actions)).not.toContain("example.com");
+  });
+
+  it("tell the organizer it went out, without the claim link", async () => {
+    const { db, tables } = fakeDb();
+    await issueComplimentary(
+      db,
+      admin,
+      raffle({ count: 1, recipient: "named", recipientName: "Kristin Scher", recipientEmail: "kristin@example.com", occasion: "school" }),
+      cipher,
+      AT,
+    );
+    const gift = tables.gifts![0]!;
+    const sent: QueuedEmail[] = [];
+    const send = async (e: QueuedEmail) => (sent.push(e), "sent" as const);
+    const result = await emailMembership(db, admin, cipher, "https://readli.ai", gift.id as string, send, AT, organizerEmail(" PTA@School.org "));
+    expect(result).toMatchObject({ outcome: "sent", organizerOutcome: "sent" });
+    expect(sent.map((e) => [e.emailId, e.to])).toEqual([["M1", { email: "kristin@example.com" }], ["M2", { email: "pta@school.org" }]]);
+    const code = cipher.decrypt(gift.code_encrypted as string)!;
+    expect(sent[1]!.message.text).toContain("Kristin Scher (kristin@example.com)");
+    expect(sent[1]!.message.text).not.toContain(code);
+    expect(sent[1]!.message.text).not.toContain("/claim");
+    expect(() => organizerEmail("not an email")).toThrow(AdminActionError);
+    expect(organizerEmail("  ")).toBeNull();
+  });
+
+  it("email every unclaimed code and link in an unknown-winner batch to the organizer", async () => {
+    const { db, tables } = fakeDb();
+    await issueComplimentary(db, admin, raffle({ count: 3 }), cipher, AT);
+    Object.assign(tables.gifts![2]!, { status: "active", redeemed_at: "2026-10-23" });
+    const sent: QueuedEmail[] = [];
+    const out = await emailBatch(db, admin, cipher, "https://readli.ai", tables.gifts![0]!.batch_id as string, " PTA@School.org ", async (e) => (sent.push(e), "sent"), AT);
+    expect(out).toEqual({ count: 2, outcome: "sent" });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ emailId: "M3", to: { email: "pta@school.org" } });
+    const codes = tables.gifts!.map((g) => cipher.decrypt(g.code_encrypted as string)!);
+    expect(sent[0]!.message.text).toContain(`https://readli.ai/claim#${codes[0]}`);
+    expect(sent[0]!.message.text).toContain(codes[1]);
+    expect(sent[0]!.message.text).not.toContain(codes[2]);
+    expect(sent[0]!.message.subject).toBe("Your 2 Readli memberships to give away");
+    expect(tables.admin_actions!.at(-1)).toMatchObject({ action: "complimentary_emailed", detail: { to: "organizer", count: 2 } });
+    expect(JSON.stringify(tables.admin_actions)).not.toContain(codes[0]);
+    await expect(emailBatch(db, admin, cipher, "https://readli.ai", tables.gifts![0]!.batch_id as string, "", async () => "sent", AT)).rejects.toThrow(AdminActionError);
+  });
+
+  it("skip the organizer note when the recipient's email didn't go", async () => {
+    const { db, tables } = fakeDb();
+    await issueComplimentary(db, admin, raffle({ count: 1, recipient: "named", recipientName: "K", recipientEmail: "k@example.com" }), cipher, AT);
+    const sent: QueuedEmail[] = [];
+    const result = await emailMembership(db, admin, cipher, "https://readli.ai", tables.gifts![0]!.id as string, async (e) => (sent.push(e), "failed"), AT, "pta@school.org");
+    expect(result.organizerOutcome).toBeNull();
+    expect(sent).toHaveLength(1);
+  });
+
+  it("refuse to email a membership with no address, or one already claimed", async () => {
+    const { db, tables } = fakeDb();
+    await issueComplimentary(db, admin, raffle({ count: 1 }), cipher, AT);
+    const send = async () => "sent" as const;
+    const id = tables.gifts![0]!.id as string;
+    await expect(emailMembership(db, admin, cipher, "https://readli.ai", id, send, AT)).rejects.toBeInstanceOf(AdminActionError);
+    tables.gifts![0]!.recipient_email = "a@b.co";
+    tables.gifts![0]!.status = "active";
+    tables.gifts![0]!.redeemed_at = "2026-10-23";
+    await expect(emailMembership(db, admin, cipher, "https://readli.ai", id, send, AT)).rejects.toBeInstanceOf(AdminActionError);
+  });
+
+  it("list every membership, including earlier codes, and search and filter them", async () => {
+    const { db, tables } = fakeDb();
+    await issueComplimentary(db, admin, raffle({ count: 2 }), cipher, AT);
+    tables.gifts!.forEach((g) => (g.complimentary_for = "raffle"));
+    tables.gifts![1]!.status = "active";
+    tables.gifts![1]!.redeemed_at = "2026-10-23";
+    tables.gifts!.push({
+      id: "33333333-3333-4333-8333-333333333333",
+      status: "sent",
+      sent_at: "2026-10-12T00:00:00Z",
+      plan_id: "prepaid_12m",
+      complimentary_for: "school",
+      recipient_name: "Kristin Scher",
+      recipient_email: "kristin@example.com",
+      giver_display_name: "Oak Street PTA",
+      claim_by: "2027-10-12T00:00:00Z",
+    });
+    const rows = await listMemberships(db, AT);
+    expect(rows).toHaveLength(3);
+    expect(rows.find((r) => r.recipientName === "Kristin Scher")).toMatchObject({
+      certificate: "Earlier code",
+      recipientEmail: "kristin@example.com",
+      sponsorName: "Oak Street PTA",
+      occasion: "school",
+      months: 12,
+      status: "unclaimed",
+    });
+    expect(filterMemberships(rows, "kristin", null)).toHaveLength(1);
+    expect(filterMemberships(rows, "mount elementary", null).map((r) => r.certificate).sort()).toEqual(["MEB-001", "MEB-002"]);
+    expect(filterMemberships(rows, "", "claimed").map((r) => r.certificate)).toEqual(["MEB-002"]);
+    expect(filterMemberships(rows, `meb ${rows.find((r) => r.certificate === "MEB-001")!.last4!.toLowerCase()}`, null)).toHaveLength(1);
+  });
+
+  it("show which account claimed a membership, and skip accounts that can't be read", async () => {
+    const { db, tables } = fakeDb();
+    await issueComplimentary(db, admin, raffle({ count: 2 }), cipher, AT);
+    tables.gifts!.forEach((g) => (g.complimentary_for = "raffle"));
+    Object.assign(tables.gifts![0]!, { status: "active", redeemed_at: "2026-10-23", recipient_user_id: "u1" });
+    Object.assign(tables.gifts![1]!, { status: "active", redeemed_at: "2026-10-24", recipient_user_id: "gone" });
+    const users: Record<string, string> = { u1: "family@example.com" };
+    (db as unknown as { auth: unknown }).auth = {
+      admin: { getUserById: async (id: string) => (users[id] ? { data: { user: { email: users[id] } } } : { data: { user: null } }) },
+    };
+    const rows = await withClaimers(db, await listMemberships(db, AT));
+    expect(rows.map((r) => r.claimedBy).sort()).toEqual(["family@example.com", null]);
+    expect(filterMemberships(rows, "family@example", null)).toHaveLength(1);
+  });
+});
+
+describe("cancelling a claimed membership", () => {
+  const claimed = async (result: Row) => {
+    const { db, tables, rpcCalls } = fakeDb();
+    await issueComplimentary(db, admin, raffle({ count: 1 }), cipher, AT);
+    Object.assign(tables.gifts![0]!, { status: "active", redeemed_at: "2026-10-23" });
+    tables.cancel_result = [result];
+    return { db, tables, rpcCalls, id: tables.gifts![0]!.id as string };
+  };
+
+  it("ends a free family's access and logs it", async () => {
+    const { db, tables, rpcCalls, id } = await claimed({ cut_seconds: 1000, billing_deferral: null, subscription_ref: null, family_ends_at: "2026-11-03T00:00:00Z" });
+    const out = await cancelMembership(db, admin, id, null, AT);
+    expect(out).toEqual({ certificate: "MEB-001", familyEndsAt: "2026-11-03T00:00:00Z", billingResumed: false, followUp: null });
+    expect(rpcCalls.at(-1)).toEqual({ name: "cancel_complimentary_gift", args: { p_gift: id } });
+    expect(tables.admin_actions!.at(-1)).toMatchObject({ action: "complimentary_cancelled", detail: { certificate: "MEB-001", billing_resumed: false } });
+    await expect(cancelMembership(db, admin, id, null, AT)).rejects.toBeInstanceOf(AdminActionError);
+  });
+
+  it("brings a paying family's paused billing forward by the time it cut", async () => {
+    const { db, id } = await claimed({ cut_seconds: 86_400 * 30, billing_deferral: "applied", subscription_ref: "sub_1", family_ends_at: null });
+    const calls: unknown[] = [];
+    const trialEnd = Math.floor(AT.getTime() / 1000) + 86_400 * 400;
+    const stripe = {
+      getSubscription: async () => ({ trial_end: trialEnd }),
+      endFreeTimeAt: async (...args: unknown[]) => (calls.push(args), {}),
+    } as unknown as Parameters<typeof cancelMembership>[3];
+    const out = await cancelMembership(db, admin, id, stripe, AT);
+    expect(out.billingResumed).toBe(true);
+    expect(calls).toEqual([["sub_1", trialEnd - 86_400 * 30, `readli-gift-cancel-${id}`]]);
+  });
+
+  it("asks for a Stripe fix by hand when Stripe isn't connected", async () => {
+    const { db, id } = await claimed({ cut_seconds: 60, billing_deferral: "applied", subscription_ref: "sub_1", family_ends_at: null });
+    expect((await cancelMembership(db, admin, id, null, AT)).followUp).toMatch(/Stripe/);
+  });
+
+  it("won't cancel one nobody has claimed", async () => {
+    const { db, tables } = fakeDb();
+    await issueComplimentary(db, admin, raffle({ count: 1 }), cipher, AT);
+    await expect(cancelMembership(db, admin, tables.gifts![0]!.id as string, null, AT)).rejects.toThrow(/revoke it instead/);
   });
 });

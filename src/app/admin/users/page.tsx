@@ -1,0 +1,344 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
+import { buttonPrimary, buttonSecondary, buttonSmall } from "@/components/brand/buttons";
+import { requireAdmin } from "@/lib/admin/access";
+import { adminDate } from "@/lib/admin/time";
+import {
+  ACCOUNT_FILTERS,
+  ACCOUNT_SORTS,
+  familyBalances,
+  filterAccounts,
+  listAccounts,
+  MAX_GRANT_CREDITS,
+  matchesFilter,
+  sortAccounts,
+  type AccountFilter,
+  type AccountSort,
+  type AdminAccount,
+} from "@/lib/admin/users";
+import { accountDb } from "@/lib/family/account-store";
+import { planConfig } from "@/lib/family/plan";
+import { deleteAccountAction, grantCreditsAction, pauseAccountAction, unpauseAccountAction } from "./actions";
+
+export const metadata: Metadata = { title: "Accounts | Readli admin", robots: { index: false } };
+export const dynamic = "force-dynamic";
+
+const PER_PAGE = 50;
+
+/** What each kind of family plan is called across admin. */
+const PLAN_LABEL: Record<string, string> = {
+  subscription: "Paid",
+  gift: "Gift",
+  donated: "Complimentary",
+  trial: "Free trial",
+  tester: "Tester",
+};
+
+const SORT_LABEL: Record<AccountSort, string> = { joined: "Joined", last_sign_in: "Last sign-in", email: "Account", family: "Family" };
+
+type Params = Record<string, string | string[] | undefined>;
+const param = (p: Params, key: string) => (typeof p[key] === "string" ? (p[key] as string) : "");
+const date = (iso: string | null) => (iso ? adminDate(iso) : "–");
+
+/** Every grown-up's sign-in account as a searchable, sortable table, with pause and delete. */
+export default async function AccountsPage({ searchParams }: { searchParams: Promise<Params> }) {
+  const gate = await requireAdmin("/admin/users");
+  const params = await searchParams;
+  const q = param(params, "q").trim();
+  const show = (ACCOUNT_FILTERS.find((f) => f.value === param(params, "show"))?.value ?? null) as AccountFilter | null;
+  const sort = (ACCOUNT_SORTS.find((s) => s === param(params, "sort")) ?? "joined") as AccountSort;
+  const ok = param(params, "ok");
+  const err = param(params, "err");
+  const db = gate.preview ? null : accountDb();
+  const all = db ? await listAccounts(db) : [];
+  const matches = sortAccounts(filterAccounts(all, q).filter((a) => matchesFilter(a, show)), sort);
+  const pages = Math.max(1, Math.ceil(matches.length / PER_PAGE));
+  const page = Math.min(pages, Math.max(1, Number.parseInt(param(params, "page"), 10) || 1));
+  const rows = matches.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const deleting = all.find((a) => a.id === param(params, "delete") && !a.isAdmin && a.email) ?? null;
+  const crediting = all.find((a) => a.id === param(params, "credits") && a.homes.length) ?? null;
+  const balances = db && crediting ? await familyBalances(db, crediting.homes.map((h) => h.id), planConfig()) : new Map<string, number>();
+
+  const href = (change: { sort?: AccountSort; page?: number; delete?: string | null; credits?: string | null }) => {
+    const qs = new URLSearchParams();
+    if (q) qs.set("q", q);
+    if (show) qs.set("show", show);
+    const s = change.sort ?? sort;
+    if (s !== "joined") qs.set("sort", s);
+    const n = change.page ?? (change.sort ? 1 : page);
+    if (n > 1) qs.set("page", String(n));
+    if (change.delete) qs.set("delete", change.delete);
+    if (change.credits) qs.set("credits", change.credits);
+    return `/admin/users${qs.size ? `?${qs}` : ""}`;
+  };
+  const backQs = href({}).split("?")[1] ?? "";
+  const count = (f: AccountFilter) => all.filter((a) => matchesFilter(a, f)).length;
+
+  return (
+    <AdultPage wide>
+      <header className="flex flex-col gap-2">
+        <Eyebrow>
+          <Link href="/admin" className="underline underline-offset-4">
+            Admin
+          </Link>
+        </Eyebrow>
+        <h1 className="font-display text-4xl font-semibold">Accounts</h1>
+        <p className="text-lg">
+          Every grown-up who has signed up, with each family&apos;s plan. Open a family to see its people, credits and audiobooks and fix them. Credits adds narration credits to a family. Pausing stops an account signing in and keeps everything. Deleting does what &ldquo;Delete my
+          account&rdquo; does and can&apos;t be undone.
+        </p>
+      </header>
+      {gate.preview && <PreviewNote>The account list needs sign-in and Supabase connected.</PreviewNote>}
+      {ok && <p role="status" className="rounded-2xl bg-mint/40 px-4 py-3">{ok}</p>}
+      {err && <p role="alert" className="rounded-2xl bg-coral/30 px-4 py-3">{err}</p>}
+
+      {deleting && <ConfirmDelete account={deleting} backQs={backQs} cancel={href({ delete: null })} />}
+      {crediting && <GrantCredits account={crediting} balances={balances} backQs={backQs} cancel={href({ credits: null })} />}
+
+      <form className="flex flex-wrap gap-2" role="search">
+        <label htmlFor="q" className="sr-only">Find an account</label>
+        <input id="q" name="q" defaultValue={q} placeholder="Email, name or family" className="min-w-0 flex-1 rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/15" />
+        <label htmlFor="show" className="sr-only">Show</label>
+        <select id="show" name="show" defaultValue={show ?? ""} className="rounded-2xl bg-surface px-3 py-3 ring-2 ring-ink/15">
+          <option value="">All accounts ({all.length})</option>
+          {ACCOUNT_FILTERS.map((f) => (
+            <option key={f.value} value={f.value}>
+              {f.label} ({count(f.value)})
+            </option>
+          ))}
+        </select>
+        {sort !== "joined" && <input type="hidden" name="sort" value={sort} />}
+        <button className={buttonSecondary}>Find</button>
+      </form>
+
+      {db && (
+        <p className="text-sm text-muted">
+          {matches.length === all.length ? `${all.length} account${all.length === 1 ? "" : "s"}` : `${matches.length} of ${all.length} accounts`}
+          {matches.length > PER_PAGE && `, showing ${(page - 1) * PER_PAGE + 1} to ${(page - 1) * PER_PAGE + rows.length}`}
+          {(q || show) && (
+            <>
+              {" · "}
+              <Link href="/admin/users" className="underline underline-offset-4">
+                Clear
+              </Link>
+            </>
+          )}
+        </p>
+      )}
+
+      {db && rows.length === 0 ? (
+        <p className="text-muted">{all.length ? "No account matches that." : "No accounts yet."}</p>
+      ) : (
+        <div className="overflow-x-auto rounded-[var(--radius-panel)] bg-surface ring-2 ring-ink/10">
+          <table className="w-full min-w-[960px] text-left text-sm" data-testid="admin-accounts">
+            <thead>
+              <tr className="border-b-2 border-ink/10 text-xs font-bold uppercase tracking-[0.06em] text-muted">
+                <SortHeader col="email" sort={sort} href={href} />
+                <SortHeader col="family" sort={sort} href={href} />
+                <th className="px-3 py-3">Plan</th>
+                <SortHeader col="joined" sort={sort} href={href} />
+                <SortHeader col="last_sign_in" sort={sort} href={href} />
+                <th className="px-3 py-3">Status</th>
+                <th className="px-3 py-3">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((a) => (
+                <AccountRow key={a.id} account={a} backQs={backQs} deleteHref={href({ delete: a.id })} creditsHref={href({ credits: a.id })} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {pages > 1 && (
+        <nav aria-label="Pages" className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted">
+            Page {page} of {pages}
+          </p>
+          <div className="flex gap-2">
+            {page > 1 && (
+              <Link href={href({ page: page - 1 })} className={buttonSecondary}>
+                Previous
+              </Link>
+            )}
+            {page < pages && (
+              <Link href={href({ page: page + 1 })} className={buttonSecondary}>
+                Next
+              </Link>
+            )}
+          </div>
+        </nav>
+      )}
+    </AdultPage>
+  );
+}
+
+function SortHeader({ col, sort, href }: { col: AccountSort; sort: AccountSort; href: (c: { sort: AccountSort }) => string }) {
+  const active = col === sort;
+  return (
+    <th className="px-3 py-3" aria-sort={active ? (col === "email" || col === "family" ? "ascending" : "descending") : undefined}>
+      <Link href={href({ sort: col })} className={`whitespace-nowrap hover:text-ink ${active ? "text-ink underline underline-offset-4" : ""}`}>
+        {SORT_LABEL[col]}
+        {active ? (col === "email" || col === "family" ? " ↑" : " ↓") : ""}
+      </Link>
+    </th>
+  );
+}
+
+function Badge({ tone, children }: { tone: string; children: React.ReactNode }) {
+  return <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-bold ${tone}`}>{children}</span>;
+}
+
+function AccountRow({ account: a, backQs, deleteHref, creditsHref }: { account: AdminAccount; backQs: string; deleteHref: string; creditsHref: string }) {
+  const label = a.email ?? a.id;
+  return (
+    <tr className="border-b border-ink/10 align-top last:border-b-0">
+      <td className="px-3 py-2">
+        <Link href={`/admin/accounts/${a.id}`} className="block break-all font-semibold underline underline-offset-4">
+          {label}
+        </Link>
+        {a.name && <span className="block text-xs text-muted">{a.name}</span>}
+      </td>
+      <td className="px-3 py-2">
+        {a.homes.length ? (
+          a.homes.map((h) => (
+            <Link key={h.id} href={`/admin/families/${h.id}`} className="block underline underline-offset-4" aria-label={`Open ${h.name} in family support`}>
+              {h.name}
+            </Link>
+          ))
+        ) : (
+          <span className="text-muted">–</span>
+        )}
+      </td>
+      <td className="px-3 py-2">
+        {a.homes.length ? (
+          a.homes.map((h, i) => (
+            <span key={`${h.name}-${i}`} className="block whitespace-nowrap">
+              {h.plan ? PLAN_LABEL[h.plan.source] ?? h.plan.source : <span className="text-muted">No plan</span>}
+              {h.plan?.endsAt && <span className="text-xs text-muted"> until {adminDate(h.plan.endsAt)}</span>}
+            </span>
+          ))
+        ) : (
+          <span className="text-muted">–</span>
+        )}
+      </td>
+      <td className="whitespace-nowrap px-3 py-2">{date(a.createdAt)}</td>
+      <td className="whitespace-nowrap px-3 py-2">{a.lastSignInAt ? date(a.lastSignInAt) : <span className="text-muted">Never</span>}</td>
+      <td className="px-3 py-2">
+        <span className="flex flex-wrap gap-1">
+          {a.isAdmin && <Badge tone="bg-sunshine/50">Admin</Badge>}
+          {a.paused && <Badge tone="bg-coral/30">Paused</Badge>}
+          {!a.confirmed && <Badge tone="bg-ink/10">Unconfirmed</Badge>}
+          {!a.isAdmin && !a.paused && a.confirmed && <span className="text-muted">Active</span>}
+        </span>
+      </td>
+      <td className="px-3 py-2">
+        <span className="flex items-center justify-end gap-1">
+          {a.homes.length > 0 && (
+            <Link href={creditsHref} className="inline-flex min-h-11 items-center px-2 font-semibold underline underline-offset-4" aria-label={`Grant credits to ${label}`}>
+              Credits
+            </Link>
+          )}
+          {!a.isAdmin && (
+            <form action={a.paused ? unpauseAccountAction : pauseAccountAction}>
+              <input type="hidden" name="userId" value={a.id} />
+              <input type="hidden" name="back" value={backQs} />
+              <button className={buttonSmall} aria-label={`${a.paused ? "Unpause" : "Pause"} ${label}`}>
+                {a.paused ? "Unpause" : "Pause"}
+              </button>
+            </form>
+          )}
+          {!a.isAdmin && a.email && (
+            <Link href={deleteHref} className="inline-flex min-h-11 items-center px-2 font-semibold text-coral-deep underline underline-offset-4" aria-label={`Delete ${label}`}>
+              Delete
+            </Link>
+          )}
+        </span>
+      </td>
+    </tr>
+  );
+}
+
+function ConfirmDelete({ account: a, backQs, cancel }: { account: AdminAccount; backQs: string; cancel: string }) {
+  return (
+    <section aria-labelledby="delete-h" className="flex flex-col gap-3 rounded-3xl bg-coral/15 p-4 ring-2 ring-coral/40">
+      <h2 id="delete-h" className="font-display text-xl font-semibold">
+        Delete <span className="break-all">{a.email}</span>?
+      </h2>
+      <p className="text-sm">
+        This removes their voice and its audio, {a.families.length ? `families only they belong to (${a.families.join(", ")}), ` : ""}their photos and recordings, and
+        the sign-in, so the email can sign up again. It can&apos;t be undone.
+      </p>
+      <form action={deleteAccountAction} className="flex flex-wrap items-center gap-2">
+        <input type="hidden" name="userId" value={a.id} />
+        <input type="hidden" name="back" value={backQs} />
+        <label htmlFor="confirm-email" className="w-full text-sm">
+          Type <strong className="break-all">{a.email}</strong> to confirm.
+        </label>
+        <input id="confirm-email" name="confirmEmail" autoComplete="off" required autoFocus className="min-w-0 flex-1 rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/15" />
+        <Link href={cancel} className={buttonSecondary}>
+          Cancel
+        </Link>
+        <button className={buttonPrimary}>Delete account</button>
+      </form>
+    </section>
+  );
+}
+
+function GrantCredits({ account: a, balances, backQs, cancel }: { account: AdminAccount; balances: Map<string, number>; backQs: string; cancel: string }) {
+  const input = "min-w-0 w-full rounded-2xl bg-surface px-4 py-3 ring-2 ring-ink/15";
+  const balance = (id: string) => (balances.has(id) ? `${balances.get(id)!.toLocaleString("en-US")} credits now` : "balance unavailable");
+  return (
+    <section aria-labelledby="credits-h" className="flex flex-col gap-3 rounded-3xl bg-mint/20 p-4 ring-2 ring-mint/50">
+      <h2 id="credits-h" className="font-display text-xl font-semibold">
+        Grant credits to <span className="break-all">{a.email ?? a.id}</span>
+      </h2>
+      <p className="text-sm">
+        Credits go to the family, so everyone in it can use them. They&apos;re spent before paid credits and show in the family&apos;s balance right away.
+      </p>
+      <form action={grantCreditsAction} className="grid gap-3 sm:grid-cols-2">
+        <input type="hidden" name="userId" value={a.id} />
+        <input type="hidden" name="back" value={backQs} />
+        {a.homes.length === 1 ? (
+          <p className="text-sm sm:col-span-2">
+            <input type="hidden" name="householdId" value={a.homes[0]!.id} />
+            Family: <strong>{a.homes[0]!.name}</strong> ({balance(a.homes[0]!.id)})
+          </p>
+        ) : (
+          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+            <span>Family</span>
+            <select name="householdId" required className={input}>
+              {a.homes.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name} ({balance(h.id)})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <label className="flex flex-col gap-1 text-sm">
+          <span>Credits to add</span>
+          <input name="credits" inputMode="numeric" pattern="[0-9]*" required autoFocus placeholder={`1 to ${MAX_GRANT_CREDITS.toLocaleString("en-US")}`} className={input} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span>Expire after (days)</span>
+          <input name="expiresInDays" inputMode="numeric" pattern="[0-9]*" placeholder="Blank = never" className={input} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+          <span>Note (the family sees this with the credits)</span>
+          <input name="note" maxLength={200} placeholder="Credits from Readli" className={input} />
+        </label>
+        <div className="flex flex-wrap gap-2 sm:col-span-2">
+          <Link href={cancel} className={buttonSecondary}>
+            Cancel
+          </Link>
+          <button className={buttonPrimary}>Add credits</button>
+        </div>
+      </form>
+    </section>
+  );
+}

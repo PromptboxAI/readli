@@ -88,6 +88,7 @@ async function sendWithToken(db: SupabaseClient, ctx: InviteMailContext, inviter
     reportUrl: `${base}/v/respond/${respond}?action=report`,
     oneClickUnsubscribeUrl: `${base}/api/invitations/unsubscribe/${respond}`,
     linkDays: settings.linkDays,
+    coParent: inv.invitee_role === "guardian",
   });
   let delivery: "sent" | "failed" = "sent";
   let providerId: string | null = null;

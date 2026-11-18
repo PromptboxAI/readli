@@ -189,3 +189,29 @@ describe("financial report", () => {
     expect(costConfig({ FINANCE_PROVIDER_PLAN_MONTHLY_USD: "5" } as unknown as NodeJS.ProcessEnv).providerPlanMonthlyUsd).toBe(5);
   });
 });
+
+describe("sponsored family gifts", () => {
+  const gift = (household_id: string, sponsorship_id: string) => sub(household_id, { id: `g-${household_id}`, source: "sponsored", sponsorship_id });
+  const paid = (over: Record<string, unknown>) => line({ household_id: null, kind: "sponsorship", payer_id: "ruth", ...over });
+
+  it("counts the sponsor once as a paying subscriber and the families as activations, with the year at a twelfth", () => {
+    const r = financeReport(
+      input({
+        entitlements: [gift("h1", "sp-year"), gift("h2", "sp-year"), gift("h3", "sp-month"), sub("h4")],
+        revenue: [
+          paid({ sponsorship_id: "sp-year", amount_cents: 17999, billing_interval: "year", period_start: days(-30), period_end: days(335) }),
+          paid({ sponsorship_id: "sp-month", payer_id: "joe" }),
+          line({ household_id: "h4" }),
+        ],
+        usage: [{ household_id: "h1", characters: 10000, model_id: "eleven_multilingual_v2", provider_credits: 0, bytes: 0 }],
+      }),
+    );
+    expect(r.payingFamilies).toBe(1);
+    expect(r.sponsorships).toMatchObject({ sponsors: 2, sponsoredFamilies: 3, monthlyMrrCents: 1999, annualMrrCents: 1500 });
+    expect(r.subscriptionMrrCents).toBe(1999);
+    const year = r.sponsorships.margins.find((m) => m.sponsorshipId === "sp-year")!;
+    expect(year).toMatchObject({ interval: "year", families: 2, revenueCents: 1500 });
+    expect(year.costUsd).toBeCloseTo(1);
+    expect(r.households.some((h) => h.householdId === "h1" && h.revenueCents > 0)).toBe(false);
+  });
+});

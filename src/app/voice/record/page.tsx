@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { AccountVoiceSetup } from "@/components/accounts/AccountVoiceSetup";
 import { VoiceSetup } from "@/components/accounts/VoiceSetup";
 import { currentAdult } from "@/lib/auth/adult";
@@ -11,6 +10,7 @@ import { findGuestTake } from "@/lib/voice/guest-handoff";
 import { familyPage } from "@/lib/family/page-data";
 import { isParent } from "@/lib/family/storyteller";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const metadata: Metadata = { title: "Record your voice | Readli Voice", robots: { index: false } };
 
@@ -24,6 +24,8 @@ export default async function VoiceRecordPage({ searchParams }: { searchParams: 
   const deps = accountVoiceDeps(serverConfig());
   const user = deps ? await currentAdult() : null;
   const existing = deps && user ? await deps.store.findVoice(user.id).catch(() => null) : null;
+  // A recording made earlier but never kept, so they can hear and keep it instead of reading again.
+  const candidate = deps && user ? await deps.store.findCandidate(user.id).catch(() => null) : null;
   const page = user ? await familyPage() : null;
   const parent = Boolean(user && page?.enabled && isParent(page.state, user.id));
   // The take this browser recorded on /try, while its 24 hours last, so they needn't read again.
@@ -32,11 +34,14 @@ export default async function VoiceRecordPage({ searchParams }: { searchParams: 
   return (
     <AdultPage wide>
       <header className="flex flex-col gap-2">
-        <Link href={parent ? "/family/my-voice" : "/voice"} className="w-fit font-display font-semibold underline-offset-4 hover:underline">
-          ← My voice
-        </Link>
+        {next.startsWith("/family/setup") || next.startsWith("/voice/setup") ? (
+          <BackTo fallback={{ href: next.replace("step=kids", "step=voice").replace("step=share", "step=voice"), label: "Back to setup" }} className="w-fit font-display font-semibold underline-offset-4 hover:underline" />
+        ) : (
+          // A storyteller making their first voice goes back to Home, where their getting-started list says what's next.
+          <BackTo fallback={parent ? { href: "/family/my-voice", label: "My voice" } : existing ? { href: "/voice", label: "My voice" } : { href: "/home", label: "Home" }} className="w-fit font-display font-semibold underline-offset-4 hover:underline" />
+        )}
         <Eyebrow>Readli Voice</Eyebrow>
-        <h1 className="font-display text-4xl font-semibold sm:text-5xl">Make your Readli voice</h1>
+        <h1 className="font-display text-4xl font-semibold sm:text-5xl">{existing ? "Replace your Readli voice" : "Create your Readli voice"}</h1>
       </header>
       {user ? (
         <AccountVoiceSetup
@@ -45,6 +50,8 @@ export default async function VoiceRecordPage({ searchParams }: { searchParams: 
           parent={parent}
           guestTake={guestTake}
           guestCleanUp={p.cleanup === "1"}
+          fromTry={p.from === "try"}
+          waiting={candidate ? { createdAt: candidate.createdAt, cleanUp: candidate.removeBackgroundNoise } : null}
         />
       ) : (
         <>

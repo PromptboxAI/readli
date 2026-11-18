@@ -10,7 +10,7 @@ describe("who belongs on Readli Voice", () => {
     expect(isStorytellerOnly(state, parent)).toBe(false);
 
     // Invited and joined, before recording: a storyteller, never a new family.
-    state.adults.push({ id: "andrea", displayName: "Andrea", relationship: "", avatarUrl: null, tint: "bg-sky" });
+    state.adults.push({ id: "andrea", displayName: "Andrea", avatarUrl: null, tint: "bg-sky" });
     state.members.push({ householdId: DEMO_HOUSEHOLD_ID, adultId: "andrea", role: "member", joinedAt: "2026-10-22T00:00:00.000Z", removedAt: null });
     expect(isStorytellerOnly(state, "andrea")).toBe(true);
 

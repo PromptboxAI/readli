@@ -1,12 +1,15 @@
 "use client";
 
+import { HelpLink } from "@/components/help/HelpLink";
 import { displayCredits } from "@/lib/narration/credits";
 import Image from "next/image";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Availability, BookUpdate, GenerationQuote, PrepareBookView, PrepareVoiceView } from "@/lib/narration/narration";
+import { GiftShortOptions } from "@/components/sponsorship/GiftShortOptions";
 import { StorytellerAvatar } from "./StorytellerAvatar";
+import { useBack } from "@/components/nav/BackTrail";
 
 /** Units (characters) as credits, to one decimal place. */
 const n = (units: number) => displayCredits(units).toLocaleString("en-US");
@@ -32,20 +35,45 @@ const STATUS: Record<Availability, { label: string; tone: string }> = {
 
 const CHAPTER_STATUS = { ready: "Ready", preparing: "In progress", partial: "Partly ready", not_prepared: "Not prepared" } as const;
 
-function StatusBadge({ availability, testId }: { availability: Availability; testId?: string }) {
+function StatusBadge({ availability, label, testId }: { availability: Availability; label?: string; testId?: string }) {
   const s = STATUS[availability];
   return (
-    <span className={`inline-flex rounded px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${s.tone}`} data-testid={testId}>
-      {s.label}
+    <span className={`inline-flex w-fit rounded px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${s.tone}`} data-testid={testId}>
+      {label ?? s.label}
     </span>
   );
 }
 
+/** A small spinner beside the breadcrumb while the page it goes back to loads, so a tap on a phone shows it was heard. */
+function BackPending() {
+  const { pending } = useLinkStatus();
+  return pending ? <span aria-hidden="true" className="ml-2 size-4 animate-spin rounded-full border-2 border-ink/25 border-t-ink" /> : null;
+}
+
+const joinNames = (list: string[]) => (list.length <= 1 ? list.join("") : `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`);
+
+/**
+ * The book's status at the top of the page, across every narrator: "Ready for Mommy" when any voice has
+ * it ready, then partly ready, then in progress. Only when no voice has any of it does it fall back to
+ * the chosen narrator's status, such as Not prepared (Kevin, 2026-11-03).
+ */
+export function bookStatus(
+  voices: Pick<PrepareVoiceView, "name" | "availability">[],
+  chosen: Pick<PrepareVoiceView, "availability"> | null,
+): { availability: Availability; label: string } | null {
+  for (const a of ["ready", "partial", "preparing"] as const) {
+    const names = voices.filter((x) => x.availability === a).map((x) => x.name);
+    if (names.length) return { availability: a, label: `${STATUS[a].label} for ${joinNames(names)}` };
+  }
+  return chosen ? { availability: chosen.availability, label: STATUS[chosen.availability].label } : null;
+}
+
 type Target = { voiceId: string; scope: "book" | "chapter"; chapter?: number };
 
-/** Who opens first: the narrator being resumed, then your own voice, then the first storyteller. */
-function firstVoice(view: PrepareBookView, resume: Target | null) {
-  return (resume && view.voices.find((v) => v.voiceId === resume.voiceId)?.voiceId) ?? view.voices.find((v) => v.yours)?.voiceId ?? view.voices[0]?.voiceId ?? null;
+/** Who opens first: the narrator being resumed or asked for, then your own voice, then the first storyteller. */
+function firstVoice(view: PrepareBookView, resume: Target | null, prefer: string | null) {
+  const wanted = resume?.voiceId ?? prefer;
+  return (wanted && view.voices.find((v) => v.voiceId === wanted)?.voiceId) ?? view.voices.find((v) => v.yours)?.voiceId ?? view.voices[0]?.voiceId ?? null;
 }
 
 /**
@@ -53,13 +81,29 @@ function firstVoice(view: PrepareBookView, resume: Target | null) {
  * whole book or a chapter costs in Readli credits, and confirm before anything is generated.
  * `resume` reopens the confirmation after buying credits, so the parent doesn't choose again.
  */
-export function PrepareNarration({ initial, resume }: { initial: PrepareBookView; resume: Target | null }) {
+/** `inSetup`: opened from the guided setup, so a ready book goes on to setup's Listen step instead of the player. */
+export function PrepareNarration({
+  initial,
+  resume,
+  prefer = null,
+  inSetup = false,
+  fromShelf = false,
+}: {
+  initial: PrepareBookView;
+  resume: Target | null;
+  prefer?: string | null;
+  inSetup?: boolean;
+  /** Opened from the Family bookshelf on Home, so the way back leads there. */
+  fromShelf?: boolean;
+}) {
   const [view, setView] = useState(initial);
-  const [selected, setSelected] = useState<string | null>(() => firstVoice(initial, resume));
+  const [selected, setSelected] = useState<string | null>(() => firstVoice(initial, resume, prefer));
   const [pending, setPending] = useState<{ target: Target; quote: GenerationQuote } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  // The chosen narrator's details fold away under its row; tapping the row again opens or closes them.
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const url = `/api/family/books/${view.book.slug}/narration`;
   // An update being prepared counts too: the old audiobook still reads as Ready while it runs.
   const preparing = view.voices.some((v) => v.status.readiness === "preparing" || v.jobId !== null);
@@ -67,6 +111,9 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
   const v = view.voices.find((x) => x.voiceId === selected) ?? null;
   // A narration with a newer version of the story to update to; the selected narrator's first.
   const updatable = [v, ...view.voices].find((x) => x?.update && !x.jobId) ?? null;
+  const status = bookStatus(view.voices, v);
+  // Setup still to finish keeps the details open, so the next step is never hidden.
+  const needsSetup = Boolean(v && (editing || !v.shared || !v.inSlot || v.approvedFor.length === 0));
 
   const reload = useCallback(async () => {
     const res = await fetch(url, { cache: "no-store" });
@@ -152,28 +199,44 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
   };
 
   const choose = (id: string) => {
+    if (id === selected) {
+      setDetailsOpen((o) => !o);
+      setEditing(false);
+      return;
+    }
     setSelected(id);
+    setDetailsOpen(true);
     setPending(null);
     setEditing(false);
   };
 
   const creditsLink = (voice: PrepareVoiceView, need: number, target: Target) => {
     const back = `/family/books/${view.book.slug}?voice=${voice.voiceId}&scope=${target.scope}${target.chapter ? `&chapter=${target.chapter}` : ""}`;
-    return `/family/credits?need=${Math.ceil(need / view.credits.unitsPerCredit)}&return=${encodeURIComponent(back)}`;
+    return `/family/settings/plan?need=${Math.ceil(need / view.credits.unitsPerCredit)}&return=${encodeURIComponent(back)}`;
   };
 
   const openFor = (t: Target) => pending?.target.voiceId === t.voiceId && pending.target.scope === t.scope && pending.target.chapter === t.chapter;
   const confirmFor = (voice: PrepareVoiceView) =>
     pending && <Confirm view={view} voice={voice} quote={pending.quote} busy={busy} onConfirm={confirm} onCancel={() => setPending(null)} />;
 
+  // The breadcrumb goes back to wherever the book was opened from (Home, a listen page...); arriving
+  // directly it goes up to Books, or to the bookshelf it was opened from.
+  const way = useBack(fromShelf ? { href: "/family#bookshelf", label: "Family bookshelf" } : { href: "/family/books", label: "Books" });
+
   return (
     <div className="flex flex-col gap-7" data-testid="prepare-narration">
-      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-muted">
-        <Link href="/family/books" className="flex min-h-11 items-center font-semibold text-ink underline-offset-4 hover:underline" data-testid="back-link">
-          <span aria-hidden="true" className="mr-1 sm:hidden">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-muted sm:text-sm">
+        <Link
+          href={way.href}
+          onClick={way.onClick}
+          className="-ml-2 flex min-h-11 items-center rounded-lg px-2 font-display text-lg font-semibold text-ink underline-offset-4 transition-colors hover:underline active:bg-ink/10 sm:font-sans sm:text-sm"
+          data-testid="back-link"
+        >
+          <span aria-hidden="true" className="mr-1.5 sm:hidden">
             ←
           </span>
-          Family library
+          {way.label}
+          <BackPending />
         </Link>
         <span aria-hidden="true" className="hidden sm:inline">
           /
@@ -193,7 +256,9 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
             disabled={busy}
             onClick={() => {
               setSelected(updatable.voiceId);
-              void estimate({ voiceId: updatable.voiceId, scope: "book" }).then(() =>
+              void estimate(
+                updatable.update!.chapter ? { voiceId: updatable.voiceId, scope: "chapter", chapter: updatable.update!.chapter } : { voiceId: updatable.voiceId, scope: "book" },
+              ).then(() =>
                 requestAnimationFrame(() => document.querySelector('[data-testid="confirm-generation"]')?.scrollIntoView({ behavior: "smooth", block: "center" })),
               );
             }}
@@ -205,12 +270,12 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
 
       <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-8">
         {view.book.coverUrl ? (
-          <Image src={view.book.coverUrl} alt="" width={190} height={253} className="aspect-[3/4] w-28 shrink-0 rounded-lg object-cover shadow-md sm:w-44" priority />
+          <Image src={view.book.coverUrl} alt="" width={190} height={253} className="aspect-[3/4] w-40 shrink-0 self-center rounded-lg object-cover shadow-md sm:w-44 sm:self-auto" priority />
         ) : (
-          <span className={`flex aspect-[3/4] w-28 shrink-0 items-center justify-center rounded-lg p-3 text-center font-display text-lg font-semibold sm:w-44 ${view.book.tint}`}>{view.book.title}</span>
+          <span className={`flex aspect-[3/4] w-40 shrink-0 items-center justify-center self-center rounded-lg p-3 text-center font-display text-lg font-semibold sm:w-44 sm:self-auto ${view.book.tint}`}>{view.book.title}</span>
         )}
         <div className="flex min-w-0 flex-col gap-3 sm:pt-2">
-          {v && <StatusBadge availability={v.availability} testId="book-status" />}
+          {status && <StatusBadge availability={status.availability} label={status.label} testId="book-status" />}
           <h1 className="font-display text-3xl font-semibold leading-tight sm:text-4xl">{view.book.title}</h1>
           <p className="text-muted">
             {view.book.author} · {view.book.minutes < 1 ? "under a minute" : `about ${view.book.minutes} minutes`}
@@ -218,7 +283,7 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
           </p>
           <p className="max-w-2xl">
             Prepare this book once in a family voice. You can then play it here, and every child you approve finds it on their Readli Kids bookshelf.
-            Listening again never uses credits.
+            Listening again never uses credits. <HelpLink slug="prepare-a-book">How preparing works</HelpLink>
           </p>
         </div>
       </header>
@@ -258,50 +323,57 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
                 <h2 id="narrator-h" className="border-b border-ink/10 px-5 py-4 text-lg font-bold">
                   Narrator
                 </h2>
-                {view.voices.length > 1 && (
-                  <ul aria-label="Choose a narrator" className="divide-y divide-ink/10 border-b border-ink/10">
-                    {view.voices.map((x) => (
+                <ul aria-label="Choose a narrator" className="divide-y divide-ink/10">
+                  {view.voices.map((x) => {
+                    const chosen = x.voiceId === v.voiceId;
+                    const expanded = chosen && (detailsOpen || needsSetup);
+                    return (
                       <li key={x.voiceId}>
                         <button
                           type="button"
-                          aria-pressed={x.voiceId === v.voiceId}
+                          aria-pressed={chosen}
+                          aria-expanded={expanded}
                           onClick={() => choose(x.voiceId)}
-                          className={`flex w-full items-center gap-3 px-5 py-3 text-left ${x.voiceId === v.voiceId ? "bg-ivory" : "hover:bg-ivory/60"}`}
+                          className={`flex w-full items-center gap-3 px-5 py-3 text-left transition-colors active:bg-ink/10 ${chosen ? "bg-ivory" : "hover:bg-ivory/60"}`}
                           data-testid={`narrator-${x.voiceId}`}
                         >
-                          <span
-                            aria-hidden="true"
-                            className={`size-4 shrink-0 rounded-full border-2 ${x.voiceId === v.voiceId ? "border-[5px] border-ink" : "border-ink/30"}`}
-                          />
+                          <span aria-hidden="true" className={`size-4 shrink-0 rounded-full border-2 ${chosen ? "border-[5px] border-ink" : "border-ink/30"}`} />
                           <StorytellerAvatar name={x.name} avatarUrl={x.avatarUrl} tint={x.tint} size="xs" />
                           <span className="min-w-0 flex-1 font-semibold">
                             {x.name}
                             {x.yours && <span className="font-normal text-muted"> (your voice)</span>}
                           </span>
                           <StatusBadge availability={x.availability} testId="availability" />
+                          <svg aria-hidden="true" viewBox="0 0 24 24" className={`size-5 shrink-0 text-muted transition-transform ${expanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M6 9l6 6 6-6" />
+                          </svg>
                         </button>
+                        {expanded && (
+                          <div className="border-t border-ink/10" data-testid="narrator-details">
+                            <NarratorDetails
+                              view={view}
+                              voice={v}
+                              busy={busy}
+                              showSetup={needsSetup}
+                              onEdit={() => setEditing(true)}
+                              onDone={editing && v.shared && v.inSlot && v.approvedFor.length > 0 ? () => setEditing(false) : null}
+                              onShare={() => setUp(`/api/family/voices/${v.voiceId}/share`, "PUT", { householdId: view.householdId, shared: true }, "Your voice is shared with this family.")}
+                              onSlot={() => setUp("/api/family/narrators", "POST", { voiceId: v.voiceId, action: "activate" }, `${v.name} is in a narrator slot.`)}
+                              onApprove={(kid, approved) =>
+                                setUp(
+                                  `/api/family/kids/${kid.id}/storytellers`,
+                                  "PUT",
+                                  { changes: [{ voiceId: v.voiceId, approved }] },
+                                  approved ? `${kid.name} can listen to ${v.name}.` : `${kid.name} can no longer listen to ${v.name}.`,
+                                )
+                              }
+                            />
+                          </div>
+                        )}
                       </li>
-                    ))}
-                  </ul>
-                )}
-                <NarratorDetails
-                  view={view}
-                  voice={v}
-                  busy={busy}
-                  showSetup={editing || !v.shared || !v.inSlot || v.approvedFor.length === 0}
-                  onEdit={() => setEditing(true)}
-                  onDone={editing && v.shared && v.inSlot && v.approvedFor.length > 0 ? () => setEditing(false) : null}
-                  onShare={() => setUp(`/api/family/voices/${v.voiceId}/share`, "PUT", { householdId: view.householdId, shared: true }, "Your voice is shared with this family.")}
-                  onSlot={() => setUp("/api/family/narrators", "POST", { voiceId: v.voiceId, action: "activate" }, `${v.name} is in a narrator slot.`)}
-                  onApprove={(kid, approved) =>
-                    setUp(
-                      `/api/family/kids/${kid.id}/storytellers`,
-                      "PUT",
-                      { changes: [{ voiceId: v.voiceId, approved }] },
-                      approved ? `${kid.name} can listen to ${v.name}.` : `${kid.name} can no longer listen to ${v.name}.`,
-                    )
-                  }
-                />
+                    );
+                  })}
+                </ul>
               </section>
 
               {view.chapterGenerationEnabled && v.availability !== "unavailable" && (
@@ -322,6 +394,10 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
                   <ol className="divide-y divide-ink/10 border-t border-ink/10 sm:border-t-0">
                     {v.chapters.map((c) => {
                       const target: Target = { voiceId: v.voiceId, scope: "chapter", chapter: c.number };
+                      // The chapter this narrator's running preparation is for, so a page opened later still shows it here.
+                      const running = c.readiness === "preparing" ? (v.job?.chapter?.number === c.number ? v.job : null) : null;
+                      const status = CHAPTER_STATUS[c.readiness];
+                      const pct = c.sentences ? Math.round((c.ready / c.sentences) * 100) : 0;
                       return (
                         <li key={c.number} className="flex flex-col gap-3 px-5 py-3" data-testid={`chapter-${c.number}`}>
                           <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 sm:grid-cols-[2rem_minmax(0,1fr)_5rem_7rem_6.5rem]">
@@ -330,19 +406,52 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
                               {c.title}
                               <span className="block text-sm text-muted sm:hidden">
                                 {c.credits > 0 ? `${n(c.credits)} credits · ` : ""}
-                                {CHAPTER_STATUS[c.readiness]}
+                                {status}
                               </span>
                             </span>
                             <span className="hidden text-right tabular-nums sm:block">{c.credits > 0 ? n(c.credits) : "—"}</span>
-                            <span className="hidden text-muted sm:block">{CHAPTER_STATUS[c.readiness]}</span>
+                            <span className="hidden text-muted sm:block" data-testid={`chapter-${c.number}-status`}>
+                              {status}
+                            </span>
                             <span className="text-right">
-                              {c.credits > 0 && c.readiness !== "preparing" && (
-                                <button type="button" className={btnSmall} disabled={busy || c.credits > balance} onClick={() => estimate(target)}>
-                                  Prepare
+                              {c.readiness === "ready" && v.canListen ? (
+                                <Link href={`/family/books/${view.book.slug}/listen?voice=${v.voiceId}&chapter=${c.number}`} className={btnSmall} data-testid={`chapter-${c.number}-listen`}>
+                                  <span aria-hidden="true" className="mr-1">
+                                    ▶
+                                  </span>
+                                  Listen<span className="sr-only"> to chapter {c.number}</span>
+                                </Link>
+                              ) : running ? (
+                                <button type="button" className={btnSmall} disabled={busy} onClick={() => cancel(v)}>
+                                  Stop
                                 </button>
+                              ) : (
+                                c.credits > 0 &&
+                                c.readiness !== "preparing" && (
+                                  <button type="button" className={btnSmall} disabled={busy || c.credits > balance} onClick={() => estimate(target)}>
+                                    Prepare
+                                  </button>
+                                )
                               )}
                             </span>
                           </div>
+                          {c.readiness === "preparing" && (
+                            <div className="flex items-center gap-3" data-testid={`chapter-${c.number}-progress`}>
+                              <div
+                                className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink/10"
+                                role="progressbar"
+                                aria-valuenow={pct}
+                                aria-valuemin={0}
+                                aria-valuemax={100}
+                                aria-label={`Chapter ${c.number}: ${pct}% prepared`}
+                              >
+                                <div className="h-full rounded-full bg-ink" style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className="text-sm text-muted tabular-nums">
+                                {c.ready} of {c.sentences} sentences
+                              </span>
+                            </div>
+                          )}
                           {openFor(target) && confirmFor(v)}
                         </li>
                       );
@@ -353,6 +462,7 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
             </div>
 
             <WholeBook
+              inSetup={inSetup}
               view={view}
               voice={v}
               busy={busy}
@@ -393,6 +503,7 @@ export function PrepareNarration({ initial, resume }: { initial: PrepareBookView
 
 /** The whole-book purchase area: cost, what you have, and one clear next step. */
 function WholeBook({
+  inSetup,
   view,
   voice: v,
   busy,
@@ -401,6 +512,7 @@ function WholeBook({
   getCredits,
   confirm,
 }: {
+  inSetup: boolean;
   view: PrepareBookView;
   voice: PrepareVoiceView;
   busy: boolean;
@@ -412,6 +524,9 @@ function WholeBook({
   const balance = view.credits.available;
   const short = Math.max(0, v.missingCredits - balance);
   const pct = Math.round((v.status.ready / v.status.total) * 100);
+  // Only one chapter is being prepared: that shows on its row, and the whole book can still be prepared from here.
+  const chapterJob = v.job?.scope === "chapter" ? v.job : null;
+  const bookPreparing = v.status.readiness === "preparing" && !chapterJob;
   return (
     <aside aria-labelledby="whole-h" className={`${card} flex flex-col gap-4 p-5`}>
       <div>
@@ -421,9 +536,26 @@ function WholeBook({
         <p className="text-sm text-muted">Read by {v.name}</p>
       </div>
 
+      {chapterJob?.chapter && (
+        <p className="rounded-lg bg-sky/20 p-3 text-sm" data-testid="chapter-preparing">
+          Preparing chapter {chapterJob.chapter.number}, {chapterJob.chapter.title}: {chapterJob.ready} of {chapterJob.total} sentences.{" "}
+          <a href="#chapters" className="font-semibold underline underline-offset-4">
+            See chapters
+          </a>
+        </p>
+      )}
+
       {v.lastFailure && v.status.readiness !== "preparing" && (
         <p className="rounded-lg bg-coral/15 p-3 text-sm font-semibold" data-testid="last-failure">
-          {v.lastFailure} You can try again.
+          {v.lastFailure} {v.voiceRefused ? "" : "You can try again."}
+          {v.voiceRefused && v.yours && (
+            <>
+              {" "}
+              <Link href={`/voice/record?next=${encodeURIComponent(`/family/books/${view.book.slug}`)}`} className="underline underline-offset-4" data-testid="record-again">
+                Record my voice again
+              </Link>
+            </>
+          )}
         </p>
       )}
 
@@ -432,8 +564,11 @@ function WholeBook({
           <p className="text-sm">
             {v.approvedFor.length ? `It's on ${v.approvedFor.join(" and ")}'s bookshelf in Readli Kids.` : "Choose who can listen under Narrator to put it on a bookshelf."}
           </p>
-          <Link href={`/family/books/${view.book.slug}/listen?voice=${v.voiceId}`} className={btnPrimary}>
-            Play now
+          <Link
+            href={inSetup ? `/family/setup?step=listen&book=${view.book.slug}&voice=${v.voiceId}` : `/family/books/${view.book.slug}/listen?voice=${v.voiceId}`}
+            className={btnPrimary}
+          >
+            {inSetup ? "Next: listen to it" : "Play now"}
           </Link>
           {v.update && !confirm && <UpdateAvailable update={v.update} preparing={Boolean(v.jobId)} busy={busy} onEstimate={onEstimate} />}
         </div>
@@ -450,7 +585,7 @@ function WholeBook({
             `Finish setting up ${v.name} under Narrator to prepare this book.`
           )}
         </p>
-      ) : v.status.readiness === "preparing" ? (
+      ) : bookPreparing ? (
         <div className="flex flex-col gap-3">
           <div className="h-2 overflow-hidden rounded-full bg-ink/10" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`${v.name}: ${pct}% prepared`}>
             <div className="h-full rounded-full bg-ink" style={{ width: `${pct}%` }} />
@@ -473,6 +608,11 @@ function WholeBook({
             <dd className="text-right" data-testid="balance">
               {n(balance)}
             </dd>
+            {view.gift && (
+              <dd className="col-span-2 text-sm text-muted" data-testid="balance-sources">
+                From {view.gift.giverName}&apos;s gift: {n(view.credits.bySource.subscription)} · Bought by you: {n(view.credits.bySource.purchased + view.credits.bySource.promotional)}
+              </dd>
+            )}
             {short > 0 && (
               <>
                 <dt className="border-t border-ink/10 pt-2 text-muted">Still needed</dt>
@@ -490,19 +630,25 @@ function WholeBook({
             <button type="button" className={btnPrimary} disabled={busy || short > 0} onClick={onEstimate}>
               {v.status.ready ? "Prepare the rest" : "Prepare whole book"}
             </button>
-            {short > 0 && view.canBuyCredits && (
+            {short > 0 && view.gift && (
+              <GiftShortOptions giverName={view.gift.giverName} renewsAt={view.gift.renewsAt} chapters={view.chapterGenerationEnabled} buyCreditsHref={view.canBuyCredits ? getCredits : null} />
+            )}
+            {short > 0 && !view.gift && view.canBuyCredits && (
               <Link href={getCredits} className={btnAccent} data-testid="get-credits">
                 Buy more credits
               </Link>
             )}
-            {short > 0 && view.chapterGenerationEnabled && (
+            {short > 0 && !view.gift && view.chapterGenerationEnabled && (
               <a href="#chapters" className={btnSecondary}>
                 Prepare by chapter
               </a>
             )}
           </div>
           {v.canListen && (
-            <Link href={`/family/books/${view.book.slug}/listen?voice=${v.voiceId}`} className="text-sm font-semibold underline underline-offset-4">
+            <Link href={`/family/books/${view.book.slug}/listen?voice=${v.voiceId}`} className={btnSecondary} data-testid="listen-ready">
+              <span aria-hidden="true" className="mr-1.5">
+                ▶
+              </span>
               Listen to what&apos;s ready
             </Link>
           )}
@@ -616,11 +762,11 @@ function Confirm({
         You&apos;re never charged more than this; unused credits come back.
       </p>
       <div className="flex flex-wrap gap-2">
-        <button type="button" className={btnPrimary} disabled={busy || quote.credits > balance} onClick={onConfirm}>
-          Prepare now
-        </button>
         <button type="button" className={btnSecondary} onClick={onCancel}>
           Not now
+        </button>
+        <button type="button" className={btnPrimary} disabled={busy || quote.credits > balance} onClick={onConfirm}>
+          Prepare now
         </button>
       </div>
     </div>

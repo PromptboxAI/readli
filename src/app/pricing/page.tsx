@@ -1,21 +1,36 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PlanList } from "@/components/accounts/PlanList";
+import { PricingFreeSignup } from "@/components/accounts/PricingFreeSignup";
+import { authConfigured } from "@/lib/auth/supabase";
+import { currentAdult } from "@/lib/auth/adult";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SiteHeader } from "@/components/home/SiteHeader";
+import { Testimonials } from "@/components/home/Testimonials";
+import { VoiceStaysYours } from "@/components/home/VoiceStaysYours";
 import { SiteFooter } from "@/components/home/sections";
-import { annualSavingsPercent, monthlyTotalCents, pricing, type Pricing } from "@/lib/content/pricing";
+import { CREDIT_EXAMPLE_SLUGS, bookCredits, monthsOfCredits, storiesPerMonth } from "@/lib/content/credits-explained";
+import { annualMonthlyCents, annualSavingsPercent, monthlyTotalCents, perNightCents, pricing, type Pricing } from "@/lib/content/pricing";
+import { SPONSORED } from "@/lib/sponsorship/rules";
+import { bookPath } from "@/lib/library/paths";
+import { publicLibrary } from "@/lib/library/public";
 import { formatPrice as dollars } from "@/lib/family/plan";
 import { SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
+import { PAGE_TITLES } from "@/lib/seo/titles";
+import { PageLd } from "@/components/seo/PageLd";
 
 /** Built from the saved prices, so search results never show a price the page no longer does. */
 export async function generateMetadata(): Promise<Metadata> {
   const P = await pricing();
   return publicPageMetadata({
-    title: "Pricing | Readli",
-    description: `Readli Family is ${dollars(P.familyMonthlyCents)} a month with ${P.includedNarratorSlots} family storytellers and ${P.monthlyCredits} narration credits. Readli Voice is always free.`,
+    title: PAGE_TITLES.pricing,
+    description: pricingDescription(P),
     path: "/pricing",
   });
+}
+
+function pricingDescription(P: Pricing): string {
+  return `Readli Family is ${dollars(P.familyMonthlyCents)} a month with ${P.includedNarratorSlots} family storytellers and ${P.monthlyCredits} narration credits. Readli Voice is always free.`;
 }
 
 /** The plans as schema.org offers, matching the prices shown on the page. */
@@ -40,11 +55,11 @@ function pricingLd(P: Pricing) {
 // Shows the prices an admin saved, so it renders per request.
 export const dynamic = "force-dynamic";
 
-const familyHighlights = (P: Pricing) => [
+const familyHighlights = (P: Pricing, stories: number) => [
   `${P.includedNarratorSlots} family storytellers included`,
   `${P.maxChildProfiles} child profiles`,
   `${P.simultaneousListeners} children listening at once`,
-  `${P.monthlyCredits} narration credits every month`,
+  `${P.monthlyCredits} narration credits every month, about ${stories} new bedtime stories`,
   "Replay your prepared stories as often as you like",
   "Invite loved ones to share their voices for free",
 ];
@@ -70,12 +85,25 @@ const NARRATOR_EXAMPLES = [
   { who: "Mom + Dad + Grandma + Grandpa", count: 4 },
 ];
 
+/** Readli's gift, Sponsored Family: one plan shared by up to two families, paid by the giver. */
+const GIFTS = [
+  { id: "annual", name: "A whole year", price: dollars(SPONSORED.annualCents), summary: "Paid once. It never renews on its own." },
+  { id: "monthly", name: "Month to month", price: `${dollars(SPONSORED.monthlyCents)} a month`, summary: "You cover it each month until you stop." },
+];
+
 export default async function PricingPage() {
   const P = await pricing();
+  const library = publicLibrary();
+  const stories = storiesPerMonth(P.monthlyCredits, library, P.charactersPerCredit);
+  const perNight = perNightCents(P);
+  // The free signup is for visitors; a signed-in grown-up already has the welcome or their family.
+  const offerFreeSignup = authConfigured() && !(await currentAdult());
+  const examples = CREDIT_EXAMPLE_SLUGS.map((slug) => library.find((b) => b.slug === slug && b.characters !== null)).filter((b) => b !== undefined);
   return (
     <>
       <SiteHeader />
       <main className="flex flex-col">
+        <PageLd path="/pricing" title={PAGE_TITLES.pricing} description={pricingDescription(P)} />
         <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(pricingLd(P))} />
         <section aria-labelledby="pricing-heading" className="bg-sunshine/35 px-4 pb-10 pt-12 sm:px-6 sm:pt-16">
           <div className="mx-auto flex max-w-3xl flex-col items-center gap-3 text-center">
@@ -87,36 +115,53 @@ export default async function PricingPage() {
         </section>
 
         <section aria-label="Plans" className="bg-sunshine/35 px-4 pb-14 sm:px-6">
-          <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-[1.25fr_1fr]">
+          <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-2">
             <article
               aria-labelledby="plan-family"
               data-testid="plan-family"
-              className="flex flex-col gap-5 rounded-[var(--radius-panel)] border-[3px] border-ink bg-surface p-6 shadow-[6px_8px_0_rgba(40,53,72,0.15)] sm:p-8"
+              className="relative flex flex-col gap-4 rounded-[var(--radius-panel)] border-[5px] border-coral-deep bg-surface p-6 pt-8 shadow-[8px_10px_0_rgba(40,53,72,0.2)] sm:p-8 sm:pt-10"
             >
+              {/* Marked as the recommended plan (site audit, 2026-11). */}
+              <p
+                className="absolute -top-4 left-6 rounded-full border-[3px] border-ink bg-sunshine px-4 py-1 font-display text-sm font-semibold uppercase tracking-[0.08em] sm:left-8"
+                data-testid="plan-family-badge"
+              >
+                Most popular
+              </p>
               <div className="flex flex-col gap-1">
                 <h2 id="plan-family" className="font-display text-3xl font-semibold">
                   Readli Family
                 </h2>
-                <p className="font-display text-4xl font-semibold">
+                <p className="font-display text-2xl">
                   {dollars(P.familyMonthlyCents)}
                   <span className="text-lg font-normal text-muted">/month</span>
                 </p>
-                <p className="text-muted">
+                {/* Yearly shown as a monthly figure too, so the two prices compare at a glance (SleepyTale review, 2026-11). */}
+                <p className="text-lg" data-testid="plan-family-annual">
                   or{" "}
-                  <Link href="/signup/family?billing=annual" className="font-semibold text-ink underline underline-offset-4">
-                    {dollars(P.familyAnnualCents)}/year
+                  <Link href="/signup/family?billing=annual" className="font-display font-semibold text-ink underline underline-offset-4">
+                    {dollars(annualMonthlyCents(P))}/month billed yearly
                   </Link>
-                  , about {annualSavingsPercent(P)}% less than paying monthly
+                  <span className="text-muted">
+                    {" "}
+                    ({dollars(P.familyAnnualCents)}/year{annualSavingsPercent(P) > 0 ? `, save ${annualSavingsPercent(P)}%` : ""})
+                  </span>
+                </p>
+                <p className="mt-1 font-semibold text-coral-deep" data-testid="plan-family-per-night">
+                  About {perNight.monthly} cents a night for the whole family, or {perNight.annual} cents with yearly billing.
                 </p>
               </div>
-              <PlanList items={familyHighlights(P)} />
+              <PlanList items={familyHighlights(P, stories)} />
               <div className="mt-auto flex flex-col gap-2">
                 <Link href="/signup/family" className={`${buttonPrimary} w-full`}>
                   Start your family
                 </Link>
-                <p className="text-center text-sm text-muted">
-                  Try it free for {P.trialDays} days with {P.trialCredits} narration credits. Card required, cancel any time.
-                  Family accounts open soon, and nothing is charged yet.
+                <p className="text-center text-sm text-muted" data-testid="plan-family-guarantee">
+                  Monthly or yearly, cancel any time.{" "}
+                  <Link href="/help/billing-credits-and-gifts/money-back-guarantee" className="font-semibold text-ink underline underline-offset-4">
+                    14-day money-back guarantee
+                  </Link>
+                  .
                 </p>
               </div>
             </article>
@@ -124,14 +169,14 @@ export default async function PricingPage() {
             <article
               aria-labelledby="plan-voice"
               data-testid="plan-voice"
-              className="flex flex-col gap-5 rounded-[var(--radius-panel)] bg-mint/60 p-6 ring-2 ring-ink/10 sm:p-8"
+              className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-mint/50 p-6 ring-2 ring-ink/10 sm:p-8"
             >
               <div className="flex flex-col gap-1">
                 <h2 id="plan-voice" className="font-display text-3xl font-semibold">
                   Readli Voice
                 </h2>
-                <p className="font-display text-4xl font-semibold">Always free</p>
-                <p className="text-muted">Record your voice once. Share it with the families you love.</p>
+                <p className="font-display text-2xl">Always free</p>
+                <p>Record your voice once. Share it with the families you love.</p>
               </div>
               <PlanList items={VOICE_HIGHLIGHTS} />
               <Link href="/signup/voice" className={`${buttonSecondary} mt-auto w-full`}>
@@ -139,7 +184,10 @@ export default async function PricingPage() {
               </Link>
             </article>
           </div>
+          {offerFreeSignup && <PricingFreeSignup />}
         </section>
+
+        <Testimonials />
 
         <section aria-labelledby="extras-heading" className="px-4 py-14 sm:px-6">
           <div className="mx-auto flex max-w-5xl flex-col gap-6">
@@ -218,7 +266,7 @@ export default async function PricingPage() {
           </div>
         </section>
 
-        <section aria-labelledby="difference-heading" className="bg-mint/40 px-4 py-14 sm:px-6">
+        <section id="credits" aria-labelledby="difference-heading" className="scroll-mt-20 bg-mint/40 px-4 py-14 sm:px-6">
           <div className="mx-auto flex max-w-5xl flex-col gap-6">
             <h2 id="difference-heading" className="text-center font-display text-3xl font-semibold sm:text-4xl">
               Storytellers and credits are different
@@ -234,15 +282,102 @@ export default async function PricingPage() {
               <div className="flex flex-col gap-2 rounded-[var(--radius-panel)] bg-surface p-6 sm:p-8">
                 <h3 className="font-display text-2xl font-semibold">Narration credits: how much new reading</h3>
                 <p>
-                  One credit prepares {P.charactersPerCredit.toLocaleString("en-US")} characters of new narration. Your household shares{" "}
-                  {P.monthlyCredits} credits a month, and they refresh each month. Readli shows exactly how many credits a story needs
-                  before you confirm.
+                  One credit prepares {P.charactersPerCredit.toLocaleString("en-US")} characters of new narration, about one minute of reading.
+                  Your household shares {P.monthlyCredits} credits a month, enough for about {stories} new picture books in one voice, and they
+                  refresh each month. Readli shows exactly how many credits a story needs before you confirm.
                 </p>
               </div>
             </div>
+            {examples.length > 0 && (
+              <div className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-6 sm:p-8" data-testid="credit-examples">
+                <h3 className="font-display text-2xl font-semibold">What {P.monthlyCredits} credits read</h3>
+                <p>
+                  Each story costs credits once for each voice you prepare it in. After that, it plays again for free, as often as your
+                  children like.
+                </p>
+                <table className="w-full text-left">
+                  <caption className="sr-only">Credits to prepare example books in one voice</caption>
+                  <thead>
+                    <tr className="border-b-2 border-ink/15 text-sm text-muted">
+                      <th scope="col" className="py-2 font-semibold">
+                        Book
+                      </th>
+                      <th scope="col" className="py-2 font-semibold">
+                        Reading time
+                      </th>
+                      <th scope="col" className="py-2 text-right font-semibold">
+                        Credits, one voice
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {examples.map((b) => {
+                      const credits = bookCredits(b.characters!, P.charactersPerCredit);
+                      return (
+                        <tr key={b.slug} className="border-b border-ink/10 align-top last:border-0">
+                          <td className="py-2 pr-3">
+                            <Link href={bookPath(b.slug)} className="underline-offset-4 hover:underline">
+                              {b.title}
+                            </Link>
+                          </td>
+                          <td className="py-2 pr-3">About {Math.max(1, Math.round(b.minutes))} min</td>
+                          <td className="py-2 text-right font-semibold">
+                            {credits}
+                            {credits > P.monthlyCredits && (
+                              <span className="block text-sm font-normal text-muted">
+                                about {monthsOfCredits(credits, P.monthlyCredits)} months, a chapter at a time
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <p className="text-sm text-muted">
+                  Long chapter books can be prepared one chapter at a time, so you only spend credits on what you&apos;ll read next.
+                </p>
+              </div>
+            )}
             <div className="flex flex-col gap-3 rounded-[var(--radius-panel)] bg-surface p-6 sm:p-8">
               <h3 className="font-display text-2xl font-semibold">These never use credits</h3>
               <PlanList items={NO_CREDITS} className="sm:grid sm:grid-cols-2" />
+            </div>
+          </div>
+        </section>
+
+        <VoiceStaysYours />
+
+        <section aria-labelledby="gift-heading" className="bg-coral/15 px-4 py-14 sm:px-6" data-testid="pricing-gift">
+          <div className="mx-auto flex max-w-5xl flex-col gap-6">
+            <div className="flex flex-col gap-2 text-center">
+              <h2 id="gift-heading" className="font-display text-3xl font-semibold sm:text-4xl">
+                Give Readli as a gift
+              </h2>
+              <p className="text-lg">
+                Give the stories as well as the voice. Your gift covers Readli Family for up to {SPONSORED.households} families you love,
+                and they never enter a card.
+              </p>
+            </div>
+            <ul className="mx-auto grid w-full max-w-3xl gap-4 sm:grid-cols-2">
+              {GIFTS.map((g) => (
+                <li key={g.id} className="flex flex-col gap-1 rounded-[var(--radius-panel)] bg-surface p-6 text-center">
+                  <span className="font-display text-xl font-semibold">{g.name}</span>
+                  <span className="font-display text-3xl font-semibold">{g.price}</span>
+                  <span className="text-sm text-muted">{g.summary}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-col items-center gap-2 text-center">
+              <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
+                <Link href="/gift/family" className={`${buttonPrimary} w-full sm:w-auto`}>
+                  Give a gift
+                </Link>
+                <Link href="/gifts" className={`${buttonSecondary} w-full sm:w-auto`}>
+                  How gifts work
+                </Link>
+              </div>
+              <p className="text-sm text-muted">Families are never charged for your gift. When it ends, each family chooses whether to keep going.</p>
             </div>
           </div>
         </section>

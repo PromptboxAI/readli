@@ -30,6 +30,8 @@ describe("email outbox", () => {
     const row = s.tables.email_outbox![0]!;
     expect(s.mailer.sent[0]).toMatchObject({ to: "parent@example.com", subject: "Hello", idempotencyKey: `outbox-${row.id}`, headers: message.headers });
     expect(row.status).toBe("sent");
+    // The body (with its links) is gone once it's sent.
+    expect(row).toMatchObject({ html: "", body: "" });
     expect(await s.run()).toMatchObject({ sent: 0 });
   });
 
@@ -45,7 +47,7 @@ describe("email outbox", () => {
     const s = setup([]);
     await s.queue([{}]);
     expect(await s.run()).toMatchObject({ sent: 0, canceled: 1 });
-    expect(s.tables.email_outbox![0]).toMatchObject({ status: "canceled", last_error: "switched_off" });
+    expect(s.tables.email_outbox![0]).toMatchObject({ status: "canceled", last_error: "switched_off", html: "", body: "" });
   });
 
   it("never emails an address that bounced or complained, even transactional email", async () => {
@@ -61,6 +63,19 @@ describe("email outbox", () => {
     s.tables.email_preferences = [{ user_id: PARENT, marketing: true }];
     await s.queue([{ emailId: "BT1", dedupeKey: "BT1:w2" }]);
     expect(await s.run()).toMatchObject({ sent: 1 });
+  });
+
+  it("sends commercial email to someone without an account only while they're opted in", async () => {
+    const s = setup(["BT1"]);
+    const to = { email: "pat@example.com" };
+    await s.queue([{ emailId: "BT1", dedupeKey: "BT1:c1", to }]);
+    expect(await s.run()).toMatchObject({ suppressed: 1 });
+    s.tables.email_marketing_contacts = [{ email_hash: emailHash(SECRET, "pat@example.com"), unsubscribed_at: null }];
+    await s.queue([{ emailId: "BT1", dedupeKey: "BT1:c2", to }]);
+    expect(await s.run()).toMatchObject({ sent: 1 });
+    s.tables.email_marketing_contacts[0]!.unsubscribed_at = NOW.toISOString();
+    await s.queue([{ emailId: "BT1", dedupeKey: "BT1:c3", to }]);
+    expect(await s.run()).toMatchObject({ suppressed: 1 });
   });
 
   it("respects a turned-off topic", async () => {
@@ -128,5 +143,16 @@ describe("Resend webhook events", () => {
     expect(JSON.stringify(tables.email_events)).not.toContain("gone@example.com");
     const soft = { id: "evt_2", type: "email.bounced", data: { email_id: "re_1", to: ["busy@example.com"], bounce: { type: "Transient" } } };
     expect(await recordEmailEvent(db, soft)).toEqual({ duplicate: false, suppressed: 0 });
+  });
+
+  it("keeps the outcome when later opens, clicks or a late delivered event arrive", async () => {
+    const { db, tables } = fakeEmailDb({ email_outbox: [{ id: "o1", provider_ref: "re_9", status: "sent" }] });
+    await recordEmailEvent(db, { id: "e1", type: "email.delivered", data: { email_id: "re_9" } });
+    await recordEmailEvent(db, { id: "e2", type: "email.opened", data: { email_id: "re_9" } });
+    expect(tables.email_outbox![0]!.last_event).toBe("email.delivered");
+    await recordEmailEvent(db, { id: "e3", type: "email.complained", data: { email_id: "re_9" } });
+    await recordEmailEvent(db, { id: "e4", type: "email.delivered", data: { email_id: "re_9" } });
+    expect(tables.email_outbox![0]!.last_event).toBe("email.complained");
+    expect(tables.email_events).toHaveLength(4);
   });
 });

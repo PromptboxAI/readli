@@ -1,4 +1,4 @@
-import type { CreditDraw, CreditLot, CreditSource, FamilyState } from "@/lib/family/model";
+import type { CreditDraw, CreditLot, CreditSource, FamilyState, HouseholdEntitlement } from "@/lib/family/model";
 import { activeEntitlement } from "@/lib/family/permissions";
 import type { PlanConfig } from "@/lib/family/plan";
 
@@ -50,6 +50,15 @@ export function allowanceUnits(plan: PlanConfig): number {
   return creditUnits(plan.monthlyCredits, plan);
 }
 
+/**
+ * Included credits for the billing month starting at `monthStart`. A sponsored household gets its share of
+ * the sponsor's credits, and a new share takes effect from the first month starting at or after nextCreditsFrom.
+ */
+export function monthlyAllowanceUnits(e: HouseholdEntitlement, plan: PlanConfig, monthStart: string): number {
+  const next = e.nextMonthlyCredits != null && e.nextCreditsFrom != null && Date.parse(monthStart) >= Date.parse(e.nextCreditsFrom);
+  return creditUnits(next ? e.nextMonthlyCredits! : (e.monthlyCredits ?? plan.monthlyCredits), plan);
+}
+
 /** Units for one sentence: its exact characters. What's quoted is what's reserved and charged. */
 export function creditsFor(characters: number): number {
   return Math.max(1, characters);
@@ -80,7 +89,6 @@ function subscriptionLots(state: FamilyState, plan: PlanConfig, householdId: str
       },
     ];
   }
-  const units = allowanceUnits(plan);
   const current = cycleStart(entitlement.startsAt, at);
   const lots: CreditLot[] = [];
   for (let back = plan.subscriptionRolloverMonths; back >= 0; back -= 1) {
@@ -90,10 +98,10 @@ function subscriptionLots(state: FamilyState, plan: PlanConfig, householdId: str
       id: `subscription:${entitlement.id}:${start.slice(0, 10)}`,
       householdId,
       source: "subscription",
-      credits: units,
+      credits: monthlyAllowanceUnits(entitlement, plan, start),
       grantedAt: start,
       expiresAt: addMonths(start, plan.subscriptionRolloverMonths + 1),
-      note: back === 0 ? "This month's Readli Family credits" : `Rolled over from ${start.slice(0, 10)}`,
+      note: back === 0 ? (entitlement.source === "sponsored" ? "This month's credits from your gift" : "This month's Readli Family credits") : `Rolled over from ${start.slice(0, 10)}`,
     });
   }
   return lots;
@@ -170,7 +178,7 @@ export function creditBalance(state: FamilyState, plan: PlanConfig, householdId:
     bySource,
     held: Math.max(0, held),
     usedThisPeriod: sum("commit", (e) => e.at >= since),
-    allowance: !entitlement ? 0 : entitlement.source === "trial" ? creditUnits(plan.trialCredits, plan) : allowanceUnits(plan),
+    allowance: !entitlement ? 0 : entitlement.source === "trial" ? creditUnits(plan.trialCredits, plan) : monthlyAllowanceUnits(entitlement, plan, cycleStart(entitlement.startsAt, at)),
     renewsAt: !entitlement || entitlement.source === "trial" ? null : addMonths(cycleStart(entitlement.startsAt, at), 1),
     unitsPerCredit: unitsPerCredit(plan),
     lots: lots.map((l) => ({ id: l.lot.id, source: l.lot.source, left: l.left, credits: l.lot.credits, expiresAt: l.lot.expiresAt, note: l.lot.note })),

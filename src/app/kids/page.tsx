@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
-import { FavoriteButton } from "@/components/family/FavoriteButton";
+import { KidsCover } from "@/components/family/KidsCover";
+import { KidsOffline } from "@/components/family/KidsOffline";
+import { KidsShelfGrid } from "@/components/family/KidsShelfGrid";
 import { FamilyOff, FamilyShell, GrownUpSignIn, NeedsGrownUp } from "@/components/family/FamilyShell";
 import { KidsDeviceFooter, ListenerPicker, TemporaryKidsExit } from "@/components/family/KidsDeviceControls";
 import { cookies } from "next/headers";
@@ -11,7 +13,8 @@ import { StorytellerAvatar } from "@/components/family/StorytellerAvatar";
 import { pageCount, pageOf } from "@/lib/player/pages";
 import { activeChild } from "@/lib/family/permissions";
 import { familyPage } from "@/lib/family/page-data";
-import { kidsShelf } from "@/lib/kids/shelf";
+import { kidsShelf, type ShelfBook } from "@/lib/kids/shelf";
+import type { KidsShelfItem } from "@/components/family/KidsShelfGrid";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Readli Kids" };
@@ -40,7 +43,7 @@ export default async function KidsHome() {
   if (!child) return <NeedsGrownUp text="A grown-up opens your Readli Kids bookshelf for you." />;
   // Kids browse the family's books and listen to what's already prepared; they can't start generation.
   const store = (await familyStore(page.session!))!;
-  const { resume: shelfResume, ready, waiting } = await kidsShelf(store, actor!, page.state!, child.id);
+  const { resume: shelfResume, newest, ready, waiting } = await kidsShelf(store, actor!, page.state!, child.id);
   const resume = shelfResume?.book ?? null;
   const last = shelfResume?.progress;
   const reader = shelfResume?.reader;
@@ -51,6 +54,7 @@ export default async function KidsHome() {
         <StorytellerAvatar name={child.nickname} avatarUrl={null} tint={child.tint} size="md" />
         <h1 className="font-display text-3xl font-semibold sm:text-4xl">Hi {child.nickname}! Pick a story.</h1>
       </div>
+      <KidsOffline childId={child.id} banner />
 
       {resume && last && (
         <Link
@@ -79,35 +83,12 @@ export default async function KidsHome() {
         </Link>
       )}
 
-      {/* The story in Continue listening isn't repeated here; with nothing else ready, the section steps aside. */}
-      {(ready.length > 0 || !resume) && (
-        <section className="flex flex-col gap-4" aria-labelledby="my-stories-h" data-testid="kids-ready">
-          <h2 id="my-stories-h" className="font-display text-2xl font-semibold">Ready to listen</h2>
-          {ready.length === 0 && (
-            <div className="flex flex-col items-center gap-3 rounded-[28px] bg-surface p-8 text-center ring-2 ring-ink/10" data-testid="kids-empty">
-              <ReadiMascot size={120} decorative />
-              <p className="font-display text-2xl font-semibold">No stories ready yet</p>
-              <p className="max-w-md text-lg">Ask a grown-up to get a story ready for you. It will be right here when it&apos;s done.</p>
-            </div>
-          )}
-          <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
-            {ready.map(({ book: b, voices, favorite }) => (
-              <li key={b.slug} className="relative">
-                <Link href={`/kids/listen/${b.slug}`} className="group flex flex-col gap-2">
-                  <Cover url={b.coverUrl} tint={b.tint} title={b.title} />
-                  <span className="font-display text-lg leading-tight font-semibold">{b.title}</span>
-                  <span className="text-sm text-muted">
-                    <span className="sr-only">Ready to listen, </span>with {voices.join(" or ")}
-                  </span>
-                </Link>
-                <span className="absolute top-2 right-2 rounded-full bg-surface/90">
-                  <FavoriteButton childId={child.id} bookSlug={b.slug} title={b.title} initial={favorite} />
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <KidsShelfGrid
+        childId={child.id}
+        showEmpty={!resume}
+        newest={newest.map(toItem)}
+        books={ready.map(toItem)}
+      />
 
       {waiting.length > 0 && (
         <Link
@@ -118,7 +99,7 @@ export default async function KidsHome() {
           <span className="flex" aria-hidden="true">
             {waiting.slice(0, 5).map((b) => (
               <span key={b.slug} className="-mr-1.5 w-12 overflow-hidden rounded-lg border-2 border-surface shadow-[0_2px_0_rgb(40_53_72/0.12)]">
-                <Cover url={b.coverUrl} tint={b.tint} title="" />
+                <KidsCover url={b.coverUrl} tint={b.tint} title="" />
               </span>
             ))}
           </span>
@@ -145,17 +126,8 @@ export default async function KidsHome() {
   );
 }
 
-function Cover({ url, tint, title }: { url: string | null; tint: string; title: string }) {
-  return (
-    <span className={`relative block aspect-[3/4] overflow-hidden rounded-2xl shadow-[0_4px_0_rgb(40_53_72/0.12)] ring-2 ring-ink/10 ${tint}`}>
-      {url ? (
-        // eslint-disable-next-line @next/next/no-img-element -- static catalog cover art
-        <img src={url} alt="" className="size-full object-cover" />
-      ) : (
-        <span className="grid size-full place-items-center p-2 text-center font-display font-semibold">{title}</span>
-      )}
-    </span>
-  );
+function toItem({ book: b, voices, favorite }: ShelfBook): KidsShelfItem {
+  return { slug: b.slug, title: b.title, coverUrl: b.coverUrl, tint: b.tint, voices, favorite };
 }
 
 /** A device whose Readli Kids was ended by a parent, or unused for 90 days. */

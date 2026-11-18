@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Claim your Readli gift | Readli", ro
 /** Where complimentary membership QR codes and certificates point: readli.ai/claim#CODE, or a typed code. */
 export default function ClaimPage() {
   return (
-    <AdultPage wide>
+    <AdultPage wide gift>
       <ClaimFromLink />
     </AdultPage>
   );

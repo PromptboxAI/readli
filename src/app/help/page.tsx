@@ -6,9 +6,12 @@ import { ArticleList, CategoryIcon, SearchBox, StillNeedHelp } from "@/component
 import { HELP_CATEGORIES } from "@/lib/help/articles";
 import { getCategory, searchHelp } from "@/lib/help/search";
 import { publicPageMetadata } from "@/lib/seo/site";
+import { HANDOUTS } from "@/lib/help/handouts";
+import { PAGE_TITLES } from "@/lib/seo/titles";
+import { PageLd } from "@/components/seo/PageLd";
 
 export const metadata: Metadata = publicPageMetadata({
-  title: "Help Center | Readli",
+  title: PAGE_TITLES.help,
   description: "Find answers about family stories, voices, subscriptions, privacy and more.",
   path: "/help",
 });
@@ -22,6 +25,7 @@ export default async function HelpPage({ searchParams }: { searchParams: Promise
     <>
       <SiteHeader />
       <main className="flex flex-col">
+        <PageLd path="/help" title={PAGE_TITLES.help} description={metadata.description} />
         <section className="bg-mint/45 px-4 py-14 sm:px-6">
           <div className="mx-auto flex max-w-3xl flex-col items-center gap-4 text-center">
             <span aria-hidden className="grid h-16 w-16 place-items-center rounded-2xl bg-surface shadow-sm">
@@ -70,6 +74,22 @@ export default async function HelpPage({ searchParams }: { searchParams: Promise
                       <span className="font-display text-xl font-semibold">{c.title}</span>
                       <span className="text-muted">{c.blurb}</span>
                     </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section aria-labelledby="print-heading" className="flex flex-col gap-3" data-testid="printable-guides">
+            <h2 id="print-heading" className="font-display text-2xl font-semibold">
+              Printable guides
+            </h2>
+            <p className="text-muted">One-page steps in large type, for anyone who&apos;d rather follow along on paper.</p>
+            <ul className="flex flex-col gap-2">
+              {HANDOUTS.map((h) => (
+                <li key={h.slug}>
+                  <Link href={`/help/print/${h.slug}`} className="font-semibold underline underline-offset-4">
+                    {h.title}
                   </Link>
                 </li>
               ))}

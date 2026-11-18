@@ -1,7 +1,7 @@
-import { createHash } from "node:crypto";
 import { findDemoBook } from "@/lib/content/demo-books";
 import { modelCost } from "@/lib/narration/costs";
 import { currentGuest, effectiveMode, guestDemoDeps } from "@/lib/server/guest-demo";
+import { previewKey } from "@/lib/server/guest-preview";
 import { fail, NO_SESSION, PREVIEWS_OFF } from "@/lib/server/http";
 import { recordVoiceEvent } from "@/lib/server/voice-analytics";
 import { VoiceProviderError } from "@/lib/voice/provider";
@@ -9,14 +9,10 @@ import { VoiceProviderError } from "@/lib/voice/provider";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-/** Names one voice + book pair without exposing the provider voice id. */
-function previewKey(providerVoiceId: string, slug: string): string {
-  return `${createHash("sha256").update(providerVoiceId).digest("hex").slice(0, 16)}-${slug}`;
-}
-
 /**
  * Reads one demo passage in the guest's cloned voice. A story already read in this voice replays
- * from storage for free; a new one spends a preview, which is refunded if synthesis fails.
+ * from storage for free; a new one spends a preview, which is refunded if synthesis fails. The same
+ * story read again with noise clean-up switched (a new voice from the same recording) is free too.
  */
 export async function POST(req: Request) {
   const deps = guestDemoDeps();
@@ -54,7 +50,8 @@ export async function POST(req: Request) {
     });
   }
 
-  if (!(await deps.store.useGeneration(guest.id))) {
+  const againWithCleanUpSwitched = await deps.store.storyReadForLatestRecording(guest.id, book.slug).catch(() => false);
+  if (!againWithCleanUpSwitched && !(await deps.store.useGeneration(guest.id))) {
     return fail(429, "no_previews_left", "You've explored all your free stories. Create a free account to hear more in your voice.");
   }
 
@@ -80,11 +77,11 @@ export async function POST(req: Request) {
         "cache-control": "private, no-store",
         "x-readli-stand-in": standIn ? "1" : "0",
         "x-readli-cached": "0",
-        ...counts(guest.generationsUsed + 1),
+        ...counts(guest.generationsUsed + (againWithCleanUpSwitched ? 0 : 1)),
       },
     });
   } catch (err) {
-    await deps.store.refundGeneration(guest.id).catch(() => undefined);
+    if (!againWithCleanUpSwitched) await deps.store.refundGeneration(guest.id).catch(() => undefined);
     console.error("preview synthesis failed", err);
     const message = err instanceof VoiceProviderError ? err.userMessage : "We couldn't read that story just now. Please try again.";
     return fail(502, "synthesis_failed", message);

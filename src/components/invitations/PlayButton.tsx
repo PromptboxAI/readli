@@ -6,7 +6,23 @@ import { useEffect, useRef, useState } from "react";
  * Plays audio from a short-lived link fetched only when pressed, so nothing loads (or counts as a
  * listen) until a person asks for it.
  */
-export function PlayButton({ label, endpoint, body, testId }: { label: string; endpoint: string; body?: Record<string, unknown>; testId?: string }) {
+export function PlayButton({
+  label,
+  endpoint,
+  body,
+  testId,
+  large = false,
+  onEnded,
+}: {
+  label: string;
+  endpoint: string;
+  body?: Record<string, unknown>;
+  testId?: string;
+  /** The invitation page's centerpiece: a bigger button and label. */
+  large?: boolean;
+  /** Called once when the clip plays to the end. */
+  onEnded?: () => void;
+}) {
   const audio = useRef<HTMLAudioElement | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "playing" | "error">("idle");
   const [error, setError] = useState("");
@@ -26,7 +42,10 @@ export function PlayButton({ label, endpoint, body, testId }: { label: string; e
       audio.current?.pause();
       const a = new Audio(data.url);
       audio.current = a;
-      a.onended = () => setState("idle");
+      a.onended = () => {
+        setState("idle");
+        onEnded?.();
+      };
       await a.play();
       setState("playing");
     } catch (err) {
@@ -37,13 +56,13 @@ export function PlayButton({ label, endpoint, body, testId }: { label: string; e
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-4 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
+      <div className={`flex items-center gap-4 rounded-3xl bg-surface ring-2 ring-ink/10 ${large ? "p-3 sm:p-4" : "p-4"}`}>
         <button
           type="button"
           onClick={toggle}
           data-testid={testId}
           aria-label={state === "playing" ? `Pause ${label}` : `Play ${label}`}
-          className="grid size-14 shrink-0 place-items-center rounded-full bg-coral-deep text-white shadow-[0_4px_0_#8f2a1e] disabled:opacity-50"
+          className={`grid shrink-0 place-items-center rounded-full bg-coral-deep text-white shadow-[0_4px_0_#8f2a1e] disabled:opacity-50 ${large ? "size-16 sm:size-20" : "size-14"}`}
           disabled={state === "loading"}
         >
           {state === "playing" ? (
@@ -56,7 +75,7 @@ export function PlayButton({ label, endpoint, body, testId }: { label: string; e
             </svg>
           )}
         </button>
-        <span className="min-w-0 flex-1 font-display font-semibold">{state === "loading" ? "Loading…" : label}</span>
+        <span className={`min-w-0 flex-1 font-display font-semibold ${large ? "text-lg leading-snug sm:text-xl" : ""}`}>{state === "loading" ? "Loading…" : label}</span>
       </div>
       {error && (
         <p role="alert" className="text-sm text-coral-deep">

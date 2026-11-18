@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   let source: ConsentSource = "email_preferences";
   if (body.token !== undefined) {
     userId = userFromPreferencesToken(secret, body.token);
-    if (!userId) return fail(400, "bad_link", "This link doesn't work. Open the latest Readli email, or sign in and use Account settings.");
+    if (!userId) return fail(400, "bad_link", "This link doesn't work. Open the latest Readli email, or sign in and open Settings.");
   } else {
     const account = await signedInAccount();
     if (!account) return fail(401, "sign_in_required", "Please sign in to change your email settings.");

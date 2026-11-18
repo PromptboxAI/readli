@@ -17,10 +17,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ giftId:
   const { giftId, file } = await params;
   const spec = FILES[file as keyof typeof FILES];
   if (!spec) return fail(404, "not_found", "Not found.");
-  return withArtworkAdmin(async ({ db, admin, cipher, origin }) => {
+  return withArtworkAdmin(async ({ db, admin, cipher, origin, retailValue }) => {
     const art = await membershipArtwork(db, cipher, giftId);
     if (!art) return fail(404, "no_artwork", "This membership has no stored code to make artwork from.");
-    const body = file === "qr.png" ? membershipQrPng(art, origin) : file === "qr.svg" ? membershipQrSvg(art, origin) : membershipCertificate(art, origin);
+    const body = file === "qr.png" ? membershipQrPng(art, origin) : file === "qr.svg" ? membershipQrSvg(art, origin) : membershipCertificate(art, origin, { retailValue });
     await logArtworkDownload(db, admin, art.batch.id, spec.what, art.certificate);
     return download(body, `readli-${art.certificate}-${file.replace("qr.", "qr-code.")}`, spec.type);
   });

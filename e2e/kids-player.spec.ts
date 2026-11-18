@@ -102,7 +102,7 @@ test("a child asks a grown-up for a story, and it waits on Family Home with a wa
   const grownUp = await browser.newContext({ viewport: page.viewportSize() ?? undefined });
   await grownUp.addCookies(parent);
   const home = await grownUp.newPage();
-  await home.goto("/family");
+  await home.goto("/home");
   const request = home.getByTestId("request-thumbelina");
   await expect(request).toContainText("Maya would like Thumbelina");
   await expect(home.getByTestId("prepare-thumbelina")).toHaveAttribute("href", "/family/books/thumbelina");
@@ -304,7 +304,7 @@ test("the sleep timer is a deadline kept across a reload, and stops the story wh
   expect(await page.evaluate(() => window.localStorage.getItem("readli-sleep:maya"))).toBeNull();
 });
 
-test("every read-along page fits its card without scrolling", async ({ page }, info) => {
+test("every read-along page fits its card without scrolling or tiny text", async ({ page }, info) => {
   await signIn(page, "adult:sara");
   await signIn(page, "child:maya");
   await page.goto("/kids/listen/the-tale-of-peter-rabbit");
@@ -314,8 +314,45 @@ test("every read-along page fits its card without scrolling", async ({ page }, i
   for (let step = 0; step < 40 && (await next.isEnabled()); step++) {
     await expect(page.locator("[data-current]")).toBeVisible();
     await expect.poll(() => card.evaluate((el) => el.scrollHeight - el.clientHeight), { message: `sentence ${step + 1}` }).toBeLessThanOrEqual(0);
+    // Two sentences share the card only at a readable size; longer pairs show one sentence at a time.
+    const shown = await card.evaluate((el) => ({ sentences: el.querySelectorAll("p > span").length, fit: Number(el.style.getPropertyValue("--fit") || 1) }));
+    if (shown.sentences > 1) expect(shown.fit, `sentence ${step + 1}`).toBeGreaterThanOrEqual(0.85);
     await next.click();
   }
   await noOverflow(page);
   await page.screenshot({ path: `e2e/screenshots/player-read-fit-${info.project.name}.png` });
+});
+
+test.describe("with the service worker", () => {
+  test.use({ serviceWorkers: "allow" });
+
+  test("a downloaded story opens and plays with no connection, and stays while its storyteller is still allowed", async ({ page, context }, info) => {
+    await signIn(page, "adult:sara");
+    await signIn(page, "child:maya");
+    await page.goto("/kids/listen/the-lion-and-the-mouse");
+    await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+    await page.getByTestId("download-button").click();
+    await expect(page.getByTestId("download-saved")).toBeVisible({ timeout: 15_000 });
+    await noOverflow(page);
+    await page.screenshot({ path: `e2e/screenshots/player-downloaded-${info.project.name}.png` });
+
+    // Opened once while online, the bookshelf and the story are kept on the device.
+    await page.goto("/kids");
+    await expect(page.getByTestId("saved-badge")).toHaveCount(1);
+    await page.goto("/kids/listen/the-lion-and-the-mouse");
+    await expect(page.getByTestId("download-saved")).toBeVisible();
+
+    await context.setOffline(true);
+    await page.goto("/kids");
+    await expect(page.getByTestId("kids-offline")).toContainText("Stories marked Saved still play");
+    await page.goto("/kids/listen/the-lion-and-the-mouse");
+    await page.getByRole("button", { name: "Play" }).click();
+    await expect(page.getByRole("button", { name: "Pause" })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "Pause" }).click();
+    await context.setOffline(false);
+
+    // Back online, a check finds Mom's voice is still allowed: the download stays.
+    await page.goto("/kids");
+    await expect(page.getByTestId("saved-badge")).toHaveCount(1);
+  });
 });

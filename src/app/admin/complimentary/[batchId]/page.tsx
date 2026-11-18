@@ -4,26 +4,40 @@ import { notFound } from "next/navigation";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow } from "@/components/invites/AdultPage";
 import { requireAdmin } from "@/lib/admin/access";
-import { batchDetail } from "@/lib/admin/complimentary";
+import { batchDetail, EMAIL_OUTCOME_TEXT, isEmailOutcome } from "@/lib/admin/complimentary";
 import { COMPLIMENTARY_KIND_LABELS } from "@/lib/admin/complimentary-kinds";
 import { accountDb } from "@/lib/family/account-store";
 import { claimByLabel } from "@/lib/gifting/complimentary-copy";
+import { EmailBatchForm } from "./EmailBatchForm";
 import { IssuedTable } from "./IssuedTable";
+import { adminDateTime } from "@/lib/admin/time";
 
 export const metadata: Metadata = { title: "Issued memberships | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
-const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const when = (iso: string) => adminDateTime(iso);
 
 /** One batch: every membership's status, downloads, revoke and replace, and the audit trail. */
-export default async function BatchPage({ params }: { params: Promise<{ batchId: string }> }) {
+export default async function BatchPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ batchId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { batchId } = await params;
+  const sp = await searchParams;
+  const emailed = sp.emailed;
+  const organizer = sp.organizer;
+  const handout = sp.handout;
   const gate = await requireAdmin(`/admin/complimentary/${batchId}`);
   const db = gate.preview ? null : accountDb();
   const detail = db ? await batchDetail(db, batchId) : null;
   if (!detail) notFound();
   const { batch, gifts, audit } = detail;
   const live = gifts.filter((g) => g.status !== "revoked").length;
+  // Unknown winners have no one to email, so the unclaimed ones can go to whoever hands them out.
+  const unclaimed = gifts.filter((g) => g.status === "unclaimed" && g.hasArtwork && !g.recipientEmail).length;
   return (
     <AdultPage wide>
       <section className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-mint/45 p-5 sm:p-7">
@@ -49,7 +63,30 @@ export default async function BatchPage({ params }: { params: Promise<{ batchId:
           </a>
         </div>
         <p className="text-sm">Downloading again always gives the same codes. Nothing new is issued until you press Revoke and replace.</p>
+        {unclaimed > 0 && <EmailBatchForm batchId={batch.id} unclaimed={unclaimed} />}
       </section>
+
+      {isEmailOutcome(handout) && (
+        <p role={handout === "sent" || handout === "queued" ? "status" : "alert"} className={`rounded-2xl px-4 py-3 ${handout === "sent" || handout === "queued" ? "bg-mint/40" : "bg-coral/30"}`}>
+          {handout === "sent" || handout === "queued"
+            ? `${handout === "sent" ? "Emailed" : "Queued"} the codes and links to hand out.`
+            : handout === "switched_off"
+              ? "Not emailed: the give-away email (M3) is switched off in Admin, Email. Use Email them above once it's on."
+              : "The codes and links didn't send. Try Email them above."}
+        </p>
+      )}
+      {isEmailOutcome(emailed) && (
+        <p role={emailed === "sent" || emailed === "queued" ? "status" : "alert"} className={`rounded-2xl px-4 py-3 ${emailed === "sent" || emailed === "queued" ? "bg-mint/40" : "bg-coral/30"}`}>
+          {EMAIL_OUTCOME_TEXT[emailed]}
+          {emailed === "sent" || emailed === "queued" ? ` to ${gifts.find((g) => g.recipientEmail)?.recipientEmail ?? "the recipient"}.` : "."}
+          {isEmailOutcome(organizer) &&
+            (organizer === "sent" || organizer === "queued"
+              ? " The organizer was told it went out."
+              : organizer === "switched_off"
+                ? " The organizer note is switched off in Email settings."
+                : " The organizer note didn't send, so let them know yourself.")}
+        </p>
+      )}
 
       <IssuedTable batchId={batch.id} gifts={gifts} />
 

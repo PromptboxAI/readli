@@ -12,9 +12,11 @@ type Handlers = {
 /** A pause this soon after the player's own play or pause is the player's, not an interruption. */
 const OWN_MS = 1000;
 
-function make(url: string) {
+function make(url: string, rate: number) {
   const el = new Audio();
   el.preload = "auto";
+  el.defaultPlaybackRate = rate;
+  el.playbackRate = rate;
   el.src = url;
   return el;
 }
@@ -51,6 +53,7 @@ export function useGaplessAudio(handlers: Handlers) {
   on.current = handlers;
   const waiting = useRef<ReturnType<typeof setTimeout> | null>(null);
   const acted = useRef(0);
+  const speed = useRef(1);
 
   const stopWaiting = useCallback(() => {
     if (waiting.current !== null) clearTimeout(waiting.current);
@@ -73,8 +76,9 @@ export function useGaplessAudio(handlers: Handlers) {
       const buffered = ahead.current.get(key) ?? null;
       ahead.current.delete(key);
       if (current.current !== buffered) drop(current.current);
-      const el = buffered ?? (url ? make(url) : null);
+      const el = buffered ?? (url ? make(url, speed.current) : null);
       if (!el) return false;
+      el.playbackRate = speed.current;
       attach(el);
       await el.play();
       return true;
@@ -105,7 +109,7 @@ export function useGaplessAudio(handlers: Handlers) {
             ahead.current.delete(key);
             return;
           }
-          const el = make(u);
+          const el = make(u, speed.current);
           el.onerror = () => {
             if (ahead.current.get(key) === el) ahead.current.delete(key);
           };
@@ -135,6 +139,16 @@ export function useGaplessAudio(handlers: Handlers) {
     current.current?.pause();
   }, [stopWaiting]);
 
+  /** Sets the playback speed for the sentence playing and every one after it. */
+  const rate = useCallback((r: number) => {
+    speed.current = r;
+    for (const el of [current.current, ...ahead.current.values()]) {
+      if (!el) continue;
+      el.defaultPlaybackRate = r;
+      el.playbackRate = r;
+    }
+  }, []);
+
   /** Forgets the buffered sentences, after a seek or a storyteller change. */
   const clear = useCallback(() => {
     stopWaiting();
@@ -152,5 +166,5 @@ export function useGaplessAudio(handlers: Handlers) {
     [stopWaiting],
   );
 
-  return useMemo(() => ({ play, preload, buffered, after, pause, clear }), [play, preload, buffered, after, pause, clear]);
+  return useMemo(() => ({ play, preload, buffered, after, pause, clear, rate }), [play, preload, buffered, after, pause, clear, rate]);
 }

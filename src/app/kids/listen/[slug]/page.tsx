@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { FamilyOff, NeedsGrownUp } from "@/components/family/FamilyShell";
 import { KidsPlayer } from "@/components/family/KidsPlayer";
+import { KidsOffline } from "@/components/family/KidsOffline";
 import { findCatalogBook } from "@/lib/library/catalog";
 import { activeChild } from "@/lib/family/permissions";
 import { familyPage } from "@/lib/family/page-data";
@@ -32,7 +33,9 @@ export default async function KidsListen({ params }: { params: Promise<{ slug: s
   const resume = await kidsResume(store, session.actor, child.id, book.slug, voiceId);
   const texts = bookTexts(book.slug, readiness.map((r) => r.revision), store.plan.narrationModelId);
   return (
-    <KidsPlayer
+    <>
+      <KidsOffline childId={child.id} />
+      <KidsPlayer
       childId={child.id}
       childName={child.nickname}
       book={{ slug: book.slug, title: book.title, coverUrl: book.coverUrl }}
@@ -41,6 +44,7 @@ export default async function KidsListen({ params }: { params: Promise<{ slug: s
       initialNarrators={narrators}
       resume={resume}
       preview={!session.account}
-    />
+      />
+    </>
   );
 }

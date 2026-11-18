@@ -51,6 +51,7 @@ function tintFor(id: string): string {
 
 type Row = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === "string" ? v : null);
+const num = (v: unknown) => (typeof v === "number" ? v : null);
 /** A profile photo is shown only when its owner consented to it (see src/lib/account/photos.ts). */
 const avatarFor = (p: Row | undefined) => (p && str(p.avatar_path) && str(p.photo_consent_at) ? photoUrl(p.user_id as string, str(p.photo_consent_at)) : null);
 
@@ -95,17 +96,19 @@ export class AccountFamilyStore implements FamilyStore {
   async read(): Promise<FamilyState> {
     if (this.state) return this.state;
     const me = this.user.id;
-    await this.q(
-      this.db.from("adult_profiles").upsert({ user_id: me, display_name: this.user.name }, { onConflict: "user_id", ignoreDuplicates: true }),
-      "save adult profile",
-    );
-    const mine = await this.q(this.db.from("household_members").select("household_id").eq("user_id", me), "read memberships");
+    const [, mine] = await Promise.all([
+      this.q(
+        this.db.from("adult_profiles").upsert({ user_id: me, display_name: this.user.name }, { onConflict: "user_id", ignoreDuplicates: true }),
+        "save adult profile",
+      ),
+      this.q(this.db.from("household_members").select("household_id").eq("user_id", me), "read memberships"),
+    ]);
     const homeIds = [...new Set(mine.map((m) => m.household_id as string))];
     const state = emptyFamilyState();
 
     if (homeIds.length > 0) {
       const [homes, members, children, entitlements] = await Promise.all([
-        this.q(this.db.from("households").select("id, name").in("id", homeIds), "read households"),
+        this.q(this.db.from("households").select("id, name, created_by").in("id", homeIds), "read households"),
         this.q(this.db.from("household_members").select("*").in("household_id", homeIds), "read members"),
         this.q(this.db.from("child_profiles").select("*").in("household_id", homeIds), "read kids"),
         this.q(this.db.from("household_entitlements").select("*").in("household_id", homeIds), "read plans"),
@@ -125,7 +128,8 @@ export class AccountFamilyStore implements FamilyStore {
         this.q(this.db.from("voice_household_shares").select("*").in("household_id", homeIds), "read sharing"),
         this.q(this.db.from("narrator_slot_assignments").select("*").in("household_id", homeIds), "read narrator slots"),
         this.q(this.db.from("listening_sessions").select("*").in("household_id", homeIds).is("ended_at", null), "read listening"),
-        this.q(this.db.from("family_notifications").select("*").in("household_id", homeIds), "read notices"),
+        // Home only shows the last week of notices, so older ones are never read back (Kevin, 2026-11-03).
+        this.q(this.db.from("family_notifications").select("*").in("household_id", homeIds).gte("at", since), "read notices"),
         // Only recent slot releases are read back; they set the monthly narrator change limit.
         this.q(
           this.db.from("permission_audit_log").select("*").in("household_id", homeIds).eq("action", "narrator_released").gte("at", since),
@@ -135,7 +139,7 @@ export class AccountFamilyStore implements FamilyStore {
       ]);
       const profiles = await this.q(this.db.from("adult_profiles").select("user_id, display_name, avatar_path, photo_consent_at").in("user_id", people), "read people");
 
-      state.households = homes.map((h) => ({ id: h.id as string, name: h.name as string }));
+      state.households = homes.map((h) => ({ id: h.id as string, name: h.name as string, ownerId: str(h.created_by) }));
       state.members = members.map((m) => ({
         householdId: m.household_id as string,
         adultId: m.user_id as string,
@@ -143,12 +147,12 @@ export class AccountFamilyStore implements FamilyStore {
         joinedAt: m.joined_at as string,
         removedAt: str(m.removed_at),
         nickname: str(m.storyteller_nickname),
+        relationship: str(m.relationship_label),
         noticesSeenThrough: str(m.notices_seen_through),
       }));
       state.adults = people.map((id) => ({
         id,
         displayName: (profiles.find((p) => p.user_id === id)?.display_name as string) ?? "Family member",
-        relationship: str(members.find((m) => m.user_id === id && m.relationship_label)?.relationship_label) ?? "",
         avatarUrl: avatarFor(profiles.find((p) => p.user_id === id)),
         tint: tintFor(id),
       }));
@@ -169,6 +173,14 @@ export class AccountFamilyStore implements FamilyStore {
         extraStreams: Number(e.extra_streams ?? 0),
         startsAt: e.starts_at as string,
         endsAt: str(e.ends_at),
+        sponsorshipId: str(e.sponsorship_id),
+        sponsorUserId: str(e.sponsor_user_id),
+        monthlyCredits: num(e.monthly_credits),
+        nextMonthlyCredits: num(e.next_monthly_credits),
+        nextCreditsFrom: str(e.next_credits_from),
+        includedNarratorSlots: num(e.included_narrator_slots),
+        includedStreams: num(e.included_streams),
+        maxChildProfiles: num(e.max_child_profiles),
       }));
       state.favorites = favorites.map((f) => ({ childId: f.child_id as string, bookSlug: f.book_slug as string }));
       state.progress = progress.map((p) => ({
@@ -266,7 +278,7 @@ export class AccountFamilyStore implements FamilyStore {
       await this.readNarration(state, homeIds);
     }
     if (!state.adults.some((a) => a.id === me)) {
-      state.adults.push({ id: me, displayName: this.user.name, relationship: "", avatarUrl: null, tint: tintFor(me) });
+      state.adults.push({ id: me, displayName: this.user.name, avatarUrl: null, tint: tintFor(me) });
     }
     this.state = state;
     this.saved = structuredClone(state);
@@ -390,10 +402,9 @@ export class AccountFamilyStore implements FamilyStore {
     }
     for (const m of after.members) {
       const old = before.members.find((x) => x.householdId === m.householdId && x.adultId === m.adultId);
-      const relationship = after.adults.find((a) => a.id === m.adultId)?.relationship || null;
       if (!old) {
         await this.q(
-          db.from("household_members").insert({ household_id: m.householdId, user_id: m.adultId, role: m.role, relationship_label: relationship, joined_at: m.joinedAt }),
+          db.from("household_members").insert({ household_id: m.householdId, user_id: m.adultId, role: m.role, relationship_label: m.relationship || null, joined_at: m.joinedAt }),
           "add member",
         );
       } else if (old.role !== m.role || old.removedAt !== m.removedAt) {
@@ -406,6 +417,12 @@ export class AccountFamilyStore implements FamilyStore {
         await this.q(
           db.from("household_members").update({ storyteller_nickname: m.nickname ?? null }).eq("household_id", m.householdId).eq("user_id", m.adultId),
           "save nickname",
+        );
+      }
+      if (old && (old.relationship ?? null) !== (m.relationship ?? null)) {
+        await this.q(
+          db.from("household_members").update({ relationship_label: m.relationship ?? null }).eq("household_id", m.householdId).eq("user_id", m.adultId),
+          "save relationship",
         );
       }
       if (old && (old.noticesSeenThrough ?? null) !== (m.noticesSeenThrough ?? null)) {
@@ -422,7 +439,19 @@ export class AccountFamilyStore implements FamilyStore {
       const old = before.entitlements.find((x) => x.id === e.id);
       const row = { status: e.status, extra_narrator_slots: e.extraNarratorSlots, extra_streams: e.extraStreams, ends_at: e.endsAt };
       if (!old) {
-        await this.q(db.from("household_entitlements").insert({ id: e.id, household_id: e.householdId, source: e.source, starts_at: e.startsAt, ...row }), "add plan");
+        // A sponsored plan's sponsor and limits are written here only when the row is new; the sponsorship owns them
+        // after that. Other plans never send these columns.
+        const sponsored = e.source !== "sponsored" ? {} : {
+          sponsorship_id: e.sponsorshipId ?? null,
+          sponsor_user_id: e.sponsorUserId ?? null,
+          monthly_credits: e.monthlyCredits ?? null,
+          next_monthly_credits: e.nextMonthlyCredits ?? null,
+          next_credits_from: e.nextCreditsFrom ?? null,
+          included_narrator_slots: e.includedNarratorSlots ?? null,
+          included_streams: e.includedStreams ?? null,
+          max_child_profiles: e.maxChildProfiles ?? null,
+        };
+        await this.q(db.from("household_entitlements").insert({ id: e.id, household_id: e.householdId, source: e.source, starts_at: e.startsAt, ...row, ...sponsored }), "add plan");
       } else if (JSON.stringify(old) !== JSON.stringify(e)) {
         await this.q(db.from("household_entitlements").update(row).eq("id", e.id), "update plan");
       }
@@ -564,6 +593,11 @@ export class AccountFamilyStore implements FamilyStore {
       "claim narration job",
     );
     return rows.length > 0;
+  }
+
+  async jobStatus(jobId: string): Promise<JobStatus | null> {
+    const rows = await this.q(this.db.from("narration_jobs").select("status").eq("id", jobId), "read narration job status");
+    return rows.length ? (rows[0]!.status as JobStatus) : null;
   }
 
   async releaseJob(jobId: string): Promise<void> {

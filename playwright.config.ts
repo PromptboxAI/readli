@@ -8,6 +8,9 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL: "http://localhost:3100",
+    // The kids pages register a service worker, and requests it sees skip page.route. Tests that stub the
+    // network need it out of the way; the offline listening test turns it back on for itself.
+    serviceWorkers: "block",
     // Fake microphone: Chromium feeds a test tone instead of real audio.
     permissions: ["microphone"],
     launchOptions: {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
 import { trackVoiceEvent } from "@/lib/voice/track";
 
 /**
@@ -53,17 +53,17 @@ export function VoiceModelUpgrade() {
         Stories you&apos;ve already prepared stay exactly as they are; new stories use the version you choose.
       </p>
       <div className="flex flex-wrap gap-3">
-        <button type="button" className={buttonSecondary} disabled={busy !== null} onClick={() => hear("current")}>
+        <button type="button" className={parentSecondary} disabled={busy !== null} onClick={() => hear("current")}>
           {busy === "current" ? "Getting it ready…" : "Hear my voice now"}
         </button>
-        <button type="button" className={buttonSecondary} disabled={busy !== null} onClick={() => hear("latest")}>
+        <button type="button" className={parentSecondary} disabled={busy !== null} onClick={() => hear("latest")}>
           {busy === "latest" ? "Getting it ready…" : "Hear the new version"}
         </button>
       </div>
       {samples.current && <audio key={samples.current} controls src={samples.current} className="w-full" aria-label="Your voice now" />}
       {samples.latest && <audio key={samples.latest} controls src={samples.latest} className="w-full" aria-label="Your voice on the new version" />}
       {samples.latest && (
-        <button type="button" className={`${buttonPrimary} self-start`} disabled={busy !== null} onClick={switchOver}>
+        <button type="button" className={`${parentPrimary} self-start`} disabled={busy !== null} onClick={switchOver}>
           {busy === "switch" ? "Switching…" : "Switch to the new version"}
         </button>
       )}

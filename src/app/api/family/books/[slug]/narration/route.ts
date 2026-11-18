@@ -31,7 +31,7 @@ export async function GET(_req: Request, { params }: Params) {
 }
 
 /**
- * { voiceId, scope: "book" | "chapter" | "passage", chapter?, sentenceIds?, confirm }. Without
+ * { voiceId, scope: "book" | "chapter" | "passage", chapter?, sentenceIds?, welcome?, confirm }. Without
  * confirm it returns the estimate; with confirm it reserves credits and starts the job in the background.
  */
 export async function POST(req: Request, { params }: Params) {
@@ -47,6 +47,7 @@ export async function POST(req: Request, { params }: Params) {
     scope,
     chapter: typeof body.chapter === "number" ? body.chapter : undefined,
     sentenceIds: Array.isArray(body.sentenceIds) ? body.sentenceIds.filter((x): x is string => typeof x === "string").slice(0, 500) : undefined,
+    welcome: body.welcome === true,
   };
   return withFamily(async ({ store, actor, session }) => {
     const householdId = await guardianHousehold(store, actor);

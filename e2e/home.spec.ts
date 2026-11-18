@@ -13,18 +13,24 @@ test("homepage follows the design brief order with six books under the demo", as
   const books = page.getByTestId("demo-books").getByRole("article");
   await expect(books).toHaveCount(6);
 
-  // Family tree: explorable without signing up, nothing is sent.
-  const tree = page.getByTestId("family-tree");
-  // Phones open on the list, cut off after Grandpa Joe.
+  // Testimonials sit right above the closing sign-up buttons.
+  expect(headings.indexOf("Start a family library") - headings.indexOf("What families are saying")).toBe(1);
+
+  // Family tree: hidden on phones; elsewhere explorable without signing up, nothing is sent.
   const phone = (page.viewportSize()?.width ?? 1000) < 640;
-  await expect(tree.getByRole("button", { name: "List", exact: true })).toHaveAttribute("aria-pressed", String(phone));
-  await tree.getByRole("button", { name: /Grandpa Joe/ }).click();
-  const profile = page.getByRole("region", { name: "Grandpa Joe's profile" });
-  await profile.getByRole("button", { name: "Invite to record" }).click();
-  await expect(profile).toContainText("nothing was sent");
-  await tree.getByRole("button", { name: "List", exact: true }).click();
-  await expect(tree.getByRole("list", { name: "Example family members" }).getByRole("button")).toHaveCount(phone ? 4 : 11);
-  await tree.getByRole("button", { name: "Tree", exact: true }).click();
+  if (phone) {
+    await expect(page.getByTestId("home-family-circles")).toBeHidden();
+  } else {
+    const tree = page.getByTestId("family-tree");
+    await expect(tree.getByRole("button", { name: "List", exact: true })).toHaveAttribute("aria-pressed", "false");
+    await tree.getByRole("button", { name: /Grandpa Joe/ }).click();
+    const profile = page.getByRole("region", { name: "Grandpa Joe's profile" });
+    await profile.getByRole("button", { name: "Invite to record" }).click();
+    await expect(profile).toContainText("nothing was sent");
+    await tree.getByRole("button", { name: "List", exact: true }).click();
+    await expect(tree.getByRole("list", { name: "Example family members" }).getByRole("button")).toHaveCount(8);
+    await tree.getByRole("button", { name: "Tree", exact: true }).click();
+  }
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
@@ -118,7 +124,7 @@ test("terms explain both voice approvals and accessibility gives a contact", asy
 
   await page.goto("/accessibility");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Accessibility Statement");
-  await expect(page.getByRole("link", { name: "admin@readli.ai" })).toHaveAttribute("href", "mailto:admin@readli.ai");
+  await expect(page.getByRole("main").getByRole("link", { name: "admin@readli.ai" })).toHaveAttribute("href", "mailto:admin@readli.ai");
   await expect(page.getByText("IMPLEMENTATION CHECK")).toHaveCount(0);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
@@ -176,10 +182,11 @@ test("phone menu closes when tapping outside it", async ({ page }, info) => {
   await expect(menu).toBeHidden();
 });
 
-test("the closing section offers the 14-day Readli Family trial", async ({ page }) => {
+test("the closing section offers Readli Family without a free trial", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByTestId("family-trial-line")).toContainText("Try Readli Family free for 14 days. Card required, cancel any time.");
-  await expect(page.getByRole("link", { name: "Start your free trial" })).toHaveAttribute("href", "/signup/family");
+  await expect(page.getByTestId("family-plan-line")).toContainText("Readli Family is a monthly or yearly plan you can cancel any time, with a 14-day money-back guarantee.");
+  await expect(page.getByTestId("family-plan-line")).not.toContainText("free");
+  await expect(page.getByRole("link", { name: "Start your family" }).last()).toHaveAttribute("href", "/signup/family");
 });
 
 test("family journey steps through all five screens without autoplay", async ({ page }) => {

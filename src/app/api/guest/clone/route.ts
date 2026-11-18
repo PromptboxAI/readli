@@ -1,17 +1,20 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { currentGuest, effectiveMode, guestDemoDeps } from "@/lib/server/guest-demo";
 import { fail, NO_SESSION, PREVIEWS_OFF } from "@/lib/server/http";
 import { fileExtension } from "@/lib/audio/mime";
+import { attributionFrom, eventIdFrom, sendCapiEvent } from "@/lib/server/meta-capi";
 import { recordVoiceEvent } from "@/lib/server/voice-analytics";
 import { VoiceProviderError } from "@/lib/voice/provider";
+import { MAX_CLEANUP_SWITCHES_PER_RECORDING, MAX_VOICES_PER_GUEST, TOO_MANY_CLEANUP_SWITCHES, TOO_MANY_VOICES } from "@/lib/server/guest-limits";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-/** Each guest may make a few voices (retakes), never unlimited provider voice slots. */
-const MAX_VOICES_PER_GUEST = 3;
-
-/** Turns the guest's latest take into an instant voice clone. No stock voice is ever substituted. */
+/**
+ * Turns the guest's latest take into an instant voice clone. No stock voice is ever substituted. When the
+ * Try page sends a metaEventId (it does only where its pixel runs), Meta hears the Lead from here too,
+ * with that id and no voice details.
+ */
 export async function POST(req: Request) {
   const deps = guestDemoDeps();
   if ((await effectiveMode(deps)) === "off" || !deps) return fail(503, "previews_off", PREVIEWS_OFF);
@@ -20,12 +23,14 @@ export async function POST(req: Request) {
 
   const recording = await deps.store.latestRecording(guest.id);
   if (!recording) return fail(409, "no_recording", "Record your voice first, then pick a story.");
-  if ((await deps.store.voiceCount(guest.id)) >= MAX_VOICES_PER_GUEST) {
-    return fail(429, "too_many_voices", "You've made a few voices already. Pick a story to hear the latest one.");
-  }
+  // Never unlimited provider voices. The first voice for a recording counts against the overall backstop;
+  // after that, each voice is a noise clean-up switch, capped per recording.
+  const fromThisRecording = await deps.store.voicesForLatestRecording(guest.id);
+  if (fromThisRecording > MAX_CLEANUP_SWITCHES_PER_RECORDING) return fail(429, "too_many_voices", TOO_MANY_CLEANUP_SWITCHES);
+  if ((await deps.store.voiceCount(guest.id)) >= MAX_VOICES_PER_GUEST) return fail(429, "too_many_voices", TOO_MANY_VOICES);
 
   // The guest's choice from the preview panel; missing or malformed means the default (on).
-  const body = (await req.json().catch(() => null)) as { removeBackgroundNoise?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { removeBackgroundNoise?: unknown; metaEventId?: unknown } | null;
   const removeBackgroundNoise = body?.removeBackgroundNoise !== false;
 
   const previous = await deps.store.getVoice(guest.id);
@@ -38,6 +43,8 @@ export async function POST(req: Request) {
       removeBackgroundNoise,
     });
     await deps.store.setVoice(guest.id, voiceId);
+    // A new recording is a new demo: its story count starts again. Switching noise clean-up keeps the count.
+    if (fromThisRecording === 0) await deps.store.resetGenerations(guest.id);
     await recordVoiceEvent(deps.config, { name: "voice_cloned", guestSessionId: guest.id, properties: { surface: "guest", removeBackgroundNoise } });
   } catch (err) {
     console.error("clone failed", err);
@@ -47,5 +54,14 @@ export async function POST(req: Request) {
   // A retake replaces the earlier clone; remove the old one from the provider straight away.
   if (previous) await deps.provider.deleteVoice(previous).catch((err) => console.error("old voice delete failed", err));
 
-  return NextResponse.json({ status: "ready" }, { status: 201 });
+  const leadId = eventIdFrom(body?.metaEventId);
+  const attribution = leadId ? attributionFrom(req) : null;
+  if (leadId && attribution) {
+    after(() => sendCapiEvent({ name: "Lead", eventId: leadId, attribution, externalId: guest.id, customData: { content_name: "Voice demo" } }));
+  }
+  const used = fromThisRecording === 0 ? 0 : guest.generationsUsed;
+  return NextResponse.json(
+    { status: "ready", previewsLeft: Math.max(0, guest.generationsAllowed - used), previewsAllowed: guest.generationsAllowed },
+    { status: 201 },
+  );
 }

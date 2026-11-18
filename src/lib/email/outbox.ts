@@ -36,6 +36,8 @@ export interface QueuedEmail {
   dedupeKey: string;
   to: { userId: string } | { email: string };
   householdId?: string | null;
+  /** A guest's email is deleted with their guest session. */
+  guestSessionId?: string | null;
   sendAfter?: Date;
   message: EmailMessage;
 }
@@ -53,6 +55,7 @@ export async function queueEmails(db: SupabaseClient, secret: string, emails: Qu
       email_id: def.id,
       category: def.category,
       household_id: e.householdId ?? null,
+      ...(e.guestSessionId ? { guest_session_id: e.guestSessionId } : {}),
       recipient_user_id: "userId" in e.to ? e.to.userId : null,
       to_email_encrypted: "email" in e.to ? cipher.encrypt(e.to.email.trim()) : null,
       subject: e.message.subject,
@@ -120,6 +123,12 @@ async function recipientAddress(db: SupabaseClient, cipher: ProviderRefCipher, r
 }
 
 /** Every send-time rule, in order. Nothing here sends. */
+/** Someone without an account who asked for Readli news and hasn't unsubscribed. */
+async function contactConsented(db: SupabaseClient, hash: string): Promise<boolean> {
+  const rows = await q(db.from("email_marketing_contacts").select("email_hash").eq("email_hash", hash).is("unsubscribed_at", null).limit(1), "read news contacts");
+  return rows.length > 0;
+}
+
 async function decide(db: SupabaseClient, secret: string, cipher: ProviderRefCipher, switches: Set<string>, row: Row, now: Date): Promise<Outcome> {
   const def = emailDefinition(row.email_id as string);
   if (!def) return { kind: "cancel", reason: "unknown_email" };
@@ -143,7 +152,7 @@ async function decide(db: SupabaseClient, secret: string, cipher: ProviderRefCip
 
   const userId = typeof row.recipient_user_id === "string" ? row.recipient_user_id : null;
   const prefs = userId ? await preferencesFor(db, userId) : null;
-  if (def.category === "commercial" && !prefs?.marketing) return { kind: "suppress", reason: "no_marketing_consent" };
+  if (def.category === "commercial" && !(prefs ? prefs.marketing : await contactConsented(db, emailHash(secret, to)))) return { kind: "suppress", reason: "no_marketing_consent" };
   if (prefs && def.topic && !prefs[def.topic as PreferenceTopic]) return { kind: "suppress", reason: "preference_off" };
 
   if (userId) {
@@ -190,15 +199,18 @@ export async function sendDueEmails(deps: OutboxDeps): Promise<SendReport> {
       continue;
     }
     const set = (values: Row, what: string) => q(db.from("email_outbox").update(values).eq("id", id), what);
+    // Once an email can't be sent again, its body goes: bodies carry live links (gift codes, invitations,
+    // demos, email settings) that shouldn't sit in the database after they've been delivered.
+    const done = (values: Row, what: string) => set({ ...values, html: "", body: "" }, what);
     try {
       const outcome = await decide(db, secret, cipher, switches, row, now);
       if (outcome.kind === "cancel") {
-        await set({ status: "canceled", last_error: outcome.reason }, "cancel email");
+        await done({ status: "canceled", last_error: outcome.reason }, "cancel email");
         report.canceled += 1;
         continue;
       }
       if (outcome.kind === "suppress") {
-        await set({ status: "suppressed", last_error: outcome.reason }, "suppress email");
+        await done({ status: "suppressed", last_error: outcome.reason }, "suppress email");
         report.suppressed += 1;
         continue;
       }
@@ -216,7 +228,7 @@ export async function sendDueEmails(deps: OutboxDeps): Promise<SendReport> {
         headers: (row.headers as Record<string, string>) ?? {},
         idempotencyKey: `outbox-${id}`,
       });
-      await set({ status: "sent", sent_at: new Date().toISOString(), provider_ref: sent.id || null, last_error: null }, "mark sent");
+      await done({ status: "sent", sent_at: new Date().toISOString(), provider_ref: sent.id || null, last_error: null }, "mark sent");
       report.sent += 1;
     } catch (err) {
       // Rate limits, outages and network errors are retried; a rejected address or payload is not.
@@ -235,6 +247,9 @@ export async function sendDueEmails(deps: OutboxDeps): Promise<SendReport> {
   return report;
 }
 
+/** The Resend events that settle what happened to a sent email. */
+const OUTCOME_EVENTS = new Set(["email.delivered", "email.bounced", "email.complained"]);
+
 /** Records a Resend webhook event once, and suppresses addresses that hard-bounced or complained. */
 export async function recordEmailEvent(
   db: SupabaseClient,
@@ -246,8 +261,12 @@ export async function recordEmailEvent(
     "store email event",
   );
   if (!stored.length) return { duplicate: true, suppressed: 0 };
-  if (providerRef) {
-    await q(db.from("email_outbox").update({ last_event: event.type, last_event_at: new Date().toISOString() }).eq("provider_ref", providerRef), "record email event");
+  if (providerRef && OUTCOME_EVENTS.has(event.type)) {
+    // Only outcomes move the dashboard, so an open, click or delay never hides "Delivered", and a late
+    // "delivered" never hides a bounce or a spam report.
+    let update = db.from("email_outbox").update({ last_event: event.type, last_event_at: new Date().toISOString() }).eq("provider_ref", providerRef);
+    if (event.type === "email.delivered") update = update.is("last_event", null);
+    await q(update, "record email event");
   }
   const bounceType = (event.data?.bounce?.type ?? "").toLowerCase();
   const hardBounce = event.type === "email.bounced" && bounceType !== "transient" && bounceType !== "temporary";

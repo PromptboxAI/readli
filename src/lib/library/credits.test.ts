@@ -2,13 +2,15 @@ import { describe, expect, it } from "vitest";
 import { demoFamilyState, DEMO_HOUSEHOLD_ID } from "@/lib/family/demo-family";
 import type { Actor, FamilyState } from "@/lib/family/model";
 import { DEFAULT_PLAN, type PlanConfig } from "@/lib/family/plan";
-import { grantEntitlement, MemoryFamilyStore, PermissionError, startListening } from "@/lib/family/service";
+import { grantEntitlement, MemoryFamilyStore, PermissionError, requestStory, startListening } from "@/lib/family/service";
 import { creditBalance, includedLotId, spendableLots } from "@/lib/narration/credits";
 import { authorizePlayback, grantPromoCredits, kidsReadiness, prepareView, purchaseCredits, quote, requestGeneration, runJob } from "@/lib/narration/narration";
 import { bookText } from "@/lib/narration/text";
 import type { SynthesizedAudio, VoiceProvider } from "@/lib/voice/provider";
 import { toneWav } from "@/lib/voice/stub";
 import { familyLibrary } from "./discovery";
+import { familyHome } from "@/lib/family/home";
+import { kidsShelf } from "@/lib/kids/shelf";
 
 /** Book Discovery, Generation Credits & Short-Story Launch amendment: required tests. */
 const mom: Actor = { kind: "adult", adultId: "sara" };
@@ -130,6 +132,89 @@ describe("generation credits (required tests)", () => {
     expect(lib.all.find((b) => b.slug === LONG)!.narrators.find((n) => n.voiceId === "voice-june")!.availability).toBe("partial");
   });
 
+  it("a book with its first chapter prepared is on the Family bookshelf and the kids' shelves", async () => {
+    const { store } = family();
+    const { job } = await requestGeneration(store, mom, H, chapter(1), clock);
+    await runJob(store, new Provider(), job!.id, clock);
+    const kids = (await kidsReadiness(store, maya, "maya", LONG)).find((r) => r.voiceId === "voice-june")!;
+    expect(kids.listenable).toBe(true);
+    const state = await store.read();
+    const home = familyHome(state, H, store.plan, "sara");
+    expect(home.shelf.map((b) => b.slug)).toContain(LONG);
+    const shelf = await kidsShelf(store, maya, state, "maya");
+    expect([...shelf.newest, ...shelf.ready].map((b) => b.book.slug)).toContain(LONG);
+  });
+
+  it("a book with only its first chapter prepared shows as new from when that chapter was ready", async () => {
+    const { store } = family();
+    const { job } = await requestGeneration(store, mom, H, chapter(1), clock);
+    await runJob(store, new Provider(), job!.id, clock);
+    const state = await store.read();
+    const segs = state.segments.filter((x) => x.libraryKey === job!.libraryKey && x.readyAt);
+    const at = segs.reduce((m, x) => (x.readyAt! > m ? x.readyAt! : m), "");
+    const now = Date.parse(at) + 60_000;
+    const shelf = await kidsShelf(store, maya, state, "maya", now);
+    expect(shelf.newest.find((b) => b.book.slug === LONG)?.preparedAt).toBe(at);
+    expect(familyHome(state, H, store.plan, "sara", now).shelf.find((b) => b.slug === LONG)?.preparedAt).toBe(at);
+  });
+
+  it("a child who reaches the end of a prepared chapter asks for the next one, and Home shows it", async () => {
+    const { store } = family();
+    // An old request for the book, from before its first chapter was prepared, stays satisfied.
+    await requestStory(store, maya, "maya", LONG, clock);
+    const { job } = await requestGeneration(store, mom, H, chapter(1), clock);
+    await runJob(store, new Provider(), job!.id, clock);
+    expect(familyHome(await store.read(), H, store.plan, "sara").requests.map((r) => r.slug)).not.toContain(LONG);
+    // Asking at the end of chapter 1 is a new request, for more of a book already on the shelf.
+    await requestStory(store, maya, "maya", LONG, clock);
+    const asked = familyHome(await store.read(), H, store.plan, "sara").requests.find((r) => r.slug === LONG);
+    expect(asked).toMatchObject({ childName: "Maya", more: true });
+  });
+
+  it("a later chapter alone doesn't reach the shelves, since it can't play from the start", async () => {
+    const { store } = family();
+    const { job } = await requestGeneration(store, mom, H, chapter(2), clock);
+    await runJob(store, new Provider(), job!.id, clock);
+    const kids = (await kidsReadiness(store, maya, "maya", LONG)).find((r) => r.voiceId === "voice-june")!;
+    expect(kids.listenable).toBe(false);
+    expect(familyHome(await store.read(), H, store.plan, "sara").shelf.map((b) => b.slug)).not.toContain(LONG);
+  });
+
+  it("a Stop made from another request halts a running worker, and nothing after it is kept or charged", async () => {
+    const { state, plan } = family();
+    // The worker's store keeps its own snapshot, as a database-backed store does; Stop lands elsewhere.
+    let stored: "running" | "canceled" = "running";
+    const worker = Object.assign(new MemoryFamilyStore(state, plan), { jobStatus: async () => stored });
+    const { job } = await requestGeneration(worker, mom, H, chapter(1), clock);
+    const provider = new Provider();
+    const stopAfter = 3;
+    const synthesize = provider.synthesize.bind(provider);
+    provider.synthesize = async (input) => {
+      const out = await synthesize(input);
+      if (provider.calls === stopAfter) stored = "canceled";
+      return out;
+    };
+    await runJob(worker, provider, job!.id, clock);
+    const ready = state.segments.filter((x) => x.libraryKey === job!.libraryKey && x.status === "ready");
+    // The sentence being made when Stop came isn't kept, and nothing after it is generated.
+    expect(provider.calls).toBe(stopAfter);
+    expect(ready).toHaveLength(stopAfter - 1);
+    const charged = new Set(state.ledger.filter((e) => e.jobId === job!.id && e.kind === "commit").map((e) => e.sentenceId));
+    expect([...charged].sort()).toEqual(ready.map((x) => x.sentenceId).sort());
+    // The worker leaves the job for the Stop to settle, rather than finishing it as done or failed.
+    expect(state.jobs.find((j) => j.id === job!.id)!.status).toBe("running");
+  });
+
+  it("a page opened while one chapter prepares shows that chapter, not the whole book, as preparing", async () => {
+    const { store } = family();
+    const { job } = await requestGeneration(store, mom, H, chapter(1), clock);
+    const june = (await prepareView(store, mom, H, LONG, clock)).voices.find((v) => v.voiceId === "voice-june")!;
+    expect(june.jobId).toBe(job!.id);
+    expect(june.job).toMatchObject({ id: job!.id, scope: "chapter", chapter: { number: 1, title: long.chapters[0]!.title }, ready: 0, total: job!.sentenceIds.length });
+    expect(june.chapters[0]!.readiness).toBe("preparing");
+    expect(june.chapters.slice(1).every((c) => c.readiness === "not_prepared")).toBe(true);
+  });
+
   it("reserved credits can't be spent twice", async () => {
     const { state, store, plan } = family(1);
     const c1 = quote(state, plan, H, chapter(1)).credits;
@@ -226,7 +311,7 @@ describe("credit lots", () => {
     const { store, plan } = family(1);
     const lib = await familyLibrary(store, mom, H);
     expect(lib.all.map((b) => b.slug)).toContain(LONG);
-    expect(lib.all[lib.all.length - 1]!.slug).toBe("heidi");
+    expect(lib.all[lib.all.length - 1]!.slug).toBe("the-secret-garden");
     const shelf = (id: string) => lib.collections.find((c) => c.id === id)!.books.map((b) => b.slug);
     expect(shelf("longer")).toEqual(expect.arrayContaining([LONG, "winnie-the-pooh", "alices-adventures-in-wonderland", "heidi"]));
     expect(shelf("quick")).not.toContain(LONG);

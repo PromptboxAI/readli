@@ -18,3 +18,6 @@ export const SOCIAL_ACCOUNTS: readonly SocialAccount[] = [
   { platform: "threads", name: "Threads", handle: "@readliai", url: "https://www.threads.com/@readliai" },
   { platform: "x", name: "X (Twitter)", handle: "@readliai", url: "https://x.com/readliai" },
 ];
+
+/** Other official Readli listings (Kevin, 2026-11-13). Not shown as icons; listed in the Organization structured data. */
+export const BRAND_PROFILES: readonly string[] = ["https://www.crunchbase.com/organization/readli"];

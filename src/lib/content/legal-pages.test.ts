@@ -1,6 +1,7 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import { describe, expect, it } from "vitest";
+import { ACCESSIBILITY_INTRO, ACCESSIBILITY_SECTIONS } from "./accessibility";
 import { PRIVACY_INTRO, PRIVACY_SECTIONS } from "./privacy-policy";
 import { TERMS_INTRO, TERMS_SECTIONS } from "./terms";
 
@@ -8,17 +9,18 @@ const text = (intro: string[], sections: { title: string; paragraphs: { lead?: s
   [...intro, ...sections.flatMap((s) => [s.title, ...s.paragraphs.flatMap((p) => [p.lead ?? "", p.text])])].join("\n");
 const terms = text(TERMS_INTRO, TERMS_SECTIONS);
 const privacy = text(PRIVACY_INTRO, PRIVACY_SECTIONS);
+const accessibility = text(ACCESSIBILITY_INTRO, ACCESSIBILITY_SECTIONS);
 
 describe("published legal pages (Kevin, 2026-10-23)", () => {
   it("have no draft placeholders or review notes", () => {
-    for (const doc of [terms, privacy]) {
+    for (const doc of [terms, privacy, accessibility]) {
       expect(doc).not.toMatch(/\[[A-Z][A-Z -]*\]/);
       expect(doc).not.toMatch(/TO BE CONFIRMED|COUNSEL REVIEW|DRAFT|will be documented before launch/i);
     }
   });
 
   it("render without the Draft badge", () => {
-    for (const page of ["terms", "privacy"]) {
+    for (const page of ["terms", "privacy", "accessibility"]) {
       expect(readFileSync(join(__dirname, `../../app/${page}/page.tsx`), "utf8")).not.toMatch(/draftNote/);
     }
   });
@@ -33,5 +35,24 @@ describe("published legal pages (Kevin, 2026-10-23)", () => {
     // In-app voice deletion is paused, and both pages say how to ask instead.
     expect(terms).toMatch(/temporarily unavailable/);
     expect(privacy).toMatch(/temporarily unavailable/);
+  });
+
+  it("say where the Meta Pixel runs and how to turn it off (Kevin, 2026-10-25)", () => {
+    expect(privacy).toMatch(/Meta Pixel/);
+    expect(privacy).toMatch(/never runs in Readli Kids/);
+    expect(privacy).toMatch(/do not use third-party advertising or tracking in Readli Kids/);
+    expect(privacy).toMatch(/Global Privacy Control/);
+    expect(privacy).toMatch(/https:\/\/readli\.ai\/privacy\/choices/);
+    expect(privacy).toMatch(/Meta Conversions API/);
+    expect(privacy).toMatch(/hashed version of your email address/);
+    expect(privacy).toMatch(/never send voice recordings, voice details, names, phone numbers, birth dates, or anything about children/);
+    expect(privacy).not.toMatch(/does not use third-party analytics or advertising trackers/);
+  });
+
+  it("say where Google Analytics runs and that the opt-out covers it (Kevin, 2026-11-15)", () => {
+    expect(privacy).toMatch(/Google Analytics/);
+    expect(privacy).toMatch(/Google signals and ad personalization are turned off/);
+    expect(privacy).toMatch(/stops loading the Meta Pixel and Google Analytics/);
+    expect(privacy).not.toMatch(/does not use third-party analytics/);
   });
 });

@@ -39,3 +39,13 @@ export function monthlyTotalCents(p: Pricing, narrators: number): number {
 export function annualSavingsPercent(p: Pricing): number {
   return Math.round((1 - p.familyAnnualCents / (12 * p.familyMonthlyCents)) * 100);
 }
+
+/** The annual plan spread over twelve months, rounded to the cent: what a family pays per month by paying yearly. */
+export function annualMonthlyCents(p: Pricing): number {
+  return Math.round(p.familyAnnualCents / 12);
+}
+
+/** What a plan costs per night for the whole household, in whole cents: the monthly price over an average month, the annual price over a year. */
+export function perNightCents(p: Pricing): { monthly: number; annual: number } {
+  return { monthly: Math.round((p.familyMonthlyCents * 12) / 365), annual: Math.round(p.familyAnnualCents / 365) };
+}

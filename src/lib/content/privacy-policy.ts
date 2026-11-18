@@ -10,7 +10,7 @@
 export type PolicyParagraph = { lead?: string; text: string };
 export type PolicySection = { id: string; title: string; paragraphs: PolicyParagraph[] };
 
-export const PRIVACY_EFFECTIVE_DATE = "October 24, 2026";
+export const PRIVACY_EFFECTIVE_DATE = "November 15, 2026";
 
 export const PRIVACY_INTRO: string[] = [
   'Readli ("Readli," "we," "our," or "us"), operated by Readli.ai LLC at 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790, provides family storytelling, children’s reading, and optional AI-generated narration in voices that participating adults choose to record and share. This Privacy Policy describes how we collect, use, disclose, retain, and protect information when you visit readli.ai, try our voice demo, or use Readli Family, Readli Kids, Readli Voice, and related features (together, the "Services").',
@@ -40,7 +40,11 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       },
       {
         lead: "Device and website data",
-        text: "IP address, browser and device information, cookies needed for sign-in and security, diagnostics, anti-abuse signals, and first-party usage events recorded by Readli itself.",
+        text: "IP address, browser and device information, cookies needed for sign-in and security, diagnostics, anti-abuse signals, first-party usage events recorded by Readli itself, and, on some public website pages, the Meta Pixel described in section 8.",
+      },
+      {
+        lead: "Help chat",
+        text: "questions you type into the “Need help?” chat and the answers it gives. If you choose “Talk to a person,” we also receive the email address and optional name you enter and the chat so far.",
       },
       {
         lead: "Payment data",
@@ -56,7 +60,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
         text: "We use information to create and secure accounts, run households and invitations, check consent and voice permissions, make voice models and generate narration, provide playback and read-along text, save listening progress, process payments, send service emails (such as sign-in links and invitations), answer support requests, prevent fraud and impersonation, and comply with the law.",
       },
       {
-        text: "We use aggregated usage information to improve reliability and usability. We do not use family voice recordings or child-profile information for advertising.",
+        text: "We use aggregated usage information to improve reliability and usability. We do not use family voice recordings or child-profile information for advertising. On some public website pages for grown-ups we use the Meta Pixel to measure and improve our ads, as section 8 describes.",
       },
       {
         lead: "No AI training, licensing or sale",
@@ -114,7 +118,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
         text: "An invitation shows the invited person the inviting adult’s name and household. Connected family members may see each other’s names or nicknames, relationship labels, profile photos, and whether a voice is available, depending on settings.",
       },
       {
-        text: "All family voices are private by default. Two independent approvals are needed before a voice appears for a child: the voice owner shares the voice with the household, and a parent or guardian approves that storyteller for that child. Each newly shared voice starts off for every child. Either approval can be withdrawn at any time. When either is withdrawn, or the household’s plan ends, stories already prepared in that voice stop playing there; they stay stored and play again if the approvals and plan are restored, unless they are deleted as section 9 describes.",
+        text: "All family voices are private by default. Two independent approvals are needed before a voice appears for a child: the voice owner shares the voice with the household, and a parent or guardian approves that storyteller for that child. Each newly shared voice starts off for every child. Either approval can be withdrawn at any time. When either is withdrawn, or the household’s plan ends, stories already prepared in that voice stop playing there; they stay stored and play again if the approvals and plan are restored, unless they are deleted as section 9 describes. A story downloaded to a device for listening without internet is stored only on that device and can keep playing there for up to 7 days after the device last connected; the next time it connects, Readli removes any download that may no longer be heard.",
       },
     ],
   },
@@ -123,17 +127,25 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     title: "7. Service providers and disclosures",
     paragraphs: [
       {
-        text: "We share information only with providers that process it on Readli’s behalf to run the Services:",
+        text: "We share information with providers that process it on Readli’s behalf to run the Services, and with Meta for advertising as described below:",
       },
       { lead: "ElevenLabs", text: "makes voice models from recordings and generates narration." },
       { lead: "Supabase", text: "database, file storage, and sign-in." },
       { lead: "Vercel", text: "website hosting and scheduled jobs." },
       { lead: "Stripe", text: "payments and billing." },
       { lead: "Resend", text: "invitation and other service emails." },
+      {
+        lead: "Anthropic",
+        text: "writes the help chat’s answers with its Claude AI model. Readli sends Anthropic the chat and Readli’s own help content, not your account details. Anthropic’s commercial terms do not allow it to use this data to train its models.",
+      },
       { lead: "Google", text: "sign-in, only if you choose Google sign-in." },
       {
         lead: "Loom",
         text: "hosts a recording-tips video shown on the recording screen; Loom may set its own cookies when the video plays.",
+      },
+      {
+        lead: "Meta",
+        text: "receives Meta Pixel data from some public website pages and Conversions API events from our servers, as section 8 describes, and may also use them for its own purposes, such as showing ads.",
       },
       {
         text: "These providers have their own privacy policies, which govern their own handling of the data they receive. ElevenLabs offers an account setting that lets it use customer data to improve its models; Readli has turned that setting off for its account.",
@@ -148,7 +160,23 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
     title: "8. Cookies and analytics",
     paragraphs: [
       {
-        text: "We use essential cookies for sign-in, security, Kids Mode devices, and the demo. Readli records its own usage events in its own database and does not use third-party analytics or advertising trackers. Fonts are served from Readli’s own site. Embedded content, such as the Loom video above, may set its provider’s cookies when you play it.",
+        text: "We use essential cookies for sign-in, security, Kids Mode devices, and the demo. When you first arrive at readli.ai from another website or a tagged link, a first-party cookie remembers how you found us (such as the campaign name, which kind of ad link it was, or the referring website’s name) for up to 90 days, and we save that with your family when you create one so we can count which channels bring families to Readli. It never runs in Readli Kids and is not shared with anyone. Inside the app, Readli records its own usage events in its own database. Fonts are served from Readli’s own site. Embedded content, such as the Loom video above, may set its provider’s cookies when you play it.",
+      },
+      {
+        lead: "Meta Pixel",
+        text: "on public website pages for grown-ups (such as the homepage, the Try page, pricing, the library, help, gifts, sign-up, and Plan & credits), we use the Meta Pixel from Meta Platforms, Inc. to measure and improve our ads on Facebook and Instagram. It sets Meta cookies and tells Meta which of these pages you visited and whether you made a demo voice, started sign-up, or started a plan and its price, along with your IP address and browser information. It does not receive voice recordings, email addresses, or child-profile information. It never runs in Readli Kids, in the rest of the parent portal, on invitation pages, or on the sign-in and legal pages. Meta may use this information under its own privacy policy, including to show you ads for Readli.",
+      },
+      {
+        lead: "Google Analytics",
+        text: "on the same public website pages as the Meta Pixel, we use Google Analytics from Google LLC to count visits and see how people find and use the website. It sets Google Analytics cookies and tells Google which of these pages you visited, the website or link that brought you there, and your IP address and browser and device information. On those pages it also records a few steps, such as starting the voice demo, starting sign-up or checkout, and a completed purchase with its amount, and when a new account is confirmed our server tells Google using only the Google Analytics cookie ID already in your browser. Google signals and ad personalization are turned off, so we don’t use it to show you ads. It does not receive voice recordings, email addresses, or child-profile information, and it never runs in Readli Kids, in the rest of the parent portal, on invitation pages, or on the sign-in and legal pages. Google may use this information under its own privacy policy.",
+      },
+      {
+        lead: "Meta Conversions API",
+        text: "when a grown-up makes a demo voice, creates a Readli Family or Readli Voice account, starts a checkout, or completes a purchase, Readli’s servers also tell Meta about that action, so it is counted even when a browser blocks the pixel. Each event includes your IP address and browser information, Meta’s own cookie IDs, a hashed (scrambled) version of your Readli account ID, and, except for the demo voice, a hashed version of your email address, plus the plan or purchase amount for checkouts. Meta uses the hashed details to match the action to a Facebook or Instagram account. We never send voice recordings, voice details, names, phone numbers, birth dates, or anything about children.",
+      },
+      {
+        lead: "Your choices",
+        text: "you can opt out of this sharing at https://readli.ai/privacy/choices (the “Do Not Sell or Share My Personal Information” link at the bottom of our website pages), and Readli then stops loading the Meta Pixel and Google Analytics and stops sending Conversions API events for actions on that browser. If your browser sends a Global Privacy Control signal, we treat it as the same opt-out, including for a purchase you start from that browser. Readli does not sell personal information for money. You can also manage ad settings in your Facebook or Instagram account, or block third-party cookies in your browser.",
       },
     ],
   },
@@ -168,6 +196,10 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
       {
         lead: "Deleting your account",
         text: "you can delete your account in account settings. Deletion is immediate: Readli deletes your voice model at ElevenLabs, your recordings and voice previews, narration generated in your voice for any household, your photos, households and child profiles that belong to you alone, and then your account and the data linked to it.",
+      },
+      {
+        lead: "Help chats",
+        text: "Readli does not save help chats on its servers. A chat stays in your browser tab until you close it or start a new chat. A chat you send with “Talk to a person” is kept in our support inbox as a support request. Anthropic keeps chat data for a limited time under its own data retention policies.",
       },
       {
         lead: "Child profiles",

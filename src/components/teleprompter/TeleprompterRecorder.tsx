@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { HelpLink } from "@/components/help/HelpLink";
 import { splitSentences, type VoiceScriptVersion } from "@/lib/content/voice-scripts";
 import {
   canFinish,
@@ -20,6 +21,8 @@ import { Teleprompter, type TeleprompterProgress } from "./Teleprompter";
 import { micBlockedSteps, micPlatform } from "@/lib/audio/mic-help";
 import { MIC_ERROR_MESSAGES, useMicrophone, type RecordedTake } from "./useMicrophone";
 import { VoicePreview, type TakeDetails } from "./VoicePreview";
+import { trackGaEvent } from "@/lib/marketing/google-analytics";
+import { forgetTryVoice, rememberedTryVoice } from "@/lib/teleprompter/try-resume";
 
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
@@ -67,6 +70,8 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
   const [notice, setNotice] = useState<string | null>(null);
   const [showBooks, setShowBooks] = useState(false);
   const [resumed, setResumed] = useState(resumeCleanUp !== null);
+  /** Clean-up setting of the saved voice being reopened: from the URL, or remembered by this tab. */
+  const [resumeWith, setResumeWith] = useState(resumeCleanUp ?? false);
   // Settings start collapsed on phones so the script keeps most of the screen.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [take, setTake] = useState<{ url: string; recorded: RecordedTake; details: TakeDetails } | null>(null);
@@ -143,6 +148,8 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
     const ok = await mic.start();
     setStarting(false);
     if (ok) dispatch({ type: "start" });
+    // The free demo on the Try page; an account's own recording isn't the demo.
+    if (ok && !onTake) trackGaEvent("demo_start");
   };
 
   const finishRecording = async () => {
@@ -217,6 +224,32 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
     return () => window.removeEventListener("popstate", onPop);
   }, [showBooks]);
 
+  // Back to /try with the browser's Back button (from signup or checkout): reopen the stories in the voice
+  // this tab already made, if the server still has it, rather than the consent boxes and a new recording.
+  useEffect(() => {
+    if (onTake || resumeCleanUp !== null) return;
+    const remembered = rememberedTryVoice();
+    if (remembered === null) return;
+    let cancelled = false;
+    fetch("/api/demo/status", { cache: "no-store" })
+      .then((r) => r.json() as Promise<{ guest: { hasVoice?: boolean } | null }>)
+      .then((s) => {
+        if (cancelled) return;
+        if (!s.guest?.hasVoice) return forgetTryVoice();
+        setResumeWith(remembered);
+        setResumed(true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [onTake, resumeCleanUp]);
+
+  const recordNewVoice = () => {
+    forgetTryVoice();
+    setResumed(false);
+  };
+
   const openStories = () => {
     window.history.pushState({ readliTry: "stories" }, "");
     setShowBooks(true);
@@ -251,14 +284,14 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
     return (
       <div className="flex flex-col gap-4">
         <TryStepper step={2} />
-        <button type="button" className="w-fit min-h-11 font-display font-semibold underline-offset-4 hover:underline" onClick={() => setResumed(false)}>
+        <button type="button" className="w-fit min-h-11 font-display font-semibold underline-offset-4 hover:underline" onClick={recordNewVoice}>
           ← Record a new voice
         </button>
         <VoicePreview
           take={null}
-          resumeCleanUp={resumeCleanUp ?? false}
+          resumeCleanUp={resumeWith}
           heading="Pick a story to hear in your voice"
-          onRecordAgain={() => setResumed(false)}
+          onRecordAgain={recordNewVoice}
           nextSteps
         />
       </div>
@@ -354,7 +387,7 @@ export function TeleprompterRecorder({ script, onTake, takeActionLabel = "Choose
           ) : (
             mic.error && (
               <p role="alert" className="rounded-2xl bg-coral/25 p-3 text-sm">
-                {MIC_ERROR_MESSAGES[mic.error]}
+                {MIC_ERROR_MESSAGES[mic.error]} <HelpLink slug="microphone-not-recording">Microphone help</HelpLink>
               </p>
             )
           )}
@@ -544,13 +577,13 @@ function ConsentStep({
           checked={state.consent.processing}
           onChange={(e) => dispatch({ type: "set_consent", field: "processing", value: e.target.checked })}
         />
-        <span>I agree that Readli may process this recording with its voice provider to create my private preview.</span>
+        <span>I agree that Readli may send this recording to ElevenLabs, its voice provider, to create my private preview.</span>
       </label>
       <button type="submit" className={buttonPrimary} disabled={!ready}>
         Continue to recording
       </button>
       <p className="text-sm text-muted">
-        No account or email needed. <Link href="/privacy" className="underline">How we handle voice recordings</Link>
+        No account or email needed. <Link href="/parents/safety#your-voice-heading" className="underline">How we handle voice recordings</Link>
       </p>
     </form>
   );
@@ -683,7 +716,9 @@ function ReviewPanel({
     return (
       <div role="alert" className="flex flex-col gap-3 rounded-2xl bg-coral/25 p-4">
         <p className="font-display text-lg font-semibold">We didn&apos;t get any audio from that take.</p>
-        <p className="text-sm">Check your microphone, then record again.</p>
+        <p className="text-sm">
+          Check your microphone, then record again. <HelpLink slug="microphone-not-recording">Microphone help</HelpLink>
+        </p>
         <button type="button" className={buttonPrimary} onClick={onRecordAgain}>
           Record again
         </button>

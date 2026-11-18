@@ -125,6 +125,9 @@ export function RecordingTipsDialog({
       <div className="sticky bottom-0 -mx-5 mt-6 flex flex-wrap gap-3 bg-surface px-5 pt-3 pb-1 sm:-mx-8 sm:px-8">
         {onRecordAgain ? (
           <>
+            <button type="button" className={buttonSecondary} onClick={onClose}>
+              Not now
+            </button>
             <button
               type="button"
               className={buttonPrimary}
@@ -134,9 +137,6 @@ export function RecordingTipsDialog({
               }}
             >
               Record again
-            </button>
-            <button type="button" className={buttonSecondary} onClick={onClose}>
-              Not now
             </button>
           </>
         ) : (

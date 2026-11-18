@@ -10,3 +10,6 @@ export const VOICE_CONSENTS = [
   "Families can only use it after I share it with them, and their parents approve it for each child.",
   "I can stop sharing, replace or delete my voice at any time.",
 ] as const;
+
+/** The four points as the one sentence a grown-up ticks. Same wording, so the same consent version. */
+export const VOICE_CONSENT_SENTENCE = VOICE_CONSENTS.join(" ");

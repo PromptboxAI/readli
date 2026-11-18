@@ -8,6 +8,7 @@ import { GiftCard } from "@/components/gifting/GiftCard";
 import { TheirHome } from "@/components/gifting/TheirHome";
 import { GiftBoxArt } from "@/components/invites/illustrations";
 import type { GiftPlan } from "@/lib/gifting/plans";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 export interface LiveGift {
   code: string;
@@ -74,12 +75,12 @@ export function GiftOpen({ plan, to, from, message, live }: { plan: GiftPlan; to
               ? "Nothing has started. Your gift stays here for a year if you change your mind."
               : `We'd let ${from} know, kindly, and they'd get a full refund. This is a preview, so nothing was sent.`
             : live
-              ? `Readli Family is on for your family${paidThrough ? ` until ${new Date(paidThrough).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : ""}. No card needed, and nothing renews on its own.`
+              ? `Readli Family is on for your family${paidThrough ? ` until ${new Date(paidThrough).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: READLI_TIME_ZONE })}` : ""}. No card needed, and nothing renews on its own.`
               : "Family accounts are coming soon. When they arrive, this is where you'd create your account and the gift would start."}
         </p>
         {stage === "claimed" ? (
-          <Link href={live ? "/family" : "/welcome"} className={buttonPrimary}>
-            {live ? "Go to my family" : "See your welcome"}
+          <Link href={live ? "/family/setup" : "/welcome"} className={buttonPrimary}>
+            {live ? "Set up my family" : "See your welcome"}
           </Link>
         ) : (
           <button type="button" className={buttonSecondary} onClick={() => setStage("open")}>
@@ -118,7 +119,16 @@ export function GiftOpen({ plan, to, from, message, live }: { plan: GiftPlan; to
           {error}
         </p>
       )}
-      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+      {/* The main button sits last (on the right), and on top when the buttons stack on a phone. */}
+      <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center">
+        <button type="button" className={buttonQuiet} onClick={() => setStage("declined")}>
+          No thanks
+        </button>
+        {!live && (
+          <Link href="/login" className={buttonSecondary}>
+            I already have Readli
+          </Link>
+        )}
         {live && !live.signedIn ? (
           <Link href={`/login?next=${encodeURIComponent(`/gift/open?code=${live.code}`)}`} className={buttonPrimary}>
             Sign in to accept my gift
@@ -128,14 +138,6 @@ export function GiftOpen({ plan, to, from, message, live }: { plan: GiftPlan; to
             {busy ? "Opening…" : "Accept my gift"}
           </button>
         )}
-        {!live && (
-          <Link href="/login" className={buttonSecondary}>
-            I already have Readli
-          </Link>
-        )}
-        <button type="button" className={buttonQuiet} onClick={() => setStage("declined")}>
-          No thanks
-        </button>
       </div>
       {plan.kind === "prepaid" && (
         <p className="text-sm text-muted">Already a member? Your gift starts when your current paid month ends, so nothing is wasted.</p>

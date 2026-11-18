@@ -29,7 +29,18 @@ describe("billingSummary", () => {
     expect(billingSummary(state([{ source: "gift", extraNarratorSlots: 1 }]), DEFAULT_PLAN, "h1", at)).toMatchObject({ canStartPlan: false, extraSlotsMonthlyCents: 0 });
   });
 
+  it("shows the paid plan once a tester or trial family pays, even while the free plan hasn't run out", () => {
+    const paid = billingSummary(state([{ source: "tester", endsAt: "2026-11-12T00:00:00.000Z" }, { source: "subscription", extraNarratorSlots: 1 }]), DEFAULT_PLAN, "h1", at);
+    expect(paid).toMatchObject({ plan: "subscription", canStartPlan: false, extraNarratorSlots: 1 });
+    expect(billingSummary(state([{ source: "trial", endsAt: "2026-10-20T00:00:00.000Z" }, { source: "gift" }]), DEFAULT_PLAN, "h1", at).plan).toBe("gift");
+  });
+
   it("ignores an ended plan", () => {
     expect(billingSummary(state([{ endsAt: "2026-10-05T00:00:00.000Z" }]), DEFAULT_PLAN, "h1", at).plan).toBe("none");
+  });
+
+  it("lets a family line up its own plan once its gift has an end date", () => {
+    expect(billingSummary(state([{ source: "sponsored", includedNarratorSlots: 1 }]), DEFAULT_PLAN, "h1", at)).toMatchObject({ plan: "sponsored", narratorSlots: 1, canStartPlan: false });
+    expect(billingSummary(state([{ source: "sponsored", endsAt: "2026-11-01T00:00:00.000Z" }]), DEFAULT_PLAN, "h1", at)).toMatchObject({ canStartPlan: true });
   });
 });

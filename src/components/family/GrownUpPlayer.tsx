@@ -1,22 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { buttonPrimary } from "@/components/brand/buttons";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { parentPrimary } from "@/components/brand/buttons";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
+import { HelpLink } from "@/components/help/HelpLink";
 import { isTheEnd, THE_END_PAUSE_MS } from "@/lib/content/the-end";
 import type { ListenView } from "@/lib/narration/narration";
 import { mapPosition } from "@/lib/narration/positions";
-import { parseMode, type PlayerMode } from "@/lib/player/pages";
+import { chapterAt, chapterList, hasChapters, nextChapterStart, previousChapterStart } from "@/lib/player/chapters";
+import { nextSpeed, parseMode, parseSpeed, preparedEnd, type PlayerMode, type Speed } from "@/lib/player/pages";
 import { chapterReady, type Track } from "@/lib/player/tracks";
-import { Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, TimeBar } from "./PlayerParts";
+import { ChapterPill, ChapterSheet, Icon, ListenStage, ModeToggle, PLAYER_COLUMN, PLAYER_MAIN, PlayingBars, playerTone, ReadStage, SleepButton, TimeBar } from "./PlayerParts";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 import { AHEAD, useGaplessAudio } from "./useGaplessAudio";
 import { useMediaSession } from "./useMediaSession";
 import { usePlaceSaver } from "./usePlaceSaver";
+import { useSleepTimer } from "./useSleepTimer";
 import { useTrackAudio } from "./useTrackAudio";
+import { useBack } from "@/components/nav/BackTrail";
 
 const MODE_KEY = "readli-grown-up-player-mode";
+const SPEED_KEY = "readli-grown-up-player-speed";
 
 /**
  * The Parent Portal player: plays a prepared book from stored audio, in any voice the family may use,
@@ -31,8 +36,11 @@ export function GrownUpPlayer({
   initialVoice,
   resume = 0,
   preview = false,
+  backHref,
 }: {
   view: ListenView;
+  /** Where Back goes; the book's page unless setup opened the player. */
+  backHref?: string;
   initialVoice: string | null;
   /** This grown-up's own saved place, counted in the text `initialVoice` reads. */
   resume?: number;
@@ -45,12 +53,16 @@ export function GrownUpPlayer({
     return r && texts.texts[r] ? r : texts.current;
   };
   const [shown, setShown] = useState(() => revisionOf(initialVoice));
-  const { sentences, sentenceIds, seconds } = texts.texts[shown] ?? texts.texts[texts.current]!;
+  const { sentences, sentenceIds, chapters, chapterTitles, seconds } = texts.texts[shown] ?? texts.texts[texts.current]!;
   const [sentence, setSentence] = useState(Math.max(0, Math.min(resume, sentences.length - 1)));
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // Playback reached the end of what's prepared: the chapter that comes next, offered for preparing.
+  // `fresh`: the next chapter hasn't begun; otherwise the chapter being read was only partly prepared.
+  const [gap, setGap] = useState<{ voiceId: string; chapter: number; fresh: boolean } | null>(null);
   const [picker, setPicker] = useState(false);
+  const [chapterSheet, setChapterSheet] = useState(false);
   // Grown-ups start in Read-along to follow the words; their last choice on this device is remembered.
   const [mode, setMode] = useState<PlayerMode>("read");
   useEffect(() => {
@@ -92,6 +104,7 @@ export function GrownUpPlayer({
       onEnded();
     },
     error: (why) => onTrackFailed(why),
+    time: () => sleep.check(),
     interrupted: () => onInterrupted(),
     resumed: () => {
       setNotice(null);
@@ -129,11 +142,46 @@ export function GrownUpPlayer({
   const readyAt = (id: string | null, at: number) =>
     Boolean(id && voices.find((v) => v.voiceId === id)?.readySentenceIds.includes((texts.texts[revisionOf(id)]?.sentenceIds ?? sentenceIds)[at] ?? ""));
 
+  // The chapters of the text on screen, and which of them this voice has read, for the chapter pill and sheet.
+  const chapterReadySet = useMemo(() => new Set(voice?.readySentenceIds ?? []), [voice]);
+  const chapterRows = useMemo(
+    () => (hasChapters(chapters) ? chapterList(chapters, chapterTitles, (at) => chapterReadySet.has(sentenceIds[at] ?? "")) : []),
+    [chapters, chapterTitles, sentenceIds, chapterReadySet],
+  );
+  const chapterNow = chapterAt(chapterRows, sentence);
+  const chapterRowsRef = useRef(chapterRows);
+  chapterRowsRef.current = chapterRows;
+
   const stop = () => {
     audio.pause();
     track.pause();
     setPlaying(false);
     setLoading(false);
+  };
+
+  const sleep = useSleepTimer(`readli-sleep:adult:${view.householdId}`, stop, setNotice);
+
+  // Reading speed, remembered on this device.
+  const [speed, setSpeed] = useState<Speed>(1);
+  useEffect(() => {
+    try {
+      setSpeed(parseSpeed(window.localStorage.getItem(SPEED_KEY)));
+    } catch {
+      // Storage can be blocked; normal speed is fine.
+    }
+  }, []);
+  useEffect(() => {
+    audio.rate(speed);
+    track.rate(speed);
+  }, [audio, track, speed]);
+  const changeSpeed = () => {
+    const next = nextSpeed(speed);
+    setSpeed(next);
+    try {
+      window.localStorage.setItem(SPEED_KEY, String(next));
+    } catch {
+      // Not remembered this time.
+    }
   };
 
   /** A signed URL for one prepared sentence; the server re-checks plan, share and slot each time. */
@@ -166,6 +214,7 @@ export function GrownUpPlayer({
 
   const play = async (at: number, id: string): Promise<void> => {
     setNotice(null);
+    setGap(null);
     if (!readyAt(id, at)) {
       stop();
       setNotice(`${voices.find((v) => v.voiceId === id)?.name ?? "This storyteller"}'s reading isn't prepared here yet.`);
@@ -279,8 +328,14 @@ export function GrownUpPlayer({
   };
 
   const onEnded = () => {
+    if (sleep.check()) return;
     const next = sentenceRef.current + 1;
     const id = voiceRef.current;
+    if (sleep.chapterEnd(chapters, next - 1)) {
+      setSentence(next);
+      sentenceRef.current = next;
+      return;
+    }
     if (next >= sentences.length || !id) return stop();
     // A book prepared before "The End." was added simply finishes without it.
     if (isTheEnd(sentences, next) && !readyAt(id, next)) return stop();
@@ -290,7 +345,7 @@ export function GrownUpPlayer({
     else if (readyAt(id, next)) void play(next, id);
     else {
       stop();
-      setNotice(`${voices.find((v) => v.voiceId === id)?.name ?? "This storyteller"}'s reading stops here for now. Prepare the rest of the book to keep listening.`);
+      setGap({ voiceId: id, chapter: chapters[next] ?? 1, fresh: chapters[next] !== chapters[next - 1] });
     }
   };
 
@@ -340,8 +395,17 @@ export function GrownUpPlayer({
         if (!playingRef.current && voiceRef.current) void play(sentenceRef.current, voiceRef.current);
       },
       pause: () => stop(),
-      previous: () => sentenceRef.current > 0 && goTo(sentenceRef.current - 1),
-      next: () => sentenceRef.current + 1 < sentences.length && goTo(sentenceRef.current + 1),
+      // A chapter at a time, as in audiobook apps; a book without chapters steps a sentence.
+      previous: () => {
+        if (!chapterRowsRef.current.length) return sentenceRef.current > 0 && goTo(sentenceRef.current - 1);
+        const at = previousChapterStart(chapterRowsRef.current, sentenceRef.current);
+        if (at !== null) goTo(at);
+      },
+      next: () => {
+        if (!chapterRowsRef.current.length) return sentenceRef.current + 1 < sentences.length && goTo(sentenceRef.current + 1);
+        const at = nextChapterStart(chapterRowsRef.current, sentenceRef.current);
+        if (at !== null) goTo(at);
+      },
       skip: (seconds) => {
         if (!track.skip(seconds)) goTo(Math.max(0, Math.min(sentences.length - 1, sentenceRef.current + Math.sign(seconds))));
       },
@@ -354,10 +418,12 @@ export function GrownUpPlayer({
   );
 
   const { listen, soft, faint, main, round, side } = playerTone(mode);
+  // Back to wherever this was opened from (Home's Play, the bookshelf, the book page...), else the book page.
+  const way = useBack(backHref ? { href: backHref, label: "setup" } : { href: `/family/books/${book.slug}`, label: book.title });
   const back = (
-    <Link href={`/family/books/${book.slug}`} className="grid size-12 shrink-0 place-items-center rounded-full bg-current/10">
+    <Link href={way.href} onClick={way.onClick} className="grid size-12 shrink-0 place-items-center rounded-full bg-current/10" data-testid="back-link">
       <Icon name="left" />
-      <span className="sr-only">Back to {book.title}</span>
+      <span className="sr-only">{way.label === "Back" ? "Back" : `Back to ${way.label}`}</span>
     </Link>
   );
 
@@ -368,7 +434,7 @@ export function GrownUpPlayer({
         <h1 className="font-display text-4xl font-semibold">{book.title}</h1>
         <div className="flex flex-col gap-3 rounded-3xl bg-surface p-5 ring-2 ring-ink/10" data-testid="nothing-prepared">
           <p className="text-lg font-semibold">This book isn&apos;t prepared in a family voice yet.</p>
-          <Link href={`/family/books/${book.slug}`} className={`${buttonPrimary} self-start`}>
+          <Link href={`/family/books/${book.slug}`} className={`${parentPrimary} self-start`}>
             Prepare narration
           </Link>
         </div>
@@ -382,6 +448,19 @@ export function GrownUpPlayer({
       {voice ? `${voice.name} is reading` : book.author}
     </p>
   );
+  const pill = chapterNow && (
+    <ChapterPill
+      chapter={chapterNow}
+      open={chapterSheet}
+      mode={mode}
+      onClick={() => {
+        setPicker(false);
+        setChapterSheet((o) => !o);
+      }}
+    />
+  );
+  // Only the next chapter not read yet offers preparing, as at the end of what's prepared.
+  const firstUnread = chapterRows.find((c) => c.status === "none")?.number;
 
   return (
     <main data-testid="grown-up-player" data-mode={mode} className={`${PLAYER_MAIN} ${main}`}>
@@ -391,7 +470,10 @@ export function GrownUpPlayer({
           <ModeToggle mode={mode} onChange={switchMode} />
           <button
             type="button"
-            onClick={() => setPicker((p) => !p)}
+            onClick={() => {
+              setChapterSheet(false);
+              setPicker((p) => !p);
+            }}
             aria-expanded={picker}
             aria-controls="storyteller-picker"
             className={`flex min-h-12 shrink-0 items-center gap-1.5 rounded-full py-1 pr-2.5 pl-1 font-display font-semibold ${soft}`}
@@ -407,9 +489,37 @@ export function GrownUpPlayer({
 
         <div className="relative flex min-h-0 flex-1 flex-col">
           {listen ? (
-            <ListenStage coverUrl={book.coverUrl} title={book.title} byline={byline} />
+            <ListenStage coverUrl={book.coverUrl} title={book.title} byline={<>{byline}{pill}</>} />
           ) : (
-            <ReadStage coverUrl={book.coverUrl} title={book.title} byline={byline} sentences={sentences} sentence={sentence} />
+            <ReadStage coverUrl={book.coverUrl} title={book.title} byline={byline} chapter={pill} sentences={sentences} sentence={sentence} />
+          )}
+
+          {chapterSheet && chapterRows.length > 0 && (
+            <ChapterSheet
+              chapters={chapterRows}
+              current={chapterNow?.number ?? null}
+              onClose={() => setChapterSheet(false)}
+              onPick={(c) => {
+                setChapterSheet(false);
+                setGap(null);
+                track.unlock();
+                audio.clear();
+                setSentence(c.start);
+                sentenceRef.current = c.start;
+                if (voiceId) void play(c.start, voiceId);
+              }}
+              notReady={(c) =>
+                view.chapterPrep && voice && c.number === firstUnread ? (
+                  <Link
+                    href={`/family/books/${book.slug}?voice=${voice.voiceId}&scope=chapter&chapter=${c.number}`}
+                    className="inline-flex min-h-11 shrink-0 items-center rounded-full border-[3px] border-ink px-3 font-display text-sm font-semibold"
+                  >
+                    Prepare
+                    <span className="sr-only"> chapter {c.number}</span>
+                  </Link>
+                ) : null
+              }
+            />
           )}
 
           {picker && (
@@ -420,7 +530,7 @@ export function GrownUpPlayer({
                   Done
                 </button>
               </div>
-              <div id="storyteller-picker" role="group" aria-label="Storyteller" className="flex gap-3 overflow-x-auto pb-1">
+              <div id="storyteller-picker" role="group" aria-label="Storyteller" className="-m-1 flex gap-3 overflow-x-auto p-1 pb-2">
                 {voices.map((v) => (
                   <button
                     key={v.voiceId}
@@ -434,9 +544,6 @@ export function GrownUpPlayer({
                   >
                     <StorytellerAvatar name={v.name} avatarUrl={v.avatarUrl} tint={v.tint} size="md" />
                     <span className="font-display text-lg font-semibold">{v.name}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-center text-xs font-bold ${v.complete ? "bg-mint" : "bg-ink/10"}`}>
-                      {v.complete ? "Whole book ready" : `${v.readySentenceIds.length} of ${sentences.length} sentences ready`}
-                    </span>
                   </button>
                 ))}
               </div>
@@ -452,16 +559,38 @@ export function GrownUpPlayer({
             </Link>
           </p>
         )}
+        {gap && (
+          <div role="status" className="flex flex-col gap-3 rounded-2xl bg-surface p-4 text-ink ring-2 ring-ink/10 sm:flex-row sm:items-center sm:justify-between" data-testid="prepared-end">
+            <p className="font-semibold">
+              {(() => {
+                const who = voices.find((v) => v.voiceId === gap.voiceId)?.name ?? "This storyteller";
+                if (!view.chapterPrep) return `${who}'s reading stops here for now.`;
+                return gap.fresh ? `That's the end of chapter ${chapters[sentence - 1] ?? gap.chapter - 1}. ${who} hasn't read chapter ${gap.chapter} yet.` : `${who} hasn't finished reading chapter ${gap.chapter} yet.`;
+              })()}
+            </p>
+            <Link
+              href={
+                view.chapterPrep
+                  ? `/family/books/${book.slug}?voice=${gap.voiceId}&scope=chapter&chapter=${gap.chapter}`
+                  : `/family/books/${book.slug}?voice=${gap.voiceId}&scope=book`
+              }
+              className={`${parentPrimary} shrink-0`}
+              data-testid="prepare-next"
+            >
+              {!view.chapterPrep ? "Prepare the rest" : gap.fresh ? `Prepare chapter ${gap.chapter}` : `Finish chapter ${gap.chapter}`}
+            </Link>
+          </div>
+        )}
         {notice && (
           <p role="alert" className="rounded-2xl border-[3px] border-coral-deep bg-surface p-4 font-semibold text-ink">
-            {notice}
+            {notice} {!/sleep timer/i.test(notice) && <HelpLink slug="audiobook-not-playing">Playback help</HelpLink>}
           </p>
         )}
 
-        <TimeBar mode={mode} seconds={seconds} sentence={sentence} playing={playing} onSeek={goTo} />
+        <TimeBar mode={mode} seconds={seconds} sentence={sentence} playing={playing} onSeek={goTo} rate={speed} end={preparedEnd(sentenceIds, new Set(voice?.readySentenceIds ?? []), sentence)} />
 
         <div className="mx-auto grid w-full max-w-[640px] grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-3.5 sm:gap-7">
-          <span />
+          <SleepButton label={sleep.label} onClick={() => sleep.cycle(new Set(chapters).size > 1)} className={side} />
           <button type="button" aria-label="Back" disabled={sentence === 0} onClick={() => goTo(sentence - 1)} className={round}>
             <Icon name="prev" className="size-[26px]" />
           </button>
@@ -502,6 +631,15 @@ export function GrownUpPlayer({
             <span />
           )}
         </div>
+
+        <button
+          type="button"
+          onClick={changeSpeed}
+          aria-label={`Reading speed: ${speed === 1 ? "normal" : `${speed}×`}`}
+          className={`-mt-2 min-h-10 self-center rounded-full px-4 font-display text-sm font-semibold ${soft} ${faint}`}
+        >
+          Speed {speed}×
+        </button>
 
         <p className="sr-only" data-testid="sentence-position">
           Sentence {sentence + 1} of {sentences.length}

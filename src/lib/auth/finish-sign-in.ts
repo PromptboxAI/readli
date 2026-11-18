@@ -1,0 +1,71 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { after, type NextResponse } from "next/server";
+import { markEmailConfirmed } from "@/lib/auth/quick-signup";
+import { recordEmailSignup } from "@/lib/email/signup";
+import { accountDb } from "@/lib/family/account-store";
+import { GROWNUP_COOKIE, PIN_RESUMED_COOKIE } from "@/lib/family/grownup-stash";
+import { KIDS_COOKIE } from "@/lib/family/kids-mode";
+import { currentDevice } from "@/lib/family/session";
+import { attributionFrom, sendCapiEvent } from "@/lib/server/meta-capi";
+import { sendGaServerEvent } from "@/lib/server/ga-measurement";
+
+/**
+ * What every sign-in does once Supabase has a session, whether it came from an email link, Google or a
+ * code typed on the page: save the signup details (news opt-in and time zone ride in `url`'s query), send
+ * a new account's CompleteRegistration to Meta, and end Kids Mode on this device, since signing in again
+ * is how a grown-up leaves it. A sign-in that proves the email (code, link or Google) also confirms an
+ * account made by quick signup; quick signup itself passes confirmsEmail: false.
+ */
+export async function finishSignIn(supabase: SupabaseClient, req: Request, url: URL, next: string, opts: { confirmsEmail?: boolean } = {}): Promise<void> {
+  if (opts.confirmsEmail !== false) {
+    const db = accountDb();
+    const { data } = await supabase.auth.getUser();
+    if (db && data.user) await markEmailConfirmed(db, data.user).catch((err) => console.error("confirm email failed", err));
+  }
+  const signup = await recordEmailSignup(supabase, url, next).catch((err) => {
+    console.error("save email signup failed", err);
+    return null;
+  });
+  const attribution = signup && signup.intent !== "voice_invited" ? attributionFrom(req, `${url.origin}/signup/${signup.intent}`) : null;
+  if (signup && attribution) {
+    after(() =>
+      sendCapiEvent({
+        name: "CompleteRegistration",
+        eventId: `registration_${signup.userId}`,
+        attribution,
+        email: signup.email,
+        externalId: signup.userId,
+        customData: { content_name: signup.intent === "family" ? "Readli Family" : "Readli Voice" },
+      }),
+    );
+  }
+  // GA4's sign_up for the same new accounts; it honours the same opt-outs (lib/server/ga-measurement).
+  // A signup form that marks where it was (the pricing page's free signup sends /home?from=pricing) passes that on as the source.
+  if (signup && signup.intent !== "voice_invited") {
+    const source = signupSource(next);
+    after(() => sendGaServerEvent(req, "sign_up", source ? { method: signup.intent, source } : { method: signup.intent }));
+  }
+  const kidsDevice = await currentDevice().catch(() => null);
+  if (kidsDevice) {
+    const { registry, device } = kidsDevice;
+    await registry.update(device.id, { revokedAt: new Date().toISOString(), revokedBy: device.registeredBy, activeChildId: null }).catch(() => undefined);
+  }
+}
+
+/** The `from` a signup form put on where sign-in is headed, such as "pricing", or null. */
+export function signupSource(next: string): string | null {
+  try {
+    const from = new URL(next, "https://readli.invalid").searchParams.get("from");
+    return from && /^[a-z_]{1,32}$/.test(from) ? from : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A full sign-in replaces Kids Mode and any sign-in set aside for it or brought back with the PIN. */
+export function clearSignInCookies(res: NextResponse): NextResponse {
+  res.cookies.delete(KIDS_COOKIE);
+  res.cookies.delete(GROWNUP_COOKIE);
+  res.cookies.delete(PIN_RESUMED_COOKIE);
+  return res;
+}

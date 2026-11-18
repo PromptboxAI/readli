@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 /**
  * Real sign-in (email link and Google) through Supabase Auth. It is on wherever the public Supabase
@@ -28,27 +29,45 @@ export interface SignedInUser {
   id: string;
   email: string | null;
   name: string;
+  /** True when the name is one they gave (at sign-up, from Google, or saved on /family/account), not the stand-in. */
+  named?: boolean;
 }
 
-export function displayName(user: { email?: string | null; user_metadata?: Record<string, unknown> }): string {
+type AuthUser = { email?: string | null; user_metadata?: Record<string, unknown> };
+
+/** The name in their sign-in details, if they ever gave one. Saving a name on /family/account writes full_name. */
+function givenName(user: AuthUser): string | null {
   const meta = user.user_metadata ?? {};
   for (const key of ["full_name", "name"]) {
     const v = meta[key];
     if (typeof v === "string" && v.trim()) return v.trim().slice(0, 60);
   }
-  return user.email?.split("@")[0]?.slice(0, 60) || "Grown-up";
+  return null;
+}
+
+export function displayName(user: AuthUser): string {
+  return givenName(user) ?? (user.email?.split("@")[0]?.slice(0, 60) || "Grown-up");
+}
+
+/** An admin paused this account: it can't use Readli until it's unpaused. */
+export function isPaused(user: { banned_until?: string | null }, at = new Date()): boolean {
+  return Boolean(user.banned_until && Date.parse(user.banned_until) > at.getTime());
 }
 
 /** The signed-in grown-up, verified with Supabase Auth, or null. */
-export async function currentUser(): Promise<SignedInUser | null> {
+/**
+ * The signed-in user, checked with Supabase Auth once per request: the page, the header and the family
+ * session all ask, and each ask was otherwise its own round trip to Supabase.
+ */
+export const currentUser = cache(async (): Promise<SignedInUser | null> => {
   if (!authConfigured()) return null;
   const { data, error } = await (await supabaseServer()).auth.getUser();
-  if (error || !data.user) return null;
-  return { id: data.user.id, email: data.user.email ?? null, name: displayName(data.user) };
-}
+  if (error || !data.user || isPaused(data.user)) return null;
+  return { id: data.user.id, email: data.user.email ?? null, name: displayName(data.user), named: givenName(data.user) !== null };
+});
 
 /** Only same-site paths may follow sign-in, so a link can't bounce someone to another site. */
-export function safeNext(value: string | null | undefined, fallback = "/family"): string {
+export function safeNext(value: string | null | undefined, fallback = "/home"): string {
   if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return fallback;
   return value;
 }

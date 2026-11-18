@@ -6,6 +6,7 @@ import { buttonPrimary } from "@/components/brand/buttons";
 import { loadFinance, type CostConfig, type FinanceReport } from "@/lib/admin/finance";
 import { accountDb } from "@/lib/family/account-store";
 import { updateCostSettingsAction } from "../actions";
+import { BackTo } from "@/components/nav/BackTrail";
 
 export const metadata: Metadata = { title: "Finances | Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -56,7 +57,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
           Recurring revenue only counts subscriptions and narrator slots. Credit packs and gifts are one-time and never part of MRR.
         </p>
         <p className="flex flex-wrap gap-4 text-sm">
-          <Link href="/admin" className="underline underline-offset-4">Back to the admin overview</Link>
+          <BackTo fallback={{ href: "/admin", label: "the admin overview" }} look="back-to" className="underline underline-offset-4" />
           <Link href={test ? "/admin/finance" : "/admin/finance?mode=test"} className="underline underline-offset-4">
             {test ? "Show live payments" : "Show test-mode payments"}
           </Link>
@@ -76,7 +77,7 @@ function Report({ r, test }: { r: FinanceReport; test: boolean }) {
     <>
       {!r.hasRevenueData && (
         <p role="note" className="rounded-2xl bg-lavender/40 px-4 py-3 text-sm">
-          No {test ? "test-mode" : "live"} payments recorded yet, so revenue reads $0. Payments are still switched off; families and costs below are real.
+          No {test ? "test-mode" : "live"} payments recorded yet, so revenue reads $0. Families and costs below are real.
         </p>
       )}
 
@@ -102,6 +103,49 @@ function Report({ r, test }: { r: FinanceReport; test: boolean }) {
         <Stat label="Gifts, last 30 days" value={money(r.gifts30d.cents)} note={`${n(r.gifts30d.count)} sold`} />
         <Stat label="Gifts, all time" value={money(r.giftsAllTime.cents)} note={`${n(r.giftsAllTime.count)} sold`} />
       </Section>
+
+      <Section
+        id="sponsor-h"
+        title="Family gifts (sponsored)"
+        note="Kept apart from household plans. Each sponsor is one paying subscriber; the families they cover are activations, not customers. Prepaid years count as a twelfth a month."
+      >
+        <Stat label="Paying sponsors" value={n(r.sponsorships.sponsors)} />
+        <Stat label="Families covered by a sponsor" value={n(r.sponsorships.sponsoredFamilies)} note="Non-paying activations" />
+        <Stat label="Monthly gift MRR" value={money(r.sponsorships.monthlyMrrCents)} />
+        <Stat label="Prepaid-year gift MRR" value={money(r.sponsorships.annualMrrCents)} note="$179.99 a year counts as $15.00 a month" />
+      </Section>
+      {r.sponsorships.margins.length > 0 && (
+        <section className="flex flex-col gap-3" aria-labelledby="sponsor-margin-h">
+          <h2 id="sponsor-margin-h" className="font-display text-2xl font-semibold">Gift margins, monthly and prepaid year</h2>
+          <p className="text-sm">This month&apos;s gift revenue minus the narration its families generated in the last 30 days. Lowest margin first.</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm" data-testid="sponsorship-margins">
+              <thead>
+                <tr className="border-b-2 border-ink/10">
+                  <th className="py-2 pr-3">Gift</th>
+                  <th className="py-2 pr-3">Kind</th>
+                  <th className="py-2 pr-3">Families</th>
+                  <th className="py-2 pr-3">Revenue</th>
+                  <th className="py-2 pr-3">Narration cost</th>
+                  <th className="py-2">Margin</th>
+                </tr>
+              </thead>
+              <tbody>
+                {r.sponsorships.margins.slice(0, 50).map((m) => (
+                  <tr key={m.sponsorshipId} className="border-b border-ink/10">
+                    <td className="py-2 pr-3 font-mono text-xs">{m.sponsorshipId.slice(0, 8)}</td>
+                    <td className="py-2 pr-3">{m.interval === "year" ? "Prepaid year" : "Monthly"}</td>
+                    <td className="py-2 pr-3">{n(m.families)}</td>
+                    <td className="py-2 pr-3">{money(m.revenueCents)}</td>
+                    <td className="py-2 pr-3">{usd(m.costUsd)}</td>
+                    <td className="py-2">{usd(m.marginUsd)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       <Section id="retention-h" title="Trials and retention">
         <Stat label="Trial conversion" value={pct(r.trials.rate)} note={`${n(r.trials.converted)} of ${n(r.trials.ended)} finished trials`} />

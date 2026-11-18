@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { FamilyJourney } from "@/components/home/FamilyJourney";
 import { FamilyVoices } from "@/components/home/FamilyVoices";
+import { ListenAnywhere } from "@/components/home/ListenAnywhere";
 import { SiteHeader } from "@/components/home/SiteHeader";
+import { FounderStory } from "@/components/home/FounderStory";
+import { Testimonials } from "@/components/home/Testimonials";
+import { VoiceStaysYours } from "@/components/home/VoiceStaysYours";
 import {
   FamilyCircles,
   FinalCta,
@@ -11,37 +15,19 @@ import {
   SiteFooter,
   TryYourVoice,
 } from "@/components/home/sections";
-import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
-import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, absoluteUrl, jsonLd, publicPageMetadata } from "@/lib/seo/site";
+import { ORGANIZATION_ID, organizationNode, websiteNode } from "@/lib/seo/organization";
+import { SITE_DESCRIPTION, jsonLd, publicPageMetadata, webPageNode } from "@/lib/seo/site";
+import { PAGE_TITLES } from "@/lib/seo/titles";
 
 export const metadata: Metadata = publicPageMetadata({
-  title: "Readli: Every Book. Every Voice.",
+  title: PAGE_TITLES.home,
   description: SITE_DESCRIPTION,
   path: "/",
 });
 
 const siteLd = {
   "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "Organization",
-      "@id": `${SITE_URL}/#organization`,
-      name: SITE_NAME,
-      url: SITE_URL,
-      logo: absoluteUrl("/icon.png"),
-      slogan: SITE_TAGLINE,
-      description: SITE_DESCRIPTION,
-      sameAs: SOCIAL_ACCOUNTS.map((a) => a.url),
-    },
-    {
-      "@type": "WebSite",
-      "@id": `${SITE_URL}/#website`,
-      name: SITE_NAME,
-      url: SITE_URL,
-      description: SITE_DESCRIPTION,
-      publisher: { "@id": `${SITE_URL}/#organization` },
-    },
-  ],
+  "@graph": [organizationNode(), websiteNode(), webPageNode({ path: "/", title: PAGE_TITLES.home, description: SITE_DESCRIPTION, extra: { about: { "@id": ORGANIZATION_ID } } })],
 };
 
 /** Section order follows Design Brief §5. Family voices privacy section follows the family circle at Kevin's
@@ -49,7 +35,7 @@ const siteLd = {
 export default function HomePage() {
   return (
     <>
-      <SiteHeader />
+      <SiteHeader logInUntilHeroScrolled />
       <main>
         <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(siteLd)} />
         <Hero />
@@ -57,8 +43,16 @@ export default function HomePage() {
         <HowFamiliesWork />
         <FamilyJourney />
         <KidsShelf />
-        <FamilyCircles />
-        <FamilyVoices />
+        <ListenAnywhere />
+        {/* "For Families" (/#families) lands here; on phones the family circle is hidden, so it lands on family voices. */}
+        <div id="families" className="scroll-mt-20">
+          <FamilyCircles />
+          <FamilyVoices />
+        </div>
+        <FounderStory />
+        <VoiceStaysYours />
+        {/* Social proof sits right above the closing sign-up buttons (Kevin, 2026-11-15). */}
+        <Testimonials />
         <FinalCta />
       </main>
       <SiteFooter />

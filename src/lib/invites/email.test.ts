@@ -87,7 +87,7 @@ describe("family storyteller invitation email", () => {
     expect(mail!.subject).toBe("Kevin invited you to read stories to The Godfrey family on Readli");
     expect(mail!.text).toContain("https://readli.ai/voice/join?invite=first");
     expect(mail!.text).toContain(`/v/respond/${householdRespondToken(SECRET, ID)}?action=decline`);
-    expect(mail!.text).toContain("no card and no subscription");
+    expect(mail!.text).toContain("free for you and takes about three minutes");
     expect(mail!.headers["List-Unsubscribe"]).toBe(`<https://readli.ai/api/invitations/unsubscribe/${householdRespondToken(SECRET, ID)}>`);
     expect(tables.household_invitation_sends![0]!.delivery).toBe("sent");
   });
@@ -156,5 +156,15 @@ describe("family storyteller invitation email", () => {
     expect(mail.html).not.toContain("<b>Kev</b>");
     expect(mail.html).toContain("&lt;b&gt;Kev&lt;/b&gt;");
     expect(mail.text.startsWith("Hi,")).toBe(true);
+  });
+
+  it("asks a co-parent to join as a parent, not to record", () => {
+    const input = { inviterName: "Kev", familyName: "The Godfreys", recipientName: "Ben", joinUrl: "j", declineUrl: "d", unsubscribeUrl: "u", oneClickUnsubscribeUrl: "o", reportUrl: "r", linkDays: 14 };
+    const mail = familyInviteEmail({ ...input, coParent: true });
+    expect(mail.subject).toBe("Kev invited you to be a parent in The Godfreys on Readli");
+    expect(mail.text).toContain("Kev looks after the family's plan and billing");
+    expect(mail.text).not.toContain("read stories to the kids");
+    expect(familyInviteEmail({ ...input, coParent: true, reminder: true }).subject).toBe("Kev is still waiting for you to join The Godfreys on Readli");
+    expect(familyInviteEmail(input).subject).toBe("Kev invited you to read stories to The Godfreys on Readli");
   });
 });

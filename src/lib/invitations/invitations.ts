@@ -60,7 +60,7 @@ export const SETTING_BOUNDS: Record<Exclude<keyof InvitationSettings, "sendingEn
 export const NAME_MAX = 80;
 
 /** What the contributor says when they don't write their own message (Kevin, 2026-10-21). */
-export const DEFAULT_CONTRIBUTOR_MESSAGE = "I've recorded my voice on Readli so I can read stories to your family. Connect my voice to your Readli Family!";
+export const DEFAULT_CONTRIBUTOR_MESSAGE = "I made my Readli voice so I can read bedtime stories to the kids. I hope you love it!";
 export const RELATIONSHIP_MAX = 40;
 export const MESSAGE_MAX = 500;
 

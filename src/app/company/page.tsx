@@ -1,37 +1,108 @@
 import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/sections";
 import { SocialIcon } from "@/components/brand/SocialIcon";
+import { COMPANY, COMPANY_ADDRESS, FOUNDERS, PROMISES } from "@/lib/content/company";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
-import { publicPageMetadata } from "@/lib/seo/site";
+import { SITE_LONG_DESCRIPTION, publicPageMetadata } from "@/lib/seo/site";
+import { PAGE_TITLES } from "@/lib/seo/titles";
+import { PageLd } from "@/components/seo/PageLd";
+import { ORGANIZATION_ID, organizationNode, websiteNode } from "@/lib/seo/organization";
 
 export const metadata: Metadata = publicPageMetadata({
-  title: "Company | Readli",
-  description: "About Readli and its official accounts.",
+  title: PAGE_TITLES.company,
+  description: `About Readli, made by ${COMPANY.legalName} in ${COMPANY.city}, ${COMPANY.region}: who we are, how to reach us, and our official accounts.`,
   path: "/company",
 });
 
-/** Company page: who Readli is and its official accounts, kept visible for press and investors. */
+/** Company page: who makes Readli and how to reach them, above the fold for families meeting us cold (Kevin, 2026-10-24). */
 export default function CompanyPage() {
   return (
     <>
       <SiteHeader />
       <main className="mx-auto flex max-w-4xl flex-col gap-12 px-4 py-14 sm:px-6">
+        <PageLd path="/company" title={PAGE_TITLES.company} description={metadata.description} type="AboutPage" extra={{ about: { "@id": ORGANIZATION_ID }, mainEntity: { "@id": ORGANIZATION_ID } }} graph={[organizationNode(), websiteNode()]} />
         <section aria-labelledby="about-heading" className="flex flex-col gap-4">
           <p className="font-display text-lg font-semibold text-coral-deep">Every Book. Every Voice.</p>
           <h1 id="about-heading" className="font-display text-4xl font-semibold sm:text-5xl">
             About Readli
           </h1>
-          <p className="max-w-2xl text-lg">
-            Readli lets families hear classic storybooks read in the voices of the people they love. Parents,
-            grandparents, aunts, uncles and family friends each record and approve their own voice, and choose who can
-            use it.
-          </p>
+          <p className="max-w-2xl text-lg">{SITE_LONG_DESCRIPTION}</p>
+          <dl className="grid gap-4 rounded-[var(--radius-panel)] bg-surface p-6 ring-2 ring-ink/10 sm:grid-cols-2 sm:p-8" data-testid="company-details">
+            <div>
+              <dt className="text-sm font-semibold text-muted">Made by</dt>
+              <dd className="font-display text-xl font-semibold">{COMPANY.legalName}</dd>
+            </div>
+            <div>
+              <dt className="text-sm font-semibold text-muted">Where we are</dt>
+              <dd>{COMPANY_ADDRESS}</dd>
+            </div>
+            <div>
+              <dt className="text-sm font-semibold text-muted">Talk to a person</dt>
+              <dd>
+                <a href={`mailto:${COMPANY.email}`} className="font-semibold underline underline-offset-4">
+                  {COMPANY.email}
+                </a>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm font-semibold text-muted">Website</dt>
+              <dd>
+                <a href="https://readli.ai" className="font-semibold underline underline-offset-4">
+                  readli.ai
+                </a>
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        {FOUNDERS.length > 0 && (
+          <section id="our-story" aria-labelledby="founders-heading" className="flex scroll-mt-24 flex-col gap-6" data-testid="founders">
+            <h2 id="founders-heading" className="font-display text-3xl font-semibold">
+              Why we built Readli
+            </h2>
+            {FOUNDERS.map((f) => (
+              <article key={f.name} className="flex flex-col gap-5 sm:flex-row sm:items-start">
+                {f.photo && (
+                  <Image src={f.photo} alt={f.photoAlt} width={240} height={240} className="size-48 shrink-0 rounded-3xl border-[3px] border-ink object-cover sm:size-56" />
+                )}
+                <div className="flex flex-col gap-3">
+                  {f.story.map((p) => (
+                    <p key={p} className="text-lg">
+                      {p}
+                    </p>
+                  ))}
+                  <p className="font-display text-lg font-semibold">
+                    {f.name}
+<span className="block font-normal text-muted">{f.title}</span>
+                  </p>
+                </div>
+              </article>
+            ))}
+          </section>
+        )}
+
+        <section aria-labelledby="promises-heading" className="flex flex-col gap-4 rounded-[var(--radius-panel)] bg-mint/40 p-6 sm:p-8">
+          <h2 id="promises-heading" className="font-display text-3xl font-semibold">
+            Our promises about voices
+          </h2>
+          <ul className="flex list-disc flex-col gap-2 pl-6">
+            {PROMISES.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
           <p>
-            Website:{" "}
-            <a href="https://readli.ai" className="font-semibold underline underline-offset-4">
-              readli.ai
-            </a>
+            Read more about{" "}
+            <Link href="/parents/safety" className="font-semibold underline underline-offset-4">
+              family privacy &amp; safety
+            </Link>{" "}
+            or our{" "}
+            <Link href="/privacy" className="font-semibold underline underline-offset-4">
+              Privacy Policy
+            </Link>
+            .
           </p>
         </section>
 

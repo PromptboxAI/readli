@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useId, useState } from "react";
-import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
-import { RELATIONSHIPS, type FamilyInvite } from "@/lib/invites/family-invites";
+import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
+import { HelpLink } from "@/components/help/HelpLink";
+import type { FamilyInvite } from "@/lib/invites/family-invites";
+import { RelationshipPicker } from "./RelationshipPicker";
 
 /** Why an invitation wasn't emailed; mirrors EMAIL_MESSAGES on the server. */
 const NOT_EMAILED: Record<string, string> = {
@@ -18,9 +21,29 @@ const field = "min-h-12 w-full rounded-2xl border-[3px] border-ink/20 bg-surface
 /**
  * Family storytellers → Invite a storyteller. Live: saves the invitation and returns a single-use link
  * (email sending isn't switched on yet, so the parent sends it). Preview: nothing is saved or sent.
- * Inviting holds a free narrator slot for them until they join and share; it shares nothing.
+ * Inviting never holds or uses a narrator slot and shares nothing.
  */
-export function InviteStoryteller({ live, initialName = "", onSent, onClose }: { live: boolean; initialName?: string; onSent: (invite: SavedInvite) => void; onClose: () => void }) {
+/** Where to invite a partner instead, and whether this parent may (only the plan's owner invites co-parents). */
+export interface CoParentOption {
+  href: string;
+  canInvite: boolean;
+  ownerName: string;
+}
+
+export function InviteStoryteller({
+  live,
+  initialName = "",
+  coParent = null,
+  onSent,
+  onClose,
+}: {
+  live: boolean;
+  initialName?: string;
+  /** Shows "Who are you inviting?" so a parent doesn't invite their partner as a voice-only storyteller. */
+  coParent?: CoParentOption | null;
+  onSent: (invite: SavedInvite) => void;
+  onClose: () => void;
+}) {
   const id = useId();
   const [email, setEmail] = useState("");
   const [name, setName] = useState(initialName);
@@ -38,7 +61,7 @@ export function InviteStoryteller({ live, initialName = "", onSent, onClose }: {
     if (!canSend) return;
     setError("");
     if (!live) {
-      const invite: SavedInvite = { id: `preview-${Date.now()}`, name: name.trim() || email.trim().split("@")[0]!, relationship, email: null, status: "invited", createdAt: new Date() };
+      const invite: SavedInvite = { id: `preview-${Date.now()}`, name: name.trim() || email.trim().split("@")[0]!, relationship: relationship.trim(), email: null, status: "invited", createdAt: new Date() };
       onSent(invite);
       setSent({ name: invite.name, link: null, email: "off" });
       return;
@@ -88,15 +111,21 @@ export function InviteStoryteller({ live, initialName = "", onSent, onClose }: {
             <p className="w-full break-all rounded-2xl bg-surface p-3 font-mono text-sm" data-testid="invite-link">
               {sent.link}
             </p>
-            <button type="button" className={buttonPrimary} onClick={() => share(sent.link!, sent.name)}>
+            <button type="button" className={parentPrimary} onClick={() => share(sent.link!, sent.name)}>
               {copied ? "Link copied" : "Share the link"}
             </button>
           </>
         ) : (
           <p>This is a preview, so nothing was sent.</p>
         )}
+        <p className="text-sm">
+          Prefer paper?{" "}
+          <Link href="/help/print/record-your-voice" target="_blank" className="font-semibold underline underline-offset-4" data-testid="print-recording-guide">
+            Print the recording steps for {sent.name}
+          </Link>
+        </p>
         <p className="text-sm text-muted">No narrator slot is used until you add {sent.name}. We&apos;ll show each step below.</p>
-        <button type="button" className={buttonSecondary} onClick={onClose}>
+        <button type="button" className={parentSecondary} onClick={onClose}>
           Done
         </button>
       </section>
@@ -109,6 +138,7 @@ export function InviteStoryteller({ live, initialName = "", onSent, onClose }: {
         <h3 className="font-display text-2xl font-semibold">Invite a storyteller</h3>
         <p className="text-muted">They make a free Readli Voice account, record their own voice and choose to share it with your family. They never pay.</p>
       </div>
+      {coParent && <WhoToInvite coParent={coParent} />}
       <div className="flex flex-col gap-2">
         <label htmlFor={`${id}-email`} className="font-display text-lg font-semibold">
           Their email
@@ -122,33 +152,73 @@ export function InviteStoryteller({ live, initialName = "", onSent, onClose }: {
         </label>
         <input id={`${id}-name`} className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="Grandma June" autoComplete="off" />
       </div>
-      <fieldset className="flex flex-col gap-2">
-        <legend className="font-display text-lg font-semibold">
-          They are your kids&apos;… <span className="font-sans text-base font-normal text-muted">(optional)</span>
-        </legend>
-        <div className="flex flex-wrap gap-2">
-          {RELATIONSHIPS.map((r) => (
-            <label key={r} className={`cursor-pointer rounded-full px-4 py-2 font-display ring-2 has-[:focus-visible]:outline has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-coral-deep ${relationship === r ? "bg-ink text-white ring-ink" : "bg-ivory ring-ink/15"}`}>
-              <input type="radio" name={`${id}-relationship`} value={r} checked={relationship === r} onChange={() => setRelationship(r)} className="sr-only" />
-              {r}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <RelationshipPicker
+        legend={
+          <>
+            They are your kids&apos;… <span className="font-sans text-base font-normal text-muted">(optional)</span>
+          </>
+        }
+        value={relationship}
+        onChange={setRelationship}
+      />
       {error && (
         <p role="alert" className="rounded-2xl bg-coral/30 p-3 font-semibold">
           {error}
         </p>
       )}
       <div className="flex flex-wrap gap-3">
-        <button type="submit" className={buttonPrimary} disabled={!canSend}>
-          {busy ? "Creating invitation…" : "Create invitation"}
-        </button>
-        <button type="button" className={buttonSecondary} onClick={onClose}>
+        <button type="button" className={parentSecondary} onClick={onClose}>
           Cancel
         </button>
+        <button type="submit" className={parentPrimary} disabled={!canSend}>
+          {busy ? "Creating invitation…" : "Create invitation"}
+        </button>
       </div>
-      <p className="text-sm text-muted">Inviting doesn&apos;t use a narrator slot, and nothing is shared until they say yes.</p>
+      <p className="text-sm text-muted">
+        Inviting doesn&apos;t use a narrator slot, and nothing is shared until they say yes.{" "}
+        <HelpLink slug="invite-relatives-elsewhere">Inviting relatives who live elsewhere</HelpLink>
+      </p>
     </form>
+  );
+}
+
+/**
+ * The two kinds of invitation side by side. A storyteller only lends their voice; a partner or co-parent
+ * runs the family account with you. Inviting a partner here would leave them without parent controls.
+ */
+function WhoToInvite({ coParent }: { coParent: CoParentOption }) {
+  return (
+    <section className="flex flex-col gap-3" aria-label="Who are you inviting?" data-testid="who-to-invite">
+      <h4 className="font-display text-lg font-semibold">Who are you inviting?</h4>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-2 rounded-2xl bg-mint/40 p-4 ring-2 ring-ink/20" data-testid="invite-kind-storyteller">
+          <p className="font-display text-lg font-semibold">
+            A storyteller <span className="font-sans text-sm font-bold text-muted">· this form</span>
+          </p>
+          <p className="text-sm">For grandparents, aunts, uncles and friends. Voice only.</p>
+          <ul className="flex list-disc flex-col gap-1 pl-5 text-sm">
+            <li>Records their voice for free from their own phone.</li>
+            <li>You add them to a narrator slot and choose which kids hear them.</li>
+            <li>Can&apos;t see your family account, your kids&apos; profiles or your books.</li>
+          </ul>
+        </div>
+        <div className="flex flex-col gap-2 rounded-2xl bg-sky/30 p-4" data-testid="invite-kind-co-parent">
+          <p className="font-display text-lg font-semibold">Your partner or co-parent</p>
+          <p className="text-sm">For mom, dad or another parent at home. Full parent access.</p>
+          <ul className="flex list-disc flex-col gap-1 pl-5 text-sm">
+            <li>Signs in as a second parent and sees the whole family account.</li>
+            <li>Prepares books, chooses storytellers and runs Readli Kids on their own devices.</li>
+            <li>Can record their own voice too. Everything except billing.</li>
+          </ul>
+          {coParent.canInvite ? (
+            <Link href={coParent.href} className="mt-1 font-display font-semibold underline underline-offset-4" data-testid="invite-co-parent-link">
+              Invite a co-parent instead
+            </Link>
+          ) : (
+            <p className="mt-1 text-sm font-semibold">Only {coParent.ownerName} can invite another parent.</p>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }

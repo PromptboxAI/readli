@@ -31,11 +31,35 @@ export const RELATIONSHIPS = [
   "Big sister",
   "Cousin",
   "Godparent",
+  "Caregiver",
   "Family friend",
 ] as const;
 
+export const RELATIONSHIP_MAX = 40;
+
+/**
+ * A family's own words for someone ("Grandma", "Nanny Pat", or nothing at all). Any short text is fine:
+ * the list above is only a set of suggestions, so no family shape is assumed. Display only; a label never
+ * grants voice access, a narrator slot or a child approval. Empty means no label.
+ */
+export function cleanRelationship(value: unknown): string | null {
+  const text = (typeof value === "string" ? value : "")
+    .replace(/[\u0000-\u001f\u007f<>]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text ? text.slice(0, RELATIONSHIP_MAX).trim() : null;
+}
+
+/**
+ * What accepting makes someone: a storyteller ('member') joins the family circle to record their voice;
+ * a co-parent ('guardian') becomes a second parent, with every parent's controls but not the plan's billing.
+ */
+export type InviteRole = "member" | "guardian";
+
 export interface FamilyInvite {
   id: string;
+  /** Older invitations have no role: they're storyteller invitations. */
+  role?: InviteRole;
   name: string;
   relationship: string;
   /** Email is optional: an invite can go out as a shared link instead. */
@@ -86,12 +110,12 @@ export function acceptInvite(invite: FamilyInvite, now: Date) {
   };
 }
 
-/** The message that goes with the link. Plain, warm and clear that nothing is shared yet. */
+/** The message that goes with the link: plain and warm. */
 export function inviteMessage({ from, to, relationship }: { from: string; to: string; relationship: string }): string {
   const greeting = to.trim() || relationship;
   return [
     `Hi ${greeting}! ${from.trim() || "Your family"} would love you to join our family circle on Readli.`,
     "You can record your voice reading a short story, and the kids could hear you read their favourite books.",
-    "Your voice stays yours: it's private until you choose to share it, and you can change your mind any time.",
+    "It only takes a few minutes, and the kids will love it!",
   ].join(" ");
 }

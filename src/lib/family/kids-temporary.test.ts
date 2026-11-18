@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isDeviceCookie } from "./devices";
-import { decodeTemporaryKids, encodeTemporaryKids, isTemporaryKidsCookie } from "./session";
+import { cookieSecret, decodeTemporaryKids, encodeTemporaryKids, isTemporaryKidsCookie } from "./session";
 
 describe("temporary Kids Mode pass", () => {
   const now = Date.UTC(2026, 9, 13, 20);
@@ -24,5 +24,20 @@ describe("temporary Kids Mode pass", () => {
     expect(decodeTemporaryKids(value.replace(String(pass.expiresAt), String(pass.expiresAt + 9e9)), now, "k")).toBeNull();
     expect(decodeTemporaryKids(value, now, "other")).toBeNull();
     expect(decodeTemporaryKids("t1~garbage", now, "k")).toBeNull();
+  });
+});
+
+describe("cookie signing key", () => {
+  it("uses GUEST_COOKIE_SECRET when it's set", () => {
+    expect(cookieSecret({ NODE_ENV: "production", GUEST_COOKIE_SECRET: "real" } as NodeJS.ProcessEnv)).toBe("real");
+  });
+
+  it("allows the stand-in key only in dev and stub mode", () => {
+    expect(cookieSecret({ NODE_ENV: "development" } as NodeJS.ProcessEnv)).toBe("readli-dev-only-secret");
+    expect(cookieSecret({ NODE_ENV: "production", VOICE_PROVIDER: "stub" } as NodeJS.ProcessEnv)).toBe("readli-dev-only-secret");
+  });
+
+  it("refuses to sign anything in production without a key, so passes can't be forged with the published stand-in", () => {
+    expect(() => cookieSecret({ NODE_ENV: "production" } as NodeJS.ProcessEnv)).toThrow(/GUEST_COOKIE_SECRET/);
   });
 });

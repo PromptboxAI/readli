@@ -8,13 +8,14 @@ import { accountDb } from "@/lib/family/account-store";
 import { serverConfig } from "@/lib/server/config";
 import { fetchProviderModels } from "@/lib/voice/model-watch";
 import { endTesterPlanAction, grantTesterPlanAction, removeEmptyFamilyAction } from "./actions";
+import { adminDate } from "@/lib/admin/time";
 
 export const metadata: Metadata = { title: "Readli admin", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 const n = (x: number) => x.toLocaleString("en-US");
-const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-const SOURCE: Record<string, string> = { subscription: "Paid", gift: "Gift", donated: "Donated", trial: "Trial", tester: "Tester" };
+const day = (iso: string) => adminDate(iso);
+const SOURCE: Record<string, string> = { subscription: "Paid", gift: "Gift", donated: "Complimentary", trial: "Trial", tester: "Tester" };
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
@@ -39,7 +40,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const t = overview?.totals;
   const found = overview ? filterFamilies(overview.families, q) : [];
   // Free storytellers sent through family setup by mistake aren't testers, so they're listed apart.
-  const families = found.filter((f) => !f.storytellerFor);
+  // Tester plans only: families on a paid plan, a complimentary membership, a gift or a trial live on
+  // Accounts and Complimentary memberships instead (Kevin, 2026-11-03). Families with no plan stay so they can get one.
+  const families = found.filter((f) => !f.storytellerFor && (!f.plan || f.plan.source === "tester"));
+  const otherPlans = found.filter((f) => !f.storytellerFor && f.plan && f.plan.source !== "tester").length;
   const storytellers = found.filter((f) => f.storytellerFor);
   const ok = param(params, "ok");
   const err = param(params, "err");
@@ -53,12 +57,19 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <h1 className="font-display text-4xl font-semibold">Readli admin</h1>
         {!gate.preview && <p className="text-lg">Signed in as {gate.admin.email}.</p>}
         <nav className="flex flex-wrap gap-3 pt-2" aria-label="Admin pages">
+          <Link href="/admin/users" className={buttonSecondary}>Accounts</Link>
+          <Link href="/admin/problems" className={buttonSecondary}>Problems</Link>
+          <Link href="/admin/activity" className={buttonSecondary}>Admin activity</Link>
           <Link href="/admin/finance" className={buttonSecondary}>Finances</Link>
+          <Link href="/admin/growth" className={buttonSecondary}>Growth metrics</Link>
           <Link href="/admin/plans" className={buttonSecondary}>Plan settings</Link>
           <Link href="/admin/narration" className={buttonSecondary}>Narration</Link>
           <Link href="/admin/audiobooks" className={buttonSecondary}>Audiobook versions</Link>
           <Link href="/admin/complimentary" className={buttonSecondary}>Complimentary memberships</Link>
+          <Link href="/admin/donations" className={buttonSecondary}>Readli Gives Back</Link>
           <Link href="/admin/invitations" className={buttonSecondary}>Family invitations</Link>
+          <Link href="/admin/email" className={buttonSecondary}>Email</Link>
+          <Link href="/admin/banner" className={buttonSecondary}>Top banner</Link>
           <Link href="/admin/voice-quality" className={buttonSecondary}>Voice quality</Link>
         </nav>
       </header>
@@ -95,7 +106,14 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             <h2 id="testers-h" className="font-display text-2xl font-semibold">Tester plans</h2>
             <p>
               Give a family a free Readli Family plan so they can try kids profiles before payments are on. The tester signs in and names
-              their family first, then shows up here. Families that already have a plan keep it.
+              their family first, then shows up here. Only tester plans and families with no plan are listed.{" "}
+              {otherPlans > 0 && (
+                <>
+                  {otherPlans} {otherPlans === 1 ? "family has" : "families have"} a paid, complimentary, gift or trial plan instead; see them on{" "}
+                  <Link href="/admin/users" className="underline underline-offset-4">Accounts</Link>, and cancel complimentary ones on{" "}
+                  <Link href="/admin/complimentary" className="underline underline-offset-4">Complimentary memberships</Link>.
+                </>
+              )}
             </p>
             <form className="flex flex-wrap gap-2" role="search">
               <label htmlFor="q" className="sr-only">Find a family</label>
@@ -109,7 +127,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               <button className={buttonSecondary}>Find</button>
             </form>
             {families.length === 0 ? (
-              <p className="text-muted">{q ? "No family matches that." : "No families yet."}</p>
+              <p className="text-muted">{q ? "No tester family matches that." : "No tester plans yet."}</p>
             ) : (
               <ul className="flex flex-col gap-3" data-testid="admin-families">
                 {families.map((f) => (
@@ -150,7 +168,11 @@ function FamilyRow({ family: f, q }: { family: AdminFamily; q: string }) {
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-surface p-4 ring-2 ring-ink/10">
       <div className="min-w-0">
-        <p className="font-semibold">{f.name}</p>
+        <p className="font-semibold">
+          <Link href={`/admin/families/${f.id}`} className="underline underline-offset-4">
+            {f.name}
+          </Link>
+        </p>
         <p className="break-all text-sm text-muted">{f.ownerEmail ?? "Owner email unknown"}</p>
         <p className="text-sm">
           {f.members} grown-up{f.members === 1 ? "" : "s"}, {f.kids} kid{f.kids === 1 ? "" : "s"} · since {day(f.createdAt)} ·{" "}

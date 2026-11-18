@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { buttonPrimary } from "@/components/brand/buttons";
+import { parentPrimary } from "@/components/brand/buttons";
 
-/** Sets the family's 4-digit grown-up PIN, used to leave Readli Kids. Shown until a PIN is set. */
-export function SetKidsPin() {
+/**
+ * Sets the family's 4-digit grown-up PIN, used to leave Readli Kids. Shown until a PIN is set. `onSaved` lets a
+ * caller carry on (say, into a child's space) once it's saved; `intro` replaces the opening line.
+ */
+export function SetKidsPin({ onSaved, intro }: { onSaved?: () => void; intro?: string } = {}) {
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -19,6 +22,7 @@ export function SetKidsPin() {
     setPin("");
     if (!res.ok) return setMessage(json?.error?.message ?? "We couldn't save that. Please try again.");
     setSaved(true);
+    onSaved?.();
   };
 
   if (saved) {
@@ -37,7 +41,7 @@ export function SetKidsPin() {
         if (pin.length === 4) void save();
       }}
     >
-      <p className="font-semibold">Set a family PIN so you can leave Kids Mode with it, instead of signing in again.</p>
+      <p className="font-semibold">{intro ?? "Set a family PIN so you can leave Kids Mode with it, instead of signing in again."}</p>
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm font-semibold">
           New PIN
@@ -51,7 +55,7 @@ export function SetKidsPin() {
             className="w-32 rounded-2xl border-2 border-ink/20 bg-ivory px-3 py-2 text-center text-2xl tracking-[0.4em]"
           />
         </label>
-        <button type="submit" className={buttonPrimary} disabled={busy || pin.length !== 4}>
+        <button type="submit" className={parentPrimary} disabled={busy || pin.length !== 4}>
           Save PIN
         </button>
       </div>

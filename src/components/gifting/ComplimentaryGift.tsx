@@ -9,23 +9,53 @@ import { normalizeGiftCode } from "@/lib/gifting/codes";
 import { claimByLabel, complimentaryHeadline, presentedLine, recipientLine, termPhrase } from "@/lib/gifting/complimentary-copy";
 import type { ComplimentaryLanding } from "@/lib/gifting/server";
 import type { GiftViewer } from "@/lib/gifting/viewer";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 /** Where a scanned code waits while the winner signs in (a magic link may open in a new tab). */
 const STASH = "readli-claim-code";
 const STASH_MS = 7 * 86_400_000;
 
-function stash(code: string) {
+/**
+ * stash(code, true) marks that the winner pressed Claim My Gift before signing in, so the claim finishes on
+ * its own when they're back. Their name and family's name are asked in setup, not here (Kevin, 2026-11-17).
+ */
+function stash(code: string, intent = false) {
   try {
-    localStorage.setItem(STASH, JSON.stringify({ code, at: Date.now() }));
+    // Re-stashing the same code keeps an intent saved before sign-in.
+    const kept = intent || stashedIntent(code);
+    localStorage.setItem(STASH, JSON.stringify({ code, at: Date.now(), ...(kept ? { intent: true } : {}) }));
   } catch {
     /* Storage blocked: they can type the code from the certificate. */
   }
 }
 
-function stashed(): string | null {
+/** Used once: a failed or paused claim waits for the winner's own press. */
+function dropIntent(code: string) {
   try {
-    const v = JSON.parse(localStorage.getItem(STASH) ?? "null") as { code?: string; at?: number } | null;
-    if (v?.code && v.at && Date.now() - v.at < STASH_MS) return normalizeGiftCode(v.code);
+    localStorage.setItem(STASH, JSON.stringify({ code, at: Date.now() }));
+  } catch {
+    /* Nothing to clear. */
+  }
+}
+
+function stashedIntent(code: string): boolean {
+  try {
+    const v = JSON.parse(localStorage.getItem(STASH) ?? "null") as { code?: string; at?: number; intent?: unknown } | null;
+    return Boolean(v?.code && normalizeGiftCode(v.code) === code && v.at && Date.now() - v.at < STASH_MS && v.intent);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The code to reopen on a bare /claim: only one the winner pressed Claim My Gift on before signing in.
+ * A code that was merely looked at stays out, so the plain readli.ai/claim link in an email shows the
+ * enter-code page instead of the last code this browser opened (Kevin, 2026-11-16).
+ */
+function stashedResume(): string | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(STASH) ?? "null") as { code?: string; at?: number; intent?: unknown } | null;
+    if (v?.code && v.at && v.intent && Date.now() - v.at < STASH_MS) return normalizeGiftCode(v.code);
   } catch {
     /* Nothing usable stored. */
   }
@@ -40,7 +70,7 @@ function forget() {
   }
 }
 
-const longDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+const longDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: READLI_TIME_ZONE });
 
 const BENEFITS = ["The whole storybook library", "Invite 2 storytellers to read in their own voices", "40 narration credits every month", "Up to 6 kids' profiles you manage"];
 
@@ -52,17 +82,32 @@ function Check() {
   );
 }
 
+/** The typed-code screen's words. /redeem (Readli Gives Back) uses the spec's wording. */
+export interface ClaimIntro {
+  title: string;
+  body: string;
+  label: string;
+  button: string;
+}
+
+const CLAIM_INTRO: ClaimIntro = {
+  title: "Claim your Readli gift",
+  body: "Type the code printed under the QR code on your certificate.",
+  label: "Gift code",
+  button: "Find my gift",
+};
+
 /**
- * /claim: the code arrives after # (from the QR code) or is typed in, waits in this browser while the
- * winner signs in, and is looked up without ever going into a URL the server sees.
+ * /claim and /redeem: the code arrives after # (from the QR code) or is typed in, waits in this
+ * browser while the winner signs in, and is looked up without ever going into a URL the server sees.
  */
-export function ClaimFromLink() {
+export function ClaimFromLink({ path = "/claim", intro = CLAIM_INTRO }: { path?: "/claim" | "/redeem"; intro?: ClaimIntro }) {
   const [code, setCode] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<{ gift: ComplimentaryLanding; viewer: GiftViewer } | null>(null);
   const [error, setError] = useState("");
   const [checking, setChecking] = useState(true);
 
-  async function lookUp(c: string) {
+  async function lookUp(c: string, resuming = false) {
     setChecking(true);
     setError("");
     const res = await fetch("/api/gifts/lookup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code: c }) });
@@ -76,6 +121,11 @@ export function ClaimFromLink() {
       window.location.replace(`/gift/open?code=${encodeURIComponent(c)}`);
       return;
     }
+    if (resuming && body.gift?.status !== "ready") {
+      // The saved code is used up or withdrawn: start fresh rather than say "already claimed".
+      forget();
+      return;
+    }
     setCode(c);
     stash(c);
     setLoaded({ gift: body.gift, viewer: body.viewer });
@@ -84,12 +134,13 @@ export function ClaimFromLink() {
   useEffect(() => {
     const fromHash = normalizeGiftCode(decodeURIComponent(window.location.hash.replace(/^#/, "")));
     if (window.location.hash) window.history.replaceState(null, "", window.location.pathname);
-    const c = fromHash ?? stashed();
-    if (c) void lookUp(c);
+    const resume = fromHash ? null : stashedResume();
+    const c = fromHash ?? resume;
+    if (c) void lookUp(c, !!resume);
     else setChecking(false);
   }, []);
 
-  if (loaded && code) return <ComplimentaryGift code={code} gift={loaded.gift} viewer={loaded.viewer} />;
+  if (loaded && code) return <ComplimentaryGift code={code} gift={loaded.gift} viewer={loaded.viewer} path={path} />;
   if (checking) {
     return (
       <p aria-live="polite" className="py-16 text-center text-lg">
@@ -97,10 +148,10 @@ export function ClaimFromLink() {
       </p>
     );
   }
-  return <EnterCode error={error} onCode={lookUp} />;
+  return <EnterCode error={error} onCode={lookUp} intro={intro} />;
 }
 
-function EnterCode({ error, onCode }: { error: string; onCode: (code: string) => void }) {
+function EnterCode({ error, onCode, intro }: { error: string; onCode: (code: string) => void; intro: ClaimIntro }) {
   const id = useId();
   const [value, setValue] = useState("");
   const [problem, setProblem] = useState("");
@@ -108,8 +159,8 @@ function EnterCode({ error, onCode }: { error: string; onCode: (code: string) =>
   return (
     <section className="flex flex-col items-center gap-4 text-center">
       <GiftBoxArt className="w-28" />
-      <h1 className="font-display text-3xl font-semibold sm:text-4xl">Claim your Readli gift</h1>
-      <p className="max-w-md text-lg">Type the code printed under the QR code on your certificate.</p>
+      <h1 className="font-display text-3xl font-semibold sm:text-4xl">{intro.title}</h1>
+      <p className="max-w-md text-lg">{intro.body}</p>
       <form
         className="flex w-full max-w-md flex-col gap-3"
         aria-label="Claim a gift code"
@@ -123,7 +174,7 @@ function EnterCode({ error, onCode }: { error: string; onCode: (code: string) =>
         }}
       >
         <label htmlFor={`${id}-code`} className="font-display text-lg font-semibold">
-          Gift code
+          {intro.label}
         </label>
         <input
           id={`${id}-code`}
@@ -143,7 +194,7 @@ function EnterCode({ error, onCode }: { error: string; onCode: (code: string) =>
           </p>
         )}
         <button type="submit" className={buttonPrimary}>
-          Find my gift
+          {intro.button}
         </button>
       </form>
     </section>
@@ -151,10 +202,9 @@ function EnterCode({ error, onCode }: { error: string; onCode: (code: string) =>
 }
 
 /** The winner's page (approved mockup, 2026-10-22): short, one clear action, no card, nothing renews. */
-export function ComplimentaryGift({ code, gift, viewer }: { code: string; gift: ComplimentaryLanding; viewer: GiftViewer }) {
+export function ComplimentaryGift({ code, gift, viewer, path = "/claim" }: { code: string; gift: ComplimentaryLanding; viewer: GiftViewer; path?: "/claim" | "/redeem" }) {
   const id = useId();
   const [stage, setStage] = useState<"open" | "claimed">(gift.status === "redeemed" ? "claimed" : "open");
-  const [familyName, setFamilyName] = useState("");
   const [agreePause, setAgreePause] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -166,8 +216,9 @@ export function ComplimentaryGift({ code, gift, viewer }: { code: string; gift: 
 
   async function claim() {
     if (!viewer.signedIn) {
-      stash(code);
-      window.location.assign("/login?next=/claim");
+      // One press: the claim finishes by itself after sign-in (Kevin, 2026-11-03).
+      stash(code, true);
+      window.location.assign(`/login?next=${path}`);
       return;
     }
     setBusy(true);
@@ -175,7 +226,10 @@ export function ComplimentaryGift({ code, gift, viewer }: { code: string; gift: 
     const res = await fetch("/api/gifts/redeem", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ code, familyName: viewer.hasFamily ? undefined : familyName, pauseBilling: subscriber ? agreePause : undefined }),
+      body: JSON.stringify({
+        code,
+        pauseBilling: subscriber ? agreePause : undefined,
+      }),
     });
     const body = await res.json().catch(() => null);
     setBusy(false);
@@ -184,6 +238,18 @@ export function ComplimentaryGift({ code, gift, viewer }: { code: string; gift: 
     setResult(body);
     setStage("claimed");
   }
+
+  // Back from sign-in after pressing Claim My Gift: finish the claim without a second press. Someone who
+  // already pays still sees the page, because pausing their billing needs their own tick.
+  const [resumed, setResumed] = useState(false);
+  useEffect(() => {
+    if (resumed || !viewer.signedIn || stage !== "open" || gift.status === "unavailable") return;
+    if (!stashedIntent(code)) return;
+    setResumed(true);
+    dropIntent(code);
+    if (!subscriber) void claim();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewer.signedIn, stage, code]);
 
   if (gift.status === "unavailable") {
     return (
@@ -207,8 +273,8 @@ export function ComplimentaryGift({ code, gift, viewer }: { code: string; gift: 
               ? `Your paid plan won't bill again until ${longDate(result.paidThrough)}. After that it carries on as before, unless you cancel first.`
               : `Readli Family is on for your family until ${longDate(result.paidThrough)}. No card needed, and nothing renews on its own.`}
         </p>
-        <Link href="/family" className={buttonPrimary}>
-          Go to my family
+        <Link href={result ? "/family/setup" : "/home"} className={buttonPrimary}>
+          {result ? "Set up my family" : "Go to my family"}
         </Link>
       </section>
     );
@@ -259,19 +325,6 @@ export function ComplimentaryGift({ code, gift, viewer }: { code: string; gift: 
             <p>Nothing is charged when it ends. You&apos;d only pay if you later choose a plan at a separate checkout.</p>
           </section>
 
-          {viewer.signedIn && !viewer.hasFamily && (
-            <label className="flex flex-col gap-1">
-              <span className="font-display font-semibold">Your family&apos;s name (optional)</span>
-              <input
-                value={familyName}
-                onChange={(e) => setFamilyName(e.target.value)}
-                maxLength={120}
-                placeholder="The Garcia family"
-                className="min-h-12 rounded-2xl bg-surface px-4 ring-2 ring-ink/20 focus:ring-ink"
-              />
-            </label>
-          )}
-
           {subscriber && (
             <section className="flex flex-col gap-2 rounded-2xl bg-sunshine/40 p-4" data-testid="subscriber-pause">
               <p className="font-semibold">You already pay for Readli Family.</p>
@@ -299,11 +352,11 @@ export function ComplimentaryGift({ code, gift, viewer }: { code: string; gift: 
               {error}
             </p>
           )}
-          <button type="button" className={`${buttonPrimary} min-h-14 w-full text-xl`} onClick={claim} disabled={!canClaim}>
+          <button type="button" className={`${buttonPrimary} min-h-14 w-full text-xl`} onClick={() => void claim()} disabled={!canClaim}>
             {busy ? "Claiming…" : "Claim My Gift"}
           </button>
           <p className="text-center text-sm text-muted">
-            {viewer.signedIn ? "It goes on your own family's account." : "Next, sign in or create a free account and tell us your family's name."}
+            {viewer.signedIn ? "It goes on your own family's account." : "Next, sign in or create a free account, and your gift is claimed straight away."}
             {claimBy ? ` Claim by ${claimBy}.` : ""}
           </p>
 

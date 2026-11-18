@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateGiftCode, hashGiftCode } from "@/lib/gifting/codes.server";
 import type { GiftCodeCipher } from "@/lib/gifting/code-cipher";
+import { complimentaryBatchEmail, complimentaryMembershipEmail, complimentaryOrganizerEmail } from "@/lib/gifting/complimentary-email";
+import type { QueuedEmail } from "@/lib/email/outbox";
+import type { StripeApi } from "@/lib/billing/stripe-api";
 import type { AdminUser } from "./access";
 import {
   COMPLIMENTARY_KINDS,
@@ -109,9 +112,14 @@ export function certificateLabel(prefix: string, no: number | null): string {
   return no ? `${prefix}-${String(no).padStart(3, "0")}` : "Earlier code";
 }
 
+/** Where a batch's certificates send families: Readli Gives Back donations use /redeem, everything else /claim. */
+export function claimPath(program: string | null | undefined): "/redeem" | "/claim" {
+  return program === "readli_gives_back" ? "/redeem" : "/claim";
+}
+
 /** The claim link. The code rides after #, so it never reaches server logs, analytics or referrers. */
-export function claimLink(origin: string, code: string): string {
-  return `${origin.replace(/\/$/, "")}/claim#${code}`;
+export function claimLink(origin: string, code: string, path: "/redeem" | "/claim" = "/claim"): string {
+  return `${origin.replace(/\/$/, "")}${path}#${code}`;
 }
 
 const last4 = (code: string) => code.replace(/-/g, "").slice(-4);
@@ -178,7 +186,7 @@ async function logAction(db: SupabaseClient, admin: AdminUser, action: string, d
 // Reading batches
 // ---------------------------------------------------------------------------
 
-export type IssuedStatus = "unclaimed" | "claimed" | "revoked" | "expired";
+export type IssuedStatus = "unclaimed" | "claimed" | "cancelled" | "revoked" | "expired";
 
 export interface Batch {
   id: string;
@@ -192,6 +200,10 @@ export interface Batch {
   message: string | null;
   claimBy: string;
   createdAt: string;
+  /** "readli_gives_back" for a donation approved through /donations. */
+  program: string | null;
+  /** The organization a donation supports, printed on its certificate. */
+  supportingName: string | null;
 }
 
 export interface IssuedGift {
@@ -200,6 +212,8 @@ export interface IssuedGift {
   last4: string | null;
   status: IssuedStatus;
   recipientName: string | null;
+  /** Where "Email it" sends the claim link; only a named adult has one. */
+  recipientEmail: string | null;
   redeemedAt: string | null;
   revokedAt: string | null;
   replacedBy: string | null;
@@ -216,6 +230,7 @@ type Row = Record<string, unknown>;
 
 export function issuedStatus(row: Row, now = new Date()): IssuedStatus {
   if (row.status === "cancelled") return "revoked";
+  if (row.status === "ended" && row.revoked_at) return "cancelled";
   if (row.redeemed_at || row.status === "active" || row.status === "ended") return "claimed";
   const claimBy = row.claim_by ? new Date(row.claim_by as string) : row.sent_at ? new Date(new Date(row.sent_at as string).getTime() + 365 * 86_400_000) : null;
   if (claimBy && claimBy.getTime() < now.getTime()) return "expired";
@@ -234,9 +249,11 @@ const toBatch = (b: Row): Batch => ({
   message: (b.message as string | null) ?? null,
   claimBy: b.claim_by as string,
   createdAt: b.created_at as string,
+  program: (b.program as string | null) ?? null,
+  supportingName: (b.supporting_name as string | null) ?? null,
 });
 
-const GIFT_COLUMNS = "id, batch_id, certificate_no, code_last4, code_encrypted, status, redeemed_at, revoked_at, replaced_by, claim_by, sent_at, recipient_name";
+const GIFT_COLUMNS = "id, batch_id, certificate_no, code_last4, code_encrypted, status, redeemed_at, revoked_at, replaced_by, claim_by, sent_at, recipient_name, recipient_email";
 
 export async function listBatches(db: SupabaseClient, now = new Date()): Promise<(Batch & { counts: Record<IssuedStatus, number> })[]> {
   const { data, error } = await db.from("complimentary_batches").select("*").order("created_at", { ascending: false }).limit(50);
@@ -246,7 +263,7 @@ export async function listBatches(db: SupabaseClient, now = new Date()): Promise
   const { data: gifts, error: gErr } = await db.from("gifts").select("batch_id, status, redeemed_at, claim_by, sent_at").in("batch_id", batches.map((b) => b.id));
   if (gErr) throw new Error(`read batch gifts: ${gErr.message}`);
   return batches.map((b) => {
-    const counts: Record<IssuedStatus, number> = { unclaimed: 0, claimed: 0, revoked: 0, expired: 0 };
+    const counts: Record<IssuedStatus, number> = { unclaimed: 0, claimed: 0, cancelled: 0, revoked: 0, expired: 0 };
     for (const g of (gifts ?? []) as Row[]) if (g.batch_id === b.id) counts[issuedStatus(g, now)] += 1;
     return { ...b, counts };
   });
@@ -256,7 +273,7 @@ export async function listBatches(db: SupabaseClient, now = new Date()): Promise
 export async function earlierCodes(db: SupabaseClient, now = new Date()): Promise<Record<IssuedStatus, number>> {
   const { data, error } = await db.from("gifts").select("status, redeemed_at, claim_by, sent_at").not("complimentary_for", "is", null).is("batch_id", null);
   if (error) throw new Error(`read earlier codes: ${error.message}`);
-  const counts: Record<IssuedStatus, number> = { unclaimed: 0, claimed: 0, revoked: 0, expired: 0 };
+  const counts: Record<IssuedStatus, number> = { unclaimed: 0, claimed: 0, cancelled: 0, revoked: 0, expired: 0 };
   for (const g of (data ?? []) as Row[]) counts[issuedStatus(g, now)] += 1;
   return counts;
 }
@@ -277,6 +294,7 @@ export async function batchDetail(db: SupabaseClient, batchId: string, now = new
     last4: (r.code_last4 as string | null) ?? null,
     status: issuedStatus(r, now),
     recipientName: (r.recipient_name as string | null) ?? null,
+    recipientEmail: (r.recipient_email as string | null) ?? null,
     redeemedAt: (r.redeemed_at as string | null) ?? null,
     revokedAt: (r.revoked_at as string | null) ?? null,
     replacedBy: label(byId.get(r.replaced_by as string)),
@@ -306,6 +324,12 @@ function auditText(a: Row): string {
       return `${who} revoked ${d.certificate} and issued ${d.replacement} as its replacement`;
     case "complimentary_code_revealed":
       return `${who} revealed the code for ${d.certificate}`;
+    case "complimentary_cancelled":
+      return `${who} cancelled ${d.certificate}`;
+    case "complimentary_emailed":
+      if (d.to === "organizer")
+        return `${who} emailed ${d.count} unclaimed ${d.count === 1 ? "membership" : "memberships"} to give away${d.outcome === "sent" ? "" : ` (${d.outcome === "queued" ? "waiting to send" : "not sent"})`}`;
+      return `${who} emailed ${d.certificate} to the recipient${d.outcome === "sent" ? "" : ` (${d.outcome === "queued" ? "waiting to send" : "not sent"})`}`;
     case "complimentary_artwork_downloaded":
       return `${who} downloaded ${d.what}${d.certificate ? ` for ${d.certificate}` : ""}`;
     default:
@@ -323,6 +347,8 @@ export interface MembershipArtwork {
   certificate: string;
   code: string;
   recipientName: string | null;
+  recipientEmail: string | null;
+  status: IssuedStatus;
 }
 
 /** The membership's real code and facts, for its QR code and certificate. Null without a stored code. */
@@ -338,7 +364,15 @@ export async function membershipArtwork(db: SupabaseClient, cipher: GiftCodeCiph
   if (bErr) throw new Error(`read batch: ${bErr.message}`);
   if (!b) return null;
   const batch = toBatch(b as Row);
-  return { giftId, batch, certificate: certificateLabel(batch.prefix, g.certificate_no as number | null), code, recipientName: (g.recipient_name as string | null) ?? null };
+  return {
+    giftId,
+    batch,
+    certificate: certificateLabel(batch.prefix, g.certificate_no as number | null),
+    code,
+    recipientName: (g.recipient_name as string | null) ?? null,
+    recipientEmail: (g.recipient_email as string | null) ?? null,
+    status: issuedStatus(g as Row),
+  };
 }
 
 /** Every unrevoked membership in a batch with a stored code, in certificate order. */
@@ -359,11 +393,11 @@ export async function logArtworkDownload(db: SupabaseClient, admin: AdminUser, b
 }
 
 /** Shows an admin the full code (for "Show full code" and "Copy link"), and records that they saw it. */
-export async function revealCode(db: SupabaseClient, admin: AdminUser, cipher: GiftCodeCipher, giftId: string): Promise<{ code: string; certificate: string }> {
+export async function revealCode(db: SupabaseClient, admin: AdminUser, cipher: GiftCodeCipher, giftId: string): Promise<{ code: string; certificate: string; program: string | null }> {
   const art = await membershipArtwork(db, cipher, giftId);
   if (!art) throw new AdminActionError("This code was issued before codes could be shown again. Revoke and replace it to get a new one.");
   await logAction(db, admin, "complimentary_code_revealed", { batch_id: art.batch.id, certificate: art.certificate });
-  return { code: art.code, certificate: art.certificate };
+  return { code: art.code, certificate: art.certificate, program: art.batch.program };
 }
 
 /** Revokes an unclaimed membership and issues a replacement in the same batch, with a new code. */
@@ -418,4 +452,316 @@ export async function revokeAndReplace(db: SupabaseClient, admin: AdminUser, cip
   const replacement = certificateLabel(batch.prefix, no);
   await logAction(db, admin, "complimentary_revoked", { batch_id: batch.id, certificate, replacement });
   return { certificate, replacement };
+}
+
+// ---------------------------------------------------------------------------
+// Emailing a named adult their membership
+// ---------------------------------------------------------------------------
+
+/** What happened to the email: sent now, waiting in the outbox, switched off, not set up, or an error. */
+export type EmailOutcome = "sent" | "queued" | "switched_off" | "not_set_up" | "failed";
+
+/** Queues one email and tries to send it straight away. */
+export type SendOne = (email: QueuedEmail) => Promise<EmailOutcome>;
+
+export const EMAIL_OUTCOME_TEXT: Record<EmailOutcome, string> = {
+  sent: "Emailed the claim link",
+  queued: "The claim link is queued and will send shortly",
+  switched_off: "Not emailed: the complimentary membership email (M1) is switched off in Admin, Email",
+  not_set_up: "Not emailed: email isn't set up on this server",
+  failed: "Not emailed: something went wrong sending it. Try Email it again on its row",
+};
+
+export function isEmailOutcome(v: unknown): v is EmailOutcome {
+  return typeof v === "string" && Object.hasOwn(EMAIL_OUTCOME_TEXT, v);
+}
+
+/** Checks an optional organizer address typed on the issue form. Blank means none. */
+export function organizerEmail(raw: string | null | undefined): string | null {
+  const email = raw?.trim().toLowerCase().slice(0, 254) || null;
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new AdminActionError("The organizer's email address doesn't look right.");
+  return email;
+}
+
+/**
+ * Emails an unclaimed membership's claim link to the adult it was issued to, and records it. With an
+ * organizer address, the organizer also gets a note that it went out, without the claim link.
+ */
+export async function emailMembership(
+  db: SupabaseClient,
+  admin: AdminUser,
+  cipher: GiftCodeCipher,
+  origin: string,
+  giftId: string,
+  send: SendOne,
+  at = new Date(),
+  organizer: string | null = null,
+): Promise<{ certificate: string; outcome: EmailOutcome; organizerOutcome: EmailOutcome | null }> {
+  const art = await membershipArtwork(db, cipher, giftId);
+  if (!art) throw new AdminActionError("This code was issued before codes could be shown again, so it can't be emailed.");
+  if (!art.recipientEmail) throw new AdminActionError("This membership has no email address. Copy the link and send it yourself.");
+  if (art.status !== "unclaimed") throw new AdminActionError("Only an unclaimed membership can be emailed.");
+  const { batch } = art;
+  const outcome = await send({
+    emailId: "M1",
+    dedupeKey: `M1:${giftId}:${at.getTime()}`,
+    to: { email: art.recipientEmail },
+    message: complimentaryMembershipEmail({
+      recipientName: art.recipientName,
+      months: batch.months,
+      occasion: batch.occasion,
+      sponsorName: batch.sponsorName,
+      sponsorIsReadli: batch.sponsorIsReadli,
+      eventName: batch.eventName,
+      message: batch.message,
+      claimBy: batch.claimBy,
+      claimUrl: claimLink(origin, art.code, claimPath(batch.program)),
+    }),
+  });
+  let organizerOutcome: EmailOutcome | null = null;
+  if (organizer && (outcome === "sent" || outcome === "queued")) {
+    organizerOutcome = await send({
+      emailId: "M2",
+      dedupeKey: `M2:${giftId}:${at.getTime()}`,
+      to: { email: organizer },
+      message: complimentaryOrganizerEmail({
+        recipientName: art.recipientName,
+        recipientEmail: art.recipientEmail,
+        months: batch.months,
+        sponsorName: batch.sponsorName,
+        sponsorIsReadli: batch.sponsorIsReadli,
+        eventName: batch.eventName,
+        claimBy: batch.claimBy,
+        siteUrl: origin,
+      }),
+    }).catch((err) => {
+      console.error("complimentary organizer email failed", err instanceof Error ? err.message : err);
+      return "failed" as const;
+    });
+  }
+  // The email has already gone, so a failed audit write is reported in the logs rather than shown as a failed send.
+  await logAction(db, admin, "complimentary_emailed", { batch_id: batch.id, certificate: art.certificate, outcome, organizer_outcome: organizerOutcome }).catch((err) =>
+    console.error("log complimentary email failed", err instanceof Error ? err.message : err),
+  );
+  return { certificate: art.certificate, outcome, organizerOutcome };
+}
+
+/**
+ * Emails every unclaimed membership in a batch, with its code and link, to whoever is handing them out
+ * (usually the event organizer). For unknown winners, where there's no recipient to email.
+ */
+export async function emailBatch(
+  db: SupabaseClient,
+  admin: AdminUser,
+  cipher: GiftCodeCipher,
+  origin: string,
+  batchId: string,
+  to: string | null | undefined,
+  send: SendOne,
+  at = new Date(),
+): Promise<{ count: number; outcome: EmailOutcome }> {
+  const email = organizerEmail(to);
+  if (!email) throw new AdminActionError("Add the email address to send them to.");
+  if (!/^[0-9a-f-]{36}$/i.test(batchId)) throw new AdminActionError("That batch wasn't found.");
+  const { data: b, error } = await db.from("complimentary_batches").select("*").eq("id", batchId).maybeSingle();
+  if (error) throw new Error(`read batch: ${error.message}`);
+  if (!b) throw new AdminActionError("That batch wasn't found.");
+  const batch = toBatch(b as Row);
+  const { data: rows, error: gErr } = await db.from("gifts").select(GIFT_COLUMNS).eq("batch_id", batchId).order("certificate_no", { ascending: true });
+  if (gErr) throw new Error(`read batch gifts: ${gErr.message}`);
+  const memberships: { certificate: string; code: string; url: string }[] = [];
+  for (const g of (rows ?? []) as Row[]) {
+    if (issuedStatus(g, at) !== "unclaimed" || !g.code_encrypted || g.recipient_email) continue;
+    const art = await membershipArtwork(db, cipher, g.id as string);
+    if (art) memberships.push({ certificate: art.certificate, code: art.code, url: claimLink(origin, art.code, claimPath(batch.program)) });
+  }
+  if (!memberships.length) throw new AdminActionError("There are no unclaimed memberships here to send.");
+  const outcome = await send({
+    emailId: "M3",
+    dedupeKey: `M3:${batchId}:${at.getTime()}`,
+    to: { email },
+    message: complimentaryBatchEmail({
+      months: batch.months,
+      occasion: batch.occasion,
+      sponsorName: batch.sponsorName,
+      sponsorIsReadli: batch.sponsorIsReadli,
+      eventName: batch.eventName,
+      claimBy: batch.claimBy,
+      claimPage: `${origin.replace(/\/$/, "")}${claimPath(batch.program)}`,
+      memberships,
+    }),
+  });
+  await logAction(db, admin, "complimentary_emailed", { batch_id: batch.id, to: "organizer", count: memberships.length, outcome }).catch((err) =>
+    console.error("log complimentary email failed", err instanceof Error ? err.message : err),
+  );
+  return { count: memberships.length, outcome };
+}
+
+// ---------------------------------------------------------------------------
+// Every complimentary membership in one searchable table
+// ---------------------------------------------------------------------------
+
+export interface MembershipRow {
+  id: string;
+  batchId: string | null;
+  certificate: string;
+  last4: string | null;
+  status: IssuedStatus;
+  recipientName: string | null;
+  recipientEmail: string | null;
+  sponsorName: string | null;
+  eventName: string | null;
+  occasion: string | null;
+  label: string | null;
+  months: number | null;
+  issuedAt: string;
+  claimBy: string | null;
+  redeemedAt: string | null;
+  /** When a claimed membership's Readli Family ends. */
+  paidThrough: string | null;
+  /** The account that claimed it; its email is filled in by withClaimers. */
+  claimedByUserId: string | null;
+  claimedBy: string | null;
+}
+
+const MONTHS_BY_PLAN: Record<string, number> = { prepaid_1m: 1, prepaid_3m: 3, prepaid_12m: 12 };
+
+/** Every complimentary membership, newest first, with its batch's facts. */
+export async function listMemberships(db: SupabaseClient, now = new Date(), limit = 2000): Promise<MembershipRow[]> {
+  const { data, error } = await db
+    .from("gifts")
+    .select("id, batch_id, certificate_no, code_last4, status, redeemed_at, revoked_at, claim_by, sent_at, created_at, recipient_name, recipient_email, giver_display_name, event_name, complimentary_for, plan_id, paid_through, recipient_user_id")
+    .not("complimentary_for", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`read memberships: ${error.message}`);
+  const gifts = (data ?? []) as Row[];
+  const batchIds = [...new Set(gifts.map((g) => g.batch_id as string | null).filter((id): id is string => Boolean(id)))];
+  const batches = new Map<string, Batch>();
+  if (batchIds.length) {
+    const { data: b, error: bErr } = await db.from("complimentary_batches").select("*").in("id", batchIds);
+    if (bErr) throw new Error(`read batches: ${bErr.message}`);
+    for (const row of (b ?? []) as Row[]) batches.set(row.id as string, toBatch(row));
+  }
+  return gifts.map((g) => {
+    const batch = g.batch_id ? batches.get(g.batch_id as string) : undefined;
+    return {
+      id: g.id as string,
+      batchId: (g.batch_id as string | null) ?? null,
+      certificate: certificateLabel(batch?.prefix ?? "", batch ? (g.certificate_no as number | null) : null),
+      last4: (g.code_last4 as string | null) ?? null,
+      status: issuedStatus(g, now),
+      recipientName: (g.recipient_name as string | null) || null,
+      recipientEmail: (g.recipient_email as string | null) ?? null,
+      sponsorName: batch?.sponsorName ?? ((g.giver_display_name as string | null) || null),
+      eventName: batch?.eventName ?? ((g.event_name as string | null) || null),
+      occasion: batch?.occasion ?? ((g.complimentary_for as string | null) || null),
+      label: batch?.label ?? null,
+      months: batch?.months ?? MONTHS_BY_PLAN[g.plan_id as string] ?? null,
+      issuedAt: (g.sent_at as string | null) ?? (g.created_at as string),
+      claimBy: (g.claim_by as string | null) ?? batch?.claimBy ?? null,
+      redeemedAt: (g.redeemed_at as string | null) ?? null,
+      paidThrough: (g.paid_through as string | null) ?? null,
+      claimedByUserId: (g.recipient_user_id as string | null) ?? null,
+      claimedBy: null,
+    };
+  });
+}
+
+/** Fills in the email of the account that claimed each membership (at most `max` lookups). */
+export async function withClaimers(db: SupabaseClient, rows: MembershipRow[], max = 300): Promise<MembershipRow[]> {
+  const ids = [...new Set(rows.map((r) => r.claimedByUserId).filter((id): id is string => Boolean(id)))].slice(0, max);
+  const emails = new Map<string, string>();
+  await Promise.all(
+    ids.map(async (id) => {
+      try {
+        const { data } = await db.auth.admin.getUserById(id);
+        if (data?.user?.email) emails.set(id, data.user.email);
+      } catch {
+        /* A deleted or unreadable account just shows no email. */
+      }
+    }),
+  );
+  return rows.map((r) => (r.claimedByUserId ? { ...r, claimedBy: emails.get(r.claimedByUserId) ?? null } : r));
+}
+
+/** Matches every word of the search against a membership's names, email, certificate, code ending, sponsor, event and label. */
+export function filterMemberships(rows: MembershipRow[], q: string, status: IssuedStatus | null): MembershipRow[] {
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  return rows.filter((r) => {
+    if (status && r.status !== status) return false;
+    if (!words.length) return true;
+    const hay = [r.certificate, r.last4, r.recipientName, r.recipientEmail, r.claimedBy, r.sponsorName, r.eventName, r.label, r.occasion].filter(Boolean).join(" ").toLowerCase();
+    return words.every((w) => hay.includes(w));
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Cancelling a claimed membership
+// ---------------------------------------------------------------------------
+
+export interface CancelResult {
+  certificate: string;
+  /** The family's Readli Family end after the cut, when the membership was ordinary free time. */
+  familyEndsAt: string | null;
+  /** True when Stripe billing was moved back because the family also pays. */
+  billingResumed: boolean;
+  /** Something the admin still has to do by hand. */
+  followUp: string | null;
+}
+
+/**
+ * Cancels a claimed complimentary membership (Kevin, 2026-11-03). The time it hadn't used yet is taken
+ * off the family's plan, and memberships stacked after it move earlier by the same amount. When the
+ * family also pays, Stripe's paused billing is brought forward by the same amount instead.
+ */
+export async function cancelMembership(
+  db: SupabaseClient,
+  admin: AdminUser,
+  giftId: string,
+  stripe: StripeApi | null,
+  now = new Date(),
+): Promise<CancelResult> {
+  if (!/^[0-9a-f-]{36}$/i.test(giftId)) throw new AdminActionError("That membership wasn't found.");
+  const { data: g, error } = await db.from("gifts").select("id, batch_id, certificate_no, complimentary_for, status, redeemed_at").eq("id", giftId).maybeSingle();
+  if (error) throw new Error(`read membership: ${error.message}`);
+  if (!g || !g.complimentary_for) throw new AdminActionError("That membership wasn't found.");
+  if (g.status !== "active" || !g.redeemed_at) throw new AdminActionError("Only an active membership can be cancelled. To stop one nobody has claimed, revoke it instead.");
+  let prefix = "";
+  if (g.batch_id) {
+    const { data: b } = await db.from("complimentary_batches").select("prefix").eq("id", g.batch_id as string).maybeSingle();
+    prefix = ((b as Row | null)?.prefix as string | undefined) ?? "";
+  }
+  const certificate = certificateLabel(prefix, g.batch_id ? (g.certificate_no as number | null) : null);
+
+  const { data, error: rpcErr } = await db.rpc("cancel_complimentary_gift", { p_gift: giftId });
+  if (rpcErr) {
+    if (/not active|not found/.test(rpcErr.message)) throw new AdminActionError("Only an active membership can be cancelled.");
+    throw new Error(`cancel membership: ${rpcErr.message}`);
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as { cut_seconds: number | null; billing_deferral: string | null; subscription_ref: string | null; family_ends_at: string | null } | undefined;
+  const cut = Number(row?.cut_seconds ?? 0);
+  let billingResumed = false;
+  let followUp: string | null = null;
+
+  if (row?.billing_deferral === "applied" && cut > 0) {
+    if (!stripe || !row.subscription_ref) {
+      followUp = "This family also pays, and Stripe isn't connected here, so move their free time back in Stripe by hand.";
+    } else {
+      try {
+        const sub = await stripe.getSubscription(row.subscription_ref);
+        const trialEnd = sub.trial_end ?? null;
+        if (trialEnd) {
+          const next = trialEnd - cut;
+          await stripe.endFreeTimeAt(row.subscription_ref, next <= Math.floor(now.getTime() / 1000) + 120 ? "now" : next, `readli-gift-cancel-${giftId}`);
+          billingResumed = true;
+        }
+      } catch (err) {
+        console.error("complimentary cancel: stripe update failed", err instanceof Error ? err.message : err);
+        followUp = "The membership is cancelled, but Stripe didn't accept the billing change. Move this family's free time back in Stripe by hand.";
+      }
+    }
+  }
+  await logAction(db, admin, "complimentary_cancelled", { batch_id: g.batch_id ?? null, certificate, billing_resumed: billingResumed });
+  return { certificate, familyEndsAt: row?.family_ends_at ?? null, billingResumed, followUp };
 }

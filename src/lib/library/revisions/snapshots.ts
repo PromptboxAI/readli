@@ -42,6 +42,7 @@ import s38 from "./snapshots/the-happy-family.bf6fc179bbf0.json";
 import s39 from "./snapshots/the-darning-needle.d62e22de7abe.json";
 import s40 from "./snapshots/little-tuk.3817eeb60066.json";
 import s41 from "./snapshots/johnny-chuck-finds-the-best-thing-in-the-world.9fd49acac62e.json";
+import s42 from "./snapshots/the-secret-garden.8d91ea7b3ff1.json";
 
 export const SNAPSHOTS: Record<string, RevisionSnapshot> = {
   "the-tale-of-peter-rabbit:b3e7d9445524": s0,
@@ -86,4 +87,5 @@ export const SNAPSHOTS: Record<string, RevisionSnapshot> = {
   "the-darning-needle:d62e22de7abe": s39,
   "little-tuk:3817eeb60066": s40,
   "johnny-chuck-finds-the-best-thing-in-the-world:9fd49acac62e": s41,
+  "the-secret-garden:8d91ea7b3ff1": s42,
 };

@@ -1,13 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { coverSrc, DEMO_BOOKS, isPassagePlayable, type DemoBook } from "@/lib/content/demo-books";
+import { coverAlt } from "@/lib/library/cover-alt";
 
 function Cover({ book }: { book: DemoBook }) {
-  // Original Readli artwork; the title is printed on the cover, so the heading below carries the name.
+  // Original Readli artwork, described for search engines and screen readers (site audit, 2026-11).
   return (
     <Image
       src={coverSrc(book)}
-      alt=""
+      alt={coverAlt(book)}
       width={600}
       height={800}
       sizes="(min-width: 1024px) 260px, (min-width: 768px) 30vw, 45vw"
@@ -30,7 +31,7 @@ export interface HearOptions {
 }
 
 const hearButton =
-  "inline-flex min-h-12 items-center justify-center whitespace-nowrap rounded-full border-[3px] border-ink bg-sunshine px-2 text-sm font-display font-semibold sm:px-4 sm:text-base";
+  "inline-flex min-h-12 cursor-pointer items-center justify-center whitespace-nowrap rounded-full border-[3px] border-ink bg-sunshine px-2 text-sm font-display font-semibold transition-transform hover:-translate-y-0.5 hover:shadow-[0_3px_0_rgba(40,53,72,0.25)] active:scale-[0.97] disabled:translate-y-0 disabled:shadow-none motion-reduce:transform-none sm:px-4 sm:text-base";
 
 export function DemoBookCard({ book, onHear, activeSlug, disabledReason, explored, busy }: { book: DemoBook } & HearOptions) {
   const playable = isPassagePlayable(book);
@@ -70,7 +71,7 @@ export function DemoBookCard({ book, onHear, activeSlug, disabledReason, explore
           disabled={unavailable || active || Boolean(busy)}
           aria-describedby={`${headingId}-status`}
           onClick={() => onHear?.(book)}
-          className={`${hearButton} disabled:cursor-not-allowed ${unavailable ? "disabled:bg-ivory disabled:text-muted" : ""} ${active ? "!bg-mint !text-ink" : ""}`}
+          className={`${hearButton} disabled:cursor-not-allowed ${unavailable ? "disabled:bg-ivory disabled:text-muted" : ""} ${active ? "!bg-mint !text-ink" : heard && !unavailable ? "!bg-ink !text-sunshine" : ""}`}
         >
           {active ? "Now playing" : heard ? "Play again" : "Hear this passage"}
         </button>
@@ -79,8 +80,9 @@ export function DemoBookCard({ book, onHear, activeSlug, disabledReason, explore
           Hear this passage
         </Link>
       )}
+      {/* Room for the longest note, so every button in a shelf row sits on the same line. */}
       {status && (
-        <p id={`${headingId}-status`} className="text-xs text-muted">
+        <p id={`${headingId}-status`} className="min-h-[3lh] text-xs text-muted sm:min-h-[2lh]">
           {status}
         </p>
       )}
@@ -88,14 +90,19 @@ export function DemoBookCard({ book, onHear, activeSlug, disabledReason, explore
   );
 }
 
-export function DemoBookShelf({ heading = "Pick a story to hear in your voice", ...hear }: { heading?: string } & HearOptions) {
+export function DemoBookShelf({
+  heading = "Pick a story to hear in your voice",
+  first,
+  ...hear
+}: { heading?: string; /** A book to put at the front of this shelf only; the homepage keeps the decided order. */ first?: string } & HearOptions) {
+  const books = first ? [...DEMO_BOOKS.filter((b) => b.slug === first), ...DEMO_BOOKS.filter((b) => b.slug !== first)] : DEMO_BOOKS;
   return (
     <section aria-labelledby="demo-books-heading" data-testid="demo-books" className="flex flex-col gap-4">
       <h2 id="demo-books-heading" className="font-display text-2xl font-semibold sm:text-3xl">
         {heading}
       </h2>
       <ul className="grid grid-cols-2 gap-x-4 gap-y-8 rounded-[var(--radius-panel)] bg-bookcase px-5 pb-6 pt-7 sm:gap-x-6 sm:px-8 md:grid-cols-3">
-        {DEMO_BOOKS.map((book) => (
+        {books.map((book) => (
           <li key={book.slug} className="flex">
             <DemoBookCard book={book} {...hear} />
           </li>

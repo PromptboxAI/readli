@@ -16,9 +16,9 @@ export function InviteActions({ headingLevel = 2 }: { headingLevel?: 2 | 3 }) {
       tint: "bg-mint/60",
     },
     {
-      href: "/invite/gift",
+      href: "/gift/family",
       title: "Invite & Gift",
-      body: "Give another household their own Readli plan. You pay, and they run their own family library.",
+      body: "Give up to two families Readli Family. You pay, and each runs its own family library.",
       note: "A gift for their home",
       art: <GiftBoxArt className="w-24 sm:w-28" />,
       tint: "bg-sunshine/60",

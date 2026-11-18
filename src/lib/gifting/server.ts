@@ -4,6 +4,7 @@ import { addMonths } from "@/lib/narration/credits";
 import { normalizeGiftCode } from "./codes";
 import { hashGiftCode } from "./codes.server";
 import { giftPlan, type GiftPlan } from "./plans";
+import { PROVISIONAL_FAMILY_NAME } from "@/lib/family/service";
 
 /**
  * Gift redemption for real accounts (gifts, migration 000500). The code is looked up by its hash.
@@ -78,13 +79,16 @@ export interface Redeemed {
   paidThrough: string;
   /** True when a paid subscription's billing was paused for the gift instead of adding a separate plan. */
   billingPaused?: boolean;
+  /** The redeemed gift, so follow-ups (a Readli Gives Back welcome) can find it. */
+  giftId?: string;
 }
 
 export async function redeemGiftCode(db: SupabaseClient, code: string, user: { id: string; name: string }, opts: RedeemOptions = {}): Promise<Redeemed> {
   const normalized = normalizeGiftCode(code);
   if (!normalized) throw new GiftError(400, "bad_code", "That doesn't look like a gift code. It's 12 letters and numbers, like ABCD-EFGH-JKMN.");
   if (opts.deferBilling && !opts.stripe) throw new GiftError(503, "billing_unavailable", "We can't pause your paid plan right now, so your gift wasn't used. Please try again later or contact us.");
-  const familyName = opts.familyName?.replace(/\s+/g, " ").trim().slice(0, 120) || `${user.name}'s family`;
+  // No name given: the stand-in name, so setup asks what the family is called, as it does after checkout (Kevin, 2026-11-17).
+  const familyName = opts.familyName?.replace(/\s+/g, " ").trim().slice(0, 120) || PROVISIONAL_FAMILY_NAME;
   const args: Record<string, unknown> = { p_code_hash: hashGiftCode(normalized), p_user: user.id, p_family_name: familyName };
   if (opts.deferBilling) args.p_defer_billing = true;
   const { data, error } = await db.rpc("redeem_gift", args);
@@ -96,9 +100,9 @@ export async function redeemGiftCode(db: SupabaseClient, code: string, user: { i
   const row = (Array.isArray(data) ? data[0] : data) as { household_id: string; paid_through: string | null; gift_id?: string; months?: number; subscription_ref?: string | null };
   if (row.subscription_ref && row.gift_id) {
     const paidThrough = await pauseSubscriptionForGift(db, opts.stripe!, { giftId: row.gift_id, subscriptionRef: row.subscription_ref, months: row.months ?? 12 });
-    return { householdId: row.household_id, paidThrough, billingPaused: true };
+    return { householdId: row.household_id, paidThrough, billingPaused: true, giftId: row.gift_id };
   }
-  return { householdId: row.household_id, paidThrough: row.paid_through as string };
+  return { householdId: row.household_id, paidThrough: row.paid_through as string, ...(row.gift_id ? { giftId: row.gift_id } : {}) };
 }
 
 /** When the subscription's current paid time runs out: the later of its period end and any free time already given. */

@@ -7,6 +7,7 @@ test("pricing page shows Family, Voice, extra storytellers and credit packs", as
   const family = page.getByTestId("plan-family");
   await expect(family).toContainText("$19.99");
   await expect(family).toContainText("$179.99/year");
+  await expect(family.getByTestId("plan-family-annual")).toContainText("$15.00/month billed yearly");
   await expect(family).toContainText("40 narration credits every month");
   await expect(family.getByRole("link", { name: "Start your family" })).toHaveAttribute("href", "/signup/family");
 

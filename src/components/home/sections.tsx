@@ -2,13 +2,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { DemoBookShelf } from "@/components/books/DemoBookShelf";
 import { SocialIcon } from "@/components/brand/SocialIcon";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { FamilyTree } from "@/components/home/FamilyTree";
 import { HeroBedtimeScene } from "@/components/home/HeroBedtimeScene";
 import { ReadiMascot } from "@/components/brand/ReadiMascot";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { SOCIAL_ACCOUNTS } from "@/lib/content/social";
-import { rewardsConfig } from "@/lib/rewards/rewards";
+import { COMPANY } from "@/lib/content/company";
 import { MORE_BOOKS_ON_PHONES, NEW_BOOKS } from "@/lib/library/catalog";
+import { coverAlt } from "@/lib/library/cover-alt";
+import { bookPath } from "@/lib/library/paths";
 
 const GRANDPA = "/family-voices/grandpa.webp";
 
@@ -28,6 +31,8 @@ export function Hero() {
         <div className="flex flex-col items-center gap-[18px] lg:items-start lg:gap-[22px]">
           <p className="text-[13px] font-extrabold uppercase tracking-[0.16em] text-coral-deep">Every Book. Every Voice.</p>
           <h1 className="font-display text-4xl font-semibold leading-[1.08] tracking-[-0.012em] sm:text-5xl lg:text-[56px] lg:leading-[1.06]">
+            {/* The brand name leads the page's main heading for search engines and screen readers; the logo above already shows it. */}
+            <span className="sr-only">Readli: </span>
             Their favorite stories. Read by their{" "}
             <span className="relative whitespace-nowrap">
               favorite people.
@@ -41,7 +46,7 @@ export function Hero() {
             close, even when you&apos;re miles apart.
           </p>
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
-            <Link href="/try" className={buttonPrimary}>
+            <Link href="/try" className={buttonPrimary} data-hero-cta>
               Try Your Voice Free
             </Link>
             <Link href="/#how-it-works" className={buttonSecondary}>
@@ -74,7 +79,7 @@ function HeroPlayerScene() {
         <HeroBedtimeScene className="block h-[250px] w-full lg:h-auto" />
       </div>
       <div className="absolute right-[18px] top-0 hidden items-center gap-2.5 rounded-[18px] bg-surface py-2.5 pl-2.5 pr-3.5 text-left shadow-[0_14px_30px_-12px_rgba(40,53,72,0.35)] ring-1 ring-ink/5 lg:flex">
-        <Image src={GRANDPA} alt="" width={36} height={36} className="rounded-full" />
+        <Image src={GRANDPA} alt="Grandpa, a smiling grandfather" width={36} height={36} className="rounded-full" />
         <span>
           <span className="block text-xs font-bold text-muted">Grandpa added a new story</span>
           <span className="block font-display text-[15px] font-semibold">Ready for tonight</span>
@@ -87,7 +92,7 @@ function HeroPlayerScene() {
         <div className="flex gap-3.5">
           <Image
             src="/covers/the-velveteen-rabbit.webp"
-            alt=""
+            alt={coverAlt({ title: "The Velveteen Rabbit", author: "Margery Williams" })}
             width={78}
             height={104}
             className="h-auto w-16 rounded-l-[4px] rounded-r-[10px] shadow-[3px_4px_0_rgba(40,53,72,0.16)] lg:w-[78px]"
@@ -103,7 +108,7 @@ function HeroPlayerScene() {
         </div>
         <div className="mt-3.5 flex items-center gap-2.5 rounded-[22px] bg-plum py-2 pl-2 pr-2.5 text-white">
           <span className="flex items-center gap-2.5 rounded-full bg-white/10 py-1 pl-1 pr-4">
-            <Image src={GRANDPA} alt="" width={44} height={44} className="rounded-full" />
+            <Image src={GRANDPA} alt="Grandpa, the storyteller reading tonight" width={44} height={44} className="rounded-full" />
             <span>
               <span className="block text-[11px] text-white/80">Read by</span>
               <span className="block font-display text-lg font-semibold leading-tight">Grandpa</span>
@@ -303,10 +308,10 @@ export function KidsShelf() {
             {/* Phones scroll through six more books; desktop keeps the six (Kevin, 2026-10-13). */}
             {[...NEW_BOOKS, ...MORE_BOOKS_ON_PHONES].map((book, i) => (
               <li key={book.slug} className={`w-28 shrink-0 snap-start sm:w-32 ${i >= NEW_BOOKS.length ? "sm:hidden" : ""}`}>
-                <Link href={`/books/${book.slug}`} className="block rounded-xl transition-transform hover:-translate-y-1">
+                <Link href={bookPath(book.slug)} className="block rounded-xl transition-transform hover:-translate-y-1">
                   <Image
                     src={book.coverUrl}
-                    alt={book.title}
+                    alt={coverAlt(book)}
                     width={600}
                     height={800}
                     sizes="128px"
@@ -326,9 +331,10 @@ export function KidsShelf() {
   );
 }
 
+/** Desktop and tablet only: hidden on phones (Kevin, 2026-11-15). The #families anchor lives on the wrapper in app/page.tsx. */
 export function FamilyCircles() {
   return (
-    <section id="families" aria-labelledby="circles-heading" className="scroll-mt-20 bg-ivory">
+    <section aria-labelledby="circles-heading" className="hidden bg-ivory sm:block" data-testid="home-family-circles">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-14 sm:px-6">
         <div className="flex max-w-2xl flex-col gap-3">
           <h2 id="circles-heading" className="font-display text-3xl font-semibold sm:text-4xl">
@@ -346,7 +352,6 @@ export function FamilyCircles() {
 }
 
 export function FinalCta() {
-  const { trialDays } = rewardsConfig();
   return (
     <section className="bg-sunshine">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-14 text-center sm:px-6">
@@ -357,11 +362,11 @@ export function FinalCta() {
             Hear a story in your voice, free
           </Link>
           <Link href="/signup/family" className={`${buttonSecondary} w-full sm:w-auto`}>
-            Start your free trial
+            Start your family
           </Link>
         </div>
-        <p data-testid="family-trial-line">
-          Try Readli Family free for {trialDays} days. Card required, cancel any time.{" "}
+        <p data-testid="family-plan-line">
+          Readli Family is a monthly or yearly plan you can cancel any time, with a 14-day money-back guarantee.{" "}
           <Link href="/pricing" className="font-semibold underline underline-offset-4">
             See pricing
           </Link>
@@ -371,44 +376,93 @@ export function FinalCta() {
   );
 }
 
+/**
+ * The site footer: brand and social on the left, links grouped into columns. No street address here; it
+ * lives on /company, in the Privacy Policy and in the Terms (Kevin, 2026-11-13).
+ */
+const FOOTER_GROUPS: { title: string; links: { href: string; label: string }[] }[] = [
+  {
+    title: "Product",
+    links: [
+      { href: "/how-it-works", label: "How it works" },
+      { href: "/books", label: "Library" },
+      { href: "/bedtime-stories", label: "Bedtime stories" },
+      { href: "/pricing", label: "Pricing" },
+      { href: "/gifts", label: "Gifts" },
+      { href: "/long-distance-families", label: "Long-distance families" },
+      { href: "/guides", label: "Guides" },
+      { href: "/vs", label: "Compare" },
+    ],
+  },
+  {
+    title: "About",
+    links: [
+      { href: "/about", label: "About us" },
+      { href: "/company", label: "Company" },
+      { href: "/donations", label: "Readli Gives Back" },
+      { href: "/help", label: "Help" },
+    ],
+  },
+  {
+    title: "Legal & safety",
+    links: [
+      { href: "/privacy", label: "Privacy" },
+      { href: "/terms", label: "Terms" },
+      { href: "/accessibility", label: "Accessibility" },
+      { href: "/parents/safety", label: "Parent Safety" },
+      { href: "/privacy/choices", label: "Do Not Sell or Share My Personal Information" },
+    ],
+  },
+];
+
 export function SiteFooter() {
-  const links = [
-    { href: "/books", label: "Library" },
-    { href: "/company", label: "Company" },
-    { href: "/pricing", label: "Pricing" },
-    { href: "/privacy", label: "Privacy" },
-    { href: "/terms", label: "Terms" },
-    { href: "/help", label: "Help" },
-    { href: "/accessibility", label: "Accessibility" },
-    { href: "/parents/safety", label: "Parent Safety" },
-  ];
   return (
-    <footer className="bg-ivory">
-      <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-8 text-sm sm:px-6">
-        <ul aria-label="Readli on social media" className="flex w-full max-w-sm justify-between sm:w-fit sm:max-w-none sm:gap-3">
-          {SOCIAL_ACCOUNTS.map((a) => (
-            <li key={a.platform}>
-              <a
-                href={a.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`Readli on ${a.name} (opens in a new tab)`}
-                className="grid size-9 place-items-center rounded-full text-ink transition-transform sm:size-10 hover:-translate-y-0.5 hover:text-coral-deep"
-              >
-                <SocialIcon platform={a.platform} className="size-6" />
-              </a>
-            </li>
-          ))}
-        </ul>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} Readli. Every Book. Every Voice.</p>
-          <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
-            {links.map((l) => (
-              <Link key={l.href} href={l.href} className="underline-offset-4 hover:underline">
-                {l.label}
-              </Link>
+    <footer className="border-t border-ink/10 bg-ivory">
+      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-10 px-4 pb-8 pt-12 text-sm sm:px-6 md:grid-cols-[1.6fr_repeat(3,1fr)] md:gap-8">
+        <div className="col-span-2 flex flex-col gap-4 md:col-span-1">
+          <Wordmark />
+          <p className="max-w-xs text-muted">Every Book. Every Voice.</p>
+          <ul aria-label="Readli on social media" className="-ml-2 flex max-w-sm flex-wrap">
+            {SOCIAL_ACCOUNTS.map((a) => (
+              <li key={a.platform}>
+                <a
+                  href={a.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Readli on ${a.name} (opens in a new tab)`}
+                  className="grid size-10 place-items-center rounded-full text-ink transition-transform hover:-translate-y-0.5 hover:text-coral-deep"
+                >
+                  <SocialIcon platform={a.platform} className="size-5" />
+                </a>
+              </li>
             ))}
-          </nav>
+          </ul>
+        </div>
+        <nav aria-label="Footer" className="contents">
+          {FOOTER_GROUPS.map((g) => (
+            <div key={g.title} className="flex flex-col gap-3">
+              <h2 className="font-display text-base font-semibold">{g.title}</h2>
+              <ul className="flex flex-col gap-2.5">
+                {g.links.map((l) => (
+                  <li key={l.href}>
+                    <Link href={l.href} className="text-ink/80 underline-offset-4 hover:text-ink hover:underline">
+                      {l.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </nav>
+      </div>
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="flex flex-col gap-2 border-t border-ink/10 py-5 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+          <p data-testid="footer-company">
+            © {new Date().getFullYear()} {COMPANY.legalName}
+          </p>
+          <a href={`mailto:${COMPANY.email}`} className="w-fit underline-offset-4 hover:underline">
+            {COMPANY.email}
+          </a>
         </div>
       </div>
     </footer>

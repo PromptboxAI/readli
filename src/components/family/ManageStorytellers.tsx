@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { buttonSecondary } from "@/components/brand/buttons";
+import { parentSecondary } from "@/components/brand/buttons";
 import type { ManageStorytellersView, StorytellerView } from "@/lib/family/service";
 import { StorytellerAvatar } from "./StorytellerAvatar";
 import { Toggle } from "./Toggle";
@@ -94,7 +94,7 @@ export function ManageStorytellers({ initial }: { initial: ManageStorytellersVie
             {g.items === available && available.length > 1 && (
               <button
                 type="button"
-                className={buttonSecondary}
+                className={parentSecondary}
                 disabled={saving}
                 onClick={() => save(available.map((s) => ({ voiceId: s.voiceId, approved: true })), `Approved ${available.length} storytellers for ${child}.`)}
               >

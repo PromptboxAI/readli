@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
+import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
+import { READLI_TIME_ZONE } from "@/lib/time";
 
 /** The signed-in grown-up's own recording: hear it, or record it again for better quality. Deleting is paused for now. */
 export function AccountVoiceControls({ voice }: { voice: { status: string; version: number; updatedAt: string } | null }) {
@@ -29,15 +30,15 @@ export function AccountVoiceControls({ voice }: { voice: { status: string; versi
       {voice ? (
         <>
           <p>
-            Recorded {new Date(voice.updatedAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
+            Recorded {new Date(voice.updatedAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric", timeZone: READLI_TIME_ZONE })}
             {voice.version > 1 ? ` (take ${voice.version})` : ""}. Recording again in a quiet room replaces it, and families you share it
             with keep hearing you, with the new recording.
           </p>
           <div className="flex flex-wrap gap-3">
-            <button type="button" className={buttonSecondary} disabled={busy || voice.status !== "ready"} onClick={playSample}>
+            <button type="button" className={parentSecondary} disabled={busy || voice.status !== "ready"} onClick={playSample}>
               Hear my voice
             </button>
-            <Link href="/voice/record" className={buttonSecondary}>
+            <Link href="/voice/record" className={parentSecondary}>
               Record again
             </Link>
           </div>
@@ -50,7 +51,7 @@ export function AccountVoiceControls({ voice }: { voice: { status: string; versi
       ) : (
         <div className="flex flex-col items-start gap-3">
           <p>You don&apos;t have a Readli voice right now. Record one in about a minute, whenever you like.</p>
-          <Link href="/voice/record" className={buttonPrimary}>
+          <Link href="/voice/record" className={parentPrimary}>
             Record my voice
           </Link>
         </div>
