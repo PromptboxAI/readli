@@ -10,18 +10,33 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export const SITE_BANNER_TAG = "site-banner";
 export const BANNER_LIMITS = { message: 200, linkText: 40, linkUrl: 300 } as const;
 
+/**
+ * The bar's look (Kevin, 2026-11-18): a rich gradient with twinkling sparkles instead of a flat bar.
+ * "classic" is the original flat navy bar with no sparkles.
+ */
+export const BANNER_STYLES = [
+  { id: "festive", label: "Festive", hint: "Deep plum and berry glow, gold sparkles" },
+  { id: "evergreen", label: "Evergreen", hint: "Pine green and navy, gold sparkles" },
+  { id: "starry", label: "Starry night", hint: "Night sky and blue glow, silver sparkles" },
+  { id: "classic", label: "Classic", hint: "Flat navy, no sparkles" },
+] as const;
+export type BannerStyle = (typeof BANNER_STYLES)[number]["id"];
+export const DEFAULT_BANNER_STYLE: BannerStyle = "festive";
+const isStyle = (v: unknown): v is BannerStyle => BANNER_STYLES.some((s) => s.id === v);
+
 export interface SiteBanner {
   enabled: boolean;
   message: string;
   linkText: string;
   linkUrl: string;
+  style: BannerStyle;
   /** ISO times, or null for no limit. */
   startsAt: string | null;
   endsAt: string | null;
   updatedAt: string | null;
 }
 
-export const EMPTY_BANNER: SiteBanner = { enabled: false, message: "", linkText: "", linkUrl: "", startsAt: null, endsAt: null, updatedAt: null };
+export const EMPTY_BANNER: SiteBanner = { enabled: false, message: "", linkText: "", linkUrl: "", style: DEFAULT_BANNER_STYLE, startsAt: null, endsAt: null, updatedAt: null };
 
 type Row = Record<string, unknown>;
 const text = (v: unknown) => (typeof v === "string" ? v : "");
@@ -34,6 +49,7 @@ export function bannerFromRow(row: Row | null | undefined): SiteBanner {
     message: text(row.message),
     linkText: text(row.link_text),
     linkUrl: text(row.link_url),
+    style: isStyle(row.style) ? row.style : DEFAULT_BANNER_STYLE,
     startsAt: time(row.starts_at),
     endsAt: time(row.ends_at),
     updatedAt: time(row.updated_at),
@@ -47,6 +63,28 @@ export function safeBannerLink(url: string): string | null {
   if (/^https:\/\/[^\s/]+\.[^\s]+$/i.test(u)) return u;
   return null;
 }
+
+/**
+ * The message split into plain and highlighted pieces. Admins wrap words in *asterisks* to highlight
+ * them ("Save *20% off* this week"). A lone asterisk stays as typed.
+ */
+export function messageParts(message: string): { text: string; highlight: boolean }[] {
+  const parts: { text: string; highlight: boolean }[] = [];
+  const re = /\*([^*]+)\*/g;
+  let at = 0;
+  for (let m = re.exec(message); m; m = re.exec(message)) {
+    if (m.index > at) parts.push({ text: message.slice(at, m.index), highlight: false });
+    const inner = m[1] ?? "";
+    if (inner.trim()) parts.push({ text: inner, highlight: true });
+    else parts.push({ text: m[0], highlight: false });
+    at = m.index + m[0].length;
+  }
+  if (at < message.length) parts.push({ text: message.slice(at), highlight: false });
+  return parts;
+}
+
+/** The message as plain words, without the highlight asterisks. */
+export const plainMessage = (message: string) => messageParts(message).map((p) => p.text).join("");
 
 /** On, has a message, and today is inside its dates. */
 export function bannerLive(b: SiteBanner, now: Date = new Date()): boolean {
@@ -102,6 +140,7 @@ export function parseBannerForm(form: { get(name: string): unknown }): BannerFor
   const linkUrl = field("link_url");
   const from = field("starts_on");
   const until = field("ends_on");
+  const style = isStyle(field("style")) ? (field("style") as BannerStyle) : DEFAULT_BANNER_STYLE;
   if (message.length > BANNER_LIMITS.message) return { ok: false, error: `Keep the message to ${BANNER_LIMITS.message} characters.` };
   if (linkText.length > BANNER_LIMITS.linkText) return { ok: false, error: `Keep the link text to ${BANNER_LIMITS.linkText} characters.` };
   if (enabled && !message) return { ok: false, error: "Add a message before turning the bar on." };
@@ -113,5 +152,5 @@ export function parseBannerForm(form: { get(name: string): unknown }): BannerFor
   if (until && !lastDay) return { ok: false, error: "\"Show until\" isn't a date." };
   const endsAt = lastDay ? dayStart(new Date(new Date(lastDay).getTime() + 36 * 3600_000).toISOString().slice(0, 10)) : null;
   if (startsAt && endsAt && endsAt <= startsAt) return { ok: false, error: "\"Show until\" must be on or after \"Show from\"." };
-  return { ok: true, row: { id: true, enabled, message, link_text: linkText, link_url: linkUrl, starts_at: startsAt, ends_at: endsAt } };
+  return { ok: true, row: { id: true, enabled, message, link_text: linkText, link_url: linkUrl, style, starts_at: startsAt, ends_at: endsAt } };
 }
