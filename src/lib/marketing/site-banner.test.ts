@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { bannerFromRow, bannerLive, dayStart, parseBannerForm, readliDay, safeBannerLink, type SiteBanner } from "./site-banner";
+import { bannerFromRow, bannerLive, dayStart, messageParts, parseBannerForm, plainMessage, readliDay, safeBannerLink, type SiteBanner } from "./site-banner";
 
 const form = (fields: Record<string, string>) => ({ get: (k: string) => fields[k] ?? null });
-const banner = (over: Partial<SiteBanner> = {}): SiteBanner => ({ enabled: true, message: "Hello", linkText: "", linkUrl: "", startsAt: null, endsAt: null, updatedAt: null, ...over });
+const banner = (over: Partial<SiteBanner> = {}): SiteBanner => ({ enabled: true, message: "Hello", linkText: "", linkUrl: "", style: "festive", startsAt: null, endsAt: null, updatedAt: null, ...over });
 
 describe("site banner", () => {
   it("only accepts Readli paths and https links", () => {
@@ -35,7 +35,7 @@ describe("site banner", () => {
     const r = parseBannerForm(form({ enabled: "on", message: "Giving Readli  this Christmas?", link_text: "See Readli gifts", link_url: "/gifts", starts_on: "2026-11-15", ends_on: "2026-12-25" }));
     expect(r).toEqual({
       ok: true,
-      row: { id: true, enabled: true, message: "Giving Readli this Christmas?", link_text: "See Readli gifts", link_url: "/gifts", starts_at: "2026-11-15T05:00:00.000Z", ends_at: "2026-12-26T05:00:00.000Z" },
+      row: { id: true, enabled: true, message: "Giving Readli this Christmas?", link_text: "See Readli gifts", link_url: "/gifts", style: "festive", starts_at: "2026-11-15T05:00:00.000Z", ends_at: "2026-12-26T05:00:00.000Z" },
     });
   });
 
@@ -50,5 +50,25 @@ describe("site banner", () => {
   it("treats a missing row as off", () => {
     expect(bannerFromRow(null).enabled).toBe(false);
     expect(bannerFromRow({ enabled: true, message: "x", link_text: null, ends_at: "2026-12-26T05:00:00Z" })).toMatchObject({ enabled: true, linkText: "", endsAt: "2026-12-26T05:00:00Z" });
+  });
+
+  it("highlights words wrapped in asterisks", () => {
+    expect(messageParts("Save *20% off* now")).toEqual([
+      { text: "Save ", highlight: false },
+      { text: "20% off", highlight: true },
+      { text: " now", highlight: false },
+    ]);
+    expect(messageParts("5 * 3 = 15")).toEqual([{ text: "5 * 3 = 15", highlight: false }]);
+    expect(plainMessage("A *b* c **")).toBe("A b c **");
+  });
+
+  it("reads and saves the look, falling back to festive", () => {
+    expect(bannerFromRow({ enabled: true, message: "Hi" }).style).toBe("festive");
+    expect(bannerFromRow({ style: "starry" }).style).toBe("starry");
+    expect(bannerFromRow({ style: "neon" }).style).toBe("festive");
+    const ok = parseBannerForm(form({ message: "Hi", style: "evergreen" }));
+    expect(ok.ok && ok.row.style).toBe("evergreen");
+    const bad = parseBannerForm(form({ message: "Hi", style: "neon" }));
+    expect(bad.ok && bad.row.style).toBe("festive");
   });
 });

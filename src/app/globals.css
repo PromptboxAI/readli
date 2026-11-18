@@ -127,3 +127,54 @@ body {
     box-shadow: 0 0 0 8px rgb(60 207 110 / 0);
   }
 }
+
+/* The top announcement bar's looks (components/marketing/BannerBar). A slow glow drift and twinkling
+   sparkles; both stop under prefers-reduced-motion (the rule near the top of this file). */
+.banner-festive,
+.banner-evergreen,
+.banner-starry {
+  background-size: 160% 100%;
+  animation: banner-glow 12s ease-in-out infinite alternate;
+}
+.banner-festive {
+  background-image: linear-gradient(100deg, var(--color-night) 0%, var(--color-plum) 22%, #8a3442 45%, #9b3a3f 52%, var(--color-plum) 78%, var(--color-night) 100%);
+}
+.banner-evergreen {
+  background-image: linear-gradient(100deg, #12302a 0%, #1d4a3f 24%, #236152 48%, #1d4a3f 70%, var(--color-navy) 100%);
+}
+.banner-starry {
+  background-image: linear-gradient(100deg, var(--color-night) 0%, var(--color-navy) 30%, #2f4d74 50%, var(--color-navy) 72%, var(--color-night) 100%);
+}
+@keyframes banner-glow {
+  from {
+    background-position: 25% 50%;
+  }
+  to {
+    background-position: 75% 50%;
+  }
+}
+.banner-twinkle {
+  animation: banner-twinkle 3.2s ease-in-out infinite;
+}
+@keyframes banner-twinkle {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.7) rotate(25deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .banner-festive,
+  .banner-evergreen,
+  .banner-starry {
+    animation: none;
+    background-position: 50% 50%;
+  }
+  .banner-twinkle {
+    animation: none;
+  }
+}

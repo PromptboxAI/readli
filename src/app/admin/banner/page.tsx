@@ -3,7 +3,8 @@ import { buttonPrimary } from "@/components/brand/buttons";
 import { AdultPage, Eyebrow, PreviewNote } from "@/components/invites/AdultPage";
 import { requireAdmin } from "@/lib/admin/access";
 import { accountDb } from "@/lib/family/account-store";
-import { BANNER_LIMITS, bannerLive, readSiteBanner, readliDay, safeBannerLink } from "@/lib/marketing/site-banner";
+import { BannerBar } from "@/components/marketing/BannerBar";
+import { BANNER_LIMITS, BANNER_STYLES, bannerLive, readSiteBanner, readliDay } from "@/lib/marketing/site-banner";
 import { saveBannerAction } from "./actions";
 import { BackTo } from "@/components/nav/BackTrail";
 
@@ -20,7 +21,6 @@ export default async function AdminBannerPage({ searchParams }: { searchParams: 
   const db = gate.preview ? null : accountDb();
   const banner = await readSiteBanner(db);
   const live = bannerLive(banner);
-  const href = banner.linkText ? safeBannerLink(banner.linkUrl) : null;
 
   return (
     <AdultPage>
@@ -44,9 +44,8 @@ export default async function AdminBannerPage({ searchParams }: { searchParams: 
       <section className="flex flex-col gap-2">
         <h2 className="font-display text-2xl font-semibold">On the site now</h2>
         {live ? (
-          <div className="rounded-2xl bg-navy px-4 py-3 text-center text-ivory">
-            {banner.message}
-            {href && <span className="font-display font-semibold text-sunshine underline underline-offset-4"> {banner.linkText}</span>}
+          <div className="overflow-hidden rounded-2xl">
+            <BannerBar style={banner.style} message={banner.message} linkText={banner.linkText} linkUrl={banner.linkUrl} />
           </div>
         ) : (
           <p className="text-muted">{banner.enabled && banner.message ? "Nothing: today is outside the banner's dates." : "Nothing: the banner is off."}</p>
@@ -61,8 +60,27 @@ export default async function AdminBannerPage({ searchParams }: { searchParams: 
         <label className="flex flex-col gap-1">
           <span className="font-semibold">Message</span>
           <textarea name="message" defaultValue={banner.message} maxLength={BANNER_LIMITS.message} rows={2} className={`${input} py-2`} />
-          <span className="text-sm text-muted">One short sentence reads best. Up to {BANNER_LIMITS.message} characters.</span>
+          <span className="text-sm text-muted">
+            One short sentence reads best. Wrap words in *asterisks* to highlight them, like &ldquo;Save *20% off* this week&rdquo;. Up to {BANNER_LIMITS.message} characters.
+          </span>
         </label>
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-1 font-semibold">Look</legend>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {BANNER_STYLES.map((look) => (
+              <label key={look.id} className="flex cursor-pointer flex-col gap-2 rounded-2xl bg-white p-3 ring-2 ring-ink/10 has-[:checked]:ring-coral-deep">
+                <span className="flex items-center gap-2">
+                  <input type="radio" name="style" value={look.id} defaultChecked={banner.style === look.id} className="size-5" />
+                  <span className="font-semibold">{look.label}</span>
+                </span>
+                <span className="pointer-events-none overflow-hidden rounded-xl">
+                  <BannerBar style={look.id} message="Gift a voice, *every night*." linkText="Learn more" linkUrl="/gifts" />
+                </span>
+                <span className="text-sm text-muted">{look.hint}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1">
             <span className="font-semibold">Link text</span>
