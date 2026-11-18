@@ -3,6 +3,7 @@
 import { useId, useMemo, useState } from "react";
 import { buttonPrimary, buttonSecondary } from "@/components/brand/buttons";
 import { chargeCopy, chargeSchedule, dollars, shortDate, SPONSORED, zonedTime, type SponsorPlan } from "@/lib/sponsorship/rules";
+import { InAppPurchaseNote } from "@/components/InAppPurchaseNote";
 
 const field = "min-h-12 w-full rounded-2xl border-[3px] border-ink/20 bg-surface px-4 text-lg focus:border-ink";
 const choice = (on: boolean) =>
@@ -210,7 +211,8 @@ export function GiveFamilyForm({ today, hasVoice, defaultGiverName, listeners }:
             {error}
           </p>
         )}
-        <button type="submit" className={buttonPrimary} disabled={busy}>
+        <InAppPurchaseNote />
+        <button type="submit" data-purchase className={buttonPrimary} disabled={busy}>
           {busy ? "Opening checkout…" : "Continue to payment"}
         </button>
         <div className="text-sm">

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { IN_APP_PURCHASE_MESSAGE, fromAndroidApp } from "@/lib/android/in-app";
 import { billingConfig, customerForMode } from "@/lib/billing/config";
 import { StripeApi, StripeError } from "@/lib/billing/stripe-api";
 import { accountDb } from "@/lib/family/account-store";
@@ -12,6 +13,7 @@ export const runtime = "nodejs";
 
 /** Opens Stripe's billing page for the household's subscription. Answers 404 while payments are off. */
 export async function POST(req: Request) {
+  if (fromAndroidApp(req)) return fail(403, "in_app_purchase", IN_APP_PURCHASE_MESSAGE);
   const config = billingConfig();
   if (config.mode === "off") return fail(404, "not_found", "Not found.");
   return withFamily(async ({ store, actor, session }) => {

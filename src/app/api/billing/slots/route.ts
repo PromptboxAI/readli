@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { applyBillingChange } from "@/lib/billing/apply";
 import { slotItemFor } from "@/lib/billing/catalog";
+import { IN_APP_PURCHASE_MESSAGE, fromAndroidApp } from "@/lib/android/in-app";
 import { billingConfig } from "@/lib/billing/config";
 import { billingChange } from "@/lib/billing/events";
 import { effectivePlan } from "@/lib/billing/price-settings";
@@ -25,6 +26,7 @@ type Subscription = { id: string; status: string; livemode?: boolean; cancel_at_
  * away (the webhook saves the same), and the answer is the updated Family storytellers view.
  */
 export async function POST(req: Request) {
+  if (fromAndroidApp(req)) return fail(403, "in_app_purchase", IN_APP_PURCHASE_MESSAGE);
   const config = billingConfig();
   if (config.mode === "off") return fail(404, "not_found", "Not found.");
   const { change } = await jsonBody(req);

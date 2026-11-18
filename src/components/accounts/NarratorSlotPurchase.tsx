@@ -4,6 +4,7 @@ import { useState } from "react";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { familyCheckoutOpen } from "@/lib/accounts/checkout";
 import { DEFAULT_PLAN, formatPrice } from "@/lib/family/plan";
+import { InAppPurchaseNote } from "@/components/InAppPurchaseNote";
 
 const IN_USE = [
   { name: "Mom", tint: "bg-coral" },
@@ -91,7 +92,8 @@ export function NarratorSlotPurchase() {
             Extra slots go on sale once payments are switched on. Nothing will be charged.
           </p>
         )}
-        <button type="button" className={`${buttonPrimary} w-full`} disabled={!forSale}>
+        <InAppPurchaseNote />
+        <button type="button" data-purchase className={`${buttonPrimary} w-full`} disabled={!forSale}>
           Add {add} {add === 1 ? "slot" : "slots"}
         </button>
         <p className="text-sm text-muted">Storytellers are never charged for being in your family. You can remove extra slots any time.</p>

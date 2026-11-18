@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BillingChoice, type Billing } from "@/components/accounts/BillingChoice";
 import { buttonPrimary } from "@/components/brand/buttons";
 import { startFamilyCheckout } from "@/lib/accounts/family-checkout";
+import { InAppPurchaseNote } from "@/components/InAppPurchaseNote";
 
 /**
  * The welcome's Readli Family choice: monthly or yearly, then one big button straight to checkout. The
@@ -45,7 +46,8 @@ export function StartFamilyPlan(props: { monthlyCents: number; annualCents: numb
   return (
     <div className="flex flex-col gap-5">
       <BillingChoice monthlyCents={props.monthlyCents} annualCents={props.annualCents} monthlyCredits={props.monthlyCredits} initial="monthly" onChange={setBilling} />
-      <button type="button" className={`${buttonPrimary} min-h-16 w-full text-xl`} disabled={busy} onClick={() => void start()} data-testid="start-checkout">
+      {props.paymentsOn && <InAppPurchaseNote />}
+      <button type="button" className={`${buttonPrimary} min-h-16 w-full text-xl`} disabled={busy} onClick={() => void start()} data-testid="start-checkout" data-purchase={props.paymentsOn || undefined}>
         {busy ? "Opening checkout…" : props.paymentsOn ? "Start Readli Family" : "Start my family"}
       </button>
       {error && (
