@@ -10,10 +10,10 @@
 export type PolicyParagraph = { lead?: string; text: string };
 export type PolicySection = { id: string; title: string; paragraphs: PolicyParagraph[] };
 
-export const PRIVACY_EFFECTIVE_DATE = "November 15, 2026";
+export const PRIVACY_EFFECTIVE_DATE = "November 18, 2026";
 
 export const PRIVACY_INTRO: string[] = [
-  'Readli ("Readli," "we," "our," or "us"), operated by Readli.ai LLC at 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790, provides family storytelling, children’s reading, and optional AI-generated narration in voices that participating adults choose to record and share. This Privacy Policy describes how we collect, use, disclose, retain, and protect information when you visit readli.ai, try our voice demo, or use Readli Family, Readli Kids, Readli Voice, and related features (together, the "Services").',
+  'Readli ("Readli," "we," "our," or "us"), operated by Promptbox, LLC at 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790, provides family storytelling, children’s reading, and optional AI-generated narration in voices that participating adults choose to record and share. This Privacy Policy describes how we collect, use, disclose, retain, and protect information when you visit readli.ai, try our voice demo, or use Readli Family, Readli Kids, Readli Voice, and related features (together, the "Services").',
   "Readli Kids is used only through parent- or guardian-managed profiles. Adults control invitations and voice permissions. Voice data can be sensitive and may be biometric data under the laws where you live, so this policy says plainly what happens to it.",
 ];
 
@@ -244,7 +244,7 @@ export const PRIVACY_SECTIONS: PolicySection[] = [
         text: "We will post updated versions with a new effective date, and give additional notice or ask for renewed consent where the law requires, especially for changes involving children’s information, family voice access, or how voice recordings are used.",
       },
       {
-        text: "Privacy questions and parental requests: admin@readli.ai. Readli.ai LLC, 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790. https://readli.ai.",
+        text: "Privacy questions and parental requests: admin@readli.ai. Promptbox, LLC, 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790. https://readli.ai.",
       },
     ],
   },

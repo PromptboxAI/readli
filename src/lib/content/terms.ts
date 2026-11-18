@@ -10,10 +10,10 @@
 
 import type { PolicySection } from "@/lib/content/privacy-policy";
 
-export const TERMS_EFFECTIVE_DATE = "November 15, 2026";
+export const TERMS_EFFECTIVE_DATE = "November 18, 2026";
 
 export const TERMS_INTRO: string[] = [
-  'These Terms of Service ("Terms") govern access to readli.ai and the Readli Family, Readli Kids, Readli Voice, voice demo, and related services (together, "Readli" or the "Services"), provided by Readli.ai LLC ("Readli," "we," "us," or "our"). By creating an adult account or using the Services, you agree to these Terms and to our Privacy Policy (https://readli.ai/privacy). Parent or guardian consent is required for child-managed experiences as provided below.',
+  'These Terms of Service ("Terms") govern access to readli.ai and the Readli Family, Readli Kids, Readli Voice, voice demo, and related services (together, "Readli" or the "Services"), provided by Promptbox, LLC ("Readli," "we," "us," or "our"). By creating an adult account or using the Services, you agree to these Terms and to our Privacy Policy (https://readli.ai/privacy). Parent or guardian consent is required for child-managed experiences as provided below.',
   "Readli generates synthetic narration. Audio produced in a familiar voice is not a recording of that person reading the words live.",
 ];
 
@@ -236,7 +236,7 @@ export const TERMS_SECTIONS: PolicySection[] = [
         text: "We may update these Terms and will post the new version with a new effective date. We will give additional notice, or ask for your consent where the law requires it, before a material change applies to you, especially a change involving voice recordings, children’s information, or paid plans.",
       },
       {
-        text: "Readli.ai LLC • 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790 • admin@readli.ai • https://readli.ai",
+        text: "Promptbox, LLC • 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790 • admin@readli.ai • https://readli.ai",
       },
     ],
   },

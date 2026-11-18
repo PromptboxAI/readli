@@ -70,7 +70,7 @@ export const ACCESSIBILITY_SECTIONS: PolicySection[] = [
     title: "Feedback and contact",
     paragraphs: [
       { lead: "Email", text: "admin@readli.ai" },
-      { lead: "Mailing address", text: "Readli.ai LLC, 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790" },
+      { lead: "Mailing address", text: "Promptbox, LLC, 2168 Nesconset Hwy, Ste 101, Stony Brook, NY 11790" },
       { lead: "Website", text: "https://readli.ai" },
       {
         text: "When you contact us, you may request an accessible format or alternative means of communication. We aim to respond reasonably promptly, but do not state a guaranteed response deadline at this time.",

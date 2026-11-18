@@ -1,6 +1,6 @@
 /** Who runs Readli, as the Privacy Policy and Terms name it. One place, so every page says the same thing. */
 export const COMPANY = {
-  legalName: "Readli.ai LLC",
+  legalName: "Promptbox, LLC",
   street: "2168 Nesconset Hwy, Ste 101",
   city: "Stony Brook",
   region: "NY",

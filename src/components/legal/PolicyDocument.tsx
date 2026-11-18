@@ -39,7 +39,7 @@ export function PolicyDocument({
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-14 sm:px-6">
       <header className="flex flex-col gap-4">
-        <p className="font-display text-lg font-semibold text-coral-deep">Readli.ai LLC</p>
+        <p className="font-display text-lg font-semibold text-coral-deep">Promptbox, LLC</p>
         <h1 className="font-display text-4xl font-semibold sm:text-5xl">{title}</h1>
         <p className="text-muted">
           Effective date: {effectiveDate}
