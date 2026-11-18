@@ -38,7 +38,7 @@ type PixelWindow = Window & { fbq?: Fbq; _fbq?: Fbq; navigator: Navigator & { gl
  * The "Do Not Sell or Share" choice, kept in this browser: in storage, and in a cookie of the same name
  * so the server's Conversions API events honour it too.
  */
-const OPT_OUT_KEY = "readli_ads_opt_out";
+export const OPT_OUT_KEY = "readli_ads_opt_out";
 
 function setOptOutCookie(w: PixelWindow, optOut: boolean): void {
   try {
