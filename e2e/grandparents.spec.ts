@@ -17,9 +17,9 @@ test("grandparent landing page asks for one thing: try your voice", async ({ pag
   const founder = page.getByTestId("grandparents-who");
   await expect(founder.getByRole("heading", { name: "Built for my kids. Made for every family." })).toBeVisible();
   await expect(founder).toContainText("Kevin Godfrey");
-  await expect(founder).not.toContainText("Readli.ai LLC");
+  await expect(founder).not.toContainText("Promptbox, LLC");
   await expect(founder.getByRole("link", { name: "Read our story" })).toBeVisible({ visible: info.project.name === "phone" });
-  await expect(page.getByTestId("footer-company")).toContainText("Readli.ai LLC");
+  await expect(page.getByTestId("footer-company")).toContainText("Promptbox, LLC");
   await expect(page.locator("footer")).not.toContainText("Nesconset");
 });
 
@@ -52,8 +52,8 @@ test("book pages show what preparing the book costs", async ({ page }) => {
 
 test("company page and footer say who makes Readli", async ({ page }) => {
   await page.goto("/company");
-  await expect(page.getByTestId("company-details")).toContainText("Readli.ai LLC");
+  await expect(page.getByTestId("company-details")).toContainText("Promptbox, LLC");
   await expect(page.getByTestId("founders")).toContainText("Kevin Godfrey");
   await expect(page.getByTestId("company-details")).toContainText("Stony Brook, NY");
-  await expect(page.getByTestId("footer-company")).toContainText("Readli.ai LLC");
+  await expect(page.getByTestId("footer-company")).toContainText("Promptbox, LLC");
 });
