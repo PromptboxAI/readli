@@ -49,6 +49,7 @@ import { cookies } from "next/headers";
 import { PRIVATE_ROBOTS } from "@/lib/seo/site";
 import { currentAdult } from "@/lib/auth/adult";
 import { VoiceHome } from "@/components/voice/VoiceHome";
+import { AppWelcome } from "@/components/android/AppWelcome";
 
 function SignOutButton() {
   return (
@@ -108,6 +109,7 @@ export default async function FamilyHome({ searchParams }: { searchParams: Promi
         <Link href="/login?next=/home" className={`${parentPrimary} self-start`}>
           Log in
         </Link>
+        <AppWelcome next="/home" />
       </FamilyShell>
     );
   }
