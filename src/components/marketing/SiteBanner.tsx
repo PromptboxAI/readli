@@ -34,7 +34,7 @@ export function SiteBanner({ banner }: { banner: Banner }) {
   }
 
   return (
-    <div role="region" aria-label="Announcement" className="bg-navy text-ivory" data-testid="site-banner">
+    <div role="region" aria-label="Announcement" data-web-only className="bg-navy text-ivory" data-testid="site-banner">
       <div className="mx-auto flex max-w-6xl items-center gap-2 py-2 pl-4 pr-1 sm:pl-6">
         <p className="flex-1 text-center text-sm leading-snug sm:text-base">
           <span>{banner.message}</span>

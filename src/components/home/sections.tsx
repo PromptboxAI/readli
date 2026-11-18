@@ -417,7 +417,7 @@ const FOOTER_GROUPS: { title: string; links: { href: string; label: string }[] }
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-ink/10 bg-ivory">
+    <footer data-web-only className="border-t border-ink/10 bg-ivory">
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-10 px-4 pb-8 pt-12 text-sm sm:px-6 md:grid-cols-[1.6fr_repeat(3,1fr)] md:gap-8">
         <div className="col-span-2 flex flex-col gap-4 md:col-span-1">
           <Wordmark />
