@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { adsOptedOut } from "@/lib/marketing/meta-pixel";
 import { IN_APP_HEADER, IN_APP_SCRIPT, fromAndroidApp } from "./in-app";
 
 function run(referrer: string) {
@@ -11,6 +12,8 @@ describe("the Android app marker", () => {
   afterEach(() => {
     window.fetch = realFetch;
     sessionStorage.clear();
+    localStorage.clear();
+    document.cookie = "readli_ads_opt_out=; path=/; max-age=0";
     document.documentElement.removeAttribute("data-app");
   });
 
@@ -20,6 +23,7 @@ describe("the Android app marker", () => {
     run("https://www.google.com/");
     expect(document.documentElement.getAttribute("data-app")).toBeNull();
     expect(window.fetch).toBe(spy);
+    expect(adsOptedOut()).toBe(false);
   });
 
   it("marks the app's tab, remembers it for later pages, and tags same-origin requests only", async () => {
@@ -28,6 +32,7 @@ describe("the Android app marker", () => {
     run("android-app://ai.readli.app/");
     expect(document.documentElement.getAttribute("data-app")).toBe("android");
     expect(sessionStorage.getItem("readli_app")).toBe("android");
+    expect(adsOptedOut()).toBe(true);
 
     await window.fetch("/api/billing/checkout", { method: "POST", headers: { "content-type": "application/json" } });
     const sent = new Headers(spy.mock.calls[0]![1].headers);
