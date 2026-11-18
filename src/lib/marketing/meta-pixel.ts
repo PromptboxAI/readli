@@ -8,6 +8,8 @@
  * so Meta counts each action once. Change this together with "Cookies and analytics" in the Privacy Policy.
  */
 
+import { OPT_OUT_KEY } from "./ads-opt-out-key";
+
 export const META_PIXEL_ID = "28060840410257774";
 
 /** Public marketing pages, and everything under them. */
@@ -36,10 +38,8 @@ type PixelWindow = Window & { fbq?: Fbq; _fbq?: Fbq; navigator: Navigator & { gl
 
 /**
  * The "Do Not Sell or Share" choice, kept in this browser: in storage, and in a cookie of the same name
- * so the server's Conversions API events honour it too.
+ * so the server's Conversions API events honour it too (OPT_OUT_KEY).
  */
-export const OPT_OUT_KEY = "readli_ads_opt_out";
-
 function setOptOutCookie(w: PixelWindow, optOut: boolean): void {
   try {
     w.document.cookie = optOut ? `${OPT_OUT_KEY}=1; path=/; max-age=${60 * 60 * 24 * 400}; samesite=lax` : `${OPT_OUT_KEY}=; path=/; max-age=0; samesite=lax`;

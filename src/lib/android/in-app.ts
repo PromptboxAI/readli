@@ -1,4 +1,4 @@
-import { OPT_OUT_KEY } from "@/lib/marketing/meta-pixel";
+import { OPT_OUT_KEY } from "@/lib/marketing/ads-opt-out-key";
 import { ANDROID_PACKAGE } from "./asset-links";
 
 /** Same-origin requests from inside the Android app carry this header, so purchase routes can refuse them. */
