@@ -1,11 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
-import { parentPrimary, parentSecondary } from "@/components/brand/buttons";
+import { parentPrimary } from "@/components/brand/buttons";
 
 /**
  * The signed-out start screen inside the Android app (Kevin, 2026-11-17). The app opens on Family Home,
  * and a signed-out visitor there would otherwise see the website's header, banner and footer. It covers
  * the whole screen and only shows in the app ([data-app-only] in globals.css), so the website is unchanged.
+ * It offers only Log in (Kevin, 2026-11-18): signing up starts with choosing a plan, and purchases are hidden in the app.
  */
 export function AppWelcome({ next }: { next: string }) {
   return (
@@ -23,9 +24,7 @@ export function AppWelcome({ next }: { next: string }) {
         <Link href={`/login?next=${encodeURIComponent(next)}`} className={`${parentPrimary} w-full`}>
           Log in
         </Link>
-        <Link href="/signup" className={`${parentSecondary} w-full`}>
-          New to Readli? Create an account
-        </Link>
+        <p className="text-sm text-muted">Use the account your family set up on readli.ai.</p>
       </div>
     </div>
   );
